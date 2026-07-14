@@ -99,10 +99,11 @@ Before first production release, include at least:
 
 | Class | Purpose |
 | --- | --- |
-| Smallest supported 60 Hz iPhone | Compact safe area, thermal/performance floor, touch/audio baseline |
-| Current standard 60 Hz iPhone | Mainstream OS/hardware behavior |
-| Supported 120 Hz ProMotion iPhone | Frame/touch timing and refresh-rate transitions |
-| iPad sizes, only if universal | Layout, pointer, haptic absence/fallback, multitasking policy |
+| iPhone SE (3rd generation, 2022), 60 Hz | Primary install target, compact safe area, thermal/performance floor, touch baseline |
+| iPhone 13 mini, 60 Hz | Compact notched safe-area and layout validation |
+| iPhone 13 Pro, adaptive up to 120 Hz | Frame/touch timing, ProMotion pacing, and refresh-rate transitions |
+
+PimPoPom is iPhone-only for the local alpha. Simulator profiles for all three models provide build and layout evidence only; they cannot validate physical touch latency or 60/120 Hz behavior.
 
 Test current release iOS plus the oldest supported major version. Add current beta OS/Xcode exploratory coverage before its public release, but do not let beta-only behavior define production truth.
 

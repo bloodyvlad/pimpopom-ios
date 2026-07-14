@@ -33,9 +33,9 @@ The PimPoPom repository may be stored inside an ignored folder of another checko
 
 Do not describe a proposal as shipped, a simulator test as device validation, a TestFlight build as App Store production, or a client-generated run as human verified.
 
-## Proposed architecture boundaries
+## Architecture boundaries
 
-These boundaries implement proposed decision P-003. Accept or replace P-003 before creating the Xcode targets; once accepted, tasks must follow the resulting boundaries until a later decision supersedes them.
+These boundaries implement accepted decision P-003 and remain binding until a later decision supersedes them.
 
 - `PimPoPomCore`: deterministic configuration, injected time/random choices, game state, scoring, ratings, streaks, decoys, timers, and proof events. Seeded randomness is a test fixture tool, not an implied production protocol. No SwiftUI, SpriteKit, UIKit, networking, storage, audio, ads, or StoreKit imports.
 - `PimPoPomContracts`: service-facing protocols and shared models used by features/gameplay; depends only on core/value types.

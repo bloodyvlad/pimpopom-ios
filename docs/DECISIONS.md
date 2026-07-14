@@ -39,7 +39,7 @@ Revisit when: A newer source commit is intentionally adopted and parity fixtures
 ## P-003 — Separate the deterministic game core from Apple frameworks
 
 - Date: 2026-07-14
-- Status: Proposed
+- Status: Accepted
 
 Context: Reaction timing, scoring, decoys, streaks, Zen behavior, and ranked proof events must be testable without a renderer or device.
 
@@ -165,3 +165,16 @@ Decision: Use **protocol verified** for accepted results. App Attest is a risk s
 Consequences: Moderation remains reversible and evidence-based. Marketing, UI, support, and release notes cannot claim bot-proof or human-verified competition.
 
 Revisit when: Independently validated hardware and operational controls support a stronger claim.
+
+## P-013 — Ship an offline technical alpha before platform services
+
+- Date: 2026-07-15
+- Status: Accepted
+
+Context: Xcode and Simulator are installed, and the immediate goal is the shortest route to a native build on an iPhone SE (3rd generation). The current web game has no live ads or purchases, and production ownership, accounting, and legal work can follow once gameplay is stable.
+
+Decision: Build the first PimPoPom alpha as a development-signed, local-only iPhone app. Start with the deterministic Arcade core and SpriteKit scene, complete local Arcade/Zen parity, then validate iPhone SE 2022 and iPhone 13 mini at 60 Hz plus iPhone 13 Pro at adaptive 120 Hz. Use disabled no-network adapters for ads and purchases; add no vendor SDK, StoreKit product, Google sign-in, or backend dependency during this track. The bootstrap uses a replaceable development bundle identifier and automatic signing.
+
+Consequences: Google OAuth is not required to install or play the first alpha. The immediate owner action is only local Apple code signing, device trust, and Developer Mode. Profiles, ranking, economy, shops, final branding/audio, ads, purchases, legal, accounting, storefront, and production credentials remain later phases. Simulator evidence covers builds and layout only; real refresh/touch timing requires the named physical devices.
+
+Revisit when: The local gameplay device matrix passes and the next integrated service slice is selected.

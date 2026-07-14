@@ -1,12 +1,14 @@
 # PimPoPom native iOS migration plan
 
-Status: Proposed execution plan, based on migration source commit `675551adc715942ce2512c14d396d5d14e763f02` reviewed on 2026-07-14.
+Status: Full production plan, based on migration source commit `675551adc715942ce2512c14d396d5d14e763f02` reviewed on 2026-07-14.
 
-The phases are ordered. Do not begin paid purchases, live ads, or production backend traffic while deterministic parity, identity, and accounting remain unresolved.
+The current execution track is the local technical alpha in [`ALPHA_FAST_PATH.md`](ALPHA_FAST_PATH.md). It deliberately comes first and defers legal, ownership, accounting, identity, backend, ads, and StoreKit work. Resume the production phases below only after local Arcade and Zen gameplay passes the agreed physical-device matrix.
 
-## Phase 0 — Owner setup: do these first
+Do not begin paid purchases, live ads, or production backend traffic while deterministic parity, identity, and accounting remain unresolved.
 
-These steps require the Apple account holder or product owner and belong at the beginning, before Xcode scaffolding.
+## Deferred production Phase 0 — Owner and commercial setup
+
+These steps require the Apple account holder or product owner. They are intentionally deferred during the local technical alpha and become prerequisites for external distribution and live services, not for a development-signed offline build.
 
 ### 0.1 Install and verify the development environment
 

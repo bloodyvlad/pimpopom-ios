@@ -2,7 +2,7 @@
 
 PimPoPom is the native iOS edition of a fast color-reaction game. **PimPoPom** is the product name in the app, App Store metadata, icons, audio branding, analytics, support material, and player-facing copy.
 
-This repository is intentionally independent from the legacy web implementation. It currently contains the reviewed product, architecture, migration, security, testing, and release plan; the Xcode project has not been scaffolded yet.
+This repository is intentionally independent from the legacy web implementation. It contains a native Xcode bootstrap, a pure Swift core package, and the reviewed product, architecture, migration, security, testing, and release plan.
 
 ## Migration baseline
 
@@ -22,14 +22,16 @@ This repository is intentionally independent from the legacy web implementation.
 - StoreKit 2 for Remove Ads and coin packs; GameKit may mirror verified scores and achievements but never owns the coin economy.
 - An ad SDK only behind an app-owned adapter, consent gate, test configuration, and stable reserved layout.
 
-These choices are recorded as proposed until the bootstrap phase accepts the deployment target, backend contract, ad vendor, and monetization accounting.
+The local alpha uses only SwiftUI and the pure Swift core. SpriteKit enters with the playable Arcade slice; backend, identity, ads, StoreKit, and commercial work are explicitly deferred.
 
 ## Start here
 
-1. Complete **Phase 0 — Owner setup** at the very beginning of [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md).
-2. Resolve the release-blocking items in [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md).
-3. Accept or revise the proposed records in [`docs/DECISIONS.md`](docs/DECISIONS.md).
-4. Scaffold the Xcode workspace only after bundle identifiers, signing ownership, deployment targets, and configuration names are known.
+1. Use Xcode 26 or newer and XcodeGen 2.45.4 (`brew install xcodegen`); the app has no third-party runtime dependency.
+2. Follow the technical [`docs/ALPHA_FAST_PATH.md`](docs/ALPHA_FAST_PATH.md). The current milestone is a development-signed local build on the iPhone SE 2022.
+3. Generate and verify the project with `Scripts/check.sh`.
+4. Create the agreed layout simulators once with `Scripts/create-alpha-simulators.sh`.
+5. Open `PimPoPom.xcodeproj`, select an Apple Team under Signing & Capabilities, select the connected SE, and Run. No Google credential is needed.
+6. Return to [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md) only after the local Arcade/Zen device matrix is stable.
 
 ## Documentation map
 
@@ -38,6 +40,7 @@ These choices are recorded as proposed until the bootstrap phase accepts the dep
 | Committed repository status and setup | This README |
 | Durable accepted and proposed choices | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
 | Ordered migration work and exit gates | [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md) |
+| Current local-device execution track | [`docs/ALPHA_FAST_PATH.md`](docs/ALPHA_FAST_PATH.md) |
 | Dependency direction and module boundaries | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | Rules that native parity must preserve | [`docs/GAMEPLAY_SPEC.md`](docs/GAMEPLAY_SPEC.md) |
 | Native API, identity, and server responsibilities | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md) |
@@ -51,14 +54,15 @@ These choices are recorded as proposed until the bootstrap phase accepts the dep
 | Contribution and change history | [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CHANGELOG.md`](CHANGELOG.md) |
 | Licence and third-party notices | [`LICENSE.md`](LICENSE.md), [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
 
-## Planned repository shape
+## Repository shape
 
 ```text
 PimPoPom/
-├── PimPoPom.xcworkspace
+├── PimPoPom.xcodeproj
+├── project.yml             # Reproducible XcodeGen source
 ├── App/                     # SwiftUI entry point and composition root
 ├── Packages/
-│   ├── PimPoPomCore/        # Pure deterministic rules
+│   ├── PimPoPomCore/        # Pure deterministic rules (started)
 │   ├── PimPoPomContracts/   # Service-facing protocols and shared models
 │   ├── PimPoPomGameplay/    # SpriteKit scene and touch/presentation bridge
 │   ├── PimPoPomFeatures/    # Menus, shops, settings, profile, results
@@ -76,5 +80,7 @@ PimPoPom/
 - Separate local Git repository: created.
 - Product name: accepted as PimPoPom.
 - Native migration documentation: bootstrapped.
-- Xcode project, app code, remote repository, signing, backend changes, StoreKit products, ad account, generated logo, and launch sting: not created yet.
+- Xcode project and Bootstrap Alpha app shell: created for local signing with placeholder bundle ID `com.otcsoft.pimpopom.alpha`.
+- Pure core port: started with game modes, reaction ratings, score formula, and deterministic tests.
+- Remote repository, device signing, gameplay engine/scene, backend changes, StoreKit products, ad account, generated logo, and launch sting: not created yet.
 - No production deployment or App Store submission has occurred.

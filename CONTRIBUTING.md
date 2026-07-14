@@ -1,6 +1,6 @@
 # Contributing to PimPoPom
 
-PimPoPom is currently a private, docs-first native iOS project.
+PimPoPom is currently a private native iOS project following the local technical-alpha track.
 
 ## Workflow
 
