@@ -1,0 +1,33 @@
+.DS_Store
+
+# Xcode and Swift build products
+DerivedData/
+build/
+.build/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.xcresult
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+.xcode.env.local
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+
+# Local configuration and credentials
+Config/Local.xcconfig
+Config/Secrets.xcconfig
+Config/*.private.xcconfig
+GoogleService-Info.plist
+*.p8
+*.p12
+*.mobileprovision
+.env
+.env.*
+
+# Test and automation output
+TestResults/
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
