@@ -7,6 +7,23 @@ enum GameplaySoundEvent: Equatable, Sendable {
     case lifeLoss
 }
 
+enum GameplayLifecycleEvent: Equatable, Sendable {
+    case started
+    case finished
+    case abandoned
+}
+
+enum GameplayMusicRouting {
+    static func context(for event: GameplayLifecycleEvent) -> MusicContext {
+        switch event {
+        case .started:
+            .gameplay
+        case .finished, .abandoned:
+            .silent
+        }
+    }
+}
+
 @MainActor
 final class GameCoordinator: ObservableObject {
     let mode: GameMode
@@ -17,6 +34,7 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var isFinished = false
     @Published private(set) var wasAbandoned = false
     var onSoundEvent: ((GameplaySoundEvent) -> Void)?
+    var onLifecycleEvent: ((GameplayLifecycleEvent) -> Void)?
 
     private let engine: GameEngine
     private var targetTask: Task<Void, Never>?
@@ -75,6 +93,7 @@ final class GameCoordinator: ObservableObject {
         let now = monotonicMilliseconds()
         snapshot = engine.start(now: now, mode: mode)
         scene.apply(snapshot)
+        onLifecycleEvent?(.started)
         scheduleTarget(from: now)
         scheduleDecoy(from: now)
     }
@@ -85,7 +104,7 @@ final class GameCoordinator: ObservableObject {
     }
 
     func abandonForBackground() {
-        guard started, !isFinished else { return }
+        guard started, !isFinished, !wasAbandoned else { return }
         cancelScheduling()
         generation += 1
         engine.reset()
@@ -93,6 +112,7 @@ final class GameCoordinator: ObservableObject {
         scene.apply(snapshot)
         wasAbandoned = true
         feedback = "Run ended in background"
+        onLifecycleEvent?(.abandoned)
     }
 
     func stop() {
@@ -172,7 +192,10 @@ final class GameCoordinator: ObservableObject {
 
         if snapshot.state == .gameOver {
             cancelScheduling()
-            isFinished = true
+            if !isFinished {
+                isFinished = true
+                onLifecycleEvent?(.finished)
+            }
         }
     }
 

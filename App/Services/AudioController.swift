@@ -31,6 +31,16 @@ struct AudioTaskGenerations: Equatable, Sendable {
     }
 }
 
+struct MusicTransitionSnapshot: Equatable, Sendable {
+    let generation: Int
+    let context: MusicContext
+    let themeID: String
+
+    func isCurrent(generation: Int, context: MusicContext, themeID: String) -> Bool {
+        self.generation == generation && self.context == context && self.themeID == themeID
+    }
+}
+
 struct ThemeAudioManifest: Equatable, Sendable {
     let themeID: String
     let menuFile: String
@@ -341,6 +351,9 @@ final class AudioController: NSObject, ObservableObject {
 
     private func loadMusicSuite() {
         guard musicLoadingThemeID != selectedThemeID else { return }
+        if musicNode?.isPlaying == true, playingMusicThemeID != selectedThemeID {
+            fadeOutAndStopMusic()
+        }
         let generation = musicGenerations.beginLoad()
         musicLoadTask?.cancel()
         musicLoadingThemeID = selectedThemeID
@@ -377,7 +390,10 @@ final class AudioController: NSObject, ObservableObject {
             ensureEngineRunning(),
             let musicNode,
             let musicMixer
-        else { return }
+        else {
+            if musicNode?.isPlaying == true { fadeOutAndStopMusic() }
+            return
+        }
 
         if !forceRestart,
             playingMusicThemeID == selectedThemeID,
@@ -388,8 +404,14 @@ final class AudioController: NSObject, ObservableObject {
             return
         }
 
-        let buffer = requestedMusicContext == .menu ? musicSuite.menu : musicSuite.gameplay
-        let generation = musicGenerations.beginTransition()
+        let requestedContext = requestedMusicContext
+        let requestedThemeID = selectedThemeID
+        let buffer = requestedContext == .menu ? musicSuite.menu : musicSuite.gameplay
+        let transition = MusicTransitionSnapshot(
+            generation: musicGenerations.beginTransition(),
+            context: requestedContext,
+            themeID: requestedThemeID
+        )
         musicTransitionTask?.cancel()
         musicTransitionTask = Task { [weak self] in
             guard let self else { return }
@@ -397,17 +419,21 @@ final class AudioController: NSObject, ObservableObject {
                 await rampMusicVolumeAsync(to: 0, durationMilliseconds: 80)
             }
             guard !Task.isCancelled,
-                generation == musicGenerations.transition,
+                transition.isCurrent(
+                    generation: musicGenerations.transition,
+                    context: requestedMusicContext,
+                    themeID: selectedThemeID
+                ),
                 musicEnabled,
                 applicationIsActive,
-                requestedMusicContext != .silent
+                musicSuite.themeID == requestedThemeID
             else { return }
             musicNode.stop()
             scheduleLoop(buffer, on: musicNode)
             musicMixer.outputVolume = 0
             musicNode.play()
-            playingMusicThemeID = selectedThemeID
-            playingMusicContext = requestedMusicContext
+            playingMusicThemeID = requestedThemeID
+            playingMusicContext = requestedContext
             await rampMusicVolumeAsync(to: targetMusicGain, durationMilliseconds: 120)
         }
     }

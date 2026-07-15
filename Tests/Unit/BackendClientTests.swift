@@ -120,6 +120,83 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(recorder.requests(forPath: "/api/logout").count, 0)
     }
 
+    func testPetSelectHideAndShowUpdateVisiblePresentation() async throws {
+        let recorder = RequestRecorder()
+        let visibilityCounter = LockedCounter()
+        let initialData = try JSONEncoder().encode(Self.signedInSession)
+        let selectedProfile = petProfile(selectedID: "kesha", visible: true)
+        let hiddenProfile = petProfile(selectedID: "kesha", visible: false)
+        let selectedData = try JSONEncoder().encode(
+            PetSelectionResponse(
+                profile: selectedProfile,
+                pet: PetSelectionResult(id: "kesha", purchased: true, pricePaid: 20),
+                coinBalance: selectedProfile.coins
+            )
+        )
+        let hiddenData = try JSONEncoder().encode(
+            PetVisibilityResponse(
+                profile: hiddenProfile,
+                pet: PetVisibilityResult(id: "kesha", visible: false),
+                coinBalance: hiddenProfile.coins
+            )
+        )
+        let shownData = try JSONEncoder().encode(
+            PetVisibilityResponse(
+                profile: selectedProfile,
+                pet: PetVisibilityResult(id: "kesha", visible: true),
+                coinBalance: selectedProfile.coins
+            )
+        )
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch request.url?.path {
+            case "/api/session":
+                return StubResponse(data: initialData)
+            case "/api/pets/select":
+                return StubResponse(data: selectedData, statusCode: 201)
+            case "/api/pets/selection":
+                return StubResponse(
+                    data: visibilityCounter.increment() == 1 ? hiddenData : shownData
+                )
+            default:
+                return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let suiteName = "PimPoPomTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let cosmetics = CosmeticsController(
+            backend: backend,
+            preferences: AppPreferences(defaults: defaults)
+        )
+        let kesha = try XCTUnwrap(CosmeticCatalog.pets.first { $0.id == "kesha" })
+
+        await cosmetics.performPetAction(kesha)
+        XCTAssertEqual(cosmetics.selectedPetID, "kesha")
+        XCTAssertTrue(cosmetics.petVisible)
+        XCTAssertEqual(cosmetics.displayedPetID, "kesha")
+
+        await cosmetics.performPetAction(kesha)
+        XCTAssertFalse(cosmetics.petVisible)
+        XCTAssertNil(cosmetics.displayedPetID)
+
+        await cosmetics.performPetAction(kesha)
+        XCTAssertTrue(cosmetics.petVisible)
+        XCTAssertEqual(cosmetics.displayedPetID, "kesha")
+
+        let selectRequest = try XCTUnwrap(recorder.requests(forPath: "/api/pets/select").first)
+        XCTAssertEqual(selectRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+        let selectBody = try XCTUnwrap(selectRequest.body)
+        let selectPayload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: selectBody) as? [String: String]
+        )
+        XCTAssertEqual(selectPayload["petId"], "kesha")
+        XCTAssertEqual(recorder.requests(forPath: "/api/pets/selection").count, 2)
+    }
+
     private func makeBackend() -> BackendClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StubURLProtocol.self]
@@ -128,6 +205,26 @@ final class BackendClientTests: XCTestCase {
             baseURL: URL(string: "https://unit.test")!,
             isUITestOffline: false,
             urlSession: URLSession(configuration: configuration)
+        )
+    }
+
+    private func petProfile(selectedID: String, visible: Bool) -> PlayerProfile {
+        PlayerProfile(
+            id: "player-new",
+            nickname: "Player",
+            nicknameConfirmed: true,
+            coins: 55,
+            totalPlayMs: 120_000,
+            ownedPetIds: ["foka", "kesha"],
+            selectedPetId: selectedID,
+            petVisible: visible,
+            equippedPetId: visible ? selectedID : nil,
+            specialPetId: nil,
+            ownedThemeIds: ["classic", "disco", "light"],
+            selectedThemeId: "light",
+            isAdmin: false,
+            createdAt: "2026-07-15T00:00:00Z",
+            updatedAt: "2026-07-15T00:00:00Z"
         )
     }
 

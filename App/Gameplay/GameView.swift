@@ -32,7 +32,6 @@ struct GameView: View {
             VStack(spacing: 10) {
                 hud
                 targetPrompt
-                responseProgress
 
                 SpriteView(scene: coordinator.scene, options: [.ignoresSiblingOrder])
                     .aspectRatio(1, contentMode: .fit)
@@ -58,9 +57,9 @@ struct GameView: View {
 
                 Spacer(minLength: 0)
                 if let petID = frozenPetID {
-                    PetCompanionView(petID: petID, size: 54, includesHabitat: false)
+                    PetCompanionView(petID: petID, size: 54, placement: .gameplay)
                         .frame(maxWidth: .infinity, alignment: .trailing)
-                        .accessibilityIdentifier("gameplay-pet")
+                        .accessibilityIdentifier("gameplay-pet-\(petID)")
                 }
                 streakMeter
             }
@@ -96,7 +95,6 @@ struct GameView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(palette.isLight ? .light : .dark, for: .navigationBar)
         .task {
-            freezePresentationIfNeeded()
             coordinator.onSoundEvent = { event in
                 switch event {
                 case .correctTap(let hitNumber):
@@ -105,6 +103,15 @@ struct GameView: View {
                     audio.playLifeLoss()
                 }
             }
+            coordinator.onLifecycleEvent = { event in
+                audio.setMusicContext(GameplayMusicRouting.context(for: event))
+                if event == .finished {
+                    submitRankedRunIfNeeded()
+                }
+            }
+            await cosmetics.refresh()
+            guard !Task.isCancelled else { return }
+            freezePresentationIfNeeded()
             audio.setMusicContext(.gameplay)
             await prepareAndStart()
         }
@@ -112,17 +119,9 @@ struct GameView: View {
             preparationGeneration += 1
             coordinator.stop()
             coordinator.onSoundEvent = nil
+            coordinator.onLifecycleEvent = nil
             abandonTicketIfNeeded()
             audio.setMusicContext(.menu)
-        }
-        .onChange(of: coordinator.isFinished) { _, finished in
-            if finished {
-                audio.setMusicContext(.silent)
-                submitRankedRunIfNeeded()
-            }
-        }
-        .onChange(of: coordinator.wasAbandoned) { _, abandoned in
-            if abandoned { audio.setMusicContext(.silent) }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active {
@@ -154,7 +153,12 @@ struct GameView: View {
     }
 
     private var targetPrompt: some View {
-        HStack(spacing: 9) {
+        let remainingFraction = ResponseProgressPresentation.remainingFraction(
+            coordinator.snapshot.reactionProgress,
+            isActive: coordinator.snapshot.state == .active && coordinator.mode == .arcade
+        )
+
+        return HStack(spacing: 9) {
             Text(coordinator.snapshot.playerColor.glyph)
                 .font(.title2.weight(.black))
             Text(coordinator.snapshot.playerColor.name)
@@ -166,18 +170,16 @@ struct GameView: View {
         .background(palette.color(at: coordinator.snapshot.playerColorIndex), in: Capsule())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "Target color \(coordinator.snapshot.playerColor.name), symbol \(coordinator.snapshot.playerColor.glyph)")
-    }
-
-    @ViewBuilder
-    private var responseProgress: some View {
-        if coordinator.mode == .arcade {
-            ProgressView(value: coordinator.snapshot.reactionProgress ?? 0)
-                .tint(responseTint)
-                .animation(.linear(duration: 0.03), value: coordinator.snapshot.reactionProgress)
-        } else {
-            Color.clear.frame(height: 4)
+            "Target color \(coordinator.snapshot.playerColor.name), symbol \(coordinator.snapshot.playerColor.glyph)"
+        )
+        .overlay(alignment: .bottomLeading) {
+            if let remainingFraction {
+                ResponseProgressBar(remainingFraction: remainingFraction)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 3)
+            }
         }
+        .clipShape(Capsule())
     }
 
     private var streakMeter: some View {
@@ -279,13 +281,6 @@ struct GameView: View {
                 in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 28)
             )
         }
-    }
-
-    private var responseTint: Color {
-        let progress = coordinator.snapshot.reactionProgress ?? 0
-        return progress > 0.55
-            ? Color(hex: palette.accent)
-            : (progress > 0.25 ? palette.color(at: 1) : palette.color(at: 2))
     }
 
     private var reactionSummary: String {
@@ -394,6 +389,33 @@ struct GameView: View {
         frozenTheme = cosmetics.theme
         frozenPetID = cosmetics.displayedPetID
         coordinator.applyTheme(frozenTheme.id)
+    }
+}
+
+enum ResponseProgressPresentation {
+    static func remainingFraction(_ progress: Double?, isActive: Bool) -> Double? {
+        guard isActive, let progress else { return nil }
+        return min(1, max(0, progress))
+    }
+}
+
+private struct ResponseProgressBar: View {
+    let remainingFraction: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Color.white.opacity(0.12)
+                Color.white.opacity(0.60)
+                    .frame(width: geometry.size.width * remainingFraction)
+                    .shadow(color: .white.opacity(0.28), radius: 4.5)
+            }
+        }
+        .frame(height: 3)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Time left")
+        .accessibilityValue("\(Int((remainingFraction * 100).rounded()))")
+        .accessibilityIdentifier("response-progress")
     }
 }
 

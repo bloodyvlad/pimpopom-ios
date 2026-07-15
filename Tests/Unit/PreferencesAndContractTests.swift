@@ -55,6 +55,29 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertNotEqual(generations.load, loadGeneration)
     }
 
+    func testMusicTransitionRequiresExactGenerationContextAndTheme() {
+        let transition = MusicTransitionSnapshot(
+            generation: 7,
+            context: .menu,
+            themeID: "disco"
+        )
+
+        XCTAssertTrue(transition.isCurrent(generation: 7, context: .menu, themeID: "disco"))
+        XCTAssertFalse(transition.isCurrent(generation: 8, context: .menu, themeID: "disco"))
+        XCTAssertFalse(transition.isCurrent(generation: 7, context: .gameplay, themeID: "disco"))
+        XCTAssertFalse(transition.isCurrent(generation: 7, context: .menu, themeID: "classic"))
+    }
+
+    func testResponseProgressIsHiddenWhenInactiveAndDrainsWithoutInversion() {
+        XCTAssertNil(ResponseProgressPresentation.remainingFraction(nil, isActive: false))
+        XCTAssertNil(ResponseProgressPresentation.remainingFraction(1, isActive: false))
+        XCTAssertEqual(ResponseProgressPresentation.remainingFraction(1, isActive: true), 1)
+        XCTAssertEqual(ResponseProgressPresentation.remainingFraction(0.5, isActive: true), 0.5)
+        XCTAssertEqual(ResponseProgressPresentation.remainingFraction(0, isActive: true), 0)
+        XCTAssertEqual(ResponseProgressPresentation.remainingFraction(1.4, isActive: true), 1)
+        XCTAssertEqual(ResponseProgressPresentation.remainingFraction(-0.4, isActive: true), 0)
+    }
+
     func testCatalogAndMutationResponsesDecodeCurrentBackendKeys() throws {
         let catalogJSON = Data(
             """

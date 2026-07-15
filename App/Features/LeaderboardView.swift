@@ -70,7 +70,7 @@ struct LeaderboardView: View {
                 .foregroundStyle(entry.rank <= 3 ? .yellow : Color(hex: palette.muted))
                 .frame(width: 40, alignment: .leading)
             if let petID = entry.petId {
-                PetCompanionView(petID: petID, size: 38, includesHabitat: true, animated: false)
+                PetCompanionView(petID: petID, size: 36, placement: .leaderboard)
                     .frame(width: 48)
             }
             VStack(alignment: .leading, spacing: 3) {

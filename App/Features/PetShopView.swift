@@ -14,6 +14,14 @@ struct PetShopView: View {
                 LazyVStack(spacing: 14) {
                     walletHeader
 
+                    if !cosmetics.petMessage.isEmpty {
+                        Text(cosmetics.petMessage)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color(hex: palette.muted))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityIdentifier("pet-shop-status")
+                    }
+
                     if cosmetics.isLoading {
                         ProgressView("Loading pets…")
                             .tint(Color(hex: palette.accent))
@@ -22,14 +30,6 @@ struct PetShopView: View {
 
                     ForEach(cosmetics.pets) { pet in
                         petCard(pet)
-                    }
-
-                    if !cosmetics.petMessage.isEmpty {
-                        Text(cosmetics.petMessage)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color(hex: palette.muted))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 4)
                     }
                 }
                 .padding(16)
@@ -79,8 +79,7 @@ struct PetShopView: View {
         )
 
         return HStack(spacing: 14) {
-            PetCompanionView(petID: item.id, size: 72, includesHabitat: true)
-                .frame(width: 92)
+            PetShopPreviewButton(item: item, palette: palette)
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 7) {
@@ -144,5 +143,51 @@ struct PetShopView: View {
         case .hide: return "Hide"
         case .show: return "Show"
         }
+    }
+}
+
+private struct PetShopPreviewButton: View {
+    let item: CosmeticCatalogItem
+    let palette: ThemePalette
+
+    @State private var animationTrigger = 0
+    @State private var isAnimating = false
+    @State private var resetTask: Task<Void, Never>?
+
+    var body: some View {
+        Button {
+            animationTrigger += 1
+            isAnimating = true
+            resetTask?.cancel()
+            let trigger = animationTrigger
+            resetTask = Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1_500))
+                guard !Task.isCancelled, animationTrigger == trigger else { return }
+                isAnimating = false
+            }
+        } label: {
+            PetCompanionView(
+                petID: item.id,
+                size: 64,
+                placement: .shop,
+                animationTrigger: animationTrigger
+            )
+            .frame(width: 80, height: 80)
+            .background(
+                Color(hex: palette.backgroundTop).opacity(palette.isLight ? 0.24 : 0.70),
+                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 13)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 13)
+                    .stroke(Color(hex: palette.foreground).opacity(0.10))
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Play \(item.name) animation")
+        .accessibilityValue(
+            "\(isAnimating ? "Animating" : "Idle") · preview \(animationTrigger)"
+        )
+        .accessibilityIdentifier("pet-preview-\(item.id)")
+        .onDisappear { resetTask?.cancel() }
     }
 }

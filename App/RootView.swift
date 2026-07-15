@@ -20,7 +20,7 @@ struct RootView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            ZStack {
+            ZStack(alignment: .topTrailing) {
                 AppThemeBackground(theme: palette)
 
                 ScrollView {
@@ -34,6 +34,14 @@ struct RootView: View {
                     .padding(20)
                     .frame(maxWidth: 560)
                     .frame(maxWidth: .infinity)
+                }
+
+                if let petID = cosmetics.displayedPetID {
+                    PetCompanionView(petID: petID, size: 64, placement: .menu)
+                        .padding(.top, 64)
+                        .padding(.trailing, 10)
+                        .allowsHitTesting(false)
+                        .accessibilityIdentifier("menu-pet-\(petID)")
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -78,10 +86,6 @@ struct RootView: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(Color(hex: palette.accent).opacity(0.88))
                     .accessibilityIdentifier("backend-environment")
-            }
-            if let petID = cosmetics.displayedPetID {
-                PetCompanionView(petID: petID, size: 62, includesHabitat: true)
-                    .padding(.top, 3)
             }
         }
         .padding(.top, 24)

@@ -51,6 +51,7 @@ enum CosmeticCatalog {
     static func displayedPetID(profile: PlayerProfile?) -> String? {
         guard let profile else { return nil }
         if let specialPetID = profile.specialPetId { return specialPetID }
+        if let equippedPetID = profile.equippedPetId { return equippedPetID }
         return profile.petVisible ? profile.selectedPetId : nil
     }
 }
@@ -157,7 +158,7 @@ final class CosmeticsController: ObservableObject {
                 : "Default and Disco are free. Sign in to buy paid themes."
             petMessage =
                 backend.isAuthenticated
-                ? "Choose one pet to show, or hide the current companion."
+                ? withSpecialPetNotice("Choose one pet to show, or hide the current companion.")
                 : "Sign in to buy and select pets."
         } else if !failures.isEmpty {
             let unavailable = failures.joined(separator: " and ")
@@ -245,15 +246,18 @@ final class CosmeticsController: ObservableObject {
                 petMessage = visible ? "Showing \(pet.name)…" : "Hiding \(pet.name)…"
                 let response = try await backend.setPetVisibility(pet.id, visible: visible)
                 applyProfile(response.profile)
-                petMessage = "\(pet.name) is now \(visible ? "shown" : "hidden")."
+                petMessage = withSpecialPetNotice(
+                    "\(pet.name) is now \(visible ? "shown" : "hidden")."
+                )
             case .buy, .select:
                 petMessage = action == .buy ? "Buying \(pet.name)…" : "Selecting \(pet.name)…"
                 let response = try await backend.selectPet(pet.id)
                 applyProfile(response.profile)
-                petMessage =
+                petMessage = withSpecialPetNotice(
                     response.pet.purchased
-                    ? "\(pet.name) is yours and selected."
-                    : "\(pet.name) is selected."
+                        ? "\(pet.name) is yours and selected."
+                        : "\(pet.name) is selected."
+                )
             }
         } catch {
             petMessage = error.localizedDescription
@@ -290,8 +294,10 @@ final class CosmeticsController: ObservableObject {
         selectedThemeID = ownedThemeIDs.contains(serverThemeID) ? serverThemeID : "classic"
         preferences.selectedThemeID = selectedThemeID
         ownedPetIDs = Set(profile.ownedPetIds)
-        selectedPetID = profile.selectedPetId
-        petVisible = profile.petVisible
+        selectedPetID =
+            profile.selectedPetId
+            ?? profile.equippedPetId.flatMap { profile.ownedPetIds.contains($0) ? $0 : nil }
+        petVisible = selectedPetID != nil && profile.petVisible
         displayedPetID = CosmeticCatalog.displayedPetID(profile: profile)
     }
 
@@ -299,6 +305,11 @@ final class CosmeticsController: ObservableObject {
         guard CosmeticCatalog.freeThemeIDs.contains(themeID) else { return }
         selectedThemeID = themeID
         preferences.selectedThemeID = themeID
+    }
+
+    private func withSpecialPetNotice(_ message: String) -> String {
+        guard displayedPetID != nil, displayedPetID != selectedPetID else { return message }
+        return "\(message) Your special companion remains visible."
     }
 
     private func validated(

@@ -23,6 +23,8 @@
 		2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */; };
 		339BFE056EAC7EFF394CC904 /* audio-pimpopom-sting.wav in Resources */ = {isa = PBXBuildFile; fileRef = 36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */; };
 		33CE829944CE88CF56F940A8 /* foka-ice-floe.png in Resources */ = {isa = PBXBuildFile; fileRef = A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */; };
+		36B37175BB6E0CBFE6607C34 /* muse-floor.png in Resources */ = {isa = PBXBuildFile; fileRef = AE0A4CFFE2AEF83863978D0D /* muse-floor.png */; };
+		3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */; };
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
@@ -49,6 +51,7 @@
 		BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 1FD1D8CB83628904EBD471FB /* tauta-sprite.png */; };
 		C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */; };
 		D2FF783D7B37B3FD555CEF37 /* misha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */; };
+		D67810BA07DC1F0D8729A51C /* muse-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = BE684D0E61B8053630D1E5B0 /* muse-sprite.png */; };
 		D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */ = {isa = PBXBuildFile; fileRef = EB365660F1E96C034ECE4A85 /* tauta-bed.png */; };
 		E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */ = {isa = PBXBuildFile; fileRef = 86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */; };
 		EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E26897A668D55114A2D880 /* AudioResourceTests.swift */; };
@@ -109,6 +112,7 @@
 		7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsController.swift; sourceTree = "<group>"; };
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
+		8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayLifecycleTests.swift; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9648B3C4989B1B1FF9557057 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		A094CABC4F0AA44F4126624B /* kesha-perch.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-perch.png"; sourceTree = "<group>"; };
@@ -117,12 +121,14 @@
 		A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomApp.swift; sourceTree = "<group>"; };
 		AB2BA21A885F2ADE255459DC /* PimPoPom.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PimPoPom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		AE0A4CFFE2AEF83863978D0D /* muse-floor.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "muse-floor.png"; sourceTree = "<group>"; };
 		B194C5E2A0BBB6D9E67B30A2 /* kesha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-sprite.png"; sourceTree = "<group>"; };
 		B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlphaServices.swift; sourceTree = "<group>"; };
 		B50F7D6276F80417F9888373 /* audio-classic-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-classic-tones.wav"; sourceTree = "<group>"; };
 		B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomUITests.swift; sourceTree = "<group>"; };
 		B807723F13D7024F84747F72 /* GameCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCoordinator.swift; sourceTree = "<group>"; };
+		BE684D0E61B8053630D1E5B0 /* muse-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "muse-sprite.png"; sourceTree = "<group>"; };
 		C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */ = {isa = PBXFileReference; path = "audio-light-menu.m4a"; sourceTree = "<group>"; };
 		C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClient.swift; sourceTree = "<group>"; };
 		C6AB62B941B5843C8BE01C86 /* audio-light-run.m4a */ = {isa = PBXFileReference; path = "audio-light-run.m4a"; sourceTree = "<group>"; };
@@ -194,6 +200,8 @@
 				3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */,
 				86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */,
 				101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */,
+				AE0A4CFFE2AEF83863978D0D /* muse-floor.png */,
+				BE684D0E61B8053630D1E5B0 /* muse-sprite.png */,
 				EB365660F1E96C034ECE4A85 /* tauta-bed.png */,
 				1FD1D8CB83628904EBD471FB /* tauta-sprite.png */,
 			);
@@ -267,6 +275,7 @@
 				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
 				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
 				14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */,
+				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
 			);
 			path = Unit;
@@ -455,6 +464,8 @@
 				D2FF783D7B37B3FD555CEF37 /* misha-sprite.png in Resources */,
 				E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */,
 				B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */,
+				36B37175BB6E0CBFE6607C34 /* muse-floor.png in Resources */,
+				D67810BA07DC1F0D8729A51C /* muse-sprite.png in Resources */,
 				D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */,
 				BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */,
 			);
@@ -470,6 +481,7 @@
 				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
 				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
 				EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */,
+				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

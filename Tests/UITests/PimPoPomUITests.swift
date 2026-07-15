@@ -95,9 +95,106 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.switches["music-toggle"].waitForExistence(timeout: 2))
     }
 
-    private func launch() -> XCUIApplication {
+    func testPetShopPreviewAnimatesOnlyAfterTapAndStops() throws {
+        let app = launch()
+        openMenuControl("open-pet-shop", in: app)
+
+        let preview = app.buttons["pet-preview-foka"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 3))
+        XCTAssertEqual(preview.value as? String, "Idle · preview 0")
+        usleep(700_000)
+        XCTAssertEqual(preview.value as? String, "Idle · preview 0")
+        preview.tap()
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value CONTAINS 'preview 1'"),
+                        object: preview
+                    )
+                ],
+                timeout: 2
+            ),
+            .completed
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == 'Idle · preview 1'"),
+                        object: preview
+                    )
+                ],
+                timeout: 3
+            ),
+            .completed
+        )
+    }
+
+    func testBackendSpecialPetAppearsOnMenuAndGameplay() throws {
+        let app = launch(additionalArguments: ["--ui-test-pet-profile"])
+        let menuPet = app.descendants(matching: .any)["menu-pet-muse"]
+        XCTAssertTrue(menuPet.waitForExistence(timeout: 4))
+
+        let arcade = app.buttons["mode-normal"]
+        XCTAssertTrue(arcade.waitForExistence(timeout: 3))
+        XCTAssertGreaterThan(menuPet.frame.midX, app.frame.midX)
+        arcade.tap()
+
+        let gameplayPet = app.descendants(matching: .any)["gameplay-pet-muse"]
+        XCTAssertTrue(gameplayPet.waitForExistence(timeout: 8))
+    }
+
+    func testResponseProgressDrainsWhileTargetIsActive() throws {
+        let app = launch()
+        let arcade = app.buttons["mode-normal"]
+        XCTAssertTrue(arcade.waitForExistence(timeout: 3))
+        arcade.tap()
+
+        let feedback = app.staticTexts["game-feedback"]
+        let targetDeadline = Date().addingTimeInterval(8)
+        while Date() < targetDeadline, !feedback.label.hasPrefix("Tap ") {
+            usleep(20_000)
+        }
+        XCTAssertTrue(feedback.label.hasPrefix("Tap "))
+
+        let progress = app.descendants(matching: .any)["response-progress"]
+        XCTAssertTrue(progress.waitForExistence(timeout: 2))
+        let first = try XCTUnwrap(Int(progress.value as? String ?? ""))
+        XCTAssertGreaterThanOrEqual(first, 70, "A newly observed target must retain most of its bar.")
+
+        var samples = [first]
+        for _ in 0..<3 {
+            usleep(250_000)
+            samples.append(try XCTUnwrap(Int(progress.value as? String ?? "")))
+        }
+        for (earlier, later) in zip(samples, samples.dropFirst()) {
+            XCTAssertLessThanOrEqual(later, earlier, "The response bar must never grow during a target.")
+        }
+        XCTAssertLessThan(try XCTUnwrap(samples.last), first)
+    }
+
+    func testPetSelectHideAndShowActionsUpdateTheShop() throws {
+        let app = launch(additionalArguments: ["--ui-test-pet-profile"])
+        openMenuControl("open-pet-shop", in: app)
+
+        let keshaAction = app.buttons["pet-action-kesha"]
+        XCTAssertTrue(keshaAction.waitForExistence(timeout: 3))
+        XCTAssertEqual(keshaAction.label, "Select")
+        keshaAction.tap()
+        XCTAssertTrue(waitForLabel("Hide", on: keshaAction))
+
+        keshaAction.tap()
+        XCTAssertTrue(waitForLabel("Show", on: keshaAction))
+
+        keshaAction.tap()
+        XCTAssertTrue(waitForLabel("Hide", on: keshaAction))
+        XCTAssertTrue(app.staticTexts["pet-shop-status"].label.contains("special companion remains visible"))
+    }
+
+    private func launch(additionalArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--deterministic-game", "--uitesting"]
+        app.launchArguments = ["--deterministic-game", "--uitesting"] + additionalArguments
         app.launch()
         let environment = app.staticTexts["backend-environment"]
         XCTAssertTrue(environment.waitForExistence(timeout: 3))
@@ -121,5 +218,21 @@ final class PimPoPomUITests: XCTestCase {
             app.swipeUp()
         }
         return text.exists
+    }
+
+    private func waitForLabel(
+        _ label: String,
+        on element: XCUIElement,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        XCTWaiter.wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "label == %@", label),
+                    object: element
+                )
+            ],
+            timeout: timeout
+        ) == .completed
     }
 }

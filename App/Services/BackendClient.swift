@@ -22,6 +22,7 @@ final class BackendClient: ObservableObject {
     private let baseURL: URL
     private let urlSession: URLSession
     private let isUITestOffline: Bool
+    private var uiTestSession: SessionResponse?
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
     private var csrfToken: String?
@@ -38,6 +39,14 @@ final class BackendClient: ObservableObject {
     ) {
         self.baseURL = baseURL
         self.isUITestOffline = isUITestOffline
+        uiTestSession =
+            if isUITestOffline {
+                ProcessInfo.processInfo.arguments.contains("--ui-test-pet-profile")
+                    ? Self.uiTestPetSession
+                    : Self.uiTestSignedOutSession
+            } else {
+                nil
+            }
         if let urlSession {
             self.urlSession = urlSession
         } else {
@@ -50,9 +59,7 @@ final class BackendClient: ObservableObject {
             configuration.timeoutIntervalForRequest = 20
             self.urlSession = URLSession(configuration: configuration)
         }
-        if isUITestOffline {
-            sessionState = Self.uiTestSession
-        }
+        if let uiTestSession { sessionState = uiTestSession }
     }
 
     var profile: PlayerProfile? { sessionState?.profile }
@@ -63,7 +70,7 @@ final class BackendClient: ObservableObject {
 
     @discardableResult
     func loadSession() async throws -> SessionResponse {
-        if isUITestOffline { return Self.uiTestSession }
+        if let uiTestSession { return uiTestSession }
         guard activeStateMutationEpoch == nil else { throw Self.stateMutationBusyError }
 
         if let sessionLoadTask, let activeSessionLoadID {
@@ -91,7 +98,7 @@ final class BackendClient: ObservableObject {
     func loadLeaderboard(mode: GameMode) async throws -> LeaderboardResponse {
         if isUITestOffline {
             return LeaderboardResponse(
-                season: Self.uiTestSession.season,
+                season: uiTestSession?.season ?? Self.uiTestSignedOutSession.season,
                 mode: mode.rawValue,
                 entries: [],
                 totalEntries: 0,
@@ -106,12 +113,24 @@ final class BackendClient: ObservableObject {
     }
 
     func loadThemes() async throws -> ThemeCatalogResponse {
-        if isUITestOffline { return Self.uiTestThemes }
+        if isUITestOffline {
+            return ThemeCatalogResponse(
+                themes: Self.uiTestThemes.themes,
+                profile: uiTestSession?.profile,
+                coinBalance: uiTestSession?.profile?.coins ?? 0
+            )
+        }
         return try await request(path: "/api/themes")
     }
 
     func loadPets() async throws -> PetCatalogResponse {
-        if isUITestOffline { return Self.uiTestPets }
+        if isUITestOffline {
+            return PetCatalogResponse(
+                pets: Self.uiTestPets.pets,
+                profile: uiTestSession?.profile,
+                coinBalance: uiTestSession?.profile?.coins ?? 0
+            )
+        }
         return try await request(path: "/api/pets")
     }
 
@@ -204,6 +223,7 @@ final class BackendClient: ObservableObject {
 
     @discardableResult
     func selectPet(_ petID: String) async throws -> PetSelectionResponse {
+        if isUITestOffline { return try uiTestSelectPet(petID) }
         let body = try encoder.encode(["petId": petID])
         let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
         do {
@@ -227,6 +247,8 @@ final class BackendClient: ObservableObject {
 
     @discardableResult
     func setPetVisibility(_ petID: String, visible: Bool) async throws -> PetVisibilityResponse {
+        if isUITestOffline { return try uiTestSetPetVisibility(petID, visible: visible) }
+
         struct Body: Encodable {
             let petId: String
             let visible: Bool
@@ -434,7 +456,7 @@ final class BackendClient: ObservableObject {
     ) {
         guard let sessionState else { return }
         lastError = nil
-        self.sessionState = SessionResponse(
+        let updatedSession = SessionResponse(
             authenticated: true,
             csrfToken: sessionState.csrfToken,
             googleClientId: sessionState.googleClientId,
@@ -442,14 +464,105 @@ final class BackendClient: ObservableObject {
             profile: profile,
             ranks: ranks ?? sessionState.ranks
         )
+        self.sessionState = updatedSession
+        if isUITestOffline { uiTestSession = updatedSession }
     }
 
-    private static let uiTestSession = SessionResponse(
+    private func uiTestSelectPet(_ petID: String) throws -> PetSelectionResponse {
+        guard let profile = uiTestSession?.profile,
+            profile.ownedPetIds.contains(petID)
+        else { throw Self.uiTestOfflineError }
+
+        let updated = uiTestProfile(
+            from: profile,
+            selectedPetID: petID,
+            visible: true
+        )
+        replaceProfile(updated)
+        return PetSelectionResponse(
+            profile: updated,
+            pet: PetSelectionResult(id: petID, purchased: false, pricePaid: 0),
+            coinBalance: updated.coins
+        )
+    }
+
+    private func uiTestSetPetVisibility(
+        _ petID: String,
+        visible: Bool
+    ) throws -> PetVisibilityResponse {
+        guard let profile = uiTestSession?.profile,
+            profile.selectedPetId == petID,
+            profile.ownedPetIds.contains(petID)
+        else { throw Self.uiTestOfflineError }
+
+        let updated = uiTestProfile(
+            from: profile,
+            selectedPetID: petID,
+            visible: visible
+        )
+        replaceProfile(updated)
+        return PetVisibilityResponse(
+            profile: updated,
+            pet: PetVisibilityResult(id: petID, visible: visible),
+            coinBalance: updated.coins
+        )
+    }
+
+    private func uiTestProfile(
+        from profile: PlayerProfile,
+        selectedPetID: String,
+        visible: Bool
+    ) -> PlayerProfile {
+        PlayerProfile(
+            id: profile.id,
+            nickname: profile.nickname,
+            nicknameConfirmed: profile.nicknameConfirmed,
+            coins: profile.coins,
+            totalPlayMs: profile.totalPlayMs,
+            ownedPetIds: profile.ownedPetIds,
+            selectedPetId: selectedPetID,
+            petVisible: visible,
+            equippedPetId: profile.specialPetId ?? (visible ? selectedPetID : nil),
+            specialPetId: profile.specialPetId,
+            ownedThemeIds: profile.ownedThemeIds,
+            selectedThemeId: profile.selectedThemeId,
+            isAdmin: profile.isAdmin,
+            createdAt: profile.createdAt,
+            updatedAt: profile.updatedAt
+        )
+    }
+
+    private static let uiTestSignedOutSession = SessionResponse(
         authenticated: false,
         csrfToken: "ui-test-offline",
         googleClientId: "placeholder.apps.googleusercontent.com",
         season: Season(id: "ui-test", name: "Offline UI Test"),
         profile: nil,
+        ranks: nil
+    )
+
+    private static let uiTestPetSession = SessionResponse(
+        authenticated: true,
+        csrfToken: "ui-test-offline",
+        googleClientId: "placeholder.apps.googleusercontent.com",
+        season: Season(id: "ui-test", name: "Offline UI Test"),
+        profile: PlayerProfile(
+            id: "ui-test-player",
+            nickname: "Owner",
+            nicknameConfirmed: true,
+            coins: 75,
+            totalPlayMs: 120_000,
+            ownedPetIds: ["foka", "kesha"],
+            selectedPetId: "foka",
+            petVisible: true,
+            equippedPetId: "muse",
+            specialPetId: "muse",
+            ownedThemeIds: ["classic", "disco"],
+            selectedThemeId: "classic",
+            isAdmin: false,
+            createdAt: "2026-07-15T00:00:00Z",
+            updatedAt: "2026-07-15T00:00:00Z"
+        ),
         ranks: nil
     )
 

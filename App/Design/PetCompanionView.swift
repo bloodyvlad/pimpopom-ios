@@ -55,6 +55,13 @@ struct PetPresentation: Identifiable, Equatable, Sendable {
             habitatAsset: "mitsuri-cushion",
             usesPlaceholderArt: false
         ),
+        "muse": PetPresentation(
+            id: "muse",
+            kind: "Home companion",
+            spriteAsset: "muse-sprite",
+            habitatAsset: "muse-floor",
+            usesPlaceholderArt: false
+        ),
         "pancake": PetPresentation(
             id: "pancake",
             kind: "Pancake companion",
@@ -65,52 +72,81 @@ struct PetPresentation: Identifiable, Equatable, Sendable {
     ]
 }
 
+enum PetCompanionPlacement: Equatable, Sendable {
+    case menu
+    case shop
+    case gameplay
+    case leaderboard
+}
+
+enum PetPreviewAnimation {
+    static let frames = [0, 2, 3, 0, 6, 7, 8, 9, 0]
+    static let frameDuration = Duration.milliseconds(160)
+}
+
 struct PetCompanionView: View {
     let petID: String
     var size: CGFloat = 64
-    var includesHabitat = true
-    var animated = true
+    var placement = PetCompanionPlacement.menu
+    var animationTrigger = 0
+
+    @State private var frameIndex = 0
 
     private var presentation: PetPresentation { .resolve(petID) }
+    private var geometry: PetArtworkGeometry {
+        PetArtworkGeometry.resolve(
+            placement: placement,
+            petID: presentation.id,
+            spriteSize: size
+        )
+    }
 
     var body: some View {
         Group {
             if presentation.id == "pancake" {
                 PancakePlaceholder(size: size)
+                    .offset(
+                        x: (geometry.canvas.width - size) / 2,
+                        y: max(0, geometry.spriteOffset.height)
+                    )
             } else if let spriteAsset = presentation.spriteAsset {
-                TimelineView(.periodic(from: .now, by: animated ? 0.16 : 60)) { context in
-                    artwork(spriteAsset: spriteAsset, date: context.date)
-                }
+                artwork(spriteAsset: spriteAsset)
             } else {
-                Image(systemName: "pawprint.fill")
-                    .font(.system(size: size * 0.48, weight: .black))
-                    .foregroundStyle(.cyan)
-                    .frame(width: size, height: size)
-                    .background(.white.opacity(0.08), in: Circle())
+                Color.clear
             }
         }
-        .frame(width: size * 1.25, height: includesHabitat ? size * 1.12 : size)
+        .frame(
+            width: geometry.canvas.width,
+            height: geometry.canvas.height,
+            alignment: .topLeading
+        )
+        .clipped(antialiased: false)
+        .task(id: "\(petID)-\(animationTrigger)") {
+            await playPreviewIfRequested()
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(presentation.kind) companion")
     }
 
     @ViewBuilder
-    private func artwork(spriteAsset: String, date: Date) -> some View {
-        let frameSequence = animated ? [0, 2, 3, 0, 6, 7, 8, 9, 0] : [0]
-        let frameIndex = frameSequence[
-            Int(date.timeIntervalSinceReferenceDate / 0.16) % frameSequence.count
-        ]
-
-        ZStack {
-            if includesHabitat,
+    private func artwork(spriteAsset: String) -> some View {
+        ZStack(alignment: .topLeading) {
+            if placement != .gameplay,
+                shouldShowHabitat,
                 let habitatAsset = presentation.habitatAsset,
                 let back = PetArtwork.habitatLayer(named: habitatAsset, index: 0)
             {
                 Image(uiImage: back)
                     .resizable()
                     .interpolation(.none)
-                    .frame(width: size, height: size * 1.5)
-                    .offset(y: size * 0.18)
+                    .frame(
+                        width: geometry.habitatSize.width,
+                        height: geometry.habitatSize.height
+                    )
+                    .offset(
+                        x: geometry.habitatOffset.width,
+                        y: geometry.habitatOffset.height
+                    )
             }
 
             if let sprite = PetArtwork.spriteFrame(named: spriteAsset, index: frameIndex) {
@@ -118,20 +154,107 @@ struct PetCompanionView: View {
                     .resizable()
                     .interpolation(.none)
                     .frame(width: size, height: size)
-                    .zIndex(presentation.id == "misha" ? 3 : 1)
+                    .offset(
+                        x: geometry.spriteOffset.width,
+                        y: geometry.spriteOffset.height
+                    )
+                    .shadow(color: .black.opacity(0.54), radius: 2, y: 3)
+                    .zIndex(presentation.id == "misha" ? 4 : 2)
             }
 
-            if includesHabitat,
+            if placement != .gameplay,
+                shouldShowHabitat,
                 let habitatAsset = presentation.habitatAsset,
                 let front = PetArtwork.habitatLayer(named: habitatAsset, index: 1)
             {
                 Image(uiImage: front)
                     .resizable()
                     .interpolation(.none)
-                    .frame(width: size, height: size * 1.5)
-                    .offset(y: size * 0.18)
-                    .zIndex(2)
+                    .frame(
+                        width: geometry.habitatSize.width,
+                        height: geometry.habitatSize.height
+                    )
+                    .offset(
+                        x: geometry.habitatOffset.width,
+                        y: geometry.habitatOffset.height
+                    )
+                    .zIndex(3)
             }
+        }
+        .frame(
+            width: geometry.canvas.width,
+            height: geometry.canvas.height,
+            alignment: .topLeading
+        )
+    }
+
+    private func playPreviewIfRequested() async {
+        frameIndex = 0
+        guard placement == .shop, animationTrigger > 0 else { return }
+
+        for frame in PetPreviewAnimation.frames {
+            guard !Task.isCancelled else { return }
+            frameIndex = frame
+            try? await Task.sleep(for: PetPreviewAnimation.frameDuration)
+        }
+        guard !Task.isCancelled else { return }
+        frameIndex = 0
+    }
+
+    private var shouldShowHabitat: Bool {
+        !(placement == .shop && presentation.id == "kesha" && frameIndex >= 8)
+    }
+}
+
+struct PetArtworkGeometry {
+    let canvas: CGSize
+    let spriteOffset: CGSize
+    let habitatSize: CGSize
+    let habitatOffset: CGSize
+
+    static func resolve(
+        placement: PetCompanionPlacement,
+        petID: String,
+        spriteSize: CGFloat
+    ) -> PetArtworkGeometry {
+        switch placement {
+        case .menu:
+            let habitatY = petID == "mitsuri" ? -spriteSize * 0.3125 : spriteSize * 0.75
+            let spriteY = ["foka", "kesha"].contains(petID) ? -spriteSize * 0.09375 : -spriteSize * 0.0625
+            return PetArtworkGeometry(
+                canvas: CGSize(width: spriteSize, height: spriteSize * 2.25),
+                spriteOffset: CGSize(width: 0, height: spriteY),
+                habitatSize: CGSize(width: spriteSize, height: spriteSize * 1.5),
+                habitatOffset: CGSize(width: 0, height: habitatY)
+            )
+        case .shop:
+            let inset = spriteSize * 0.125
+            let spriteY =
+                ["foka", "kesha"].contains(petID)
+                ? -spriteSize * 0.078_125
+                : 0
+            return PetArtworkGeometry(
+                canvas: CGSize(width: spriteSize * 1.25, height: spriteSize * 1.25),
+                spriteOffset: CGSize(width: inset, height: spriteY),
+                habitatSize: CGSize(width: spriteSize, height: spriteSize),
+                habitatOffset: CGSize(width: inset, height: spriteSize * 0.75)
+            )
+        case .gameplay:
+            return PetArtworkGeometry(
+                canvas: CGSize(width: spriteSize, height: spriteSize),
+                spriteOffset: .zero,
+                habitatSize: .zero,
+                habitatOffset: .zero
+            )
+        case .leaderboard:
+            let scale = spriteSize / 36
+            let habitatY = petID == "mitsuri" ? -8 * scale : 27 * scale
+            return PetArtworkGeometry(
+                canvas: CGSize(width: 44 * scale, height: 44 * scale),
+                spriteOffset: CGSize(width: 4 * scale, height: scale),
+                habitatSize: CGSize(width: spriteSize, height: 54 * scale),
+                habitatOffset: CGSize(width: 4 * scale, height: habitatY)
+            )
         }
     }
 }

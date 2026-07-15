@@ -7,7 +7,7 @@ cd "$ROOT"
 shasum -a 256 -c Scripts/asset-hashes.sha256
 
 test "$(find App/Resources/Audio -type f | wc -l | tr -d ' ')" = "14"
-test "$(find App/Resources/Pets -type f | wc -l | tr -d ' ')" = "10"
+test "$(find App/Resources/Pets -type f | wc -l | tr -d ' ')" = "12"
 test ! -e App/Resources/Pets/pancake-sprite.png
 
 dimensions() {
@@ -21,7 +21,7 @@ dimensions() {
 }
 
 for file in App/Resources/Pets/*-sprite.png; do
-  dimensions "$file" 320 32
+  dimensions "$file" 640 64
 done
 
 for file in App/Resources/Pets/*.png; do

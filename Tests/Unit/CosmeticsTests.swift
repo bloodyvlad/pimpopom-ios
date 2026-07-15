@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 @testable import PimPoPom
@@ -100,6 +101,17 @@ final class CosmeticsTests: XCTestCase {
             ),
             "mitsuri"
         )
+        XCTAssertEqual(
+            CosmeticCatalog.displayedPetID(
+                profile: profile(
+                    selectedPetID: nil,
+                    visible: true,
+                    specialPetID: nil,
+                    equippedPetID: "foka"
+                )
+            ),
+            "foka"
+        )
     }
 
     func testThemeAndAudioManifestsResolveKnownIDsAndFallback() {
@@ -119,16 +131,62 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(foka.spriteAsset, "foka-sprite")
         XCTAssertFalse(foka.usesPlaceholderArt)
 
+        let muse = PetPresentation.resolve("muse")
+        XCTAssertEqual(muse.spriteAsset, "muse-sprite")
+        XCTAssertEqual(muse.habitatAsset, "muse-floor")
+        XCTAssertFalse(muse.usesPlaceholderArt)
+
         let pancake = PetPresentation.resolve("pancake")
         XCTAssertNil(pancake.spriteAsset)
         XCTAssertNil(pancake.habitatAsset)
         XCTAssertTrue(pancake.usesPlaceholderArt)
     }
 
+    func testShopPetGeometryMatchesOriginalPreviewScene() {
+        let standard = PetArtworkGeometry.resolve(
+            placement: .shop,
+            petID: "misha",
+            spriteSize: 64
+        )
+        XCTAssertEqual(standard.canvas, CGSize(width: 80, height: 80))
+        XCTAssertEqual(standard.spriteOffset, CGSize(width: 8, height: 0))
+        XCTAssertEqual(standard.habitatSize, CGSize(width: 64, height: 64))
+        XCTAssertEqual(standard.habitatOffset, CGSize(width: 8, height: 48))
+
+        let foka = PetArtworkGeometry.resolve(
+            placement: .shop,
+            petID: "foka",
+            spriteSize: 64
+        )
+        XCTAssertEqual(foka.spriteOffset, CGSize(width: 8, height: -5))
+    }
+
+    func testPetPreviewAnimationStartsStaticAndReturnsToItsRestingFrame() {
+        XCTAssertEqual(PetPreviewAnimation.frames.first, 0)
+        XCTAssertTrue(PetPreviewAnimation.frames.dropFirst().contains { $0 != 0 })
+        XCTAssertEqual(PetPreviewAnimation.frames.last, 0)
+        XCTAssertEqual(PetPreviewAnimation.frames.count, 9)
+    }
+
+    func testEveryApprovedPetSpriteAndHabitatIsBundled() throws {
+        for petID in ["foka", "kesha", "tauta", "misha", "mitsuri", "muse"] {
+            let presentation = PetPresentation.resolve(petID)
+            let spriteName = try XCTUnwrap(presentation.spriteAsset)
+            let habitatName = try XCTUnwrap(presentation.habitatAsset)
+            let sprite = try bundledImage(named: spriteName)
+            let habitat = try bundledImage(named: habitatName)
+            XCTAssertEqual(sprite.cgImage?.width, 640, spriteName)
+            XCTAssertEqual(sprite.cgImage?.height, 64, spriteName)
+            XCTAssertEqual(habitat.cgImage?.width, 64, habitatName)
+            XCTAssertEqual(habitat.cgImage?.height, 48, habitatName)
+        }
+    }
+
     private func profile(
         selectedPetID: String?,
         visible: Bool,
-        specialPetID: String?
+        specialPetID: String?,
+        equippedPetID: String? = nil
     ) -> PlayerProfile {
         PlayerProfile(
             id: "player-1",
@@ -139,7 +197,7 @@ final class CosmeticsTests: XCTestCase {
             ownedPetIds: ["foka"],
             selectedPetId: selectedPetID,
             petVisible: visible,
-            equippedPetId: visible ? selectedPetID : nil,
+            equippedPetId: equippedPetID ?? (visible ? selectedPetID : nil),
             specialPetId: specialPetID,
             ownedThemeIds: ["classic", "disco"],
             selectedThemeId: "classic",
@@ -147,5 +205,10 @@ final class CosmeticsTests: XCTestCase {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         )
+    }
+
+    private func bundledImage(named name: String) throws -> UIImage {
+        let path = try XCTUnwrap(Bundle.main.path(forResource: name, ofType: "png"))
+        return try XCTUnwrap(UIImage(contentsOfFile: path))
     }
 }
