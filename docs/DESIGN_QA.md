@@ -4,7 +4,24 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 ## Current evidence
 
-The playable Xcode alpha has Simulator evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles. The earlier gameplay/icon checkpoint was development-signed, installed, launched, and reported working on the owner's physical iPhone SE with iOS 26.3. The newer cosmetics/economy/audio checkpoint was development-signed and installed on that device, but automatic launch was denied because the phone was locked. Neither checkpoint is a structured timing, layout, accessibility, or audio pass. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+The playable Xcode alpha has Simulator evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles. The latest SE regression pass covers pet presentation, shop interaction, gameplay audio lifecycle wiring, and response-bar behavior at implementation commit `3b022c3`. The earlier gameplay/icon checkpoint was development-signed, installed, launched, and reported working on the owner's physical iPhone SE with iOS 26.3. The newer cosmetics/economy/audio checkpoint was development-signed and installed on that device, but automatic launch was denied because the phone was locked. Neither physical checkpoint is a structured timing, layout, accessibility, or audio pass. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+
+## Pet, audio-lifecycle, and response-bar Simulator regression pass — 2026-07-15
+
+- **Candidate/version/build:** PimPoPom 0.1.0 (1).
+- **Implementation commit:** `3b022c3287d41213159ecdcda39437b18e0b1c35` (`fix: restore pet audio and timer behavior`).
+- **Device and OS:** named iPhone SE (3rd generation, 2022) Simulator on iOS 26.5 (23F77).
+- **Configuration:** Debug; deterministic gameplay; ephemeral `--uitesting` fixtures with production network mutations disabled; authenticated pet fixture used only for server-derived Muse presentation and in-memory shop actions.
+- **Parity reference:** parent SpeedyTapper web repository `main` commit `7582b2d0aed4a499796d67ae14b96e31937d543e`.
+- **Screens/states:** Main Menu with Muse independently positioned and no in-flow pet icon above the mode controls; Pet Shop with sprites resting on habitats and idle previews remaining static; active Arcade with Muse and a partially drained response bar.
+- **Accessibility settings:** Simulator defaults only. Stable accessibility identifiers and progress values were exercised by XCUITest; VoiceOver, Dynamic Type extremes, contrast, and Reduce Motion were not reviewed.
+- **Ads/StoreKit/auth:** disabled ad and StoreKit placeholders; deterministic local authenticated-pet fixture; no production purchase, coin, selection, or ranked mutation.
+- **Captures:** [`SE menu special Muse`](evidence/2026-07-15/3b022c3-se-menu-muse.png) SHA-256 `3a39f6e82a90eb1228ca75c9f7c2f40ed539730b90d08e6d4ad9bf9e3f45bde9`; [`SE Pet Shop habitat/static preview`](evidence/2026-07-15/3b022c3-se-pet-shop.png) SHA-256 `d8c521d76756226c04003f2a664b51216031f34fc5b2bcd2a4739826b3ccb0f3`; [`SE Arcade Muse/response bar`](evidence/2026-07-15/3b022c3-se-arcade-muse.png) SHA-256 `a4226a1366e2b314fd82095ab8eeb100ff67f0bd66ff634468066d87ac3db53f`.
+- **Automated checks:** 29 pure Swift checks, 26 native unit tests, generic iOS Simulator build, and nine SE XCUITest paths passed through `Scripts/check.sh`; 47 retained runtime/master/source files passed committed hash and format/dimension validation.
+- **Manual Simulator inspection:** the menu pet stays clear of the mode controls; approved shop sprites align with their habitats; a recorded Foka preview remained static before the tap, moved through non-resting frames once, and returned to rest; the Arcade response fill was visibly partial and left-anchored.
+- **Findings:** no blocking defect in the reviewed states. The menu pet no longer occupies the mode layout; approved shop sprites align with their habitats and animate only after a tap; Select → Hide → Show state updates in the shop; selected/visible/special-pet resolution reaches menu and gameplay; and the active Arcade response bar drains rather than growing. Gameplay terminal events route music to silence before menu routing, but this automated Simulator pass is not listening evidence.
+- **Remaining checks:** physical-device install/launch of this commit; listening confirmation across game-over/menu transitions; 60/120 Hz touch timing; VoiceOver, Dynamic Type, contrast, and Reduce Motion; real signed-in backend mutations; audio routes/interruptions/Silent switch; haptics; live ads; and StoreKit.
+- **Evidence statement:** Simulator-tested regression and layout evidence only; not physical-device, audio-listening, or production validation.
 
 ## Physical iPhone SE cosmetics/audio install checkpoint — 2026-07-15
 

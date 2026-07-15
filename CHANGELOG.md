@@ -19,11 +19,17 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Original PimPoPom internal-alpha app-icon candidate with retained generation source, prompt, and hashes.
 - Native Theme Shop and Pet Shop backed by the deployed catalog/economy endpoints, including server-authoritative balance, ownership, selection, pet visibility, and signed-out free-theme behavior.
 - Shared disabled Buy Coins sheet in both shops; it contains no StoreKit product or value-granting path.
-- Four code-native theme presentations and reviewed runtime art for Foka, Kesha, Tauta, Misha, and server-derived Mitsuri; Pancake uses labelled code-native placeholder art.
+- Four code-native theme presentations and reviewed runtime art for Foka, Kesha, Tauta, Misha, and server-derived Mitsuri and Muse; Pancake uses labelled code-native placeholder art.
 - Independent persistent Music and Sound FX controls using one native audio engine, four migrated theme suites, the shared loss cue, menu/gameplay/silent routing, and lifecycle/interruption handling.
 - Original deterministic rising Pim–Po–Pom activation-cue candidate, with 24-bit master, generator, measurements, and hashes.
 - Native cosmetics/preferences/API-contract tests, including coalesced session loading, CSRF credential wiring, and stale-account response rejection; shop/settings UI tests; and deterministic validation of every migrated runtime/master/source asset.
+- Current reviewed Muse special-pet sprite/floor assets and deterministic coverage for pet presentation geometry, selected/visible mutations, gameplay lifecycle audio routing, and response-progress semantics.
+- Simulator regression coverage for static-until-tapped Pet Shop previews, special-pet presentation in menu/gameplay, and a decreasing Arcade response bar.
 
 ### Changed
 
 - Internal alpha scope now reuses the existing deployed PHP backend and shared data under accepted decision P-014.
+- Restored pet presentation toward the web parity reference at parent commit `7582b2d`: removed the in-flow menu pet icon, positioned the active pet independently, aligned shop pets with their habitats, and limited shop animation to a one-shot tap preview.
+- Made selected, hidden, equipped, and server-derived special-pet state resolve consistently across the menu, shop, and active game. When a special companion overrides shop presentation, the shop now explains that the underlying selection still changes.
+- Routed game-over and background abandonment directly to silent music state before subsequent menu routing, with stale asynchronous music transitions rejected.
+- Replaced the animated generic progress indicator with an active-round-only response bar that resets immediately to full and drains toward empty.
