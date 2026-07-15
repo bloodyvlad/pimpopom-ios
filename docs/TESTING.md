@@ -2,6 +2,17 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## Current alpha evidence — 2026-07-15
+
+- **Unit-tested:** 29 Swift Testing checks cover scoring/rounding, phase/grid boundaries, lives/recovery, proof timing/order, deadline equality, multiplier overflow/reset/5× accounting, decoy overlap/expiry/reservation/ignored opportunities, reset behavior, and Zen retention/cadence/manual results.
+- **Simulator-tested:** two XCUITest smoke paths pass on the named iPhone SE (3rd generation) simulator: menu → Arcade → rendered target → scored SpriteKit touch, and menu → Zen → End run → results. The `--uitesting` launch environment uses an ephemeral signed-out fixture with all network requests and mutations disabled, so retained Simulator cookies cannot issue a production run ticket.
+- **Simulator-inspected:** native Zen target and complete bottom layout fit the iPhone 13 mini and iPhone 13 Pro simulator profiles. The SE menu/Arcade layout and absolute-bottom disabled-ad host were also inspected.
+- **Build-tested:** the app builds for a generic iOS Simulator with Swift 6 strict concurrency and the resolved Google Sign-In dependency.
+- **Live read-tested:** Hostinger health, signed-out session bootstrap, and public Arcade leaderboard returned successfully. The in-app session/Season 1 surface also decoded and rendered.
+- **Not yet validated:** physical-device install, 60/120 Hz touch timing, real Google iOS OAuth, signed-in profile/nickname, ranked start/finish against an internal player, network-loss races, accessibility matrix, audio/haptics, ads, and StoreKit.
+
+These are implementation-time observations, not release truth. Record physical runs with device/iOS/build/commit before changing the evidence label to device-tested.
+
 ## Test layers
 
 ### Pure core tests

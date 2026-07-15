@@ -2,9 +2,9 @@
 
 Status: Full production plan, based on migration source commit `675551adc715942ce2512c14d396d5d14e763f02` reviewed on 2026-07-14.
 
-The current execution track is the local technical alpha in [`ALPHA_FAST_PATH.md`](ALPHA_FAST_PATH.md). It deliberately comes first and defers legal, ownership, accounting, identity, backend, ads, and StoreKit work. Resume the production phases below only after local Arcade and Zen gameplay passes the agreed physical-device matrix.
+The current execution track is the owner-only internal alpha in [`ALPHA_FAST_PATH.md`](ALPHA_FAST_PATH.md). It deliberately comes first and defers legal, ownership, accounting, a production-grade native identity/session contract, ads, and StoreKit work. Under accepted decision P-014, the alpha already reads and is prepared to write the existing Hostinger PHP service with shared production players and leaderboards; that exception is not an external-release architecture.
 
-Do not begin paid purchases, live ads, or production backend traffic while deterministic parity, identity, and accounting remain unresolved.
+Do not begin paid purchases, live ads, backend deployment, or traffic outside P-014's narrow internal compatibility path while deterministic parity, identity, and accounting remain unresolved.
 
 ## Deferred production Phase 0 — Owner and commercial setup
 

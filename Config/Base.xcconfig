@@ -8,3 +8,9 @@ SWIFT_VERSION = 6.0
 SWIFT_STRICT_CONCURRENCY = complete
 TARGETED_DEVICE_FAMILY = 1
 CODE_SIGN_STYLE = Automatic
+
+// Public OAuth identifiers. The iOS client is intentionally a disabled placeholder
+// until an iOS OAuth client is created for the final development bundle identifier.
+PIMPOPOM_GOOGLE_IOS_CLIENT_ID = placeholder.apps.googleusercontent.com
+PIMPOPOM_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.placeholder
+PIMPOPOM_GOOGLE_SERVER_CLIENT_ID = 121091636571-4551g9k0uh39rqit36kkli74u0rnuens.apps.googleusercontent.com

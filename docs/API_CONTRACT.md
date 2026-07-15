@@ -1,6 +1,27 @@
 # Native API contract
 
-Status: design requirements and proposed native surface. The deployed server implementation remains authoritative; examples below are not live endpoints until backend work accepts them.
+Status: two layers. The first section records the deployed compatibility surface used by the owner-only internal alpha under P-014. The later `mobile-v1` surface remains a proposal for external distribution.
+
+## Current internal-alpha compatibility surface
+
+Base URL: `https://speedytapper.otcsoft.com`. Live probes on 2026-07-15 confirmed Season 1, public leaderboard reads, and deployed build ID `20260715-1`; they do not prove the deployed Git commit.
+
+| Method and path | Purpose | Native behavior |
+| --- | --- | --- |
+| `GET /api/session` | Cookie/CSRF bootstrap and profile summary | Always call before mutation; retain returned CSRF in memory |
+| `POST /api/auth/google` | Existing Google ID-token exchange | Body `{"credential":"<id token>"}`; replace rotated cookie/CSRF from response |
+| `POST /api/logout` | End PHP session | CSRF mutation |
+| `GET`, `PATCH /api/profile?mode=normal` | Profile and nickname | PATCH body contains only `nickname` |
+| `GET /api/leaderboard?mode=normal\|zen` | Public/shared ranks | Available signed out |
+| `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260715-1"}` |
+| `POST /api/runs/abandon` | Idempotent discard | Body contains `runId` |
+| `POST /api/runs/finish` | Replay proof and save result | Ticket metadata plus integer proof tuples only |
+
+The native client uses one long-lived default `URLSession` with shared cookie storage, `Accept: application/json`, JSON content type on bodies, and `X-SpeedyTapper-CSRF` on mutations. It sends no browser `Origin`. Login rotates the session binding, so do not log in again between ranked start and finish. Browser and native sessions are separate, while the single open run attempt is player-global.
+
+Google configuration uses a new iOS OAuth client whose bundle ID matches the app plus the existing Web OAuth client as Google `serverClientID`. The returned ID token therefore retains the audience the PHP verifier already accepts. OAuth client IDs are public configuration; no OAuth client secret ships in the app.
+
+Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-014 temporarily passes the deployed build ID. This owner-only exception must be removed before external TestFlight/App Store distribution or when the server changes its accepted build.
 
 ## Baseline gap
 
@@ -10,7 +31,7 @@ The migration source service currently uses:
 - a CSRF token/header for mutations;
 - a Google **Web** client ID and browser credential flow;
 - one browser-session-bound ranked attempt per player;
-- an exact accepted web build (`20260714-11` at the frozen baseline);
+- an exact accepted web build (`20260715-1` on the live service at the current audit);
 - ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 proof-event cap;
 - extensionless `/api/*` routes for session, profile, leaderboard, runs, achievements, pets, themes, and administration.
 

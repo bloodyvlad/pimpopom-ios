@@ -169,7 +169,7 @@ Revisit when: Independently validated hardware and operational controls support 
 ## P-013 — Ship an offline technical alpha before platform services
 
 - Date: 2026-07-15
-- Status: Accepted
+- Status: Superseded by P-014
 
 Context: Xcode and Simulator are installed, and the immediate goal is the shortest route to a native build on an iPhone SE (3rd generation). The current web game has no live ads or purchases, and production ownership, accounting, and legal work can follow once gameplay is stable.
 
@@ -178,3 +178,16 @@ Decision: Build the first PimPoPom alpha as a development-signed, local-only iPh
 Consequences: Google OAuth is not required to install or play the first alpha. The immediate owner action is only local Apple code signing, device trust, and Developer Mode. Profiles, ranking, economy, shops, final branding/audio, ads, purchases, legal, accounting, storefront, and production credentials remain later phases. Simulator evidence covers builds and layout only; real refresh/touch timing requires the named physical devices.
 
 Revisit when: The local gameplay device matrix passes and the next integrated service slice is selected.
+
+## P-014 — Reuse the deployed PHP contract for the internal native alpha
+
+- Date: 2026-07-15
+- Status: Accepted
+
+Context: The owner explicitly accepted shared internal use of the current Hostinger backend, database, players, coins, and leaderboards to reach a playable iPhone build quickly. The deployed service already accepts Google ID tokens whose audience is the existing Web OAuth client, secure cookie sessions with CSRF, and proof-v1 Arcade submissions for build `20260715-1`.
+
+Decision: For owner-only internal testing, PimPoPom may reuse the existing extensionless `/api/*` contract and production Season 1 data. Use one cookie-enabled `URLSession`, bootstrap CSRF through `/api/session`, configure Google Sign-In with a new iOS client ID plus the existing Web client ID as `serverClientID`, and submit only the exact `reaction-proof-v2` proof-version-1 event stream. If sign-in, nickname confirmation, or run-ticket issuance is unavailable, start an explicitly local practice run instead. Do not change or deploy the PHP backend from this repository.
+
+Consequences: The internal binary identifies ranked attempts with the server's accepted Web build ID `20260715-1`; this is a deliberate temporary compatibility exception to P-004, not a claim that PimPoPom is that web binary. Native and browser clients share the one-open-attempt-per-player rule and production data. The Google iOS OAuth ID stays in ignored local configuration. Ads and StoreKit remain disabled. Before any external TestFlight/App Store distribution, replace this exception with an accepted native client/build contract, complete identity/account review, and use staging/synthetic integration data.
+
+Revisit when: The first physical-device alpha works, the deployed web build gate changes, or any build is prepared for someone beyond the owner/internal testers.

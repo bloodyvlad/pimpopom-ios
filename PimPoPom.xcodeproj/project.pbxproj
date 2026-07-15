@@ -7,23 +7,51 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D742807F5506EC05BA9FAFE /* GameView.swift */; };
 		1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */; };
 		1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */; };
-		56603C4049290197D71E7DE7 /* PimPoPomCore in Frameworks */ = {isa = PBXBuildFile; productRef = B99BB11775542C9E63F45B2A /* PimPoPomCore */; };
+		21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */; };
+		2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */; };
+		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
+		56603C4049290197D71E7DE7 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C4870F00BE8DF3014F005A13 /* GoogleSignIn */; };
 		6E46ABD4087FBC9FAF4D9E0C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 491AE95125B0A41ABB5B5D44 /* Assets.xcassets */; };
+		76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */; };
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
 		9CAA0142DC9459BD38BB7961 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */; };
+		9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B807723F13D7024F84747F72 /* GameCoordinator.swift */; };
+		B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9648B3C4989B1B1FF9557057 /* GameScene.swift */; };
+		BA919DD6B28AE526B4C39B05 /* PimPoPomCore in Frameworks */ = {isa = PBXBuildFile; productRef = B99BB11775542C9E63F45B2A /* PimPoPomCore */; };
+		EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		7B473F3F0E5B60E3D1519E7B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 409F99DCD15ECDCD03F25003 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 030B2CE7F1621A5B13CB0A74;
+			remoteInfo = PimPoPom;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
 		1EDDAAA3EB14D6E430476DAB /* PimPoPomCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PimPoPomCore; path = Packages/PimPoPomCore; sourceTree = SOURCE_ROOT; };
 		2A0CD8335C4D1E08E4401607 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		491AE95125B0A41ABB5B5D44 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5D742807F5506EC05BA9FAFE /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9648B3C4989B1B1FF9557057 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomApp.swift; sourceTree = "<group>"; };
 		AB2BA21A885F2ADE255459DC /* PimPoPom.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PimPoPom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlphaServices.swift; sourceTree = "<group>"; };
+		B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomUITests.swift; sourceTree = "<group>"; };
+		B807723F13D7024F84747F72 /* GameCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCoordinator.swift; sourceTree = "<group>"; };
+		C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClient.swift; sourceTree = "<group>"; };
+		CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleIdentityService.swift; sourceTree = "<group>"; };
+		DA2E75B83D2198FB2E99E518 /* BackendModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendModels.swift; sourceTree = "<group>"; };
 		FA9F840B4895429C17E7AA09 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -32,13 +60,22 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				56603C4049290197D71E7DE7 /* PimPoPomCore in Frameworks */,
+				56603C4049290197D71E7DE7 /* GoogleSignIn in Frameworks */,
+				BA919DD6B28AE526B4C39B05 /* PimPoPomCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		233DDCB53E6246DDBA07FCAF /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
 		2AE968C2BAE5CA5981412BB5 /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -46,9 +83,20 @@
 				491AE95125B0A41ABB5B5D44 /* Assets.xcassets */,
 				A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */,
 				2A0CD8335C4D1E08E4401607 /* RootView.swift */,
+				65D86F956D0B213E18CB7DF9 /* Features */,
+				EBEF85AB212E22ED8DE20E6C /* Gameplay */,
 				E5632A3555BEBB5AA3B9681F /* Resources */,
+				E1F73E23574CABE39BBD1F87 /* Services */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		2F679E87F3A1A7711664559D /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				233DDCB53E6246DDBA07FCAF /* UITests */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 		5613FBE8D6F777639158706B /* Packages */ = {
@@ -59,10 +107,19 @@
 			path = Packages;
 			sourceTree = "<group>";
 		};
+		65D86F956D0B213E18CB7DF9 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
 		7E4D5331551CB9CCC4CF739D /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				AB2BA21A885F2ADE255459DC /* PimPoPom.app */,
+				9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -73,6 +130,7 @@
 				2AE968C2BAE5CA5981412BB5 /* App */,
 				C93D5D2EA44DCFBF2870631A /* Config */,
 				5613FBE8D6F777639158706B /* Packages */,
+				2F679E87F3A1A7711664559D /* Tests */,
 				7E4D5331551CB9CCC4CF739D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -86,12 +144,32 @@
 			path = Config;
 			sourceTree = "<group>";
 		};
+		E1F73E23574CABE39BBD1F87 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
+				DA2E75B83D2198FB2E99E518 /* BackendModels.swift */,
+				CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
 		E5632A3555BEBB5AA3B9681F /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 				B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		EBEF85AB212E22ED8DE20E6C /* Gameplay */ = {
+			isa = PBXGroup;
+			children = (
+				B807723F13D7024F84747F72 /* GameCoordinator.swift */,
+				9648B3C4989B1B1FF9557057 /* GameScene.swift */,
+				5D742807F5506EC05BA9FAFE /* GameView.swift */,
+			);
+			path = Gameplay;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -111,11 +189,30 @@
 			);
 			name = PimPoPom;
 			packageProductDependencies = (
+				C4870F00BE8DF3014F005A13 /* GoogleSignIn */,
 				B99BB11775542C9E63F45B2A /* PimPoPomCore */,
 			);
 			productName = PimPoPom;
 			productReference = AB2BA21A885F2ADE255459DC /* PimPoPom.app */;
 			productType = "com.apple.product-type.application";
+		};
+		98410228FA17337B81547FD1 /* PimPoPomUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2BF7BF929D35A805D7A7BA2B /* Build configuration list for PBXNativeTarget "PimPoPomUITests" */;
+			buildPhases = (
+				47818E1F154C1573AB680ECE /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5840AAC367CF6ABFFFA1DCC4 /* PBXTargetDependency */,
+			);
+			name = PimPoPomUITests;
+			packageProductDependencies = (
+			);
+			productName = PimPoPomUITests;
+			productReference = 9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -129,6 +226,9 @@
 					030B2CE7F1621A5B13CB0A74 = {
 						ProvisioningStyle = Automatic;
 					};
+					98410228FA17337B81547FD1 = {
+						TestTargetID = 030B2CE7F1621A5B13CB0A74;
+					};
 				};
 			};
 			buildConfigurationList = 37A9EAD1DC61092F118E30C4 /* Build configuration list for PBXProject "PimPoPom" */;
@@ -141,6 +241,7 @@
 			mainGroup = C636B9FB9800F1010DC9A731;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				469DEE5C00923AD86A105EA1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				55A92665BC935329EDF14206 /* XCLocalSwiftPackageReference "Packages/PimPoPomCore" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -149,6 +250,7 @@
 			projectRoot = "";
 			targets = (
 				030B2CE7F1621A5B13CB0A74 /* PimPoPom */,
+				98410228FA17337B81547FD1 /* PimPoPomUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -171,12 +273,35 @@
 			buildActionMask = 2147483647;
 			files = (
 				1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */,
+				EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */,
+				46F5040558302ED97373D477 /* BackendModels.swift in Sources */,
+				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,
+				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
+				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,
+				2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */,
+				76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */,
 				1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */,
 				8A9091375A080E76B3131D5B /* RootView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		47818E1F154C1573AB680ECE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5840AAC367CF6ABFFFA1DCC4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 030B2CE7F1621A5B13CB0A74 /* PimPoPom */;
+			targetProxy = 7B473F3F0E5B60E3D1519E7B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		5A8B31A2F7EA0AA3011013B1 /* Release */ = {
@@ -306,11 +431,8 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "PimPoPom Alpha";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -322,6 +444,24 @@
 			};
 			name = Release;
 		};
+		9365BB071926F3AC1F4A9ACE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PimPoPom;
+			};
+			name = Debug;
+		};
 		9E1FC7DD902BF8A2E340F62C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FA9F840B4895429C17E7AA09 /* Debug.xcconfig */;
@@ -330,11 +470,8 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "PimPoPom Alpha";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -346,9 +483,36 @@
 			};
 			name = Debug;
 		};
+		B3660DCAAD9D449478CBCC4D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PimPoPom;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2BF7BF929D35A805D7A7BA2B /* Build configuration list for PBXNativeTarget "PimPoPomUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9365BB071926F3AC1F4A9ACE /* Debug */,
+				B3660DCAAD9D449478CBCC4D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		37A9EAD1DC61092F118E30C4 /* Build configuration list for PBXProject "PimPoPom" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -376,10 +540,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		469DEE5C00923AD86A105EA1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		B99BB11775542C9E63F45B2A /* PimPoPomCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PimPoPomCore;
+		};
+		C4870F00BE8DF3014F005A13 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 469DEE5C00923AD86A105EA1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

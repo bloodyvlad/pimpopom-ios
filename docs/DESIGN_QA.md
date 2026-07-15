@@ -4,7 +4,7 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 ## Current evidence
 
-No PimPoPom Xcode UI or visual asset exists yet. No visual, physical-device, TestFlight, or App Store QA has been performed.
+The playable Xcode alpha has Simulator evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles. The exact implementation commit and final capture paths are recorded in the dated entry added after the tested source commit. No physical-device, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
 
 ## Initial acceptance checklist
 

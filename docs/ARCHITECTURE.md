@@ -27,6 +27,8 @@ flowchart TD
 
 ## Proposed modules
 
+The playable alpha currently keeps Gameplay, Features, and Services as folders in the app target while their APIs stabilize; only `PimPoPomCore` is a separate package. The dependency rules below still apply. Split targets later only when the boundary pays for its build and maintenance cost.
+
 | Module | Owns | Must not own |
 | --- | --- | --- |
 | `PimPoPomCore` | Modes, config, state machine, scoring, ratings, streak, decoys, injected RNG/time, proof events, snapshots | UI, timers, storage, network, audio, ads, purchases |

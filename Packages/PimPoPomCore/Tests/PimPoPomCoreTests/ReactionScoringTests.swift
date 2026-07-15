@@ -1,4 +1,5 @@
 import Testing
+
 @testable import PimPoPomCore
 
 @Test("Reaction ratings use the same rounded milliseconds shown to the player")

@@ -1,36 +1,44 @@
 # Local iPhone alpha fast path
 
-Status: Current technical execution track. Commercial, legal, account, backend, ads, and StoreKit work is deferred until local gameplay is stable.
+Status: Current internal technical execution track. Gameplay and the existing PHP backend are integrated; commercial, legal, accounting, ads, and StoreKit work remains deferred.
 
 ## Goal
 
-Install a local-only native PimPoPom gameplay alpha on the owner's iPhone SE (3rd generation, 2022) by the shortest path, then validate compact layout on iPhone 13 mini and timing on iPhone 13 Pro at 120 Hz.
+Install a playable native PimPoPom alpha on the owner's iPhone SE (3rd generation, 2022) by the shortest path. Reuse the deployed Hostinger PHP API, players, database, and leaderboards for internal testing, then validate compact layout on iPhone 13 mini and timing on iPhone 13 Pro at 120 Hz.
 
-No Google credential is required for this track. The first device build needs only Xcode local signing: an Apple Account in Xcode, a Personal Team or paid team, a unique development bundle identifier, automatic signing, a trusted USB connection, and Developer Mode on the iPhone.
+Google is optional for local play and public leaderboard reads. Ranked play needs one new iOS OAuth client ID for bundle ID `com.otcsoft.pimpopom.alpha`; the existing Web client ID remains the backend audience. The device build also needs Xcode local signing, a trusted USB connection, and Developer Mode on the iPhone.
 
 ## What is deliberately deferred
 
-- Google or Apple sign-in, nickname, backend sessions, ranked runs, leaderboards, and durable accounts.
+- Sign in with Apple, account linking/deletion, a dedicated native session/build contract, and staging.
 - StoreKit, coin purchases, Remove Ads entitlement, ad SDKs, consent, ATT, and live ad identifiers.
 - Coins, achievements, pets, theme shops, and cross-platform persistence.
 - Game Center, App Attest, analytics, production CI, TestFlight, and App Store records.
 - Final logo, icon, launch sting, theme audio, music, and haptics.
 - Commercial ownership, accounting, tax, legal, and storefront work.
 
-The code keeps ads and purchases behind disabled local implementations. Do not add placeholder vendor SDKs: a no-network, no-op boundary is a faster and safer placeholder.
+The code keeps ads and purchases behind disabled local implementations. Do not add placeholder vendor SDKs: a no-network, no-op boundary is the current placeholder.
+
+## Current implemented slice
+
+- Full local Arcade/Zen rules, SpriteKit board, menu, HUD, results, restart, background abandonment, bottom ad placeholder, and Remove Ads placeholder.
+- Live `GET /api/session` and public Arcade/Zen leaderboard reads.
+- Existing Google token exchange, profile/nickname, ranked ticket, abandon, and finish client paths. They activate only after a real iOS OAuth client is supplied and the player confirms a nickname.
+- Exact deployed compatibility constants: API base `https://speedytapper.otcsoft.com`, build `20260715-1`, ruleset `reaction-proof-v2`, proof version 1.
+- Google Sign-In 9.2.0 resolved by Swift Package Manager. Ads and StoreKit have no vendor/product configuration.
 
 ## Ordered steps
 
 ### A0 — Bootstrap and install the shell
 
 1. Verify Xcode, Swift, the iOS SDK, and command-line tools. Install XcodeGen 2.45.4 with `brew install xcodegen`; it generates the committed Xcode project but is not linked into the app.
-2. Generate an iPhone-only, portrait SwiftUI app named PimPoPom with a pure Swift core package and no third-party runtime packages or capabilities.
+2. Generate the iPhone-only, portrait PimPoPom project. Swift Package Manager resolves Google Sign-In; it remains inactive while its iOS client ID is the placeholder.
 3. Build the core tests and app for Simulator.
 4. Create SE 2022, iPhone 13 mini, and iPhone 13 Pro Simulator profiles for layout smoke tests. Simulator does not validate real 60/120 Hz touch timing.
 5. Connect the SE, trust the Mac, enable Developer Mode, add the Apple Account in Xcode, select its Team under Signing & Capabilities, keep automatic signing enabled, select the SE, and press Run.
 6. Confirm cold launch, navigation, portrait layout, background/foreground, and reinstall.
 
-Exit: the signed Bootstrap Alpha opens on the physical SE. Google, backend, ad, and StoreKit setup remain absent.
+Exit: the signed alpha opens on the physical SE. Ads and StoreKit remain absent.
 
 ### A1 — Port the deterministic Arcade core
 
@@ -56,10 +64,22 @@ Exit: Arcade is playable offline on the SE with correct hits, mistakes, expiry, 
 1. Add independent decoys, 450–750 ms lifetime, 550-point natural dodges, capacity, overlap, and reserved-cell behavior.
 2. Complete the Godlike/Perfect streak rules, overflow, next-tap multiplier, 5× cap, and mistake reset.
 3. Add Zen: endless play, no lives/decoys/rewards/proof, persistent target through mistakes, 1,000 ms initial cadence moving halfway toward the prior correct reaction, and explicit End Run.
-4. Keep proof-event generation as passive local output so later ranked integration does not require an engine rewrite; do not transmit it.
+4. Keep proof-event generation passive for local practice. Transmit it only for a server-issued ranked ticket under P-014.
 5. Add thin ephemeral results with score, elapsed time, hits/misses/dodges, fastest/average reaction, and rating counts.
 
-Exit: the local alpha contains the current Arcade and Zen rules. Services, economy, shops, and final assets remain deferred.
+Exit: the alpha contains the current Arcade and Zen rules. Shops, ads, purchases, and final assets remain deferred.
+
+### A3.5 — Enable the existing internal backend
+
+1. Keep the production base URL fixed in the internal alpha and use a cookie-enabled default `URLSession`.
+2. Load `/api/session` before mutations and send its CSRF token in `X-SpeedyTapper-CSRF`.
+3. Read both public leaderboard modes without authentication.
+4. For Google, copy `Config/Local.example.xcconfig` to ignored `Config/Local.xcconfig`, add the new iOS client and reversed-client values, and keep the committed Web server client value unchanged.
+5. Send Google `idToken.tokenString` as `credential`; never send access token, email, Google display name, raw Google subject, or a client secret.
+6. Require the existing confirmed public nickname before ranked Arcade. Obtain the ticket before the first target, finish with proof tuples only, and abandon on restart/menu/background.
+7. Fall back to clearly labeled local practice when ranked preparation fails. Never upload that local result later.
+
+Exit: public data works immediately; authenticated shared-data/ranked paths work after local Google configuration. No PHP deployment is part of this track.
 
 ### A4 — Validate the agreed device matrix
 
@@ -73,4 +93,4 @@ Exit: local gameplay passes on the physical device matrix. Only then choose the 
 
 ## Later migration order
 
-After A4, return to the full production plan in `docs/MIGRATION_PLAN.md`. Google Sign-In requires a native iOS OAuth client and compatible backend exchange; it is not needed for local play and is not the only eventual release credential. Ads and StoreKit remain disabled placeholders until their product, server, accounting, and release work is deliberately resumed.
+After A4, return to the full production plan in `docs/MIGRATION_PLAN.md`. Before external distribution, replace P-014's temporary build compatibility with the native contract proposed in `docs/API_CONTRACT.md`. Ads and StoreKit remain disabled placeholders until their product, server, accounting, and release work is deliberately resumed.

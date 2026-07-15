@@ -2,10 +2,18 @@ import PimPoPomCore
 import SwiftUI
 
 struct RootView: View {
+    @EnvironmentObject private var backend: BackendClient
+
     let services: AlphaServices
+    let googleIdentity: GoogleIdentityService
+
+    @State private var accountStatus: String?
+    @State private var nickname = ""
+    @State private var accountBusy = false
+    @State private var navigationPath: [GameMode] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 LinearGradient(
                     colors: [Color(red: 0.03, green: 0.07, blue: 0.14), .black],
@@ -14,150 +22,240 @@ struct RootView: View {
                 )
                 .ignoresSafeArea()
 
-                VStack(spacing: 24) {
-                    Spacer()
-
-                    VStack(spacing: 8) {
-                        Text("PimPoPom")
-                            .font(.system(size: 48, weight: .black, design: .rounded))
-                            .foregroundStyle(.white)
-                            .minimumScaleFactor(0.75)
-
-                        Text("Native iOS · Bootstrap Alpha")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.65))
+                ScrollView {
+                    VStack(spacing: 20) {
+                        title
+                        modeButtons
+                        serviceButtons
+                        accountCard
+                        footer
                     }
-
-                    VStack(spacing: 14) {
-                        modeLink(.arcade, color: .cyan)
-                        modeLink(.zen, color: .mint)
-                    }
-
-                    Text("Local only · no login · no ads · no purchases")
-                        .font(.footnote)
-                        .foregroundStyle(.white.opacity(0.55))
-                        .multilineTextAlignment(.center)
-
-                    Spacer()
-
-                    HStack {
-                        Text("Build 1")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.white.opacity(0.45))
-
-                        Spacer()
-
-                        Button("Remove Ads") {}
-                            .buttonStyle(.bordered)
-                            .disabled(services.purchases.availability == .disabledForLocalAlpha)
-                            .accessibilityHint("Unavailable in the local bootstrap alpha")
-                    }
+                    .padding(20)
+                    .frame(maxWidth: 560)
+                    .frame(maxWidth: .infinity)
                 }
-                .padding(24)
             }
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: GameMode.self) { GameView(mode: $0) }
         }
         .tint(.white)
+        .task {
+            configureDebugLaunch()
+            await restoreSession()
+        }
+    }
+
+    private var title: some View {
+        VStack(spacing: 7) {
+            Text("PimPoPom")
+                .font(.system(size: 48, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+                .minimumScaleFactor(0.75)
+            Text("Native iOS · Internal Alpha")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+            if let season = backend.sessionState?.season {
+                Text(season.id == "ui-test" ? season.name : "Hostinger · \(season.name)")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.cyan.opacity(0.82))
+                    .accessibilityIdentifier("backend-environment")
+            }
+        }
+        .padding(.top, 24)
+    }
+
+    private var modeButtons: some View {
+        VStack(spacing: 12) {
+            modeLink(.arcade, color: .cyan)
+            modeLink(.zen, color: .mint)
+        }
+    }
+
+    private var serviceButtons: some View {
+        NavigationLink {
+            LeaderboardView()
+        } label: {
+            Label("Season leaderboard", systemImage: "trophy.fill")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    private var accountCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Player", systemImage: "person.crop.circle")
+                    .font(.headline.weight(.bold))
+                Spacer()
+                if backend.isLoadingSession || accountBusy { ProgressView() }
+            }
+
+            if let profile = backend.profile {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(profile.nickname)
+                            .font(.title3.weight(.bold))
+                        Text("\(profile.coins) coins · \(profile.totalPlayMs / 60_000) verified minutes")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.white.opacity(0.62))
+                    }
+                    Spacer()
+                    Button("Sign out") { Task { await signOut() } }
+                        .font(.caption.weight(.bold))
+                }
+
+                if !profile.nicknameConfirmed {
+                    TextField("Public nickname", text: $nickname)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(12)
+                        .background(.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 12))
+                    Button("Confirm nickname") { Task { await saveNickname() } }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.cyan)
+                        .foregroundStyle(.black)
+                        .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                } else {
+                    Text("Arcade runs use the deployed protocol-verified leaderboard.")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.60))
+                }
+            } else {
+                Text("Play locally now. Sign in to use the existing players, coins, and ranked leaderboard.")
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.68))
+                Button {
+                    Task { await signIn() }
+                } label: {
+                    Label("Continue with Google", systemImage: "person.badge.key.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.white)
+                .foregroundStyle(.black)
+                .disabled(!googleIdentity.isConfigured || accountBusy)
+
+                if !googleIdentity.isConfigured {
+                    Text("Google placeholder active: add the iOS OAuth client ID in Config/Local.xcconfig.")
+                        .font(.caption)
+                        .foregroundStyle(.yellow.opacity(0.80))
+                }
+            }
+
+            if let status = accountStatus ?? backend.lastError {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(16)
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private var footer: some View {
+        HStack(alignment: .bottom) {
+            Text("Build \(appBuildNumber) · API \(BackendClient.deployedBuildID)")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.38))
+            Spacer()
+            Button("Remove Ads") {}
+                .buttonStyle(.bordered)
+                .frame(minWidth: 44, minHeight: 44)
+                .disabled(services.purchases.availability == .disabledForLocalAlpha)
+                .accessibilityHint("StoreKit is disabled in the internal alpha")
+        }
+        .padding(.bottom, 8)
+    }
+
+    private var appBuildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
     }
 
     private func modeLink(_ mode: GameMode, color: Color) -> some View {
-        NavigationLink {
-            BootstrapGameView(mode: mode, ads: services.ads)
-        } label: {
+        NavigationLink(value: mode) {
             HStack {
-                Text(mode.displayName)
-                    .font(.title3.weight(.bold))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.displayName)
+                        .font(.title3.weight(.bold))
+                    Text(mode == .arcade ? "Ranked when signed in" : "Endless local practice")
+                        .font(.caption.weight(.semibold))
+                        .opacity(0.65)
+                }
                 Spacer()
                 Image(systemName: "arrow.right")
                     .font(.headline.weight(.bold))
             }
             .foregroundStyle(.black)
-            .padding(.horizontal, 20)
-            .frame(maxWidth: .infinity, minHeight: 58)
+            .padding(.horizontal, 18)
+            .frame(maxWidth: .infinity, minHeight: 62)
             .background(color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .accessibilityHint("Opens the native gameplay bootstrap screen")
+        .accessibilityIdentifier("mode-\(mode.rawValue)")
     }
-}
 
-private struct BootstrapGameView: View {
-    let mode: GameMode
-    let ads: any AdServing
+    private func restoreSession() async {
+        do {
+            let session = try await backend.loadSession()
+            guard !session.authenticated,
+                let token = try await googleIdentity.restoreIDTokenIfAvailable()
+            else { return }
+            _ = try await backend.login(googleIDToken: token)
+        } catch {
+            accountStatus = error.localizedDescription
+        }
+    }
 
-    var body: some View {
-        ZStack {
-            Color(red: 0.03, green: 0.05, blue: 0.10)
-                .ignoresSafeArea()
+    private func signIn() async {
+        accountBusy = true
+        defer { accountBusy = false }
+        do {
+            let token = try await googleIdentity.signIn()
+            let session = try await backend.login(googleIDToken: token)
+            nickname = session.profile?.nicknameConfirmed == false ? "" : session.profile?.nickname ?? ""
+            accountStatus = nil
+        } catch {
+            accountStatus = error.localizedDescription
+        }
+    }
 
-            VStack(spacing: 14) {
-                HStack {
-                    stat("Score", value: "0")
-                    Spacer()
-                    stat(mode == .arcade ? "Lives" : "Mode", value: mode == .arcade ? "● ● ●" : "∞")
-                }
+    private func signOut() async {
+        accountBusy = true
+        defer { accountBusy = false }
+        do {
+            _ = try await backend.logout()
+            googleIdentity.signOut()
+            accountStatus = nil
+        } catch {
+            accountStatus = error.localizedDescription
+        }
+    }
 
-                VStack(spacing: 16) {
-                    Image(systemName: "hammer.fill")
-                        .font(.system(size: 42, weight: .bold))
-                        .foregroundStyle(.cyan)
+    private func saveNickname() async {
+        accountBusy = true
+        defer { accountBusy = false }
+        do {
+            _ = try await backend.updateNickname(nickname)
+            accountStatus = nil
+        } catch {
+            accountStatus = error.localizedDescription
+        }
+    }
 
-                    Text("Gameplay port is next")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(.white)
-
-                    Text("This first build proves the project, compact layout, signing, and device installation before the deterministic engine and SpriteKit board are connected.")
-                        .font(.body)
-                        .foregroundStyle(.white.opacity(0.68))
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(24)
-                .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack {
-                        Text("Speed streak")
-                        Spacer()
-                        Text("1×")
-                    }
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.7))
-
-                    ProgressView(value: 0, total: 5)
-                        .tint(.cyan)
-                }
-
-                if ads.availability == .disabledForLocalAlpha {
-                    Text("Ad service disabled · local alpha")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.48))
-                        .frame(maxWidth: .infinity, minHeight: 28)
-                        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
-                        .accessibilityLabel("Ads disabled for local alpha")
-                }
+    private func configureDebugLaunch() {
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--play-arcade") {
+                navigationPath = [.arcade]
+            } else if ProcessInfo.processInfo.arguments.contains("--play-zen") {
+                navigationPath = [.zen]
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
-        }
-        .navigationTitle(mode.displayName)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color(red: 0.03, green: 0.05, blue: 0.10), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-    }
-
-    private func stat(_ label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label.uppercased())
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(.white.opacity(0.5))
-            Text(value)
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(.white)
-        }
-        .accessibilityElement(children: .combine)
+        #endif
     }
 }
 
 #Preview {
-    RootView(services: .localOnly)
+    RootView(services: .localOnly, googleIdentity: GoogleIdentityService())
+        .environmentObject(BackendClient())
 }

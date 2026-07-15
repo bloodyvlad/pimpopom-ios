@@ -1,0 +1,4 @@
+// Copy to ignored Config/Local.xcconfig and fill the public iOS OAuth values.
+// No Google client secret belongs in an iOS app.
+PIMPOPOM_GOOGLE_IOS_CLIENT_ID = 000000000000-example.apps.googleusercontent.com
+PIMPOPOM_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.000000000000-example
