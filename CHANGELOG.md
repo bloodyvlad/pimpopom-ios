@@ -16,6 +16,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Hostinger Season 1 session, profile/nickname, public leaderboard, ranked ticket/abandon/finish client paths, plus local-practice fallback.
 - Google Sign-In for iOS integration with ignored iOS OAuth configuration and the existing Web server audience.
 - Two SE simulator UI smoke tests and compact-layout checks on the iPhone 13 mini and iPhone 13 Pro simulator profiles.
+- Original PimPoPom internal-alpha app-icon candidate with retained generation source, prompt, and hashes.
 
 ### Changed
 
