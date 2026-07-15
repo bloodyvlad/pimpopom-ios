@@ -13,6 +13,8 @@ PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid
 
 These are implementation-time observations, not release truth. Record physical runs with device/iOS/build/commit before changing the evidence label to device-tested.
 
+The retained iOS 26.5 screenshots and hashes for implementation commit `6fbc6d3c9c537e11a0a8f4a0af25872d73febbef` are recorded in [`DESIGN_QA.md`](DESIGN_QA.md).
+
 ## Test layers
 
 ### Pure core tests
