@@ -4,7 +4,18 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 ## Current evidence
 
-The playable Xcode alpha has Simulator evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles. The earlier gameplay/icon checkpoint was also development-signed, installed, launched, and reported working on the owner's physical iPhone SE with iOS 26.3. That confirmation was not a structured timing, layout, accessibility, or audio pass. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+The playable Xcode alpha has Simulator evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles. The earlier gameplay/icon checkpoint was development-signed, installed, launched, and reported working on the owner's physical iPhone SE with iOS 26.3. The newer cosmetics/economy/audio checkpoint was development-signed and installed on that device, but automatic launch was denied because the phone was locked. Neither checkpoint is a structured timing, layout, accessibility, or audio pass. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+
+## Physical iPhone SE cosmetics/audio install checkpoint — 2026-07-15
+
+- **Candidate/version/build:** PimPoPom 0.1.0 (1).
+- **Implementation commit:** `54bd3720d22e42dfd88dc8c1ef7d660f63a6ae7a` (`feat: port cosmetics economy and audio`).
+- **Device and OS:** owner's iPhone SE (3rd generation, 2022), iOS 26.3.
+- **Configuration:** Debug; automatic Apple development signing; team `APX2925X66`; bundle `com.otcsoft.pimpopom.alpha`; USB trusted and Developer Mode enabled.
+- **Evidence:** a clean physical-device build succeeded, and CoreDevice reported successful installation of the signed app bundle. The immediate automatic-launch request was denied because the phone was locked.
+- **Scope:** confirms compilation, signing, packaging, and installation of the cosmetics/economy/audio checkpoint.
+- **Not covered:** application launch or listening/touch review of this checkpoint; Google sign-in; authenticated theme/pet purchases; reaction timing; audio latency/balance/Silent switch/routes; accessibility; 13 mini/13 Pro hardware.
+- **Evidence statement:** physical installation checkpoint only; not launch-tested, device-tested, or production-verified.
 
 ## Physical iPhone SE install checkpoint — 2026-07-15
 
