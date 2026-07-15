@@ -53,6 +53,48 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(resultTitle.label, "Zen results")
     }
 
+    func testThemeShopExposesCoinStorePlaceholder() throws {
+        let app = launch()
+        openMenuControl("open-theme-shop", in: app)
+
+        XCTAssertTrue(app.navigationBars["Theme Shop"].waitForExistence(timeout: 3))
+        let buyCoins = app.buttons["theme-buy-coins"]
+        XCTAssertTrue(buyCoins.waitForExistence(timeout: 3))
+        buyCoins.tap()
+
+        XCTAssertTrue(app.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            app.staticTexts["StoreKit coin packs are disabled in this internal alpha."]
+                .waitForExistence(timeout: 2)
+        )
+    }
+
+    func testPetShopExposesCoinStoreAndPlaceholderPetArt() throws {
+        let app = launch()
+        openMenuControl("open-pet-shop", in: app)
+
+        XCTAssertTrue(app.navigationBars["Pet Shop"].waitForExistence(timeout: 3))
+        let buyCoins = app.buttons["pet-buy-coins"]
+        XCTAssertTrue(buyCoins.waitForExistence(timeout: 3))
+        XCTAssertTrue(scrollToText("PLACEHOLDER", in: app))
+
+        for _ in 0..<8 where !buyCoins.isHittable {
+            app.swipeDown()
+        }
+        XCTAssertTrue(buyCoins.isHittable)
+        buyCoins.tap()
+        XCTAssertTrue(app.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
+    }
+
+    func testSettingsExposeIndependentAudioControls() throws {
+        let app = launch()
+        openMenuControl("open-settings", in: app)
+
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.switches["sound-effects-toggle"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.switches["music-toggle"].waitForExistence(timeout: 2))
+    }
+
     private func launch() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--deterministic-game", "--uitesting"]
@@ -61,5 +103,23 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(environment.waitForExistence(timeout: 3))
         XCTAssertEqual(environment.label, "Offline UI Test")
         return app
+    }
+
+    private func openMenuControl(_ identifier: String, in app: XCUIApplication) {
+        let control = app.descendants(matching: .any)[identifier]
+        for _ in 0..<5 where !control.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(control.exists, "Missing menu control: \(identifier)")
+        XCTAssertTrue(control.isHittable, "Menu control is not hittable: \(identifier)")
+        control.tap()
+    }
+
+    private func scrollToText(_ label: String, in app: XCUIApplication) -> Bool {
+        let text = app.staticTexts[label]
+        for _ in 0..<8 where !text.exists {
+            app.swipeUp()
+        }
+        return text.exists
     }
 }

@@ -6,6 +6,8 @@ struct GameView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var backend: BackendClient
+    @EnvironmentObject private var cosmetics: CosmeticsController
+    @EnvironmentObject private var audio: AudioController
     @StateObject private var coordinator: GameCoordinator
     @State private var runTicket: RunTicket?
     @State private var preparing = true
@@ -13,6 +15,11 @@ struct GameView: View {
     @State private var submissionStarted = false
     @State private var submissionFailed = false
     @State private var preparationGeneration = 0
+    @State private var frozenTheme = ThemePalette.classic
+    @State private var frozenPetID: String?
+    @State private var didFreezePresentation = false
+
+    private var palette: ThemePalette { frozenTheme }
 
     init(mode: GameMode) {
         _coordinator = StateObject(wrappedValue: GameCoordinator(mode: mode))
@@ -20,12 +27,7 @@ struct GameView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(red: 0.02, green: 0.05, blue: 0.11), .black],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            AppThemeBackground(theme: palette)
 
             VStack(spacing: 10) {
                 hud
@@ -34,24 +36,32 @@ struct GameView: View {
 
                 SpriteView(scene: coordinator.scene, options: [.ignoresSiblingOrder])
                     .aspectRatio(1, contentMode: .fit)
-                    .background(.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 22))
+                    .background(
+                        Color(hex: palette.board).opacity(0.96),
+                        in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 22)
+                    )
                     .accessibilityLabel("Reaction board")
                     .accessibilityIdentifier("reaction-board")
 
                 Text(coordinator.feedback)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.76))
+                    .foregroundStyle(Color(hex: palette.muted))
                     .frame(height: 22)
                     .accessibilityIdentifier("game-feedback")
 
                 if coordinator.mode == .zen {
                     Button("End run") { coordinator.endZenRun() }
                         .buttonStyle(.bordered)
-                        .tint(.white.opacity(0.8))
+                        .tint(Color(hex: palette.foreground).opacity(0.8))
                         .accessibilityIdentifier("end-zen-run")
                 }
 
                 Spacer(minLength: 0)
+                if let petID = frozenPetID {
+                    PetCompanionView(petID: petID, size: 54, includesHabitat: false)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .accessibilityIdentifier("gameplay-pet")
+                }
                 streakMeter
             }
             .padding(.horizontal, 14)
@@ -76,23 +86,43 @@ struct GameView: View {
                 adPlaceholder
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.96))
+                    .background(Color(hex: palette.backgroundBottom).opacity(0.96))
             }
         }
         .navigationTitle(coordinator.mode.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(submissionStarted)
-        .toolbarBackground(Color(red: 0.02, green: 0.05, blue: 0.11), for: .navigationBar)
+        .toolbarBackground(Color(hex: palette.backgroundTop), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .task { await prepareAndStart() }
+        .toolbarColorScheme(palette.isLight ? .light : .dark, for: .navigationBar)
+        .task {
+            freezePresentationIfNeeded()
+            coordinator.onSoundEvent = { event in
+                switch event {
+                case .correctTap(let hitNumber):
+                    audio.playTap(hitNumber: hitNumber)
+                case .lifeLoss:
+                    audio.playLifeLoss()
+                }
+            }
+            audio.setMusicContext(.gameplay)
+            await prepareAndStart()
+        }
         .onDisappear {
             preparationGeneration += 1
             coordinator.stop()
+            coordinator.onSoundEvent = nil
             abandonTicketIfNeeded()
+            audio.setMusicContext(.menu)
         }
         .onChange(of: coordinator.isFinished) { _, finished in
-            if finished { submitRankedRunIfNeeded() }
+            if finished {
+                audio.setMusicContext(.silent)
+                submitRankedRunIfNeeded()
+            }
+        }
+        .onChange(of: coordinator.wasAbandoned) { _, abandoned in
+            if abandoned { audio.setMusicContext(.silent) }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active {
@@ -101,6 +131,8 @@ struct GameView: View {
                 coordinator.abandonForBackground()
             } else if preparing {
                 Task { await prepareAndStart() }
+            } else if !coordinator.isFinished, !coordinator.wasAbandoned {
+                audio.setMusicContext(.gameplay)
             }
         }
     }
@@ -128,10 +160,10 @@ struct GameView: View {
             Text(coordinator.snapshot.playerColor.name)
                 .font(.headline.weight(.black))
         }
-        .foregroundStyle(Color(hex: coordinator.snapshot.playerColor.ink))
+        .foregroundStyle(palette.promptInkColor(at: coordinator.snapshot.playerColorIndex))
         .padding(.horizontal, 18)
         .padding(.vertical, 8)
-        .background(Color(hex: coordinator.snapshot.playerColor.value), in: Capsule())
+        .background(palette.color(at: coordinator.snapshot.playerColorIndex), in: Capsule())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "Target color \(coordinator.snapshot.playerColor.name), symbol \(coordinator.snapshot.playerColor.glyph)")
@@ -156,12 +188,16 @@ struct GameView: View {
                 Text("\(coordinator.snapshot.multiplier)×")
             }
             .font(.caption.weight(.bold))
-            .foregroundStyle(.white.opacity(0.72))
+            .foregroundStyle(Color(hex: palette.muted))
 
             HStack(spacing: 5) {
                 ForEach(0..<coordinator.snapshot.streakTarget, id: \.self) { index in
                     Capsule()
-                        .fill(index < coordinator.snapshot.streakProgress ? Color.cyan : .white.opacity(0.12))
+                        .fill(
+                            index < coordinator.snapshot.streakProgress
+                                ? Color(hex: palette.accent)
+                                : Color(hex: palette.foreground).opacity(0.12)
+                        )
                         .frame(height: 7)
                 }
             }
@@ -171,9 +207,12 @@ struct GameView: View {
     private var adPlaceholder: some View {
         Text("Ads disabled · internal alpha")
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(.white.opacity(0.42))
+            .foregroundStyle(Color(hex: palette.muted).opacity(0.78))
             .frame(maxWidth: .infinity, minHeight: 26)
-            .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+            .background(
+                Color(hex: palette.surface).opacity(0.78),
+                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 8)
+            )
             .accessibilityIdentifier("ad-placeholder")
     }
 
@@ -188,30 +227,30 @@ struct GameView: View {
                 .accessibilityIdentifier("results-title")
                 Text("\(coordinator.snapshot.points)")
                     .font(.system(size: 54, weight: .black, design: .rounded))
-                    .foregroundStyle(.cyan)
+                    .foregroundStyle(Color(hex: palette.accent))
                 Text(
                     "\(coordinator.snapshot.hits) hits · \(coordinator.snapshot.misses) misses · \(coordinator.snapshot.dodges) dodges"
                 )
                 .font(.subheadline.monospacedDigit())
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(Color(hex: palette.muted))
                 Text("\(formatDuration(coordinator.snapshot.elapsedMilliseconds)) elapsed")
                     .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(Color(hex: palette.muted))
 
                 if coordinator.snapshot.hits > 0 {
                     Text(reactionSummary)
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.72))
+                        .foregroundStyle(Color(hex: palette.muted))
                     Text(ratingSummary)
                         .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.58))
+                        .foregroundStyle(Color(hex: palette.muted).opacity(0.82))
                         .multilineTextAlignment(.center)
                 }
 
                 if !runStatus.isEmpty {
                     Text(runStatus)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(Color(hex: palette.accent))
                         .multilineTextAlignment(.center)
                 }
 
@@ -225,23 +264,28 @@ struct GameView: View {
 
                 Button("Play again") { Task { await prepareAndStart() } }
                     .buttonStyle(.borderedProminent)
-                    .tint(.cyan)
+                    .tint(Color(hex: palette.accent))
                     .foregroundStyle(.black)
                     .disabled(submissionStarted)
                 Button("Main menu") { dismiss() }
                     .buttonStyle(.bordered)
                     .disabled(submissionStarted)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Color(hex: palette.foreground))
             .padding(22)
             .frame(maxWidth: 330)
-            .background(Color(red: 0.05, green: 0.08, blue: 0.14), in: RoundedRectangle(cornerRadius: 28))
+            .background(
+                Color(hex: palette.surface),
+                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 28)
+            )
         }
     }
 
     private var responseTint: Color {
         let progress = coordinator.snapshot.reactionProgress ?? 0
-        return progress > 0.55 ? .cyan : (progress > 0.25 ? .yellow : .pink)
+        return progress > 0.55
+            ? Color(hex: palette.accent)
+            : (progress > 0.25 ? palette.color(at: 1) : palette.color(at: 2))
     }
 
     private var reactionSummary: String {
@@ -260,10 +304,10 @@ struct GameView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(Color(hex: palette.muted))
             Text(value)
                 .font(.headline.monospacedDigit())
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(hex: palette.foreground))
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier(identifier)
@@ -278,6 +322,7 @@ struct GameView: View {
         preparationGeneration += 1
         let preparation = preparationGeneration
         preparing = true
+        audio.setMusicContext(.gameplay)
         submissionStarted = false
         submissionFailed = false
         if let existingTicket = runTicket {
@@ -341,6 +386,14 @@ struct GameView: View {
         guard let ticket = runTicket, !submissionStarted else { return }
         runTicket = nil
         Task { await backend.abandonRun(ticket.runId) }
+    }
+
+    private func freezePresentationIfNeeded() {
+        guard !didFreezePresentation else { return }
+        didFreezePresentation = true
+        frozenTheme = cosmetics.theme
+        frozenPetID = cosmetics.displayedPetID
+        coordinator.applyTheme(frozenTheme.id)
     }
 }
 

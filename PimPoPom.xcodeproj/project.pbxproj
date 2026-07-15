@@ -7,21 +7,58 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		03528CE7275198A4BEB75E9B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */; };
 		03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D742807F5506EC05BA9FAFE /* GameView.swift */; };
+		04052855CC26052581CF9499 /* audio-light-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */; };
+		069780A643FA0657F2591156 /* audio-classic-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */; };
+		0AD2A3C5E816E83335A715E9 /* misha-climber.png in Resources */ = {isa = PBXBuildFile; fileRef = 343C3D60DEB6783CB739995F /* misha-climber.png */; };
+		11BEA7BA6EFF98C47DF75DCB /* kesha-perch.png in Resources */ = {isa = PBXBuildFile; fileRef = A094CABC4F0AA44F4126624B /* kesha-perch.png */; };
+		18D7F6E90248D32DD8371432 /* audio-light-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 7A7AAB5003782A88EC74437A /* audio-light-tones.wav */; };
 		1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */; };
 		1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */; };
 		21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */; };
+		228758F9D283D50E443CD560 /* audio-pixel-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */; };
+		24F0C16C1DE42D0FB31628E2 /* kesha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = B194C5E2A0BBB6D9E67B30A2 /* kesha-sprite.png */; };
+		2749EA7C9189C2642CC5D2BB /* audio-pixel-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 12AF44BA9D72AACA0C78C26A /* audio-pixel-tones.wav */; };
 		2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */; };
+		339BFE056EAC7EFF394CC904 /* audio-pimpopom-sting.wav in Resources */ = {isa = PBXBuildFile; fileRef = 36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */; };
+		33CE829944CE88CF56F940A8 /* foka-ice-floe.png in Resources */ = {isa = PBXBuildFile; fileRef = A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */; };
+		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
+		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
 		56603C4049290197D71E7DE7 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C4870F00BE8DF3014F005A13 /* GoogleSignIn */; };
+		65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */; };
+		67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */; };
 		6E46ABD4087FBC9FAF4D9E0C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 491AE95125B0A41ABB5B5D44 /* Assets.xcassets */; };
+		7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54435E3370FE5F0E7640F4F /* PetShopView.swift */; };
+		754E8CD00718D0D507BB1414 /* audio-oops.wav in Resources */ = {isa = PBXBuildFile; fileRef = DEC51376F984CE9F83F10F80 /* audio-oops.wav */; };
 		76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */; };
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
+		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
+		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
+		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
+		9C470570FF857655FC7C104B /* audio-disco-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6038C3199A866EB364429ECE /* audio-disco-run.m4a */; };
 		9CAA0142DC9459BD38BB7961 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */; };
 		9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B807723F13D7024F84747F72 /* GameCoordinator.swift */; };
+		B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */; };
 		B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9648B3C4989B1B1FF9557057 /* GameScene.swift */; };
+		B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */; };
 		BA919DD6B28AE526B4C39B05 /* PimPoPomCore in Frameworks */ = {isa = PBXBuildFile; productRef = B99BB11775542C9E63F45B2A /* PimPoPomCore */; };
+		BAAA8B086F97BE06F9456CA5 /* audio-pixel-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 5E5B8A0B92FABA6CEC0AEBE9 /* audio-pixel-run.m4a */; };
+		BBCC077B701858F45928B177 /* audio-light-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = C6AB62B941B5843C8BE01C86 /* audio-light-run.m4a */; };
+		BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 1FD1D8CB83628904EBD471FB /* tauta-sprite.png */; };
+		C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */; };
+		D2FF783D7B37B3FD555CEF37 /* misha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */; };
+		D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */ = {isa = PBXBuildFile; fileRef = EB365660F1E96C034ECE4A85 /* tauta-bed.png */; };
+		E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */ = {isa = PBXBuildFile; fileRef = 86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */; };
+		EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E26897A668D55114A2D880 /* AudioResourceTests.swift */; };
 		EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */; };
+		EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */; };
+		F037D0227E7E02244D5E47A6 /* audio-disco-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */; };
+		F0C814B129B6961AD724CF1B /* ThemeShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */; };
+		F3A8B24E48292FDEB6D6401E /* audio-classic-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */; };
+		F4AE009770F8DC89C9519B7B /* foka-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */; };
+		F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,27 +69,72 @@
 			remoteGlobalIDString = 030B2CE7F1621A5B13CB0A74;
 			remoteInfo = PimPoPom;
 		};
+		938AAFF7C7D4D71155C6D7B1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 409F99DCD15ECDCD03F25003 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 030B2CE7F1621A5B13CB0A74;
+			remoteInfo = PimPoPom;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetCompanionView.swift; sourceTree = "<group>"; };
 		0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
+		101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-sprite.png"; sourceTree = "<group>"; };
+		12AF44BA9D72AACA0C78C26A /* audio-pixel-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pixel-tones.wav"; sourceTree = "<group>"; };
+		14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsTests.swift; sourceTree = "<group>"; };
+		1EAF0D8DD171854555FDD1CF /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
 		1EDDAAA3EB14D6E430476DAB /* PimPoPomCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PimPoPomCore; path = Packages/PimPoPomCore; sourceTree = SOURCE_ROOT; };
+		1FD1D8CB83628904EBD471FB /* tauta-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-sprite.png"; sourceTree = "<group>"; };
+		29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesAndContractTests.swift; sourceTree = "<group>"; };
+		29E26897A668D55114A2D880 /* AudioResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioResourceTests.swift; sourceTree = "<group>"; };
 		2A0CD8335C4D1E08E4401607 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoinStorePlaceholderView.swift; sourceTree = "<group>"; };
+		30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClientTests.swift; sourceTree = "<group>"; };
+		343C3D60DEB6783CB739995F /* misha-climber.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-climber.png"; sourceTree = "<group>"; };
+		36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pimpopom-sting.wav"; sourceTree = "<group>"; };
+		3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-sprite.png"; sourceTree = "<group>"; };
 		449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		491AE95125B0A41ABB5B5D44 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		59325BF36E2F3C3A524AD069 /* PimPoPomTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D742807F5506EC05BA9FAFE /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		5E5B8A0B92FABA6CEC0AEBE9 /* audio-pixel-run.m4a */ = {isa = PBXFileReference; path = "audio-pixel-run.m4a"; sourceTree = "<group>"; };
+		6038C3199A866EB364429ECE /* audio-disco-run.m4a */ = {isa = PBXFileReference; path = "audio-disco-run.m4a"; sourceTree = "<group>"; };
+		65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeShopView.swift; sourceTree = "<group>"; };
+		753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-disco-tones.wav"; sourceTree = "<group>"; };
+		7A7AAB5003782A88EC74437A /* audio-light-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-light-tones.wav"; sourceTree = "<group>"; };
+		7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */ = {isa = PBXFileReference; path = "audio-pixel-menu.m4a"; sourceTree = "<group>"; };
+		7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsController.swift; sourceTree = "<group>"; };
+		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
+		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9648B3C4989B1B1FF9557057 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		A094CABC4F0AA44F4126624B /* kesha-perch.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-perch.png"; sourceTree = "<group>"; };
+		A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-ice-floe.png"; sourceTree = "<group>"; };
+		A54435E3370FE5F0E7640F4F /* PetShopView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetShopView.swift; sourceTree = "<group>"; };
 		A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomApp.swift; sourceTree = "<group>"; };
 		AB2BA21A885F2ADE255459DC /* PimPoPom.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PimPoPom.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPreferences.swift; sourceTree = "<group>"; };
+		B194C5E2A0BBB6D9E67B30A2 /* kesha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-sprite.png"; sourceTree = "<group>"; };
 		B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlphaServices.swift; sourceTree = "<group>"; };
+		B50F7D6276F80417F9888373 /* audio-classic-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-classic-tones.wav"; sourceTree = "<group>"; };
 		B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomUITests.swift; sourceTree = "<group>"; };
 		B807723F13D7024F84747F72 /* GameCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCoordinator.swift; sourceTree = "<group>"; };
+		C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */ = {isa = PBXFileReference; path = "audio-light-menu.m4a"; sourceTree = "<group>"; };
 		C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClient.swift; sourceTree = "<group>"; };
+		C6AB62B941B5843C8BE01C86 /* audio-light-run.m4a */ = {isa = PBXFileReference; path = "audio-light-run.m4a"; sourceTree = "<group>"; };
+		CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-sprite.png"; sourceTree = "<group>"; };
 		CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleIdentityService.swift; sourceTree = "<group>"; };
+		D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		DA2E75B83D2198FB2E99E518 /* BackendModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendModels.swift; sourceTree = "<group>"; };
+		DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */ = {isa = PBXFileReference; path = "audio-classic-menu.m4a"; sourceTree = "<group>"; };
+		DEC51376F984CE9F83F10F80 /* audio-oops.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-oops.wav"; sourceTree = "<group>"; };
+		EB365660F1E96C034ECE4A85 /* tauta-bed.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-bed.png"; sourceTree = "<group>"; };
 		FA9F840B4895429C17E7AA09 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */ = {isa = PBXFileReference; path = "audio-classic-run.m4a"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,6 +165,7 @@
 				491AE95125B0A41ABB5B5D44 /* Assets.xcassets */,
 				A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */,
 				2A0CD8335C4D1E08E4401607 /* RootView.swift */,
+				445F7E700DC0D7AE3A16E35D /* Design */,
 				65D86F956D0B213E18CB7DF9 /* Features */,
 				EBEF85AB212E22ED8DE20E6C /* Gameplay */,
 				E5632A3555BEBB5AA3B9681F /* Resources */,
@@ -95,8 +178,35 @@
 			isa = PBXGroup;
 			children = (
 				233DDCB53E6246DDBA07FCAF /* UITests */,
+				B2C490FAA687884E2214FE4F /* Unit */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		3DE7A7A36049AAC122134165 /* Pets */ = {
+			isa = PBXGroup;
+			children = (
+				A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */,
+				CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */,
+				A094CABC4F0AA44F4126624B /* kesha-perch.png */,
+				B194C5E2A0BBB6D9E67B30A2 /* kesha-sprite.png */,
+				343C3D60DEB6783CB739995F /* misha-climber.png */,
+				3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */,
+				86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */,
+				101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */,
+				EB365660F1E96C034ECE4A85 /* tauta-bed.png */,
+				1FD1D8CB83628904EBD471FB /* tauta-sprite.png */,
+			);
+			path = Pets;
+			sourceTree = "<group>";
+		};
+		445F7E700DC0D7AE3A16E35D /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */,
+				D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */,
+			);
+			path = Design;
 			sourceTree = "<group>";
 		};
 		5613FBE8D6F777639158706B /* Packages */ = {
@@ -107,10 +217,36 @@
 			path = Packages;
 			sourceTree = "<group>";
 		};
+		5D407D1F0AAFF5FCB9764446 /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */,
+				FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */,
+				B50F7D6276F80417F9888373 /* audio-classic-tones.wav */,
+				81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */,
+				6038C3199A866EB364429ECE /* audio-disco-run.m4a */,
+				753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */,
+				C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */,
+				C6AB62B941B5843C8BE01C86 /* audio-light-run.m4a */,
+				7A7AAB5003782A88EC74437A /* audio-light-tones.wav */,
+				DEC51376F984CE9F83F10F80 /* audio-oops.wav */,
+				36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */,
+				7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */,
+				5E5B8A0B92FABA6CEC0AEBE9 /* audio-pixel-run.m4a */,
+				12AF44BA9D72AACA0C78C26A /* audio-pixel-tones.wav */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
 		65D86F956D0B213E18CB7DF9 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */,
+				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
 				0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */,
+				A54435E3370FE5F0E7640F4F /* PetShopView.swift */,
+				4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */,
+				65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -119,9 +255,21 @@
 			isa = PBXGroup;
 			children = (
 				AB2BA21A885F2ADE255459DC /* PimPoPom.app */,
+				59325BF36E2F3C3A524AD069 /* PimPoPomTests.xctest */,
 				9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B2C490FAA687884E2214FE4F /* Unit */ = {
+			isa = PBXGroup;
+			children = (
+				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
+				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
+				14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */,
+				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
+			);
+			path = Unit;
 			sourceTree = "<group>";
 		};
 		C636B9FB9800F1010DC9A731 = {
@@ -147,6 +295,8 @@
 		E1F73E23574CABE39BBD1F87 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */,
+				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
 				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
 				DA2E75B83D2198FB2E99E518 /* BackendModels.swift */,
 				CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */,
@@ -158,6 +308,8 @@
 			isa = PBXGroup;
 			children = (
 				B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */,
+				5D407D1F0AAFF5FCB9764446 /* Audio */,
+				3DE7A7A36049AAC122134165 /* Pets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -195,6 +347,24 @@
 			productName = PimPoPom;
 			productReference = AB2BA21A885F2ADE255459DC /* PimPoPom.app */;
 			productType = "com.apple.product-type.application";
+		};
+		683ABCAC4AC53450DFB5BDEF /* PimPoPomTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7C6BC591E85632941BC2B1EF /* Build configuration list for PBXNativeTarget "PimPoPomTests" */;
+			buildPhases = (
+				153A4C92B675372A15597D6A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D34DD6FB81E517DF0CB48CB4 /* PBXTargetDependency */,
+			);
+			name = PimPoPomTests;
+			packageProductDependencies = (
+			);
+			productName = PimPoPomTests;
+			productReference = 59325BF36E2F3C3A524AD069 /* PimPoPomTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		98410228FA17337B81547FD1 /* PimPoPomUITests */ = {
 			isa = PBXNativeTarget;
@@ -250,6 +420,7 @@
 			projectRoot = "";
 			targets = (
 				030B2CE7F1621A5B13CB0A74 /* PimPoPom */,
+				683ABCAC4AC53450DFB5BDEF /* PimPoPomTests */,
 				98410228FA17337B81547FD1 /* PimPoPomUITests */,
 			);
 		};
@@ -262,26 +433,70 @@
 			files = (
 				6E46ABD4087FBC9FAF4D9E0C /* Assets.xcassets in Resources */,
 				9CAA0142DC9459BD38BB7961 /* PrivacyInfo.xcprivacy in Resources */,
+				F3A8B24E48292FDEB6D6401E /* audio-classic-menu.m4a in Resources */,
+				069780A643FA0657F2591156 /* audio-classic-run.m4a in Resources */,
+				8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */,
+				8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */,
+				9C470570FF857655FC7C104B /* audio-disco-run.m4a in Resources */,
+				F037D0227E7E02244D5E47A6 /* audio-disco-tones.wav in Resources */,
+				04052855CC26052581CF9499 /* audio-light-menu.m4a in Resources */,
+				BBCC077B701858F45928B177 /* audio-light-run.m4a in Resources */,
+				18D7F6E90248D32DD8371432 /* audio-light-tones.wav in Resources */,
+				754E8CD00718D0D507BB1414 /* audio-oops.wav in Resources */,
+				339BFE056EAC7EFF394CC904 /* audio-pimpopom-sting.wav in Resources */,
+				228758F9D283D50E443CD560 /* audio-pixel-menu.m4a in Resources */,
+				BAAA8B086F97BE06F9456CA5 /* audio-pixel-run.m4a in Resources */,
+				2749EA7C9189C2642CC5D2BB /* audio-pixel-tones.wav in Resources */,
+				33CE829944CE88CF56F940A8 /* foka-ice-floe.png in Resources */,
+				F4AE009770F8DC89C9519B7B /* foka-sprite.png in Resources */,
+				11BEA7BA6EFF98C47DF75DCB /* kesha-perch.png in Resources */,
+				24F0C16C1DE42D0FB31628E2 /* kesha-sprite.png in Resources */,
+				0AD2A3C5E816E83335A715E9 /* misha-climber.png in Resources */,
+				D2FF783D7B37B3FD555CEF37 /* misha-sprite.png in Resources */,
+				E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */,
+				B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */,
+				D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */,
+				BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		153A4C92B675372A15597D6A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
+				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
+				EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */,
+				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2414FB905358B2A20AB75577 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */,
+				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
+				3E8B789C6846539EE101679E /* AudioController.swift in Sources */,
 				EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */,
 				46F5040558302ED97373D477 /* BackendModels.swift in Sources */,
+				67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */,
+				B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */,
 				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
 				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,
 				2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */,
 				76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */,
+				5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */,
+				7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */,
 				1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */,
 				8A9091375A080E76B3131D5B /* RootView.swift in Sources */,
+				03528CE7275198A4BEB75E9B /* SettingsView.swift in Sources */,
+				65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */,
+				F0C814B129B6961AD724CF1B /* ThemeShopView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -301,9 +516,50 @@
 			target = 030B2CE7F1621A5B13CB0A74 /* PimPoPom */;
 			targetProxy = 7B473F3F0E5B60E3D1519E7B /* PBXContainerItemProxy */;
 		};
+		D34DD6FB81E517DF0CB48CB4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 030B2CE7F1621A5B13CB0A74 /* PimPoPom */;
+			targetProxy = 938AAFF7C7D4D71155C6D7B1 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		28FE4F50BAB8BF1485DDB47F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PimPoPom.app/PimPoPom";
+			};
+			name = Debug;
+		};
+		52A687F72F18969A399E0D18 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PimPoPom.app/PimPoPom";
+			};
+			name = Release;
+		};
 		5A8B31A2F7EA0AA3011013B1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -518,6 +774,15 @@
 			buildConfigurations = (
 				6BF0CE206DD6A822EAF73DC1 /* Debug */,
 				5A8B31A2F7EA0AA3011013B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7C6BC591E85632941BC2B1EF /* Build configuration list for PBXNativeTarget "PimPoPomTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				28FE4F50BAB8BF1485DDB47F /* Debug */,
+				52A687F72F18969A399E0D18 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

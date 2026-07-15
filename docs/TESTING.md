@@ -4,14 +4,16 @@ PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid
 
 ## Current alpha evidence — 2026-07-15
 
-- **Unit-tested:** 29 Swift Testing checks cover scoring/rounding, phase/grid boundaries, lives/recovery, proof timing/order, deadline equality, multiplier overflow/reset/5× accounting, decoy overlap/expiry/reservation/ignored opportunities, reset behavior, and Zen retention/cadence/manual results.
-- **Simulator-tested:** two XCUITest smoke paths pass on the named iPhone SE (3rd generation) simulator: menu → Arcade → rendered target → scored SpriteKit touch, and menu → Zen → End run → results. The `--uitesting` launch environment uses an ephemeral signed-out fixture with all network requests and mutations disabled, so retained Simulator cookies cannot issue a production run ticket.
+- **Unit-tested:** 29 pure Swift checks cover scoring/rounding, phase/grid boundaries, lives/recovery, proof timing/order, deadline equality, multiplier overflow/reset/5× accounting, decoy overlap/expiry/reservation/ignored opportunities, reset behavior, and Zen retention/cadence/manual results. Seventeen native app tests cover catalog/action matrices, pet/special presentation, audio manifests and exact resource formats, independent persisted audio preferences, API decoding, session-load coalescing, Google credential/CSRF wiring, stale-session rejection, serialized account/economy mutations, and Light-theme board contrast.
+- **Simulator-tested:** five XCUITest smoke paths pass on the named iPhone SE (3rd generation) simulator: Arcade play, Zen manual results, Theme Shop/Buy Coins, Pet Shop/placeholder policy/Buy Coins, and independent Music/Sound FX settings. The `--uitesting` launch environment uses an ephemeral signed-out fixture with all network requests and mutations disabled, so retained Simulator cookies cannot issue a production run ticket or spend coins.
 - **Simulator-inspected:** native Zen target and complete bottom layout fit the iPhone 13 mini and iPhone 13 Pro simulator profiles. The SE menu/Arcade layout and absolute-bottom disabled-ad host were also inspected.
 - **Build-tested:** the app builds for a generic iOS Simulator with Swift 6 strict concurrency and the resolved Google Sign-In dependency.
+- **Asset-tested:** 43 retained runtime/master/source files pass committed SHA-256 checks; runtime audio format/duration and pet sheet dimensions are also validated, and no Pancake bitmap or retained master enters the app target.
 - **Live read-tested:** Hostinger health, signed-out session bootstrap, and public Arcade leaderboard returned successfully. The in-app session/Season 1 surface also decoded and rendered.
-- **Not yet validated:** physical-device install, 60/120 Hz touch timing, real Google iOS OAuth, signed-in profile/nickname, ranked start/finish against an internal player, network-loss races, accessibility matrix, audio/haptics, ads, and StoreKit.
+- **Physical install checkpoint:** commit `fd34cf4c3d854486c236aa9edcca9c721495804f` was development-signed, installed, launched, trusted, and reported working on the owner's iPhone SE (3rd generation) with iOS 26.3. This confirms the earlier gameplay/icon checkpoint only; it is not structured timing or audio evidence.
+- **Not yet validated:** reinstall/listening of the current cosmetics/audio slice, measured 60/120 Hz touch timing, real Google iOS OAuth and signed-in shop/ranked mutations, accessibility matrix, audio routes/interruptions/Silent switch, haptics, live ads, and StoreKit.
 
-These are implementation-time observations, not release truth. Record physical runs with device/iOS/build/commit before changing the evidence label to device-tested.
+These are implementation-time observations, not release truth. Record structured physical runs with device/iOS/build/commit before describing a feature slice as device-tested.
 
 The retained iOS 26.5 screenshots and hashes for implementation commit `6fbc6d3c9c537e11a0a8f4a0af25872d73febbef` are recorded in [`DESIGN_QA.md`](DESIGN_QA.md).
 

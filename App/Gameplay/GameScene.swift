@@ -25,6 +25,7 @@ final class GameScene: SKScene {
     private var pendingDecoyActivation = false
     private var roundPresentationExpired = false
     private var boardFrame = CGRect.zero
+    private var theme = ThemePalette.classic
 
     override init() {
         super.init(size: CGSize(width: 320, height: 320))
@@ -40,6 +41,11 @@ final class GameScene: SKScene {
 
     func apply(_ snapshot: GameSnapshot) {
         self.snapshot = snapshot
+        rebuildBoard()
+    }
+
+    func applyTheme(_ themeID: String) {
+        theme = ThemePalette.resolve(themeID)
         rebuildBoard()
     }
 
@@ -125,17 +131,18 @@ final class GameScene: SKScene {
                 width: cellSide,
                 height: cellSide
             )
-            let node = SKShapeNode(rect: rect, cornerRadius: max(12, cellSide * 0.10))
+            let cornerRadius = theme.isPixel ? CGFloat.zero : max(12, cellSide * 0.10)
+            let node = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
             node.name = "cell-\(index)"
             node.lineWidth = 2
-            node.strokeColor = UIColor.white.withAlphaComponent(0.10)
-            node.fillColor = UIColor(red: 0.07, green: 0.10, blue: 0.16, alpha: 1)
+            node.strokeColor = UIColor(hexString: theme.accent).withAlphaComponent(0.18)
+            node.fillColor = UIColor(hexString: theme.idleCell)
 
             if let colorIndex = cell.colorIndex,
                 !(roundPresentationExpired && cell.kind == .target)
             {
                 let spec = gameColors[colorIndex]
-                node.fillColor = UIColor(hex: spec.value)
+                node.fillColor = theme.uiColor(at: colorIndex)
                 node.strokeColor =
                     cell.kind == .target
                     ? UIColor.white.withAlphaComponent(0.85)
@@ -143,9 +150,9 @@ final class GameScene: SKScene {
                 node.lineWidth = cell.kind == .target ? 4 : 2
 
                 let glyph = SKLabelNode(text: spec.glyph)
-                glyph.fontName = "AvenirNext-Heavy"
+                glyph.fontName = theme.isPixel ? "Menlo-Bold" : "AvenirNext-Heavy"
                 glyph.fontSize = max(24, cellSide * 0.30)
-                glyph.fontColor = UIColor(hex: spec.ink)
+                glyph.fontColor = theme.cellInkUIColor(at: colorIndex)
                 glyph.verticalAlignmentMode = .center
                 glyph.horizontalAlignmentMode = .center
                 glyph.position = CGPoint(x: rect.midX, y: rect.midY)
@@ -156,16 +163,5 @@ final class GameScene: SKScene {
             addChild(node)
             cellFrames.append(rect)
         }
-    }
-}
-
-extension UIColor {
-    fileprivate convenience init(hex: String) {
-        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        let value = UInt64(cleaned, radix: 16) ?? 0
-        let red = CGFloat((value >> 16) & 0xff) / 255
-        let green = CGFloat((value >> 8) & 0xff) / 255
-        let blue = CGFloat(value & 0xff) / 255
-        self.init(red: red, green: green, blue: blue, alpha: 1)
     }
 }

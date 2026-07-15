@@ -4,7 +4,18 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 ## Current evidence
 
-The playable Xcode alpha has Simulator evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles. The exact implementation commit and final capture paths are recorded in the dated entry added after the tested source commit. No physical-device, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+The playable Xcode alpha has Simulator evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles. The earlier gameplay/icon checkpoint was also development-signed, installed, launched, and reported working on the owner's physical iPhone SE with iOS 26.3. That confirmation was not a structured timing, layout, accessibility, or audio pass. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+
+## Physical iPhone SE install checkpoint — 2026-07-15
+
+- **Candidate/version/build:** PimPoPom 0.1.0 (1).
+- **Implementation commit:** `fd34cf4c3d854486c236aa9edcca9c721495804f` (`feat: add PimPoPom alpha app icon`).
+- **Device and OS:** owner's iPhone SE (3rd generation, 2022), iOS 26.3.
+- **Configuration:** Debug; automatic Apple development signing; bundle `com.otcsoft.pimpopom.alpha`; USB trusted and Developer Mode enabled.
+- **Evidence:** the app was installed and launched through the local Xcode/CoreDevice path after development trust was confirmed. The owner reported that this version was working.
+- **Scope:** confirms install, signing, launch, the internal icon, and basic playability of the earlier gameplay checkpoint. No capture set or structured session was recorded.
+- **Not covered:** current Theme Shop/Pet Shop/coins/audio slice; Google sign-in; authenticated economy or ranked writes; reaction timing; 10-minute stability; audio listening/Silent switch/routes; accessibility; 13 mini/13 Pro hardware.
+- **Evidence statement:** physical install-and-launch checkpoint only; not a full device-tested feature pass and not production-verified.
 
 ## Internal alpha Simulator pass — 2026-07-15
 

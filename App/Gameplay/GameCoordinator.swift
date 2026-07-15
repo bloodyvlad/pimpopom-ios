@@ -2,6 +2,11 @@ import Combine
 import Foundation
 import PimPoPomCore
 
+enum GameplaySoundEvent: Equatable, Sendable {
+    case correctTap(hitNumber: Int)
+    case lifeLoss
+}
+
 @MainActor
 final class GameCoordinator: ObservableObject {
     let mode: GameMode
@@ -11,6 +16,7 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var feedback = "Get ready"
     @Published private(set) var isFinished = false
     @Published private(set) var wasAbandoned = false
+    var onSoundEvent: ((GameplaySoundEvent) -> Void)?
 
     private let engine: GameEngine
     private var targetTask: Task<Void, Never>?
@@ -51,6 +57,10 @@ final class GameCoordinator: ObservableObject {
     func startIfNeeded() {
         guard !started else { return }
         startNewRun()
+    }
+
+    func applyTheme(_ themeID: String) {
+        scene.applyTheme(themeID)
     }
 
     func startNewRun() {
@@ -128,6 +138,11 @@ final class GameCoordinator: ObservableObject {
     }
 
     private func handle(_ transition: GameTransition) {
+        if transition.kind == .hit {
+            onSoundEvent?(.correctTap(hitNumber: transition.snapshot.hits))
+        } else if transition.kind == .miss, transition.lifeLost == true {
+            onSoundEvent?(.lifeLoss)
+        }
         snapshot = transition.snapshot
         scene.apply(snapshot)
         switch transition.kind {

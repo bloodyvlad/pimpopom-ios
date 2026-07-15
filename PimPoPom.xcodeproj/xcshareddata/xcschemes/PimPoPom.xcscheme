@@ -44,6 +44,17 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "683ABCAC4AC53450DFB5BDEF"
+               BuildableName = "PimPoPomTests.xctest"
+               BlueprintName = "PimPoPomTests"
+               ReferencedContainer = "container:PimPoPom.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "98410228FA17337B81547FD1"
                BuildableName = "PimPoPomUITests.xctest"
                BlueprintName = "PimPoPomUITests"

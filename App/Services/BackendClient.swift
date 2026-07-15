@@ -25,21 +25,31 @@ final class BackendClient: ObservableObject {
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
     private var csrfToken: String?
+    private var sessionStateEpoch = 0
+    private var activeStateMutationEpoch: Int?
+    private var nextSessionLoadID = 0
+    private var activeSessionLoadID: Int?
+    private var sessionLoadTask: Task<SessionResponse, Error>?
 
     init(
         baseURL: URL = BackendClient.productionBaseURL,
-        isUITestOffline: Bool = ProcessInfo.processInfo.arguments.contains("--uitesting")
+        isUITestOffline: Bool = ProcessInfo.processInfo.arguments.contains("--uitesting"),
+        urlSession: URLSession? = nil
     ) {
         self.baseURL = baseURL
         self.isUITestOffline = isUITestOffline
-        let configuration = isUITestOffline ? URLSessionConfiguration.ephemeral : .default
-        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        configuration.urlCache = nil
-        configuration.httpShouldSetCookies = !isUITestOffline
-        configuration.httpCookieAcceptPolicy = isUITestOffline ? .never : .always
-        configuration.httpCookieStorage = isUITestOffline ? nil : .shared
-        configuration.timeoutIntervalForRequest = 20
-        urlSession = URLSession(configuration: configuration)
+        if let urlSession {
+            self.urlSession = urlSession
+        } else {
+            let configuration = isUITestOffline ? URLSessionConfiguration.ephemeral : .default
+            configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+            configuration.urlCache = nil
+            configuration.httpShouldSetCookies = !isUITestOffline
+            configuration.httpCookieAcceptPolicy = isUITestOffline ? .never : .always
+            configuration.httpCookieStorage = isUITestOffline ? nil : .shared
+            configuration.timeoutIntervalForRequest = 20
+            self.urlSession = URLSession(configuration: configuration)
+        }
         if isUITestOffline {
             sessionState = Self.uiTestSession
         }
@@ -54,18 +64,28 @@ final class BackendClient: ObservableObject {
     @discardableResult
     func loadSession() async throws -> SessionResponse {
         if isUITestOffline { return Self.uiTestSession }
-        isLoadingSession = true
-        defer { isLoadingSession = false }
-        do {
-            let response: SessionResponse = try await request(path: "/api/session")
-            csrfToken = response.csrfToken
-            sessionState = response
-            lastError = nil
-            return response
-        } catch {
-            lastError = error.localizedDescription
-            throw error
+        guard activeStateMutationEpoch == nil else { throw Self.stateMutationBusyError }
+
+        if let sessionLoadTask, let activeSessionLoadID {
+            return try await awaitSessionLoad(sessionLoadTask, id: activeSessionLoadID)
         }
+
+        nextSessionLoadID += 1
+        let loadID = nextSessionLoadID
+        let epoch = sessionStateEpoch
+        let task = Task { @MainActor [weak self] () throws -> SessionResponse in
+            guard let self else { throw Self.staleSessionError }
+            let response: SessionResponse = try await request(path: "/api/session")
+            try Task.checkCancellation()
+            guard sessionStateEpoch == epoch else { throw Self.staleSessionError }
+            applySessionResponse(response)
+            return response
+        }
+
+        sessionLoadTask = task
+        activeSessionLoadID = loadID
+        isLoadingSession = true
+        return try await awaitSessionLoad(task, id: loadID)
     }
 
     func loadLeaderboard(mode: GameMode) async throws -> LeaderboardResponse {
@@ -85,41 +105,162 @@ final class BackendClient: ObservableObject {
         return try await request(path: "/api/leaderboard?mode=\(mode.rawValue)")
     }
 
+    func loadThemes() async throws -> ThemeCatalogResponse {
+        if isUITestOffline { return Self.uiTestThemes }
+        return try await request(path: "/api/themes")
+    }
+
+    func loadPets() async throws -> PetCatalogResponse {
+        if isUITestOffline { return Self.uiTestPets }
+        return try await request(path: "/api/pets")
+    }
+
     @discardableResult
     func login(googleIDToken: String) async throws -> SessionResponse {
         let body = try encoder.encode(["credential": googleIDToken])
-        let response: SessionResponse = try await mutation(
-            path: "/api/auth/google",
-            method: "POST",
-            body: body
-        )
-        csrfToken = response.csrfToken
-        sessionState = response
-        return response
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: false)
+        do {
+            let response: SessionResponse = try await request(
+                path: "/api/auth/google",
+                method: "POST",
+                body: body,
+                csrf: csrfToken
+            )
+            guard isCurrent(token) else { throw Self.staleSessionError }
+            applySessionResponse(response)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
     }
 
     @discardableResult
     func logout() async throws -> SessionResponse {
-        let response: SessionResponse = try await mutation(
-            path: "/api/logout",
-            method: "POST",
-            body: Data("{}".utf8)
-        )
-        csrfToken = response.csrfToken
-        sessionState = response
-        return response
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: false)
+        do {
+            let response: SessionResponse = try await request(
+                path: "/api/logout",
+                method: "POST",
+                body: Data("{}".utf8),
+                csrf: csrfToken
+            )
+            guard isCurrent(token) else { throw Self.staleSessionError }
+            applySessionResponse(response)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
     }
 
     @discardableResult
     func updateNickname(_ nickname: String) async throws -> ProfileResponse {
         let body = try encoder.encode(["nickname": nickname])
-        let response: ProfileResponse = try await mutation(
-            path: "/api/profile?mode=normal",
-            method: "PATCH",
-            body: body
-        )
-        _ = try await loadSession()
-        return response
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            let response: ProfileResponse = try await request(
+                path: "/api/profile?mode=normal",
+                method: "PATCH",
+                body: body,
+                csrf: csrfToken
+            )
+            guard isCurrent(token, responseProfileID: response.profile.id) else {
+                throw Self.staleSessionError
+            }
+            replaceProfile(response.profile, ranks: response.ranks)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func selectTheme(_ themeID: String) async throws -> ThemeSelectionResponse {
+        let body = try encoder.encode(["themeId": themeID])
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            let response: ThemeSelectionResponse = try await request(
+                path: "/api/themes/select",
+                method: "POST",
+                body: body,
+                csrf: csrfToken
+            )
+            guard isCurrent(token, responseProfileID: response.profile.id) else {
+                throw Self.staleSessionError
+            }
+            replaceProfile(response.profile)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func selectPet(_ petID: String) async throws -> PetSelectionResponse {
+        let body = try encoder.encode(["petId": petID])
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            let response: PetSelectionResponse = try await request(
+                path: "/api/pets/select",
+                method: "POST",
+                body: body,
+                csrf: csrfToken
+            )
+            guard isCurrent(token, responseProfileID: response.profile.id) else {
+                throw Self.staleSessionError
+            }
+            replaceProfile(response.profile)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func setPetVisibility(_ petID: String, visible: Bool) async throws -> PetVisibilityResponse {
+        struct Body: Encodable {
+            let petId: String
+            let visible: Bool
+        }
+
+        let body = try encoder.encode(Body(petId: petID, visible: visible))
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            let response: PetVisibilityResponse = try await request(
+                path: "/api/pets/selection",
+                method: "PATCH",
+                body: body,
+                csrf: csrfToken
+            )
+            guard isCurrent(token, responseProfileID: response.profile.id) else {
+                throw Self.staleSessionError
+            }
+            replaceProfile(response.profile)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func synchronizeProfileFromCatalog(_ profile: PlayerProfile) -> Bool {
+        guard activeStateMutationEpoch == nil,
+            sessionState?.authenticated == true,
+            sessionState?.profile?.id == profile.id
+        else { return false }
+        replaceProfile(profile)
+        return true
     }
 
     func startRun() async throws -> RunTicket {
@@ -153,6 +294,83 @@ final class BackendClient: ObservableObject {
             method: "POST",
             body: try encoder.encode(payload)
         )
+    }
+
+    private struct StateMutationToken {
+        let epoch: Int
+        let playerID: String?
+    }
+
+    private func awaitSessionLoad(
+        _ task: Task<SessionResponse, Error>,
+        id: Int
+    ) async throws -> SessionResponse {
+        do {
+            let response = try await task.value
+            finishSessionLoad(id: id)
+            return response
+        } catch {
+            if activeSessionLoadID == id {
+                lastError = error.localizedDescription
+            }
+            finishSessionLoad(id: id)
+            throw error
+        }
+    }
+
+    private func finishSessionLoad(id: Int) {
+        guard activeSessionLoadID == id else { return }
+        sessionLoadTask = nil
+        activeSessionLoadID = nil
+        isLoadingSession = false
+    }
+
+    private func beginStateMutation(
+        requiresAuthenticatedProfile: Bool
+    ) async throws -> StateMutationToken {
+        if csrfToken == nil { _ = try await loadSession() }
+        guard activeStateMutationEpoch == nil else { throw Self.stateMutationBusyError }
+        let playerID = sessionState?.profile?.id
+        if requiresAuthenticatedProfile,
+            sessionState?.authenticated != true || playerID == nil
+        {
+            throw Self.authenticationRequiredError
+        }
+
+        sessionStateEpoch += 1
+        sessionLoadTask?.cancel()
+        sessionLoadTask = nil
+        activeSessionLoadID = nil
+        isLoadingSession = false
+        let token = StateMutationToken(epoch: sessionStateEpoch, playerID: playerID)
+        activeStateMutationEpoch = token.epoch
+        return token
+    }
+
+    private func finishStateMutation(_ token: StateMutationToken) {
+        if activeStateMutationEpoch == token.epoch {
+            activeStateMutationEpoch = nil
+        }
+    }
+
+    private func isCurrent(_ token: StateMutationToken) -> Bool {
+        token.epoch == sessionStateEpoch && activeStateMutationEpoch == token.epoch
+    }
+
+    private func isCurrent(
+        _ token: StateMutationToken,
+        responseProfileID: String
+    ) -> Bool {
+        isCurrent(token)
+            && token.playerID != nil
+            && token.playerID == responseProfileID
+            && token.playerID == sessionState?.profile?.id
+    }
+
+    private func applySessionResponse(_ response: SessionResponse) {
+        csrfToken = response.csrfToken
+        sessionState = response
+        lastError = nil
     }
 
     private func mutation<Response: Decodable>(
@@ -210,6 +428,22 @@ final class BackendClient: ObservableObject {
         }
     }
 
+    private func replaceProfile(
+        _ profile: PlayerProfile,
+        ranks: [String: RankInfo]? = nil
+    ) {
+        guard let sessionState else { return }
+        lastError = nil
+        self.sessionState = SessionResponse(
+            authenticated: true,
+            csrfToken: sessionState.csrfToken,
+            googleClientId: sessionState.googleClientId,
+            season: sessionState.season,
+            profile: profile,
+            ranks: ranks ?? sessionState.ranks
+        )
+    }
+
     private static let uiTestSession = SessionResponse(
         authenticated: false,
         csrfToken: "ui-test-offline",
@@ -219,9 +453,50 @@ final class BackendClient: ObservableObject {
         ranks: nil
     )
 
+    private static let uiTestThemes = ThemeCatalogResponse(
+        themes: [
+            CosmeticCatalogItem(id: "classic", name: "Default", priceCoins: 0),
+            CosmeticCatalogItem(id: "disco", name: "Disco", priceCoins: 0),
+            CosmeticCatalogItem(id: "light", name: "Light", priceCoins: 50),
+            CosmeticCatalogItem(id: "pixel", name: "Pixel", priceCoins: 100),
+        ],
+        profile: nil,
+        coinBalance: 0
+    )
+
+    private static let uiTestPets = PetCatalogResponse(
+        pets: [
+            CosmeticCatalogItem(id: "foka", name: "Foka", priceCoins: 10),
+            CosmeticCatalogItem(id: "kesha", name: "Kesha", priceCoins: 20),
+            CosmeticCatalogItem(id: "tauta", name: "Tauta", priceCoins: 50),
+            CosmeticCatalogItem(id: "misha", name: "Misha", priceCoins: 100),
+            CosmeticCatalogItem(id: "pancake", name: "Pancake", priceCoins: 500),
+        ],
+        profile: nil,
+        coinBalance: 0
+    )
+
     private static let uiTestOfflineError = BackendError(
         status: 0,
         message: "Network mutations are disabled in UI tests.",
         code: "ui-test-offline"
+    )
+
+    private static let staleSessionError = BackendError(
+        status: 0,
+        message: "The account changed while the request was in progress. Please try again.",
+        code: "stale-session"
+    )
+
+    private static let stateMutationBusyError = BackendError(
+        status: 0,
+        message: "The account is already being updated. Please try again.",
+        code: "session-update-in-progress"
+    )
+
+    private static let authenticationRequiredError = BackendError(
+        status: 401,
+        message: "Sign in with Google to continue.",
+        code: "authentication-required"
     )
 }

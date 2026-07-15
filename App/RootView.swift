@@ -2,7 +2,11 @@ import PimPoPomCore
 import SwiftUI
 
 struct RootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var backend: BackendClient
+    @EnvironmentObject private var preferences: AppPreferences
+    @EnvironmentObject private var cosmetics: CosmeticsController
+    @EnvironmentObject private var audio: AudioController
 
     let services: AlphaServices
     let googleIdentity: GoogleIdentityService
@@ -12,15 +16,12 @@ struct RootView: View {
     @State private var accountBusy = false
     @State private var navigationPath: [GameMode] = []
 
+    private var palette: ThemePalette { cosmetics.theme }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack {
-                LinearGradient(
-                    colors: [Color(red: 0.03, green: 0.07, blue: 0.14), .black],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                AppThemeBackground(theme: palette)
 
                 ScrollView {
                     VStack(spacing: 20) {
@@ -38,27 +39,49 @@ struct RootView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: GameMode.self) { GameView(mode: $0) }
         }
-        .tint(.white)
+        .tint(Color(hex: palette.foreground))
         .task {
             configureDebugLaunch()
+            audio.setApplicationActive(scenePhase == .active)
+            audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
+            audio.setMusicContext(.menu)
+            audio.playLaunchSting()
             await restoreSession()
+            await cosmetics.refresh()
+        }
+        .onChange(of: cosmetics.selectedThemeID) { _, themeID in
+            audio.configure(themeID: themeID, preferences: preferences)
+        }
+        .onChange(of: preferences.soundEffectsEnabled) { _, _ in configureAudio() }
+        .onChange(of: preferences.soundEffectsVolume) { _, _ in configureAudio() }
+        .onChange(of: preferences.musicEnabled) { _, _ in configureAudio() }
+        .onChange(of: preferences.musicVolume) { _, _ in configureAudio() }
+        .onChange(of: scenePhase) { _, phase in
+            audio.setApplicationActive(phase == .active)
+            if phase == .active, navigationPath.isEmpty {
+                audio.setMusicContext(.menu)
+            }
         }
     }
 
     private var title: some View {
         VStack(spacing: 7) {
             Text("PimPoPom")
-                .font(.system(size: 48, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
+                .font(.system(size: 48, weight: .black, design: palette.fontDesign))
+                .foregroundStyle(Color(hex: palette.foreground))
                 .minimumScaleFactor(0.75)
             Text("Native iOS · Internal Alpha")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.62))
+                .foregroundStyle(Color(hex: palette.muted))
             if let season = backend.sessionState?.season {
                 Text(season.id == "ui-test" ? season.name : "Hostinger · \(season.name)")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.cyan.opacity(0.82))
+                    .foregroundStyle(Color(hex: palette.accent).opacity(0.88))
                     .accessibilityIdentifier("backend-environment")
+            }
+            if let petID = cosmetics.displayedPetID {
+                PetCompanionView(petID: petID, size: 62, includesHabitat: true)
+                    .padding(.top, 3)
             }
         }
         .padding(.top, 24)
@@ -72,14 +95,35 @@ struct RootView: View {
     }
 
     private var serviceButtons: some View {
-        NavigationLink {
-            LeaderboardView()
-        } label: {
-            Label("Season leaderboard", systemImage: "trophy.fill")
-                .font(.headline.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity, minHeight: 50)
-                .background(.white.opacity(0.09), in: RoundedRectangle(cornerRadius: 16))
+        VStack(spacing: 10) {
+            NavigationLink {
+                LeaderboardView()
+            } label: {
+                utilityLabel("Season leaderboard", systemImage: "trophy.fill")
+            }
+
+            HStack(spacing: 10) {
+                NavigationLink {
+                    ThemeShopView()
+                } label: {
+                    utilityLabel("Themes", systemImage: "paintpalette.fill")
+                }
+                .accessibilityIdentifier("open-theme-shop")
+
+                NavigationLink {
+                    PetShopView()
+                } label: {
+                    utilityLabel("Pets", systemImage: "pawprint.fill")
+                }
+                .accessibilityIdentifier("open-pet-shop")
+            }
+
+            NavigationLink {
+                SettingsView()
+            } label: {
+                utilityLabel("Music, Sound & Settings", systemImage: "slider.horizontal.3")
+            }
+            .accessibilityIdentifier("open-settings")
         }
     }
 
@@ -99,7 +143,7 @@ struct RootView: View {
                             .font(.title3.weight(.bold))
                         Text("\(profile.coins) coins · \(profile.totalPlayMs / 60_000) verified minutes")
                             .font(.caption.monospacedDigit())
-                            .foregroundStyle(.white.opacity(0.62))
+                            .foregroundStyle(Color(hex: palette.muted))
                     }
                     Spacer()
                     Button("Sign out") { Task { await signOut() } }
@@ -120,12 +164,12 @@ struct RootView: View {
                 } else {
                     Text("Arcade runs use the deployed protocol-verified leaderboard.")
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.60))
+                        .foregroundStyle(Color(hex: palette.muted))
                 }
             } else {
                 Text("Play locally now. Sign in to use the existing players, coins, and ranked leaderboard.")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.68))
+                    .foregroundStyle(Color(hex: palette.muted))
                 Button {
                     Task { await signIn() }
                 } label: {
@@ -150,16 +194,19 @@ struct RootView: View {
                     .foregroundStyle(.orange)
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Color(hex: palette.foreground))
         .padding(16)
-        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 18))
+        .background(
+            Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.84),
+            in: RoundedRectangle(cornerRadius: palette.cornerRadius)
+        )
     }
 
     private var footer: some View {
         HStack(alignment: .bottom) {
             Text("Build \(appBuildNumber) · API \(BackendClient.deployedBuildID)")
                 .font(.caption2.monospacedDigit())
-                .foregroundStyle(.white.opacity(0.38))
+                .foregroundStyle(Color(hex: palette.muted).opacity(0.72))
             Spacer()
             Button("Remove Ads") {}
                 .buttonStyle(.bordered)
@@ -191,18 +238,27 @@ struct RootView: View {
             .foregroundStyle(.black)
             .padding(.horizontal, 18)
             .frame(maxWidth: .infinity, minHeight: 62)
-            .background(color, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(
+                mode == .arcade ? palette.color(at: 0) : palette.color(at: 3),
+                in: RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous)
+            )
         }
         .accessibilityIdentifier("mode-\(mode.rawValue)")
     }
 
     private func restoreSession() async {
+        accountBusy = true
+        defer { accountBusy = false }
         do {
             let session = try await backend.loadSession()
             guard !session.authenticated,
                 let token = try await googleIdentity.restoreIDTokenIfAvailable()
-            else { return }
+            else {
+                accountStatus = nil
+                return
+            }
             _ = try await backend.login(googleIDToken: token)
+            accountStatus = nil
         } catch {
             accountStatus = error.localizedDescription
         }
@@ -253,9 +309,31 @@ struct RootView: View {
             }
         #endif
     }
+
+    private func utilityLabel(_ text: String, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.headline.weight(.bold))
+            .foregroundStyle(Color(hex: palette.foreground))
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(
+                Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.84),
+                in: RoundedRectangle(cornerRadius: palette.cornerRadius)
+            )
+    }
+
+    private func configureAudio() {
+        audio.resumeAfterUserAction()
+        audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
+    }
 }
 
 #Preview {
+    let backend = BackendClient()
+    let preferences = AppPreferences()
+    let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
     RootView(services: .localOnly, googleIdentity: GoogleIdentityService())
-        .environmentObject(BackendClient())
+        .environmentObject(backend)
+        .environmentObject(preferences)
+        .environmentObject(cosmetics)
+        .environmentObject(AudioController())
 }

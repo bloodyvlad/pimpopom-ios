@@ -80,6 +80,15 @@ Test on 60 Hz and 120 Hz hardware. `CADisplayLink`/SpriteKit callback time is st
 - **Game Center:** optional social surface; a verified mirror uses server-bound Game Center identity and Apple's server API after PimPoPom acceptance. Client submission is auxiliary/unverified and never a prerequisite for local play.
 - **Integrity:** App Attest challenge/assertion around selected sensitive server requests, with explicit unsupported/recovery policy.
 
+### Current internal-alpha implementations
+
+- `BackendClient` coalesces session bootstrap and uses session/player generations so a superseded request cannot replace a newer login, logout, or account profile.
+- `CosmeticsController` merges public catalog reads with authenticated server profiles, but never computes authoritative prices, purchases, ownership, or balance. It serializes all economy mutations across both shops. Signed-out local selection is limited to the two always-free theme IDs.
+- `ThemePalette` and `PetPresentation` map stable backend IDs to native presentation only. The backend alone supplies the special-pet override; Pancake has no bundled bitmap.
+- `AudioController` owns one `AVAudioEngine` with independent Sound FX/Music mixer buses. It lazy-decodes only enabled categories, keeps shared loss/sting buffers across enabled theme swaps, rejects stale loads, routes menu/gameplay/silent contexts, and stops immediately on background/interruption.
+- `AppPreferences` stores only nonsecret local audio values and the signed-out free-theme choice in `UserDefaults`.
+- StoreKit and ads remain no-network/no-value placeholders. Their UI cannot mutate the PHP coin ledger or an entitlement.
+
 ## Configuration and environments
 
 Use `Debug`, `Staging`, and `Release` configurations with committed `.xcconfig` examples. Inject only nonsecret identifiers into the app bundle. Private keys and server secrets never ship in the app.

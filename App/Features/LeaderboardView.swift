@@ -3,15 +3,18 @@ import SwiftUI
 
 struct LeaderboardView: View {
     @EnvironmentObject private var backend: BackendClient
+    @EnvironmentObject private var cosmetics: CosmeticsController
     @State private var mode = GameMode.arcade
     @State private var response: LeaderboardResponse?
     @State private var error: String?
     @State private var loading = false
     @State private var loadGeneration = 0
 
+    private var palette: ThemePalette { cosmetics.theme }
+
     var body: some View {
         ZStack {
-            Color(red: 0.025, green: 0.045, blue: 0.09).ignoresSafeArea()
+            AppThemeBackground(theme: palette)
             VStack(spacing: 12) {
                 Picker("Mode", selection: $mode) {
                     Text("Arcade").tag(GameMode.arcade)
@@ -22,7 +25,7 @@ struct LeaderboardView: View {
                 if loading, response == nil {
                     Spacer()
                     ProgressView("Loading Season 1")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: palette.foreground))
                     Spacer()
                 } else if let response {
                     ScrollView {
@@ -36,16 +39,16 @@ struct LeaderboardView: View {
                     if let rank = response.playerRank {
                         Text("Your best: #\(rank) of \(response.totalEntries)")
                             .font(.footnote.weight(.bold))
-                            .foregroundStyle(.cyan)
+                            .foregroundStyle(Color(hex: palette.accent))
                     } else {
                         Text("\(response.totalEntries) ranked results")
                             .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.55))
+                            .foregroundStyle(Color(hex: palette.muted))
                     }
                 } else {
                     Spacer()
                     Text(error ?? "No leaderboard results")
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(Color(hex: palette.muted))
                         .multilineTextAlignment(.center)
                     Button("Try again") { Task { await load() } }
                         .buttonStyle(.bordered)
@@ -64,31 +67,37 @@ struct LeaderboardView: View {
         HStack(spacing: 12) {
             Text("#\(entry.rank)")
                 .font(.headline.monospacedDigit().weight(.black))
-                .foregroundStyle(entry.rank <= 3 ? .yellow : .white.opacity(0.7))
+                .foregroundStyle(entry.rank <= 3 ? .yellow : Color(hex: palette.muted))
                 .frame(width: 40, alignment: .leading)
+            if let petID = entry.petId {
+                PetCompanionView(petID: petID, size: 38, includesHabitat: true, animated: false)
+                    .frame(width: 48)
+            }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(entry.name).font(.headline)
                     if entry.verification == "verified" {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.caption)
-                            .foregroundStyle(.cyan)
+                            .foregroundStyle(Color(hex: palette.accent))
                     }
                 }
                 Text("\(entry.hits) hits · \(entry.dodges) dodges · \(formatDuration(entry.survivalMs))")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.52))
+                    .foregroundStyle(Color(hex: palette.muted))
             }
             Spacer()
             Text(entry.score.formatted())
                 .font(.headline.monospacedDigit().weight(.bold))
-                .foregroundStyle(.cyan)
+                .foregroundStyle(Color(hex: palette.accent))
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Color(hex: palette.foreground))
         .padding(13)
         .background(
-            entry.isCurrentPlayer ? Color.cyan.opacity(0.16) : Color.white.opacity(0.06),
-            in: RoundedRectangle(cornerRadius: 14)
+            entry.isCurrentPlayer
+                ? Color(hex: palette.accent).opacity(0.16)
+                : Color(hex: palette.surface).opacity(0.80),
+            in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 14)
         )
     }
 

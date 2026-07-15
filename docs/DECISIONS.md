@@ -191,3 +191,16 @@ Decision: For owner-only internal testing, PimPoPom may reuse the existing exten
 Consequences: The internal binary identifies ranked attempts with the server's accepted Web build ID `20260715-1`; this is a deliberate temporary compatibility exception to P-004, not a claim that PimPoPom is that web binary. Native and browser clients share the one-open-attempt-per-player rule and production data. The Google iOS OAuth ID stays in ignored local configuration. Ads and StoreKit remain disabled. Before any external TestFlight/App Store distribution, replace this exception with an accepted native client/build contract, complete identity/account review, and use staging/synthetic integration data.
 
 Revisit when: The first physical-device alpha works, the deployed web build gate changes, or any build is prepared for someone beyond the owner/internal testers.
+
+## P-015 — Port the existing earned-coin cosmetics and audio into the internal alpha
+
+- Date: 2026-07-15
+- Status: Accepted
+
+Context: The owner accepted the playable native checkpoint and asked to continue with the current Pet Shop, Theme Shop, earned coins, music, and sounds. The compatibility backend already owns the catalog prices, balance, ownership, selection, pet visibility, and atomic spending; it has no StoreKit coin-credit route. The reviewed web source also contains four fixed theme audio suites and current pet presentation assets.
+
+Decision: The internal alpha reads `/api/themes` and `/api/pets`, displays server names/prices/state, and sends only stable item IDs through the existing authenticated CSRF mutations. All economy mutations are serialized, and a response may update the client only while it still belongs to the current player/session. Default and Disco may be selected locally while signed out; no other local state grants ownership, coins, or paid value. Both shops expose one disabled explanatory Buy Coins sheet. Use code-native theme presentation, bundle reviewed Foka/Kesha/Tauta/Misha/Mitsuri runtime art, derive special-pet visibility only from the backend, and block new Pancake purchases while showing labelled code-native placeholder art. Freeze the selected theme and pet for each active run. Use one lazy `AVAudioEngine` with independent persisted Sound FX and Music controls, the exact four fixed menu/gameplay/tap suites, the shared loss cue, and the original deterministic rising Pim–Po–Pom activation-cue candidate.
+
+Consequences: The shared Hostinger balance and existing atomic shop transactions remain authoritative; this repository adds no PHP, StoreKit, ad, or coin-generation route. Masters, generators, provenance, and hashes stay outside the app bundle while reviewed runtime files are deterministic build resources. Automated contracts and asset checks are required, but physical listening, touch/layout review, Silent switch, interruptions, and route changes remain acceptance gates. Pancake replacement art, final audio/logo acceptance, paid coins, and commercial ownership remain deferred.
+
+Revisit when: The compatibility backend changes its catalog/session contract, replacement Pancake art is approved, a public distribution is prepared, or StoreKit coin products are deliberately resumed.

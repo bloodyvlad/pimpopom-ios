@@ -82,6 +82,59 @@ struct ProfileResponse: Codable, Equatable {
     let leaderboard: LeaderboardResponse
 }
 
+struct CosmeticCatalogItem: Codable, Equatable, Identifiable, Sendable {
+    let id: String
+    let name: String
+    let priceCoins: Int
+}
+
+struct ThemeCatalogResponse: Codable, Equatable {
+    let themes: [CosmeticCatalogItem]
+    let profile: PlayerProfile?
+    let coinBalance: Int
+}
+
+struct PetCatalogResponse: Codable, Equatable {
+    let pets: [CosmeticCatalogItem]
+    let profile: PlayerProfile?
+    let coinBalance: Int
+}
+
+struct ThemeSelectionResult: Codable, Equatable {
+    let id: String
+    let purchased: Bool
+    let pricePaid: Int
+}
+
+struct ThemeSelectionResponse: Codable, Equatable {
+    let profile: PlayerProfile
+    let theme: ThemeSelectionResult
+    let coinBalance: Int
+}
+
+struct PetSelectionResult: Codable, Equatable {
+    let id: String
+    let purchased: Bool
+    let pricePaid: Int
+}
+
+struct PetSelectionResponse: Codable, Equatable {
+    let profile: PlayerProfile
+    let pet: PetSelectionResult
+    let coinBalance: Int
+}
+
+struct PetVisibilityResult: Codable, Equatable {
+    let id: String
+    let visible: Bool
+}
+
+struct PetVisibilityResponse: Codable, Equatable {
+    let profile: PlayerProfile
+    let pet: PetVisibilityResult
+    let coinBalance: Int
+}
+
 struct RunTicket: Codable, Equatable {
     let runId: String
     let mode: String

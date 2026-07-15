@@ -56,6 +56,19 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.otcsoft.pimpopom.alpha.uitests
         TEST_TARGET_NAME: PimPoPom
 
+  PimPoPomTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tests/Unit
+    dependencies:
+      - target: PimPoPom
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.otcsoft.pimpopom.alpha.tests
+
 schemes:
   PimPoPom:
     build:
@@ -66,6 +79,7 @@ schemes:
     test:
       config: Debug
       targets:
+        - PimPoPomTests
         - PimPoPomUITests
     profile:
       config: Release

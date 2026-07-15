@@ -23,14 +23,14 @@ This repository is intentionally independent from the legacy web implementation.
 - StoreKit 2 for Remove Ads and coin packs; GameKit may mirror verified scores and achievements but never owns the coin economy.
 - An ad SDK only behind an app-owned adapter, consent gate, test configuration, and stable reserved layout.
 
-The app currently uses SwiftUI, SpriteKit, `PimPoPomCore`, `URLSession`, and Google Sign-In for iOS. Ads and StoreKit remain disabled placeholders; the Google button remains disabled until a real iOS OAuth client ID is supplied locally.
+The app currently uses SwiftUI, SpriteKit, `PimPoPomCore`, `URLSession`, Google Sign-In for iOS, and one app-owned `AVAudioEngine` service. Ads and StoreKit remain disabled placeholders; Google activates only when a real iOS OAuth client ID is supplied through the ignored local configuration.
 
 ## Start here
 
 1. Use Xcode 26 or newer and XcodeGen 2.45.4 (`brew install xcodegen`). Swift Package Manager resolves the pinned Google Sign-In dependency.
 2. Create the agreed simulator profiles once with `Scripts/create-alpha-simulators.sh`, then generate/build/test everything with `Scripts/check.sh`.
 3. Open `PimPoPom.xcodeproj`, select an Apple Team under Signing & Capabilities, select the connected iPhone SE 2022, and Run. Local Arcade/Zen and public leaderboards need no Google setup.
-4. To enable Google, create an iOS OAuth client in the same Google Cloud project for bundle ID `com.otcsoft.pimpopom.alpha`, copy `Config/Local.example.xcconfig` to ignored `Config/Local.xcconfig`, and replace its two example values. The existing Web server client ID is already public build configuration; no client secret belongs in the app.
+4. To enable Google, create an iOS OAuth client in the same Google Cloud project for bundle ID `com.otcsoft.pimpopom.alpha`, copy `Config/Local.example.xcconfig` to ignored `Config/Local.xcconfig`, and replace its two example values. The existing Web server audience is committed as public build configuration; no client secret belongs in the app.
 5. Follow the exact internal-alpha flow and limitations in [`docs/ALPHA_FAST_PATH.md`](docs/ALPHA_FAST_PATH.md).
 
 ## Documentation map
@@ -49,7 +49,7 @@ The app currently uses SwiftUI, SpriteKit, `PimPoPomCore`, `URLSession`, and Goo
 | Signing, TestFlight, App Store, and rollback | [`docs/RELEASE.md`](docs/RELEASE.md) |
 | Unresolved product and platform choices | [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md) |
 | Visual review history | [`docs/DESIGN_QA.md`](docs/DESIGN_QA.md) |
-| Branding and audio source records | [`assets/branding/SOURCES.md`](assets/branding/SOURCES.md), [`assets/audio/SOURCES.md`](assets/audio/SOURCES.md) |
+| Branding, audio, and pet source records | [`assets/branding/SOURCES.md`](assets/branding/SOURCES.md), [`assets/audio/SOURCES.md`](assets/audio/SOURCES.md), [`assets/pets/SOURCES.md`](assets/pets/SOURCES.md) |
 | Privacy engineering status and security rules | [`PRIVACY.md`](PRIVACY.md), [`SECURITY.md`](SECURITY.md), [`AGENTS.md`](AGENTS.md) |
 | Contribution and change history | [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CHANGELOG.md`](CHANGELOG.md) |
 | Licence and third-party notices | [`LICENSE.md`](LICENSE.md), [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
@@ -64,7 +64,7 @@ PimPoPom/
 ├── Packages/
 │   └── PimPoPomCore/        # Pure deterministic rules and tests
 ├── Config/                  # Committed examples; local secrets ignored
-├── Tests/UITests/           # Native navigation/gameplay smoke tests
+├── Tests/                   # Native unit and UI smoke tests
 ├── Scripts/                 # Reproducible checks and asset validation
 ├── assets/                  # Reviewed runtime assets and retained masters
 └── docs/
@@ -78,8 +78,11 @@ PimPoPom/
 - Xcode project: generated reproducibly for local signing with development bundle ID `com.otcsoft.pimpopom.alpha`.
 - Arcade and Zen: playable through a native deterministic engine and SpriteKit board, including lives/recovery, difficulty phases, decoys, scoring, ratings, multipliers, proof events, Zen cadence, results, restart, and lifecycle abandonment.
 - Hostinger integration: live public session/leaderboard reads plus existing profile, nickname, Google token exchange, ranked start/abandon/finish paths. Ranked play activates only after Google sign-in and nickname confirmation.
-- Google: package integrated and server audience configured; the iOS OAuth client ID remains an ignored local placeholder.
-- Ads/StoreKit: disabled placeholders. The bottom ad host and lower-right Remove Ads button are present; shops and Buy Coins remain planned.
-- Simulator evidence: SE 2022 UI smoke suite plus visual layout on iPhone 13 mini and iPhone 13 Pro. Physical-device installation and 60/120 Hz timing remain unverified.
-- Remote repository, final signing identity, backend-native API, final logo, launch sting, shops, StoreKit products, and ad account are not created yet.
+- Shared economy/cosmetics: live theme and pet catalogs, server-confirmed coin balance, atomic signed-in buy/select/hide/show mutations, free signed-out Default/Disco selection, and server-derived special-pet presentation.
+- Themes and pets: four code-native visual themes plus reviewed Foka/Kesha/Tauta/Misha/Mitsuri sprite sheets. Pancake remains a labelled code-native placeholder and cannot be newly purchased until replacement art is approved.
+- Audio: four migrated menu/gameplay/tap suites, the shared life-loss cue, independent persistent Music/Sound FX controls, and an original rising Pim–Po–Pom activation-cue candidate. Assets, masters, and deterministic generators are retained and hash-checked.
+- Google: package integrated and server audience configured; real iOS/reversed client values are supplied only through ignored `Config/Local.xcconfig`, while committed examples remain placeholders.
+- Ads/StoreKit: disabled placeholders. The bottom ad host and lower-right Remove Ads button are present; Theme Shop and Pet Shop expose one shared no-purchase Buy Coins explanation.
+- Device evidence: the gameplay/icon checkpoint `fd34cf4` was development-signed, installed, launched, trusted, and confirmed working on the owner's iPhone SE (3rd generation) on iOS 26.3. The new cosmetics/audio slice still requires reinstallation and listening/touch review; 13 mini/13 Pro remain Simulator-only.
+- Remote repository, final signing identity, backend-native API, final logo/launch-cue acceptance, StoreKit products, and ad account are not created yet.
 - No production deployment or App Store submission has occurred.

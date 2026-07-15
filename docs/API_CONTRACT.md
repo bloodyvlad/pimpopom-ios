@@ -16,12 +16,21 @@ Base URL: `https://speedytapper.otcsoft.com`. Live probes on 2026-07-15 confirme
 | `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260715-1"}` |
 | `POST /api/runs/abandon` | Idempotent discard | Body contains `runId` |
 | `POST /api/runs/finish` | Replay proof and save result | Ticket metadata plus integer proof tuples only |
+| `GET /api/themes` | Theme catalog, profile, and balance | Public; response includes server IDs/names/prices, profile or null, and `coinBalance` |
+| `POST /api/themes/select` | Buy or select a theme | Authenticated CSRF mutation; body `{"themeId":"<id>"}`; server returns purchase flag, paid price, profile, and balance |
+| `GET /api/pets` | Pet catalog, profile, and balance | Public; response includes server IDs/names/prices, profile or null, and `coinBalance` |
+| `POST /api/pets/select` | Buy/select/show a pet | Authenticated CSRF mutation; body `{"petId":"<id>"}`; server returns purchase flag, paid price, profile, and balance |
+| `PATCH /api/pets/selection` | Hide/show current pet | Authenticated CSRF mutation; body `{"petId":"<id>","visible":true\|false}` |
 
 The native client uses one long-lived default `URLSession` with shared cookie storage, `Accept: application/json`, JSON content type on bodies, and `X-SpeedyTapper-CSRF` on mutations. It sends no browser `Origin`. Login rotates the session binding, so do not log in again between ranked start and finish. Browser and native sessions are separate, while the single open run attempt is player-global.
+
+Concurrent session bootstrap is coalesced. Login, logout, nickname, theme, and pet mutations carry a client-side session/player generation; a superseded response is rejected instead of being attached to a newer account. Theme and pet mutations are also serialized across both shops. These client checks prevent stale presentation state but do not replace server authentication, transactions, or idempotency.
 
 Google configuration uses a new iOS OAuth client whose bundle ID matches the app plus the existing Web OAuth client as Google `serverClientID`. The returned ID token therefore retains the audience the PHP verifier already accepts. OAuth client IDs are public configuration; no OAuth client secret ships in the app.
 
 Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-014 temporarily passes the deployed build ID. This owner-only exception must be removed before external TestFlight/App Store distribution or when the server changes its accepted build.
+
+The compatibility backend has no Buy Coins or StoreKit transaction endpoint. The alpha's Buy Coins controls therefore open a shared explanatory placeholder and never grant value. Pet/theme prices, ownership, selection, and balance are always taken from the server response; the client fallback catalog is display/offline continuity only.
 
 ## Baseline gap
 

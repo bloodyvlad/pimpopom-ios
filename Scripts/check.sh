@@ -6,6 +6,7 @@ cd "$ROOT"
 
 xcodegen -s project.yml
 xcrun swift-format lint --strict --recursive App Packages Tests
+Scripts/validate-assets.sh
 swift test --package-path Packages/PimPoPomCore
 xcodebuild \
   -project PimPoPom.xcodeproj \
@@ -24,6 +25,5 @@ xcodebuild -quiet \
   -project PimPoPom.xcodeproj \
   -scheme PimPoPom \
   -destination 'platform=iOS Simulator,name=PimPoPom iPhone SE 2022' \
-  -only-testing:PimPoPomUITests \
   test
 git diff --check
