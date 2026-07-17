@@ -59,3 +59,6 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Replaced the Preparing copy and tiny recovery feedback with centered backlit Get ready, Too early, and Too slow announcements; Get ready now delays a new run by exactly one second and is not replayed after a lost life.
 - Changed companion turns to advance from the current sprite pose through adjacent directional frames, so a half-right pet reaches full-right in one frame instead of restarting at center.
 - Resumed the Sound FX engine from the accepted tap before playing the bundled `oops` cue on life loss, while retaining the existing no-loss Zen and terminal-event rules.
+- Unified all six live and preview glyphs behind one exact-size vector/pixel geometry, added crystal Light cells and clipped faint Pixel grain, and raised active Disco cells to the vivid saturated backlit palette while retaining the darker uneven inactive floor.
+- Made coin/rank badge contents fully opaque above their button borders and kept their established lower-right/upper-right corner placement.
+- Reused the Pet Shop horizontal-facing resolver in menu and gameplay, forwarded board-gap touches for presentation-only facing, lowered Pancake fifteen points only on menu/Leaderboard surfaces, and mirrored its clean full-right frame for artifact-free full-left presentation.
