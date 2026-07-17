@@ -12,9 +12,9 @@ struct GameView: View {
     @StateObject private var coordinator: GameCoordinator
     @State private var runTicket: RunTicket?
     @State private var preparing = true
-    @State private var runStatus = ""
     @State private var submissionStarted = false
     @State private var submissionFailed = false
+    @State private var submissionError: String?
     @State private var preparationGeneration = 0
     @State private var frozenTheme = ThemePalette.classic
     @State private var frozenPetID: String?
@@ -23,6 +23,7 @@ struct GameView: View {
     @State private var gameplayPetActivity = 0
     @State private var boardSceneFrame = CGRect.zero
     @State private var gameplayPetFrame = CGRect.zero
+    @State private var gameplayScreenWidth: CGFloat = 0
     @State private var didFreezePresentation = false
     @State private var ratingStampPresentation: RatingStampPresentation?
     @State private var ratingStampTask: Task<Void, Never>?
@@ -50,6 +51,7 @@ struct GameView: View {
                     streakAndPet(width: boardSide, screenWidth: proxy.size.width)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+                .preference(key: GameplayScreenWidthPreferenceKey.self, value: proxy.size.width)
             }
 
             if coordinator.isFinished || coordinator.wasAbandoned {
@@ -76,6 +78,10 @@ struct GameView: View {
         .onPreferenceChange(GameplayPetFramePreferenceKey.self) { frame in
             guard frame != gameplayPetFrame else { return }
             Task { @MainActor in gameplayPetFrame = frame }
+        }
+        .onPreferenceChange(GameplayScreenWidthPreferenceKey.self) { width in
+            guard width > 0, width != gameplayScreenWidth else { return }
+            Task { @MainActor in gameplayScreenWidth = width }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !coordinator.isFinished, !coordinator.wasAbandoned {
@@ -248,13 +254,13 @@ struct GameView: View {
                     )
                     .overlay {
                         if frozenGlyphsEnabled {
-                            Text(glyph)
-                                .font(palette.appFont(size: 19, weight: .black, relativeTo: .headline))
-                                .foregroundStyle(
-                                    coordinator.mode == .zen
-                                        ? Color(hex: palette.foreground)
-                                        : palette.promptInkColor(at: colorIndex)
-                                )
+                            CenteredColorGlyphView(
+                                glyph: glyph,
+                                color: coordinator.mode == .zen
+                                    ? Color(hex: palette.foreground)
+                                    : palette.promptInkColor(at: colorIndex),
+                                size: 23
+                            )
                         }
                     }
                     .overlay {
@@ -392,10 +398,11 @@ struct GameView: View {
             Text(displayedFeedback)
                 .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
                 .foregroundStyle(
-                    displayedFeedback.hasPrefix("Tap ")
+                    GameplayFeedbackPresentation.isVisuallyHidden(displayedFeedback)
                         ? Color.clear
                         : Color(hex: palette.muted)
                 )
+                .allowsHitTesting(false)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .accessibilityIdentifier("game-feedback")
@@ -452,7 +459,8 @@ struct GameView: View {
                     }
                 }
                 .offset(
-                    x: screenWidth * 0.40 - (screenWidth - width) / 2 - 27
+                    x: screenWidth * 0.40 - (screenWidth - width) / 2 - 27,
+                    y: PetArtworkGeometry.gameplayViewVerticalOffset(petID: petID)
                 )
                 .allowsHitTesting(false)
                 .accessibilityIdentifier("gameplay-pet-\(petID)")
@@ -663,36 +671,33 @@ struct GameView: View {
                     .webCardStyle(theme: palette, padding: 12)
                     .accessibilityIdentifier("result-speed-ratings")
 
-                    VStack(spacing: 7) {
-                        Text(coordinator.mode == .arcade ? "LEADERBOARD" : "ZEN PRACTICE")
-                            .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
-                            .tracking(1)
-                            .foregroundStyle(Color(hex: palette.muted))
+                    if submissionStarted || submissionFailed {
+                        VStack(spacing: 8) {
+                            if submissionStarted {
+                                ProgressView("Saving score…")
+                                    .tint(Color(hex: palette.accent))
+                            } else {
+                                Text(submissionError ?? "Score was not saved.")
+                                    .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                                    .foregroundStyle(.orange)
+                                    .multilineTextAlignment(.center)
 
-                        if submissionStarted {
-                            ProgressView("Saving score…")
-                                .tint(Color(hex: palette.accent))
-                        } else {
-                            Text(runStatus.isEmpty ? "This result stays on this device." : runStatus)
-                                .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                                .foregroundStyle(Color(hex: palette.accent))
-                                .multilineTextAlignment(.center)
+                                if runTicket != nil {
+                                    Button("Retry score upload") { submitRankedRunIfNeeded() }
+                                        .buttonStyle(
+                                            WebSecondaryButtonStyle(
+                                                theme: palette,
+                                                accent: Color(hex: palette.accent),
+                                                minimumHeight: 38
+                                            )
+                                        )
+                                }
+                            }
                         }
-
-                        if submissionFailed, runTicket != nil, !submissionStarted {
-                            Button("Retry score upload") { submitRankedRunIfNeeded() }
-                                .buttonStyle(
-                                    WebSecondaryButtonStyle(
-                                        theme: palette,
-                                        accent: Color(hex: palette.accent),
-                                        minimumHeight: 38
-                                    )
-                                )
-                        }
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .webCardStyle(theme: palette, padding: 10)
+                        .accessibilityIdentifier("result-save-status")
                     }
-                    .frame(maxWidth: .infinity, minHeight: 60)
-                    .webCardStyle(theme: palette, padding: 11)
-                    .accessibilityIdentifier("result-save-panel")
                 }
                 .foregroundStyle(Color(hex: palette.foreground))
                 .padding(16)
@@ -789,12 +794,12 @@ struct GameView: View {
         audio.setMusicContext(.gameplay)
         submissionStarted = false
         submissionFailed = false
+        submissionError = nil
         if let existingTicket = runTicket {
             await backend.abandonRun(existingTicket.runId)
         }
         guard preparation == preparationGeneration, !Task.isCancelled else { return }
         runTicket = nil
-        runStatus = coordinator.mode == .arcade ? "Local practice" : "Local Zen"
 
         if coordinator.mode == .arcade {
             if backend.sessionState == nil {
@@ -809,10 +814,8 @@ struct GameView: View {
                         return
                     }
                     runTicket = ticket
-                    runStatus = "Ranked · Hostinger Season 1"
                 } catch {
                     guard preparation == preparationGeneration, !Task.isCancelled else { return }
-                    runStatus = "Local practice · \(error.localizedDescription)"
                 }
             }
         }
@@ -825,21 +828,17 @@ struct GameView: View {
         guard !submissionStarted, let ticket = runTicket else { return }
         submissionStarted = true
         submissionFailed = false
-        runStatus = "Saving · Hostinger Season 1"
+        submissionError = nil
         let events = coordinator.proofEvents()
         Task {
             do {
-                let result = try await backend.finishRun(ticket: ticket, events: events)
-                runStatus =
-                    result.verificationStatus == "verified"
-                    ? "Saved · rank #\(result.submittedRank ?? result.rank ?? 0)"
-                    : "Submitted for review"
+                _ = try await backend.finishRun(ticket: ticket, events: events)
                 _ = try? await backend.loadSession()
                 if runTicket?.runId == ticket.runId {
                     runTicket = nil
                 }
             } catch {
-                runStatus = "Score not saved · \(error.localizedDescription)"
+                submissionError = "Score not saved · \(error.localizedDescription)"
                 submissionFailed = true
             }
             submissionStarted = false
@@ -865,8 +864,9 @@ struct GameView: View {
             y: boardSceneFrame.minY + normalizedLocation.y * boardSceneFrame.height
         )
         gameplayPetFacing = PetFacing.resolve(
-            pointer: pointer,
-            petFrame: gameplayPetFrame,
+            pointerX: pointer.x,
+            petCenterX: gameplayPetFrame.midX,
+            interactionWidth: gameplayScreenWidth,
             fallback: gameplayPetFacing
         )
         gameplayPetActivity += 1
@@ -970,6 +970,14 @@ enum ResponseProgressPresentation {
     }
 }
 
+enum GameplayFeedbackPresentation {
+    static func isVisuallyHidden(_ feedback: String) -> Bool {
+        if feedback.hasPrefix("Tap ") { return true }
+        return ["Godlike ·", "Perfect ·", "Great ·", "Good ·", "Hit ·"]
+            .contains { feedback.hasPrefix($0) }
+    }
+}
+
 private struct ResponseProgressBar: View {
     let remainingFraction: Double
 
@@ -1002,6 +1010,14 @@ private struct GameplayPetFramePreferenceKey: PreferenceKey {
     static let defaultValue = CGRect.zero
 
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
+}
+
+private struct GameplayScreenWidthPreferenceKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
 }

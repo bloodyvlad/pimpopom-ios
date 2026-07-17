@@ -50,12 +50,6 @@ struct LeaderboardView: View {
                     }
                 }
                 .frame(maxHeight: .infinity)
-
-                Text(footerCopy)
-                    .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
-                    .foregroundStyle(Color(hex: palette.muted))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
             }
             .foregroundStyle(Color(hex: palette.foreground))
             .padding(14)
@@ -155,12 +149,6 @@ struct LeaderboardView: View {
         .webCardStyle(theme: palette, selectedAccent: Color(hex: palette.accent), padding: 10)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("leaderboard-position")
-    }
-
-    private var footerCopy: String {
-        mode == .arcade
-            ? "Accepted Arcade rows are protocol verified. This does not prove a human tap or prevent automation."
-            : "Zen history is retained read-only and does not award coins or create new ranked results."
     }
 
     private func load() async {

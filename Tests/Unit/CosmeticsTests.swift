@@ -139,7 +139,7 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(WebMenuMetrics.actionGap, 9)
         XCTAssertEqual(WebMenuMetrics.pairedGap, 8)
         XCTAssertEqual(WebMenuMetrics.menuPetHorizontalShiftFraction, 0.15)
-        XCTAssertEqual(WebMenuMetrics.motivationHorizontalShiftFraction, 0.15)
+        XCTAssertEqual(WebMenuMetrics.motivationHorizontalShiftFraction, 0.10)
         XCTAssertEqual(WebMenuMetrics.motivationScale, 1.15)
     }
 
@@ -152,6 +152,7 @@ final class CosmeticsTests: XCTestCase {
 
         XCTAssertEqual(ThemePalette.disco.backgroundTop, "#030404")
         XCTAssertEqual(ThemePalette.disco.surface, "#0c0f16")
+        XCTAssertEqual(ThemePreviewStyle.discoBackgroundHex, "#080909")
         XCTAssertEqual(ThemePalette.light.backgroundTop, "#bce9ff")
         XCTAssertEqual(ThemePalette.light.backgroundBottom, "#eaf8ff")
         XCTAssertEqual(ThemePalette.light.foreground, "#17263b")
@@ -227,7 +228,7 @@ final class CosmeticsTests: XCTestCase {
             petID: "foka",
             spriteSize: 64
         )
-        XCTAssertEqual(foka.spriteOffset, CGSize(width: 8, height: -15))
+        XCTAssertEqual(foka.spriteOffset, CGSize(width: 8, height: -11))
 
         let kesha = PetArtworkGeometry.resolve(
             placement: .shop,
@@ -241,7 +242,7 @@ final class CosmeticsTests: XCTestCase {
             petID: "pancake",
             spriteSize: 64
         )
-        XCTAssertEqual(pancake.spriteOffset, CGSize(width: 8, height: 0))
+        XCTAssertEqual(pancake.spriteOffset, CGSize(width: 8, height: 20))
     }
 
     func testMenuPetGeometryAppliesOnlyTheRequestedPerPetOffsets() {
@@ -251,7 +252,12 @@ final class CosmeticsTests: XCTestCase {
             -9
         )
         for petID in ["misha", "tauta", "pancake"] {
-            let expected: CGFloat = petID == "misha" ? 1 : 6
+            let expected: CGFloat =
+                switch petID {
+                case "misha": 1
+                case "pancake": 26
+                default: 6
+                }
             XCTAssertEqual(
                 PetArtworkGeometry.resolve(placement: .menu, petID: petID, spriteSize: 64)
                     .spriteOffset.height,
@@ -261,38 +267,73 @@ final class CosmeticsTests: XCTestCase {
         }
     }
 
-    func testPetFacingUsesTheOriginalThirtyDegreeContract() {
-        let frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+    func testGameplayPetOffsetsApplyTheRequestedSequentialMovesWithoutClippingSprites() {
+        for petID in ["foka", "kesha", "tauta", "misha", "mitsuri", "muse"] {
+            XCTAssertEqual(PetArtworkGeometry.gameplayViewVerticalOffset(petID: petID), -10)
+        }
+        XCTAssertEqual(PetArtworkGeometry.gameplayViewVerticalOffset(petID: "pancake"), 10)
+    }
+
+    func testPetFacingUsesHorizontalScreenPercentageZones() {
+        let width: CGFloat = 200
+        let center: CGFloat = 100
         XCTAssertEqual(
-            PetFacing.resolve(pointer: CGPoint(x: 52, y: 250), petFrame: frame),
+            PetFacing.resolve(pointerX: center, petCenterX: center, interactionWidth: width),
             .front
         )
         XCTAssertEqual(
-            PetFacing.resolve(pointer: CGPoint(x: 60, y: 150), petFrame: frame),
+            PetFacing.resolve(pointerX: center + 0.5, petCenterX: center, interactionWidth: width),
+            .front
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: center + 0.51, petCenterX: center, interactionWidth: width),
             .halfRight
         )
         XCTAssertEqual(
-            PetFacing.resolve(pointer: CGPoint(x: 40, y: 150), petFrame: frame),
+            PetFacing.resolve(pointerX: center + 30, petCenterX: center, interactionWidth: width),
+            .halfRight
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: center - 30, petCenterX: center, interactionWidth: width),
             .halfLeft
         )
         XCTAssertEqual(
-            PetFacing.resolve(pointer: CGPoint(x: 150, y: 60), petFrame: frame),
+            PetFacing.resolve(
+                pointerX: center + 30.01,
+                petCenterX: center,
+                interactionWidth: width
+            ),
             .right
         )
         XCTAssertEqual(
-            PetFacing.resolve(pointer: CGPoint(x: -50, y: 60), petFrame: frame),
+            PetFacing.resolve(
+                pointerX: center - 30.01,
+                petCenterX: center,
+                interactionWidth: width
+            ),
             .left
         )
+        XCTAssertEqual(
+            PetFacing.resolve(
+                pointerX: .nan,
+                petCenterX: center,
+                interactionWidth: width,
+                fallback: .halfLeft
+            ),
+            .halfLeft
+        )
+    }
 
-        let exactThirtyX = 50 + CGFloat(tan(Double.pi / 6) * 100)
-        XCTAssertEqual(
-            PetFacing.resolve(pointer: CGPoint(x: exactThirtyX, y: 150), petFrame: frame),
-            .halfRight
-        )
-        XCTAssertEqual(
-            PetFacing.resolve(pointer: CGPoint(x: exactThirtyX + 0.1, y: 150), petFrame: frame),
-            .right
-        )
+    func testGameplayFeedbackHidesTargetsAndSpeedRatingsButRetainsMistakes() {
+        for feedback in [
+            "Tap Pink ■", "Godlike · 201 ms", "Perfect · 301 ms", "Great · 401 ms",
+            "Good · 501 ms", "Hit · 250 ms",
+        ] {
+            XCTAssertTrue(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
+        }
+        for feedback in ["Too slow", "Wrong cell", "Too early", "Decoy dodged"] {
+            XCTAssertFalse(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
+        }
     }
 
     func testMenuMotivationUsesTheNativeTenSecondNonRepeatingContract() {

@@ -241,6 +241,10 @@ struct PixelGrid: View {
     }
 }
 
+enum ThemePreviewStyle {
+    static let discoBackgroundHex = "#080909"
+}
+
 struct ThemePreview: View {
     let theme: ThemePalette
     var showsGlyphs = true
@@ -262,9 +266,11 @@ struct ThemePreview: View {
                     }
                     .overlay {
                         if showsGlyphs {
-                            Text(color.glyph)
-                                .font(theme.appFont(size: 13, weight: .black, relativeTo: .caption))
-                                .foregroundStyle(theme.cellInkColor(at: index))
+                            CenteredColorGlyphView(
+                                glyph: color.glyph,
+                                color: theme.cellInkColor(at: index),
+                                size: 15
+                            )
                         }
                     }
                     .overlay {
@@ -300,9 +306,16 @@ private struct ThemePreviewBackground: View {
     var body: some View {
         ZStack {
             if theme.id == "disco" {
+                Color(hex: ThemePreviewStyle.discoBackgroundHex)
                 Image("disco-concrete-lights", bundle: .main)
                     .resizable()
                     .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .colorMultiply(Color(hex: "#27303a"))
+                    .blendMode(.screen)
+                    .opacity(0.48)
+                    .clipped()
+                Color(hex: ThemePreviewStyle.discoBackgroundHex).opacity(0.24)
             } else if theme.id == "light" {
                 LinearGradient(
                     colors: [Color(hex: "#bdeaff"), Color(hex: "#f4fbff")],

@@ -54,7 +54,8 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["result-score-card"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["result-stats"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["result-speed-ratings"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["result-save-panel"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["result-save-panel"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["result-save-status"].exists)
         attachScreenshot(of: app, name: "SE Zen results")
     }
 
@@ -153,6 +154,7 @@ final class PimPoPomUITests: XCTestCase {
             ),
             .completed
         )
+
     }
 
     func testBackendSpecialPetAppearsOnMenuAndGameplay() throws {
@@ -193,7 +195,7 @@ final class PimPoPomUITests: XCTestCase {
             .completed
         )
 
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.34)).tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.20)).tap()
         XCTAssertEqual(
             XCTWaiter.wait(
                 for: [
@@ -206,6 +208,7 @@ final class PimPoPomUITests: XCTestCase {
             ),
             .completed
         )
+
     }
 
     func testResponseProgressDrainsWhileTargetIsActive() throws {
@@ -283,6 +286,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(dialog.frame.minX, 12, accuracy: 1)
         XCTAssertEqual(dialog.frame.width, 351, accuracy: 1)
         XCTAssertLessThan(wordmark.frame.maxX, coinStore.frame.minX)
+        XCTAssertEqual(leaderboard.value as? String, "Position #6")
 
         for utility in [coinStore, leaderboard, profile] {
             XCTAssertGreaterThanOrEqual(utility.frame.width, 44)
@@ -346,6 +350,10 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-position"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-entry-ui-player"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["speed-rating-distribution"].exists)
+        XCTAssertEqual(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'does not prove'")).count,
+            0
+        )
         attachScreenshot(of: app, name: "SE leaderboard parity")
 
         app.navigationBars.buttons.element(boundBy: 0).tap()
@@ -355,6 +363,11 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["My Profile"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["profile-rank-card"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-entry-ui-player"].exists)
+        let gameCenter = app.buttons["profile-game-center"]
+        XCTAssertTrue(gameCenter.waitForExistence(timeout: 3))
+        gameCenter.tap()
+        XCTAssertTrue(app.alerts["Game Center"].waitForExistence(timeout: 2))
+        app.alerts["Game Center"].buttons["OK"].tap()
         attachScreenshot(of: app, name: "SE profile parity")
     }
 
@@ -381,11 +394,31 @@ final class PimPoPomUITests: XCTestCase {
         }
 
         XCTAssertEqual(classic.frame.width, disco.frame.width, accuracy: 1)
-        XCTAssertEqual(classic.frame.minY, disco.frame.minY, accuracy: 1)
+        XCTAssertGreaterThan(
+            min(classic.frame.maxY, disco.frame.maxY),
+            max(classic.frame.minY, disco.frame.minY)
+        )
         XCTAssertEqual(light.frame.minX, classic.frame.minX, accuracy: 1)
         XCTAssertGreaterThan(light.frame.minY, classic.frame.maxY)
 
-        XCTAssertEqual(pixel.label, "Selected")
+        XCTAssertEqual(pixel.label, "Pixel")
+        XCTAssertEqual(pixel.value as? String, "Selected")
+
+        classic.tap()
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == 'Selected'"),
+                        object: classic
+                    )
+                ],
+                timeout: 2
+            ),
+            .completed
+        )
+        XCTAssertEqual(pixel.value as? String, "Select")
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == 'Select'")).count, 0)
     }
 
     private func launch(additionalArguments: [String] = []) -> XCUIApplication {
@@ -435,4 +468,5 @@ final class PimPoPomUITests: XCTestCase {
             timeout: timeout
         ) == .completed
     }
+
 }

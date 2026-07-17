@@ -19,7 +19,7 @@ struct WebModeTabs: View {
             RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 13)
                 .stroke(Color(hex: theme.foreground).opacity(0.12), lineWidth: theme.isPixel ? 2 : 1)
         }
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("leaderboard-mode-tabs")
     }
 
@@ -151,22 +151,28 @@ struct LeaderboardRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            Text("#\(entry.rank)")
-                .font(theme.appFont(size: 13, weight: .black, relativeTo: .headline))
-                .foregroundStyle(entry.rank <= 3 ? Color(hex: "#ffd84d") : Color(hex: theme.muted))
-                .frame(width: 29, alignment: .leading)
-                .padding(.top, 2)
+            VStack(spacing: 1) {
+                Text("#\(entry.rank)")
+                    .font(theme.appFont(size: 13, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(
+                        entry.rank <= 3 ? Color(hex: "#ffd84d") : Color(hex: theme.muted)
+                    )
+                    .monospacedDigit()
+                    .accessibilityIdentifier("leaderboard-entry-rank-\(entry.id)")
 
-            Group {
-                if let petID = entry.petId {
-                    PetCompanionView(petID: petID, size: 34, placement: .leaderboard)
-                } else {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: 27, weight: .semibold))
-                        .foregroundStyle(Color(hex: theme.muted).opacity(0.55))
+                Group {
+                    if let petID = entry.petId {
+                        PetCompanionView(petID: petID, size: 34, placement: .leaderboard)
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 27, weight: .semibold))
+                            .foregroundStyle(Color(hex: theme.muted).opacity(0.55))
+                    }
                 }
+                .frame(width: 42, height: 38)
+                .accessibilityIdentifier("leaderboard-entry-pet-\(entry.id)")
             }
-            .frame(width: 42, height: 38)
+            .frame(width: 42)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 5) {
@@ -211,6 +217,7 @@ struct LeaderboardRowView: View {
                 .minimumScaleFactor(0.72)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
 
             Text(entry.score.formatted())
                 .font(theme.appFont(size: 15, weight: .black, relativeTo: .headline))
@@ -237,7 +244,7 @@ struct LeaderboardRowView: View {
                     lineWidth: theme.isPixel ? 2 : 1
                 )
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("leaderboard-entry-\(entry.id)")
     }
 

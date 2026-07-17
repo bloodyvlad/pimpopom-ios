@@ -108,15 +108,29 @@ struct PetShopView: View {
                 Text(presentation.kind)
                     .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
                     .foregroundStyle(Color(hex: palette.muted))
-                Text(cosmetics.ownedPetIDs.contains(item.id) ? "Owned" : "\(item.priceCoins) coins")
-                    .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
-                    .foregroundStyle(Color(hex: palette.muted))
+                if cosmetics.ownedPetIDs.contains(item.id) {
+                    Text("Owned")
+                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                        .foregroundStyle(Color(hex: palette.muted))
+                } else {
+                    HStack(spacing: 4) {
+                        PixelCoinView(size: 13)
+                        Text("\(item.priceCoins)")
+                    }
+                    .font(palette.appFont(size: 12, weight: .black, relativeTo: .caption))
+                    .foregroundStyle(Color(hex: "#ffc629"))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(item.priceCoins) coins")
+                }
 
                 Button {
                     Task { await cosmetics.performPetAction(item) }
                 } label: {
                     HStack(spacing: 6) {
                         if cosmetics.pendingPetID == item.id { ProgressView().controlSize(.small) }
+                        if action == .buy, cosmetics.isAuthenticated {
+                            PixelCoinView(size: 13)
+                        }
                         Text(petActionLabel(action, item: item))
                     }
                     .frame(maxWidth: .infinity)
@@ -202,13 +216,9 @@ private struct PetShopPreviewButton: View {
             spriteSize: 64
         )
         facing = PetFacing.resolve(
-            pointer: location,
-            petFrame: CGRect(
-                x: geometry.spriteOffset.width,
-                y: geometry.spriteOffset.height,
-                width: 64,
-                height: 64
-            ),
+            pointerX: location.x,
+            petCenterX: geometry.spriteOffset.width + 32,
+            interactionWidth: 80,
             fallback: facing
         )
         animationTrigger += 1

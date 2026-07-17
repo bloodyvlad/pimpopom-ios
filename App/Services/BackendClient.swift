@@ -586,7 +586,10 @@ final class BackendClient: ObservableObject {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         ),
-        ranks: nil
+        ranks: [
+            GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
+            GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
+        ]
     )
 
     private static let uiTestThemes = ThemeCatalogResponse(

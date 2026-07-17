@@ -45,14 +45,19 @@ struct RootView: View {
                             height: proxy.size.height,
                             alignment: .top
                         )
+                        .contentShape(Rectangle())
+                        .simultaneousGesture(
+                            SpatialTapGesture()
+                                .onEnded {
+                                    handleMenuTap(
+                                        at: $0.location,
+                                        screenWidth: proxy.size.width
+                                    )
+                                }
+                        )
                 }
             }
             .coordinateSpace(name: "menu-space")
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                SpatialTapGesture()
-                    .onEnded { value in handleMenuTap(at: value.location) }
-            )
             .onPreferenceChange(MenuPetFramePreferenceKey.self) { frame in
                 guard frame != menuPetFrame else { return }
                 Task { @MainActor in menuPetFrame = frame }
@@ -169,15 +174,12 @@ struct RootView: View {
             } label: {
                 ZStack(alignment: .bottomTrailing) {
                     PixelCoinView(size: 19)
-                    if cosmetics.coinBalance > 0 {
-                        Text("\(cosmetics.coinBalance)")
-                            .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
-                            .foregroundStyle(Color(hex: "#291e00"))
-                            .padding(.horizontal, 3)
-                            .background(Color(hex: "#ffd84d"), in: Capsule())
-                            .overlay { Capsule().stroke(Color(hex: "#111426"), lineWidth: 2) }
-                            .offset(x: 5, y: 5)
-                    }
+                    WebUtilityBadge(
+                        text: "\(cosmetics.coinBalance)",
+                        kind: .coin,
+                        theme: palette
+                    )
+                    .offset(x: 6, y: 6)
                 }
             }
             .buttonStyle(
@@ -194,8 +196,17 @@ struct RootView: View {
             NavigationLink {
                 LeaderboardView()
             } label: {
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 16, weight: .bold))
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 16, weight: .bold))
+                    if let rank = arcadeRank {
+                        WebUtilityBadge(text: "#\(rank)", kind: .rank, theme: palette)
+                            .offset(x: 8, y: -9)
+                            .accessibilityLabel("Leaderboard position")
+                            .accessibilityValue("#\(rank)")
+                            .accessibilityIdentifier("leaderboard-rank-badge")
+                    }
+                }
             }
             .buttonStyle(
                 WebSecondaryButtonStyle(
@@ -205,6 +216,7 @@ struct RootView: View {
             )
             .frame(width: WebMenuMetrics.utilityTarget)
             .accessibilityLabel("Leaderboard")
+            .accessibilityValue(arcadeRank.map { "Position #\($0)" } ?? "Unranked")
             .accessibilityIdentifier("open-leaderboard")
 
             Button {
@@ -442,16 +454,27 @@ struct RootView: View {
     }
 
     private func featureLabel(_ title: String, systemImage: String, value: String) -> some View {
-        VStack(spacing: 2) {
-            Label(title, systemImage: systemImage)
-                .font(palette.appFont(size: 14, weight: .bold, relativeTo: .body))
-                .lineLimit(1)
-            Text(value)
-                .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                .foregroundStyle(Color(hex: palette.muted))
-                .lineLimit(1)
+        HStack(spacing: 7) {
+            Image(systemName: systemImage)
+                .font(.system(size: 24, weight: .black))
+                .frame(width: 28)
+
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(palette.appFont(size: 14, weight: .bold, relativeTo: .body))
+                    .lineLimit(1)
+                Text(value)
+                    .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                    .foregroundStyle(Color(hex: palette.muted))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 8)
+    }
+
+    private var arcadeRank: Int? {
+        backend.sessionState?.ranks?[GameMode.arcade.rawValue]?.rank
     }
 
     private var settingsSummary: String {
@@ -531,12 +554,13 @@ struct RootView: View {
         )
     }
 
-    private func handleMenuTap(at location: CGPoint) {
+    private func handleMenuTap(at location: CGPoint, screenWidth: CGFloat) {
         guard navigationPath.isEmpty, cosmetics.displayedPetID != nil else { return }
         menuPetSleeping = false
         menuPetFacing = PetFacing.resolve(
-            pointer: location,
-            petFrame: menuPetSpriteFrame,
+            pointerX: location.x,
+            petCenterX: menuPetSpriteFrame.midX,
+            interactionWidth: screenWidth,
             fallback: menuPetFacing
         )
         menuPetActivity += 1

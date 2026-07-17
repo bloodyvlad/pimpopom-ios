@@ -15,7 +15,7 @@ enum WebMenuMetrics {
     static let actionGap: CGFloat = 9
     static let pairedGap: CGFloat = 8
     static let menuPetHorizontalShiftFraction: CGFloat = 0.15
-    static let motivationHorizontalShiftFraction: CGFloat = 0.15
+    static let motivationHorizontalShiftFraction: CGFloat = 0.10
     static let motivationScale: CGFloat = 1.15
 }
 
@@ -173,13 +173,154 @@ struct PixelCoinView: View {
                 CGRect(x: x * scale, y: y * scale, width: width * scale, height: height * scale)
             }
 
+            func polygon(_ points: [CGPoint]) -> Path {
+                var path = Path()
+                guard let first = points.first else { return path }
+                path.move(to: CGPoint(x: first.x * scale, y: first.y * scale))
+                for point in points.dropFirst() {
+                    path.addLine(to: CGPoint(x: point.x * scale, y: point.y * scale))
+                }
+                path.closeSubpath()
+                return path
+            }
+
+            // Exact geometry and colors from the web game's inline 12 x 12 coin SVG.
             context.fill(
-                Path(roundedRect: rect(2, 1, 8, 10), cornerRadius: 2 * scale), with: .color(Color(hex: "#8a5a00")))
-            context.fill(Path(ellipseIn: rect(1, 2, 10, 8)), with: .color(Color(hex: "#f0a800")))
-            context.fill(Path(ellipseIn: rect(2, 2, 8, 7)), with: .color(Color(hex: "#ffd84d")))
-            context.fill(Path(rect(3, 3, 4, 1)), with: .color(Color(hex: "#fff2a0")))
-            context.fill(Path(rect(3, 4, 1, 3)), with: .color(Color(hex: "#fff2a0")))
-            context.fill(Path(rect(7, 6, 2, 2)), with: .color(Color(hex: "#d88700")))
+                polygon([
+                    CGPoint(x: 3, y: 1), CGPoint(x: 9, y: 1), CGPoint(x: 9, y: 2),
+                    CGPoint(x: 11, y: 2), CGPoint(x: 11, y: 4), CGPoint(x: 12, y: 4),
+                    CGPoint(x: 12, y: 8), CGPoint(x: 11, y: 8), CGPoint(x: 11, y: 10),
+                    CGPoint(x: 9, y: 10), CGPoint(x: 9, y: 11), CGPoint(x: 3, y: 11),
+                    CGPoint(x: 3, y: 10), CGPoint(x: 1, y: 10), CGPoint(x: 1, y: 8),
+                    CGPoint(x: 0, y: 8), CGPoint(x: 0, y: 4), CGPoint(x: 1, y: 4),
+                    CGPoint(x: 1, y: 2), CGPoint(x: 3, y: 2),
+                ]),
+                with: .color(Color(hex: "#8d5100"))
+            )
+            context.fill(
+                polygon([
+                    CGPoint(x: 3, y: 2), CGPoint(x: 9, y: 2), CGPoint(x: 9, y: 3),
+                    CGPoint(x: 10, y: 3), CGPoint(x: 10, y: 4), CGPoint(x: 11, y: 4),
+                    CGPoint(x: 11, y: 8), CGPoint(x: 10, y: 8), CGPoint(x: 10, y: 9),
+                    CGPoint(x: 9, y: 9), CGPoint(x: 9, y: 10), CGPoint(x: 3, y: 10),
+                    CGPoint(x: 3, y: 9), CGPoint(x: 2, y: 9), CGPoint(x: 2, y: 8),
+                    CGPoint(x: 1, y: 8), CGPoint(x: 1, y: 4), CGPoint(x: 2, y: 4),
+                    CGPoint(x: 2, y: 3), CGPoint(x: 3, y: 3),
+                ]),
+                with: .color(Color(hex: "#ffc629"))
+            )
+            context.fill(Path(rect(3, 3, 4, 1)), with: .color(Color(hex: "#fff09a")))
+            context.fill(Path(rect(2, 4, 1, 3)), with: .color(Color(hex: "#fff09a")))
+            context.fill(Path(rect(4, 5, 1, 3)), with: .color(Color(hex: "#fff09a")))
+            context.fill(Path(rect(8, 4, 2, 4)), with: .color(Color(hex: "#e18b00")))
+            context.fill(Path(rect(9, 8, 1, 1)), with: .color(Color(hex: "#e18b00")))
+            context.fill(Path(rect(6, 8, 3, 1)), with: .color(Color(hex: "#e18b00")))
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
+struct WebUtilityBadge: View {
+    enum Kind {
+        case coin
+        case rank
+
+        var background: Color {
+            switch self {
+            case .coin: Color(hex: "#ffd84d")
+            case .rank: Color(hex: "#63fff2")
+            }
+        }
+
+        var foreground: Color {
+            switch self {
+            case .coin: Color(hex: "#291e00")
+            case .rank: Color(hex: "#061e1c")
+            }
+        }
+    }
+
+    let text: String
+    let kind: Kind
+    let theme: ThemePalette
+
+    var body: some View {
+        Text(text)
+            .font(theme.appFont(size: 9, weight: .black, relativeTo: .caption2))
+            .foregroundStyle(kind.foreground)
+            .monospacedDigit()
+            .lineLimit(1)
+            .padding(.horizontal, 5)
+            .frame(minWidth: 26, minHeight: 19)
+            .background(kind.background, in: Capsule())
+            .overlay { Capsule().stroke(Color(hex: "#111426"), lineWidth: 2) }
+            .shadow(
+                color: kind == .rank ? Color(hex: "#63fff2").opacity(0.55) : .clear,
+                radius: kind == .rank ? 5 : 0
+            )
+    }
+}
+
+struct CenteredColorGlyphView: View {
+    let glyph: String
+    let color: Color
+    var size: CGFloat = 20
+
+    var body: some View {
+        Canvas(opaque: false, colorMode: .nonLinear) { context, canvasSize in
+            let side = min(canvasSize.width, canvasSize.height)
+            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+
+            func centeredRect(width: CGFloat, height: CGFloat) -> CGRect {
+                CGRect(
+                    x: center.x - width / 2,
+                    y: center.y - height / 2,
+                    width: width,
+                    height: height
+                )
+            }
+
+            var path = Path()
+            switch glyph {
+            case "●":
+                path.addEllipse(in: centeredRect(width: side * 0.50, height: side * 0.50))
+            case "▲":
+                path.move(to: CGPoint(x: center.x, y: center.y - side * 0.29))
+                path.addLine(to: CGPoint(x: center.x + side * 0.29, y: center.y + side * 0.25))
+                path.addLine(to: CGPoint(x: center.x - side * 0.29, y: center.y + side * 0.25))
+                path.closeSubpath()
+            case "■":
+                path.addRect(centeredRect(width: side * 0.50, height: side * 0.50))
+            case "◆":
+                path.move(to: CGPoint(x: center.x, y: center.y - side * 0.30))
+                path.addLine(to: CGPoint(x: center.x + side * 0.30, y: center.y))
+                path.addLine(to: CGPoint(x: center.x, y: center.y + side * 0.30))
+                path.addLine(to: CGPoint(x: center.x - side * 0.30, y: center.y))
+                path.closeSubpath()
+            case "✚":
+                path.addRect(centeredRect(width: side * 0.18, height: side * 0.58))
+                path.addRect(centeredRect(width: side * 0.58, height: side * 0.18))
+            case "★":
+                for pointIndex in 0..<10 {
+                    let radius = side * (pointIndex.isMultiple(of: 2) ? 0.31 : 0.14)
+                    let angle = -Double.pi / 2 + Double(pointIndex) * Double.pi / 5
+                    let point = CGPoint(
+                        x: center.x + CGFloat(cos(angle)) * radius,
+                        y: center.y + CGFloat(sin(angle)) * radius
+                    )
+                    if pointIndex == 0 { path.move(to: point) } else { path.addLine(to: point) }
+                }
+                path.closeSubpath()
+            default:
+                context.draw(
+                    Text(glyph).font(.system(size: side * 0.78, weight: .black)).foregroundStyle(color),
+                    at: center,
+                    anchor: .center
+                )
+                return
+            }
+            context.fill(path, with: .color(color))
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)

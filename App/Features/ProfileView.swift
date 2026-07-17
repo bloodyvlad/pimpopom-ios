@@ -14,6 +14,7 @@ struct ProfileView: View {
     @State private var status: String?
     @State private var busy = false
     @State private var loadGeneration = 0
+    @State private var showsGameCenterPlaceholder = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -30,6 +31,7 @@ struct ProfileView: View {
                         } else {
                             signedOutContent
                         }
+                        gameCenterCard
                     }
                     .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
                     .padding(16)
@@ -54,6 +56,13 @@ struct ProfileView: View {
             .task(id: mode) {
                 guard backend.isAuthenticated else { return }
                 await loadProfile()
+            }
+            .alert("Game Center", isPresented: $showsGameCenterPlaceholder) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(
+                    "This internal-alpha placeholder does not connect an account yet. PimPoPom's live leaderboard and progress remain unchanged."
+                )
             }
         }
     }
@@ -145,10 +154,19 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(profile.nickname)
                             .font(palette.appFont(size: 22, weight: .black, relativeTo: .title3))
-                        Text("\(profile.coins) coins · \(profile.totalPlayMs / 60_000) verified minutes")
-                            .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                            .foregroundStyle(Color(hex: palette.muted))
-                            .monospacedDigit()
+                        HStack(spacing: 4) {
+                            PixelCoinView(size: 13)
+                            Text("\(profile.coins)")
+                                .foregroundStyle(Color(hex: "#ffc629"))
+                            Text("· \(profile.totalPlayMs / 60_000) verified minutes")
+                                .foregroundStyle(Color(hex: palette.muted))
+                        }
+                        .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                        .monospacedDigit()
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(
+                            "\(profile.coins) coins, \(profile.totalPlayMs / 60_000) verified minutes"
+                        )
                     }
                     Spacer()
                     Button("Log out") { Task { await signOut() } }
@@ -218,6 +236,37 @@ struct ProfileView: View {
 
             statusMessage
         }
+    }
+
+    private var gameCenterCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "gamecontroller.fill")
+                .font(.system(size: 23, weight: .black))
+                .foregroundStyle(Color(hex: palette.accent))
+                .frame(width: 34)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Game Center")
+                    .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
+                Text("Not connected")
+                    .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
+                    .foregroundStyle(Color(hex: palette.muted))
+            }
+
+            Spacer(minLength: 8)
+
+            Button("Connect") { showsGameCenterPlaceholder = true }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.accent),
+                        minimumHeight: 40
+                    )
+                )
+                .frame(width: 105)
+                .accessibilityIdentifier("profile-game-center")
+        }
+        .webCardStyle(theme: palette, padding: 12)
     }
 
     private func rankCard(_ rank: RankInfo) -> some View {

@@ -1,4 +1,5 @@
 import Foundation
+import PimPoPomCore
 import UIKit
 import XCTest
 
@@ -118,6 +119,73 @@ final class BackendClientTests: XCTestCase {
         _ = try await selection.value
         XCTAssertEqual(backend.profile?.selectedThemeId, "light")
         XCTAssertEqual(recorder.requests(forPath: "/api/logout").count, 0)
+    }
+
+    func testRankedRunStartAndFinishPreserveTicketProofContract() async throws {
+        let recorder = RequestRecorder()
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let ticket = RunTicket(
+            runId: "run-native-1",
+            mode: GameMode.arcade.rawValue,
+            buildId: BackendClient.deployedBuildID,
+            ruleset: "reaction-proof-v2",
+            proofVersion: 1
+        )
+        let finish = RunFinishResponse(
+            rank: 8,
+            submittedRank: 8,
+            submittedEntryId: "entry-native-1",
+            improved: true,
+            duplicate: false,
+            verificationStatus: "verified",
+            coinsEarned: 1,
+            coinBalance: 76,
+            totalPlayMs: 180_000
+        )
+        let ticketData = try JSONEncoder().encode(ticket)
+        let finishData = try JSONEncoder().encode(finish)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch request.url?.path {
+            case "/api/session": return StubResponse(data: sessionData)
+            case "/api/runs": return StubResponse(data: ticketData, statusCode: 201)
+            case "/api/runs/finish": return StubResponse(data: finishData)
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let issued = try await backend.startRun()
+        let proof = [[0, 1, 2], [12, 3, 4, 5]]
+        let accepted = try await backend.finishRun(ticket: issued, events: proof)
+
+        XCTAssertEqual(issued, ticket)
+        XCTAssertEqual(accepted, finish)
+
+        let startRequest = try XCTUnwrap(recorder.requests(forPath: "/api/runs").first)
+        XCTAssertEqual(startRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+        let startPayload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(startRequest.body))
+                as? [String: String]
+        )
+        XCTAssertEqual(startPayload["mode"], GameMode.arcade.rawValue)
+        XCTAssertEqual(startPayload["buildId"], BackendClient.deployedBuildID)
+
+        let finishRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/runs/finish").first
+        )
+        XCTAssertEqual(finishRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+        let finishPayload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(finishRequest.body))
+                as? [String: Any]
+        )
+        XCTAssertEqual(finishPayload["runId"] as? String, ticket.runId)
+        XCTAssertEqual(finishPayload["mode"] as? String, ticket.mode)
+        XCTAssertEqual(finishPayload["buildId"] as? String, ticket.buildId)
+        XCTAssertEqual(finishPayload["ruleset"] as? String, ticket.ruleset)
+        XCTAssertEqual(finishPayload["proofVersion"] as? Int, ticket.proofVersion)
+        XCTAssertEqual(finishPayload["events"] as? [[Int]], proof)
     }
 
     func testPetSelectHideAndShowUpdateVisiblePresentation() async throws {

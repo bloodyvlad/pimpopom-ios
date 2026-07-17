@@ -97,62 +97,65 @@ struct ThemeShopView: View {
             selectedID: cosmetics.selectedThemeID
         )
 
-        return VStack(spacing: 6) {
-            ThemePreview(theme: theme, showsGlyphs: preferences.glyphsEnabled)
-                .frame(maxWidth: .infinity)
+        return Button {
+            Task { await cosmetics.performThemeAction(item) }
+        } label: {
+            VStack(spacing: 7) {
+                ThemePreview(theme: theme, showsGlyphs: preferences.glyphsEnabled)
+                    .frame(maxWidth: .infinity)
 
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(item.name)
-                    .font(palette.appFont(size: 15, weight: .black, relativeTo: .body))
-                    .lineLimit(1)
-                Spacer(minLength: 3)
-                if cosmetics.ownedThemeIDs.contains(item.id) {
-                    Text(item.priceCoins == 0 ? "Free" : "Owned")
-                        .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                        .foregroundStyle(Color(hex: palette.muted))
-                } else {
-                    HStack(spacing: 3) {
-                        PixelCoinView(size: 12)
-                        Text("\(item.priceCoins)")
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(item.name)
+                        .font(palette.appFont(size: 15, weight: .black, relativeTo: .body))
+                        .lineLimit(1)
+                    Spacer(minLength: 3)
+                    if cosmetics.ownedThemeIDs.contains(item.id) {
+                        Text(item.priceCoins == 0 ? "Free" : "Owned")
+                            .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                    } else {
+                        HStack(spacing: 3) {
+                            PixelCoinView(size: 12)
+                            Text("\(item.priceCoins)")
+                        }
+                        .font(palette.appFont(size: 12, weight: .black, relativeTo: .caption))
+                        .foregroundStyle(Color(hex: "#ffc629"))
                     }
-                    .font(palette.appFont(size: 12, weight: .black, relativeTo: .caption))
-                    .foregroundStyle(.yellow)
                 }
-            }
 
-            Button {
-                Task { await cosmetics.performThemeAction(item) }
-            } label: {
-                HStack(spacing: 5) {
-                    if cosmetics.pendingThemeID == item.id { ProgressView().controlSize(.small) }
-                    Text(themeActionLabel(action, item: item))
-                }
-                .frame(maxWidth: .infinity)
-                .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
             }
-            .buttonStyle(
-                WebSecondaryButtonStyle(
-                    theme: palette,
-                    accent: action == .selected
-                        ? Color(hex: palette.isLight ? "#159dc7" : theme.accent)
-                        : nil,
-                    minimumHeight: 32
-                )
+            .frame(maxHeight: .infinity, alignment: .top)
+            .foregroundStyle(Color(hex: palette.foreground))
+            .webCardStyle(
+                theme: palette,
+                selectedAccent: item.id == cosmetics.selectedThemeID
+                    ? Color(hex: palette.isLight ? "#159dc7" : theme.accent)
+                    : nil,
+                padding: 7
             )
-            .disabled(
-                action == .selected || cosmetics.isLoading
-                    || cosmetics.isEconomyMutationPending
-            )
+            .overlay(alignment: .topTrailing) {
+                if cosmetics.pendingThemeID == item.id {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Color(hex: palette.accent))
+                        .padding(10)
+                        .background(Color(hex: palette.surface).opacity(0.88), in: Circle())
+                        .padding(4)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(item.name)
+            .accessibilityValue(themeActionLabel(action, item: item))
             .accessibilityIdentifier("theme-action-\(item.id)")
         }
-        .foregroundStyle(Color(hex: palette.foreground))
-        .webCardStyle(
-            theme: palette,
-            selectedAccent: item.id == cosmetics.selectedThemeID
-                ? Color(hex: palette.isLight ? "#159dc7" : theme.accent)
-                : nil,
-            padding: 7
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .disabled(
+            action == .selected || cosmetics.isLoading
+                || cosmetics.isEconomyMutationPending
         )
+        .accessibilityHint(action == .selected ? "Current theme" : "Tap the theme tile to use it")
+        .accessibilityAddTraits(action == .selected ? .isSelected : [])
     }
 
     private func themeActionLabel(_ action: ThemeShopAction, item: CosmeticCatalogItem) -> String {

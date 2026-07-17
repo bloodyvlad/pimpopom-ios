@@ -138,8 +138,10 @@ enum PetFacing: String, Equatable, Sendable {
     case halfRight
     case right
 
-    static let halfTurnMaximumDegrees = 30.0
-    static let frontDeadZone: CGFloat = 2
+    static let halfTurnInteractionFraction: CGFloat = 0.15
+    // One physical pixel on the 2x SE profile keeps vertical-axis taps centered
+    // without turning the exact-center rule into a broad dead zone.
+    static let frontAlignmentTolerance: CGFloat = 0.5
 
     var frameIndex: Int {
         switch self {
@@ -152,22 +154,22 @@ enum PetFacing: String, Equatable, Sendable {
     }
 
     static func resolve(
-        pointer: CGPoint,
-        petFrame: CGRect,
+        pointerX: CGFloat,
+        petCenterX: CGFloat,
+        interactionWidth: CGFloat,
         fallback: PetFacing = .front
     ) -> PetFacing {
-        guard pointer.x.isFinite, pointer.y.isFinite,
-            petFrame.width > 0, petFrame.height > 0
+        guard pointerX.isFinite, petCenterX.isFinite,
+            interactionWidth.isFinite, interactionWidth > 0
         else { return fallback }
 
-        let deltaX = pointer.x - petFrame.midX
-        if abs(deltaX) <= frontDeadZone { return .front }
-        let deltaY = pointer.y - petFrame.midY
-        let angle = atan2(abs(deltaX), max(abs(deltaY), 1)) * 180 / .pi
+        let deltaX = pointerX - petCenterX
+        if abs(deltaX) <= frontAlignmentTolerance { return .front }
+        let isHalfTurn = abs(deltaX) <= interactionWidth * halfTurnInteractionFraction
         if deltaX < 0 {
-            return angle <= halfTurnMaximumDegrees ? .halfLeft : .left
+            return isHalfTurn ? .halfLeft : .left
         }
-        return angle <= halfTurnMaximumDegrees ? .halfRight : .right
+        return isHalfTurn ? .halfRight : .right
     }
 }
 
@@ -350,7 +352,8 @@ struct PetArtworkGeometry {
                 switch petID {
                 case "foka": -9 * point
                 case "misha": 1 * point
-                case "tauta", "pancake": 6 * point
+                case "tauta": 6 * point
+                case "pancake": 26 * point
                 default: -4 * point
                 }
             return PetArtworkGeometry(
@@ -364,9 +367,10 @@ struct PetArtworkGeometry {
             let point = spriteSize / 64
             let spriteY =
                 switch petID {
-                case "foka": -15 * point
+                case "foka": -11 * point
                 case "kesha": -10 * point
                 case "misha": -5 * point
+                case "pancake": 20 * point
                 default: CGFloat.zero
                 }
             return PetArtworkGeometry(
@@ -392,6 +396,10 @@ struct PetArtworkGeometry {
                 habitatOffset: CGSize(width: 4 * scale, height: habitatY)
             )
         }
+    }
+
+    static func gameplayViewVerticalOffset(petID: String) -> CGFloat {
+        petID == "pancake" ? 10 : -10
     }
 }
 

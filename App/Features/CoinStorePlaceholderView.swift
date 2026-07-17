@@ -31,6 +31,8 @@ struct CoinStorePlaceholderView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
     var offer = StoreKitPlaceholderOffer.coinPacks
 
+    private var palette: ThemePalette { cosmetics.theme }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -43,9 +45,15 @@ struct CoinStorePlaceholderView: View {
                     Text(offer.heading)
                         .font(.largeTitle.weight(.black))
                     if offer == .coinPacks {
-                        Text("\(cosmetics.coinBalance) coins")
-                            .font(.title2.monospacedDigit().weight(.bold))
-                            .foregroundStyle(.cyan)
+                        HStack(spacing: 7) {
+                            PixelCoinView(size: 24)
+                            Text("\(cosmetics.coinBalance)")
+                                .font(palette.appFont(size: 22, weight: .black, relativeTo: .title2))
+                                .monospacedDigit()
+                                .foregroundStyle(Color(hex: "#ffc629"))
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(cosmetics.coinBalance) coins")
                     } else {
                         Text("One-time StoreKit purchase")
                             .font(.title3.weight(.bold))
