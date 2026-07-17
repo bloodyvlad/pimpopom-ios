@@ -10,6 +10,7 @@ protocol GameSceneEventDelegate: AnyObject {
     func gameScene(
         _ scene: GameScene,
         didTapCell index: Int,
+        normalizedLocation: CGPoint,
         inputAt milliseconds: Double,
         handledAt: Double
     )
@@ -26,6 +27,7 @@ final class GameScene: SKScene {
     private var roundPresentationExpired = false
     private var boardFrame = CGRect.zero
     private var theme = ThemePalette.classic
+    private var glyphsEnabled = true
 
     override init() {
         super.init(size: CGSize(width: 320, height: 320))
@@ -46,6 +48,11 @@ final class GameScene: SKScene {
 
     func applyTheme(_ themeID: String) {
         theme = ThemePalette.resolve(themeID)
+        rebuildBoard()
+    }
+
+    func applyGlyphsEnabled(_ enabled: Bool) {
+        glyphsEnabled = enabled
         rebuildBoard()
     }
 
@@ -96,10 +103,15 @@ final class GameScene: SKScene {
         else { return }
         let location = touch.location(in: self)
         guard let index = cellFrames.firstIndex(where: { $0.contains(location) }) else { return }
+        let normalizedLocation = CGPoint(
+            x: min(1, max(0, location.x / max(size.width, 1))),
+            y: min(1, max(0, 1 - (location.y / max(size.height, 1))))
+        )
         let handledAt = ProcessInfo.processInfo.systemUptime * 1_000
         eventDelegate?.gameScene(
             self,
             didTapCell: index,
+            normalizedLocation: normalizedLocation,
             inputAt: touch.timestamp * 1_000,
             handledAt: handledAt
         )
@@ -135,7 +147,10 @@ final class GameScene: SKScene {
             let node = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
             node.name = "cell-\(index)"
             node.lineWidth = 2
-            node.strokeColor = UIColor(hexString: theme.accent).withAlphaComponent(0.18)
+            node.strokeColor =
+                theme.id == "light"
+                ? UIColor.white
+                : UIColor(hexString: theme.accent).withAlphaComponent(0.18)
             node.fillColor = UIColor(hexString: theme.idleCell)
 
             if let colorIndex = cell.colorIndex,
@@ -149,15 +164,17 @@ final class GameScene: SKScene {
                     : UIColor.white.withAlphaComponent(0.35)
                 node.lineWidth = cell.kind == .target ? 4 : 2
 
-                let glyph = SKLabelNode(text: spec.glyph)
-                glyph.fontName = theme.isPixel ? "Menlo-Bold" : "AvenirNext-Heavy"
-                glyph.fontSize = max(24, cellSide * 0.30)
-                glyph.fontColor = theme.cellInkUIColor(at: colorIndex)
-                glyph.verticalAlignmentMode = .center
-                glyph.horizontalAlignmentMode = .center
-                glyph.position = CGPoint(x: rect.midX, y: rect.midY)
-                glyph.zPosition = 2
-                addChild(glyph)
+                if glyphsEnabled {
+                    let glyph = SKLabelNode(text: spec.glyph)
+                    glyph.fontName = theme.isPixel ? "Jersey10-Regular" : "AvenirNext-Heavy"
+                    glyph.fontSize = theme.resolvedFontSize(max(24, cellSide * 0.30))
+                    glyph.fontColor = theme.cellInkUIColor(at: colorIndex)
+                    glyph.verticalAlignmentMode = .center
+                    glyph.horizontalAlignmentMode = .center
+                    glyph.position = CGPoint(x: rect.midX, y: rect.midY)
+                    glyph.zPosition = 2
+                    addChild(glyph)
+                }
             }
             node.zPosition = 1
             addChild(node)

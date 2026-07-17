@@ -19,6 +19,58 @@ struct ThemePalette: Identifiable, Equatable, Sendable {
     var fontDesign: Font.Design { isPixel ? .monospaced : .rounded }
     var cornerRadius: CGFloat { isPixel ? 3 : 18 }
 
+    func resolvedFontSize(_ size: CGFloat) -> CGFloat {
+        isPixel ? size * 1.10 : size
+    }
+
+    var chromeAccent: String {
+        switch id {
+        case "light": "#087fa7"
+        default: "#63efff"
+        }
+    }
+
+    var achievementsAccent: String {
+        switch id {
+        case "disco": "#ffe66f"
+        case "light": "#a66a00"
+        case "pixel": "#ffe14f"
+        default: "#ffd84d"
+        }
+    }
+
+    var petsAccent: String {
+        switch id {
+        case "disco": "#ff68d6"
+        case "light": "#c53868"
+        case "pixel": "#ff5fc8"
+        default: "#ff79ad"
+        }
+    }
+
+    var themesAccent: String {
+        switch id {
+        case "disco": "#61f5ff"
+        case "light": "#087fa7"
+        default: "#63efff"
+        }
+    }
+
+    func appFont(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        relativeTo textStyle: Font.TextStyle = .body
+    ) -> Font {
+        if isPixel {
+            return .custom(
+                "Jersey10-Regular",
+                size: resolvedFontSize(size),
+                relativeTo: textStyle
+            )
+        }
+        return .system(size: size, weight: weight, design: .rounded)
+    }
+
     func color(at index: Int) -> Color {
         Color(hex: tileColors[index % tileColors.count])
     }
@@ -47,7 +99,7 @@ struct ThemePalette: Identifiable, Equatable, Sendable {
         id: "classic",
         displayName: "Default",
         backgroundTop: "#101326",
-        backgroundBottom: "#03060d",
+        backgroundBottom: "#080a12",
         foreground: "#f7f8ff",
         muted: "#9da4bc",
         surface: "#191d30",
@@ -62,11 +114,11 @@ struct ThemePalette: Identifiable, Equatable, Sendable {
     static let disco = ThemePalette(
         id: "disco",
         displayName: "Disco",
-        backgroundTop: "#17121d",
-        backgroundBottom: "#020304",
+        backgroundTop: "#030404",
+        backgroundBottom: "#030404",
         foreground: "#f7f8ff",
         muted: "#a8afb9",
-        surface: "#11131a",
+        surface: "#0c0f16",
         board: "#080a0d",
         idleCell: "#15131a",
         accent: "#ff86bc",
@@ -84,7 +136,7 @@ struct ThemePalette: Identifiable, Equatable, Sendable {
         muted: "#5e7187",
         surface: "#ffffff",
         board: "#ffffff",
-        idleCell: "#d7e7f1",
+        idleCell: "#f5fbff",
         accent: "#087d9f",
         isLight: true,
         isPixel: false,
@@ -114,57 +166,84 @@ struct AppThemeBackground: View {
     let theme: ThemePalette
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Color(hex: theme.backgroundTop), Color(hex: theme.backgroundBottom)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+        GeometryReader { proxy in
+            ZStack {
+                backgroundBase
 
-            if theme.id == "disco" {
-                RadialGradient(
-                    colors: [Color.pink.opacity(0.24), .clear],
-                    center: .topTrailing,
-                    startRadius: 10,
-                    endRadius: 260
-                )
-                RadialGradient(
-                    colors: [Color.cyan.opacity(0.20), .clear],
-                    center: .bottomLeading,
-                    startRadius: 8,
-                    endRadius: 240
-                )
-            } else if theme.id == "light" {
-                VStack(spacing: 70) {
-                    Capsule().fill(.white.opacity(0.76)).frame(width: 150, height: 12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Capsule().fill(.white.opacity(0.66)).frame(width: 120, height: 10)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                    Spacer()
-                }
-                .padding(.horizontal, 26)
-                .padding(.top, 90)
-            } else if theme.id == "pixel" {
-                Canvas { context, size in
-                    var path = Path()
-                    for x in stride(from: CGFloat.zero, through: size.width, by: 16) {
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: size.height))
-                    }
-                    for y in stride(from: CGFloat.zero, through: size.height, by: 16) {
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: size.width, y: y))
-                    }
-                    context.stroke(path, with: .color(Color.cyan.opacity(0.08)), lineWidth: 1)
+                if theme.id == "classic" {
+                    RadialGradient(
+                        colors: [Color(hex: "#6651d6").opacity(0.30), .clear],
+                        center: UnitPoint(x: 0.5, y: -0.10),
+                        startRadius: 0,
+                        endRadius: max(220, proxy.size.width * 0.72)
+                    )
+                } else if theme.id == "pixel" {
+                    PixelGrid(spacing: 16, color: Color(hex: "#5fe5ff").opacity(0.07))
                 }
             }
         }
         .ignoresSafeArea()
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var backgroundBase: some View {
+        if theme.id == "disco" {
+            Image("disco-concrete-lights", bundle: .main)
+                .resizable()
+                .scaledToFill()
+                .overlay {
+                    LinearGradient(
+                        colors: [.black.opacity(0.04), .black.opacity(0.20)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+        } else if theme.id == "light" {
+            LinearGradient(
+                stops: [
+                    .init(color: Color(hex: "#bce9ff"), location: 0),
+                    .init(color: Color(hex: "#eaf8ff"), location: 0.72),
+                    .init(color: Color(hex: "#dff4ff"), location: 1),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            LinearGradient(
+                colors: [Color(hex: theme.backgroundTop), Color(hex: theme.backgroundBottom)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
+
+}
+
+struct PixelGrid: View {
+    let spacing: CGFloat
+    let color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            for x in stride(from: CGFloat.zero, through: size.width, by: spacing) {
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: size.height))
+            }
+            for y in stride(from: CGFloat.zero, through: size.height, by: spacing) {
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: size.width, y: y))
+            }
+            context.stroke(path, with: .color(color), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
     }
 }
 
 struct ThemePreview: View {
     let theme: ThemePalette
+    var showsGlyphs = true
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 5), count: 3), spacing: 5) {
@@ -172,19 +251,72 @@ struct ThemePreview: View {
                 RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 6)
                     .fill(theme.color(at: index))
                     .overlay {
-                        Text(color.glyph)
-                            .font(.system(size: 13, weight: .black, design: theme.fontDesign))
-                            .foregroundStyle(theme.cellInkColor(at: index))
+                        if theme.id == "disco" {
+                            Image("disco-tile-overlay", bundle: .main)
+                                .resizable()
+                                .scaledToFill()
+                                .blendMode(.screen)
+                                .opacity(0.30)
+                                .clipped()
+                        }
                     }
+                    .overlay {
+                        if showsGlyphs {
+                            Text(color.glyph)
+                                .font(theme.appFont(size: 13, weight: .black, relativeTo: .caption))
+                                .foregroundStyle(theme.cellInkColor(at: index))
+                        }
+                    }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 6)
+                            .stroke(
+                                .white.opacity(theme.id == "light" ? 1 : 0.30),
+                                lineWidth: theme.id == "light" || theme.isPixel ? 2 : 1)
+                    }
+                    .shadow(
+                        color: theme.color(at: index).opacity(0.30), radius: theme.isPixel ? 0 : 4,
+                        y: theme.isPixel ? 0 : 2
+                    )
                     .aspectRatio(1, contentMode: .fit)
             }
         }
         .padding(7)
-        .background(Color(hex: theme.board), in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 10))
+        .background {
+            ThemePreviewBackground(theme: theme)
+        }
         .overlay {
             RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 10)
-                .stroke(Color(hex: theme.accent).opacity(0.34), lineWidth: theme.isPixel ? 2 : 1)
+                .stroke(
+                    theme.isLight ? Color.white : Color(hex: theme.accent).opacity(0.34),
+                    lineWidth: theme.isPixel || theme.isLight ? 2 : 1
+                )
         }
+    }
+}
+
+private struct ThemePreviewBackground: View {
+    let theme: ThemePalette
+
+    var body: some View {
+        ZStack {
+            if theme.id == "disco" {
+                Image("disco-concrete-lights", bundle: .main)
+                    .resizable()
+                    .scaledToFill()
+            } else if theme.id == "light" {
+                LinearGradient(
+                    colors: [Color(hex: "#bdeaff"), Color(hex: "#f4fbff")],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            } else if theme.id == "pixel" {
+                Color(hex: "#111126")
+                PixelGrid(spacing: 8, color: Color(hex: "#69e8ff").opacity(0.10))
+            } else {
+                Color(hex: theme.board)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 10))
     }
 }
 

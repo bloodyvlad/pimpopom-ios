@@ -1,34 +1,85 @@
 import SwiftUI
 
+enum StoreKitPlaceholderOffer: Equatable, Sendable {
+    case coinPacks
+    case removeAds
+
+    var navigationTitle: String {
+        switch self {
+        case .coinPacks: "Buy Coins"
+        case .removeAds: "Remove Ads"
+        }
+    }
+
+    var heading: String {
+        switch self {
+        case .coinPacks: "Coin Store"
+        case .removeAds: "Ad-free PimPoPom"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .coinPacks: "shippingbox.fill"
+        case .removeAds: "rectangle.slash.fill"
+        }
+    }
+}
+
 struct CoinStorePlaceholderView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var cosmetics: CosmeticsController
+    var offer = StoreKitPlaceholderOffer.coinPacks
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    Image(systemName: "shippingbox.fill")
+                    Image(systemName: offer.symbol)
                         .font(.system(size: 52, weight: .black))
                         .foregroundStyle(.yellow)
                         .padding(.top, 24)
 
-                    Text("Coin Store")
+                    Text(offer.heading)
                         .font(.largeTitle.weight(.black))
-                    Text("\(cosmetics.coinBalance) coins")
-                        .font(.title2.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.cyan)
+                    if offer == .coinPacks {
+                        Text("\(cosmetics.coinBalance) coins")
+                            .font(.title2.monospacedDigit().weight(.bold))
+                            .foregroundStyle(.cyan)
+                    } else {
+                        Text("One-time StoreKit purchase")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(.cyan)
+                    }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        Label(
-                            "StoreKit coin packs are disabled in this internal alpha.",
-                            systemImage: "hammer.fill")
-                        Label(
-                            "Verified Arcade time and achievement rewards remain the only coin sources.",
-                            systemImage: "checkmark.shield.fill")
-                        Label(
-                            "Pet and theme purchases always use the balance confirmed by Hostinger.",
-                            systemImage: "server.rack")
+                        if offer == .coinPacks {
+                            Label(
+                                "StoreKit coin packs are disabled in this internal alpha.",
+                                systemImage: "hammer.fill"
+                            )
+                            Label(
+                                "Verified Arcade time and achievement rewards remain the only coin sources.",
+                                systemImage: "checkmark.shield.fill"
+                            )
+                            Label(
+                                "Pet and theme purchases always use the server-confirmed balance.",
+                                systemImage: "checkmark.icloud.fill"
+                            )
+                        } else {
+                            Label(
+                                "The Remove Ads StoreKit product is disabled in this internal alpha.",
+                                systemImage: "hammer.fill"
+                            )
+                            Label(
+                                "This placeholder grants no entitlement and changes no ad state.",
+                                systemImage: "checkmark.shield.fill"
+                            )
+                            Label(
+                                "Restore Purchases will be added with the real StoreKit product.",
+                                systemImage: "arrow.clockwise.icloud.fill"
+                            )
+                        }
                     }
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -37,7 +88,7 @@ struct CoinStorePlaceholderView: View {
                 }
                 .padding(20)
             }
-            .navigationTitle("Buy Coins")
+            .navigationTitle(offer.navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -46,6 +97,8 @@ struct CoinStorePlaceholderView: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .accessibilityIdentifier("coin-store-placeholder")
+        .accessibilityIdentifier(
+            offer == .coinPacks ? "coin-store-placeholder" : "remove-ads-store-placeholder"
+        )
     }
 }

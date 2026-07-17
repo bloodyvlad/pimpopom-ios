@@ -12,5 +12,6 @@ The internal alpha resolves Google Sign-In through Swift Package Manager. Exact 
 | AppCheck | 11.3.1 | `https://github.com/google/app-check` | Apache-2.0 |
 | Promises | 2.4.1 | `https://github.com/google/promises` | Apache-2.0 |
 | Interop for Google SDKs | 101.0.0 | `https://github.com/google/interop-ios-for-google-sdks` | Apache-2.0 |
+| Jersey 10 | Regular 400 | `https://github.com/google/fonts/tree/main/ofl/jersey10` | SIL Open Font License 1.1 |
 
-Each resolved source package contains its Apache-2.0 `LICENSE`. Before external distribution, retain the required licence text in the app/release acknowledgement bundle and re-audit the resolved graph, privacy manifests, and notices. No migrated third-party game asset has been accepted.
+Each resolved source package contains its Apache-2.0 `LICENSE`. The Jersey 10 licence is retained at `assets/fonts/OFL-Jersey10.txt`. Before external distribution, retain the required licence text in the app/release acknowledgement bundle and re-audit the resolved graph, privacy manifests, and notices. No third-party game artwork has been accepted.

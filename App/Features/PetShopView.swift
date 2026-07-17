@@ -16,7 +16,7 @@ struct PetShopView: View {
 
                     if !cosmetics.petMessage.isEmpty {
                         Text(cosmetics.petMessage)
-                            .font(.footnote.weight(.semibold))
+                            .font(palette.appFont(size: 13, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(Color(hex: palette.muted))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .accessibilityIdentifier("pet-shop-status")
@@ -24,6 +24,7 @@ struct PetShopView: View {
 
                     if cosmetics.isLoading {
                         ProgressView("Loading pets…")
+                            .font(palette.appFont(size: 14, weight: .semibold, relativeTo: .body))
                             .tint(Color(hex: palette.accent))
                             .foregroundStyle(Color(hex: palette.foreground))
                     }
@@ -39,6 +40,13 @@ struct PetShopView: View {
         }
         .navigationTitle("Pet Shop")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Pet Shop")
+                    .font(palette.appFont(size: 19, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(Color(hex: palette.foreground))
+            }
+        }
         .task { await cosmetics.refresh() }
         .sheet(isPresented: $showsCoinStore) {
             CoinStorePlaceholderView()
@@ -48,25 +56,31 @@ struct PetShopView: View {
 
     private var walletHeader: some View {
         HStack(spacing: 12) {
-            Label("\(cosmetics.coinBalance)", systemImage: "circle.fill")
-                .font(.headline.monospacedDigit().weight(.black))
-                .foregroundStyle(.yellow)
-                .accessibilityLabel("\(cosmetics.coinBalance) coins")
+            HStack(spacing: 6) {
+                PixelCoinView(size: 18)
+                Text("\(cosmetics.coinBalance)")
+                    .font(palette.appFont(size: 17, weight: .black, relativeTo: .headline))
+            }
+            .foregroundStyle(.yellow)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(cosmetics.coinBalance) coins")
             Spacer()
             Button {
                 showsCoinStore = true
             } label: {
                 Label("Buy Coins", systemImage: "plus.circle.fill")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(hex: palette.accent))
-            .foregroundStyle(.black)
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    accent: Color(hex: palette.petsAccent),
+                    minimumHeight: 44
+                )
+            )
             .accessibilityIdentifier("pet-buy-coins")
         }
-        .padding(14)
-        .background(
-            Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.86),
-            in: RoundedRectangle(cornerRadius: palette.cornerRadius))
+        .foregroundStyle(Color(hex: palette.foreground))
+        .webCardStyle(theme: palette, padding: 12)
     }
 
     private func petCard(_ item: CosmeticCatalogItem) -> some View {
@@ -83,10 +97,11 @@ struct PetShopView: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 7) {
-                    Text(item.name).font(.title3.weight(.black))
+                    Text(item.name)
+                        .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
                     if presentation.usesPlaceholderArt {
                         Text("PLACEHOLDER")
-                            .font(.system(size: 8, weight: .black, design: .rounded))
+                            .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
                             .padding(.horizontal, 5)
                             .padding(.vertical, 3)
                             .background(.orange.opacity(0.20), in: Capsule())
@@ -94,10 +109,10 @@ struct PetShopView: View {
                     }
                 }
                 Text(presentation.kind)
-                    .font(.caption)
+                    .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
                     .foregroundStyle(Color(hex: palette.muted))
                 Text(cosmetics.ownedPetIDs.contains(item.id) ? "Owned" : "\(item.priceCoins) coins")
-                    .font(.caption.monospacedDigit().weight(.bold))
+                    .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
                     .foregroundStyle(Color(hex: palette.muted))
 
                 Button {
@@ -109,27 +124,26 @@ struct PetShopView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(hex: palette.accent))
-                .foregroundStyle(.black)
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.petsAccent),
+                        minimumHeight: 44
+                    )
+                )
                 .disabled(cosmetics.isLoading || cosmetics.isEconomyMutationPending)
                 .accessibilityIdentifier("pet-action-\(item.id)")
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .foregroundStyle(Color(hex: palette.foreground))
-        .padding(14)
-        .background(
-            Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.86),
-            in: RoundedRectangle(cornerRadius: palette.cornerRadius)
+        .webCardStyle(
+            theme: palette,
+            selectedAccent: item.id == cosmetics.selectedPetID
+                ? Color(hex: palette.petsAccent)
+                : nil,
+            padding: 14
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: palette.cornerRadius)
-                .stroke(
-                    item.id == cosmetics.selectedPetID ? Color(hex: palette.accent) : .clear,
-                    lineWidth: 2
-                )
-        }
     }
 
     private func petActionLabel(_ action: PetShopAction, item: CosmeticCatalogItem) -> String {

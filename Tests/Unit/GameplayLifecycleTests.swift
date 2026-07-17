@@ -1,3 +1,5 @@
+import PimPoPomCore
+import SpriteKit
 import XCTest
 
 @testable import PimPoPom
@@ -40,5 +42,18 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertEqual(events, [.started, .abandoned])
         XCTAssertTrue(coordinator.wasAbandoned)
         coordinator.stop()
+    }
+
+    func testGameSceneRemovesGlyphNodesWhenGlyphsAreDisabled() {
+        let engine = GameEngine(random: { 0 })
+        _ = engine.start(now: 0, mode: .arcade)
+        let active = engine.activateRound(now: 1_000).snapshot
+        let scene = GameScene()
+
+        scene.apply(active)
+        XCTAssertTrue(scene.children.contains { $0 is SKLabelNode })
+
+        scene.applyGlyphsEnabled(false)
+        XCTAssertFalse(scene.children.contains { $0 is SKLabelNode })
     }
 }

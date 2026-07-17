@@ -15,39 +15,59 @@ struct RootView: View {
     @State private var nickname = ""
     @State private var accountBusy = false
     @State private var navigationPath: [GameMode] = []
+    @State private var showsProfile = false
+    @State private var showsAchievements = false
+    @State private var showsCoinStore = false
+    @State private var showsRemoveAdsStore = false
+    @State private var motivationIndex: Int?
+    @State private var menuPetFacing = PetFacing.front
+    @State private var menuPetSleeping = false
+    @State private var menuPetActivity = 0
+    @State private var menuPetFrame = CGRect.zero
 
     private var palette: ThemePalette { cosmetics.theme }
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
-            ZStack(alignment: .topTrailing) {
+            ZStack {
                 AppThemeBackground(theme: palette)
 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        title
-                        modeButtons
-                        serviceButtons
-                        accountCard
-                        footer
-                    }
-                    .padding(20)
-                    .frame(maxWidth: 560)
-                    .frame(maxWidth: .infinity)
+                GeometryReader { proxy in
+                    menuPanel
+                        .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .frame(
+                            width: proxy.size.width,
+                            height: proxy.size.height,
+                            alignment: .top
+                        )
                 }
-
-                if let petID = cosmetics.displayedPetID {
-                    PetCompanionView(petID: petID, size: 64, placement: .menu)
-                        .padding(.top, 64)
-                        .padding(.trailing, 10)
-                        .allowsHitTesting(false)
-                        .accessibilityIdentifier("menu-pet-\(petID)")
-                }
+            }
+            .coordinateSpace(name: "menu-space")
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                SpatialTapGesture()
+                    .onEnded { value in handleMenuTap(at: value.location) }
+            )
+            .onPreferenceChange(MenuPetFramePreferenceKey.self) { frame in
+                guard frame != menuPetFrame else { return }
+                Task { @MainActor in menuPetFrame = frame }
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: GameMode.self) { GameView(mode: $0) }
         }
         .tint(Color(hex: palette.foreground))
+        .sheet(isPresented: $showsProfile) { profileSheet }
+        .sheet(isPresented: $showsAchievements) { achievementsSheet }
+        .sheet(isPresented: $showsCoinStore) {
+            CoinStorePlaceholderView()
+                .environmentObject(cosmetics)
+        }
+        .sheet(isPresented: $showsRemoveAdsStore) {
+            CoinStorePlaceholderView(offer: .removeAds)
+                .environmentObject(cosmetics)
+        }
         .task {
             configureDebugLaunch()
             audio.setApplicationActive(scenePhase == .active)
@@ -64,6 +84,9 @@ struct RootView: View {
         .onChange(of: preferences.soundEffectsVolume) { _, _ in configureAudio() }
         .onChange(of: preferences.musicEnabled) { _, _ in configureAudio() }
         .onChange(of: preferences.musicVolume) { _, _ in configureAudio() }
+        .onChange(of: preferences.menuMotivationUnlocked) { _, unlocked in
+            if unlocked { advanceMotivation() }
+        }
         .onChange(of: scenePhase) { _, phase in
             audio.setApplicationActive(phase == .active)
             if phase == .active, navigationPath.isEmpty {
@@ -72,62 +95,446 @@ struct RootView: View {
         }
     }
 
-    private var title: some View {
-        VStack(spacing: 7) {
-            Text("PimPoPom")
-                .font(.system(size: 48, weight: .black, design: palette.fontDesign))
-                .foregroundStyle(Color(hex: palette.foreground))
-                .minimumScaleFactor(0.75)
-            Text("Native iOS · Internal Alpha")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color(hex: palette.muted))
-            if let season = backend.sessionState?.season {
-                Text(season.id == "ui-test" ? season.name : "Hostinger · \(season.name)")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(Color(hex: palette.accent).opacity(0.88))
-                    .accessibilityIdentifier("backend-environment")
+    private var menuPanel: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Main menu")
+                .accessibilityValue("Theme \(palette.id)")
+                .accessibilityIdentifier("menu-dialog")
+                .allowsHitTesting(false)
+
+            VStack(spacing: 0) {
+                utilityHeader
+                hintStage
+                actionStack
+                Spacer(minLength: 6)
+                menuFooter
+            }
+
+            if let petID = cosmetics.displayedPetID {
+                PetCompanionView(
+                    petID: petID,
+                    size: 64,
+                    placement: .menu,
+                    facing: menuPetFacing,
+                    isSleeping: menuPetSleeping
+                )
+                .offset(x: 10, y: WebMenuMetrics.headerHeight + 17)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: MenuPetFramePreferenceKey.self,
+                            value: proxy.frame(in: .named("menu-space"))
+                        )
+                    }
+                }
+                .task(id: "\(petID)-\(menuPetActivity)-\(scenePhase)") {
+                    menuPetSleeping = false
+                    guard scenePhase == .active, navigationPath.isEmpty else { return }
+                    try? await Task.sleep(for: .seconds(5))
+                    guard !Task.isCancelled else { return }
+                    menuPetSleeping = true
+                }
+                .allowsHitTesting(false)
+                .accessibilityIdentifier("menu-pet-\(petID)")
             }
         }
-        .padding(.top, 24)
+        .foregroundStyle(Color(hex: palette.foreground))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private var modeButtons: some View {
-        VStack(spacing: 12) {
-            modeLink(.arcade, color: .cyan)
-            modeLink(.zen, color: .mint)
-        }
-    }
+    private var utilityHeader: some View {
+        HStack(spacing: 8) {
+            PimPoPomWordmark(theme: palette)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-    private var serviceButtons: some View {
-        VStack(spacing: 10) {
+            Button {
+                showsCoinStore = true
+            } label: {
+                ZStack(alignment: .bottomTrailing) {
+                    PixelCoinView(size: 19)
+                    if cosmetics.coinBalance > 0 {
+                        Text("\(cosmetics.coinBalance)")
+                            .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                            .foregroundStyle(Color(hex: "#291e00"))
+                            .padding(.horizontal, 3)
+                            .background(Color(hex: "#ffd84d"), in: Capsule())
+                            .overlay { Capsule().stroke(Color(hex: "#111426"), lineWidth: 2) }
+                            .offset(x: 5, y: 5)
+                    }
+                }
+            }
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    accent: Color(hex: palette.achievementsAccent),
+                    minimumHeight: WebMenuMetrics.utilityTarget
+                )
+            )
+            .frame(width: WebMenuMetrics.utilityTarget)
+            .accessibilityLabel("Buy Coins. \(cosmetics.coinBalance) coins")
+            .accessibilityIdentifier("open-coin-store")
+
             NavigationLink {
                 LeaderboardView()
             } label: {
-                utilityLabel("Season leaderboard", systemImage: "trophy.fill")
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 16, weight: .bold))
+            }
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    minimumHeight: WebMenuMetrics.utilityTarget
+                )
+            )
+            .frame(width: WebMenuMetrics.utilityTarget)
+            .accessibilityLabel("Leaderboard")
+            .accessibilityIdentifier("open-leaderboard")
+
+            Button {
+                showsProfile = true
+            } label: {
+                Image(systemName: backend.profile == nil ? "person" : "person.fill")
+                    .font(.system(size: 17, weight: .bold))
+            }
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    minimumHeight: WebMenuMetrics.utilityTarget
+                )
+            )
+            .frame(width: WebMenuMetrics.utilityTarget)
+            .accessibilityLabel(backend.profile == nil ? "Profile. Signed out" : "Profile. Signed in")
+            .accessibilityIdentifier("open-profile")
+        }
+        .frame(minHeight: WebMenuMetrics.headerHeight)
+    }
+
+    private var hintStage: some View {
+        Group {
+            if motivationIsVisible {
+                Button {
+                    advanceMotivation()
+                } label: {
+                    Text(MenuMotivation.hints[currentMotivationIndex])
+                        .font(palette.appFont(size: 16, weight: .black, relativeTo: .body))
+                        .foregroundStyle(motivationColor)
+                        .multilineTextAlignment(.leading)
+                        .rotationEffect(
+                            .degrees(MenuMotivation.tilts[currentMotivationIndex % MenuMotivation.tilts.count])
+                        )
+                        .shadow(
+                            color: motivationColor.opacity(palette.isLight ? 0.18 : 0.48),
+                            radius: palette.isPixel ? 0 : 7)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("menu-motivation")
+                .task(id: motivationTaskID) {
+                    guard motivationCanRotate else { return }
+                    if motivationIndex == nil {
+                        advanceMotivation()
+                        return
+                    }
+                    try? await Task.sleep(for: MenuMotivation.rotationInterval)
+                    guard !Task.isCancelled, motivationCanRotate else { return }
+                    advanceMotivation()
+                }
+            } else {
+                Text("– Tap your color\n– Become the fastest\n– Collect rewards!")
+                    .font(palette.appFont(size: 15, weight: .medium, relativeTo: .body))
+                    .foregroundStyle(Color(hex: palette.muted))
+                    .lineSpacing(3)
+                    .shadow(
+                        color: palette.isLight
+                            ? Color(hex: "#159dc7").opacity(0.18)
+                            : Color(hex: "#63f8ff").opacity(0.12),
+                        radius: 7
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: WebMenuMetrics.hintHeight, alignment: .leading)
+        .padding(.trailing, cosmetics.displayedPetID == nil ? 0 : 76)
+        .padding(.top, 8)
+        .padding(.bottom, 14)
+    }
+
+    private var actionStack: some View {
+        VStack(spacing: WebMenuMetrics.actionGap) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text("GAME MODE")
+                    .font(palette.appFont(size: 11, weight: .black, relativeTo: .caption))
+                    .tracking(1.1)
+                    .foregroundStyle(Color(hex: palette.muted))
+
+                VStack(spacing: WebMenuMetrics.pairedGap) {
+                    modeLink(.arcade)
+                    modeLink(.zen)
+                }
             }
 
-            HStack(spacing: 10) {
-                NavigationLink {
-                    ThemeShopView()
-                } label: {
-                    utilityLabel("Themes", systemImage: "paintpalette.fill")
-                }
-                .accessibilityIdentifier("open-theme-shop")
+            Color.clear.frame(height: 9)
 
+            Button {
+                showsAchievements = true
+            } label: {
+                HStack(spacing: 8) {
+                    Text("Achievements")
+                        .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
+                    Spacer(minLength: 6)
+                    Text(backend.isAuthenticated ? "0 / 5 claimed" : "Sign in to claim")
+                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                        .foregroundStyle(Color(hex: palette.muted))
+                }
+                .padding(.horizontal, 14)
+            }
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    accent: Color(hex: palette.achievementsAccent)
+                )
+            )
+            .accessibilityIdentifier("open-achievements")
+
+            HStack(spacing: WebMenuMetrics.pairedGap) {
                 NavigationLink {
                     PetShopView()
                 } label: {
-                    utilityLabel("Pets", systemImage: "pawprint.fill")
+                    featureLabel(
+                        "Pet Shop",
+                        systemImage: "pawprint.fill",
+                        value: petSummary
+                    )
                 }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.petsAccent),
+                        minimumHeight: WebMenuMetrics.featureControlHeight
+                    )
+                )
                 .accessibilityIdentifier("open-pet-shop")
+
+                NavigationLink {
+                    ThemeShopView()
+                } label: {
+                    featureLabel(
+                        "Themes",
+                        systemImage: "paintpalette.fill",
+                        value: palette.displayName
+                    )
+                }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.themesAccent),
+                        minimumHeight: WebMenuMetrics.featureControlHeight
+                    )
+                )
+                .accessibilityIdentifier("open-theme-shop")
             }
 
             NavigationLink {
                 SettingsView()
             } label: {
-                utilityLabel("Music, Sound & Settings", systemImage: "slider.horizontal.3")
+                HStack(spacing: 12) {
+                    Text("Settings")
+                    Spacer(minLength: 8)
+                    Text(settingsSummary)
+                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                        .foregroundStyle(Color(hex: palette.muted))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 14)
             }
+            .buttonStyle(WebSecondaryButtonStyle(theme: palette))
             .accessibilityIdentifier("open-settings")
+        }
+    }
+
+    private var menuFooter: some View {
+        VStack(spacing: 7) {
+            HStack {
+                Spacer(minLength: 0)
+                Button("Remove Ads") { showsRemoveAdsStore = true }
+                    .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                    .buttonStyle(
+                        WebSecondaryButtonStyle(
+                            theme: palette,
+                            minimumHeight: WebMenuMetrics.utilityTarget
+                        )
+                    )
+                    .frame(width: 112)
+                    .accessibilityHint("Opens the StoreKit placeholder")
+                    .accessibilityIdentifier("remove-ads")
+            }
+
+            Text("© 2026 OTC Software. All rights reserved.")
+                .font(palette.appFont(size: 10, weight: .regular, relativeTo: .caption2))
+                .foregroundStyle(Color(hex: palette.muted).opacity(0.64))
+                .frame(maxWidth: .infinity)
+        }
+        .padding(.top, 8)
+    }
+
+    private func modeLink(_ mode: GameMode) -> some View {
+        NavigationLink(value: mode) {
+            VStack(spacing: mode == .zen ? 3 : 0) {
+                Text(mode.displayName)
+                    .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
+                if mode == .zen {
+                    Text("NO COINS AWARDED")
+                        .font(palette.appFont(size: 9, weight: .bold, relativeTo: .caption2))
+                        .tracking(0.55)
+                }
+            }
+            .foregroundStyle(mode == .arcade ? Color(hex: "#fff7f8") : Color(hex: "#0b2d17"))
+        }
+        .buttonStyle(
+            WebModeButtonStyle(
+                theme: palette,
+                kind: mode == .arcade ? .arcade : .zen
+            )
+        )
+        .accessibilityIdentifier("mode-\(mode.rawValue)")
+    }
+
+    private func featureLabel(_ title: String, systemImage: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Label(title, systemImage: systemImage)
+                .font(palette.appFont(size: 14, weight: .bold, relativeTo: .body))
+                .lineLimit(1)
+            Text(value)
+                .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                .foregroundStyle(Color(hex: palette.muted))
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 6)
+    }
+
+    private var settingsSummary: String {
+        "Glyphs \(preferences.glyphsEnabled ? "on" : "off") · FX \(preferences.soundEffectsEnabled ? "on" : "off") · Music \(preferences.musicEnabled ? "on" : "off")"
+    }
+
+    private var petSummary: String {
+        guard let petID = cosmetics.selectedPetID ?? cosmetics.displayedPetID else { return "No pet" }
+        return cosmetics.pets.first(where: { $0.id == petID })?.name ?? petID.capitalized
+    }
+
+    private var motivationIsVisible: Bool {
+        if preferences.menuMotivationUnlocked { return true }
+        #if DEBUG
+            return ProcessInfo.processInfo.arguments.contains("--ui-test-menu-motivation")
+        #else
+            return false
+        #endif
+    }
+
+    private var currentMotivationIndex: Int {
+        motivationIndex ?? 0
+    }
+
+    private var motivationCanRotate: Bool {
+        motivationIsVisible
+            && navigationPath.isEmpty
+            && scenePhase == .active
+            && !showsProfile
+            && !showsAchievements
+            && !showsCoinStore
+            && !showsRemoveAdsStore
+    }
+
+    private var motivationTaskID: String {
+        "\(motivationIndex ?? -1)-\(navigationPath.count)-\(scenePhase)-\(showsProfile)-\(showsAchievements)-\(showsCoinStore)-\(showsRemoveAdsStore)"
+    }
+
+    private var motivationColor: Color {
+        let tone = MenuMotivation.tones[currentMotivationIndex % MenuMotivation.tones.count]
+        let hex: String
+        if palette.isLight {
+            hex =
+                switch tone {
+                case "pink": "#bb257b"
+                case "gold": "#966700"
+                case "green": "#25812f"
+                case "violet": "#6942b7"
+                default: "#087c9b"
+                }
+        } else {
+            hex =
+                switch tone {
+                case "pink": "#ff71c7"
+                case "gold": "#ffe15c"
+                case "green": "#8df27e"
+                case "violet": "#b798ff"
+                default: "#62f8ff"
+                }
+        }
+        return Color(hex: hex)
+    }
+
+    private func advanceMotivation() {
+        let randomValue: Double
+        #if DEBUG
+            randomValue =
+                ProcessInfo.processInfo.arguments.contains("--uitesting")
+                ? 0
+                : Double.random(in: 0..<1)
+        #else
+            randomValue = Double.random(in: 0..<1)
+        #endif
+        motivationIndex = MenuMotivation.nextIndex(
+            previous: motivationIndex,
+            randomValue: randomValue
+        )
+    }
+
+    private func handleMenuTap(at location: CGPoint) {
+        guard navigationPath.isEmpty, cosmetics.displayedPetID != nil else { return }
+        menuPetSleeping = false
+        menuPetFacing = PetFacing.resolve(
+            pointer: location,
+            petFrame: menuPetSpriteFrame,
+            fallback: menuPetFacing
+        )
+        menuPetActivity += 1
+    }
+
+    private var menuPetSpriteFrame: CGRect {
+        guard let petID = cosmetics.displayedPetID else { return .zero }
+        let geometry = PetArtworkGeometry.resolve(
+            placement: .menu,
+            petID: petID,
+            spriteSize: 64
+        )
+        return CGRect(
+            x: menuPetFrame.minX + geometry.spriteOffset.width,
+            y: menuPetFrame.minY + geometry.spriteOffset.height,
+            width: 64,
+            height: 64
+        )
+    }
+
+    private var profileSheet: some View {
+        NavigationStack {
+            ZStack {
+                AppThemeBackground(theme: palette)
+                ScrollView {
+                    accountCard
+                        .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showsProfile = false }
+                }
+            }
         }
     }
 
@@ -135,7 +542,7 @@ struct RootView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Player", systemImage: "person.crop.circle")
-                    .font(.headline.weight(.bold))
+                    .font(palette.appFont(size: 18, weight: .bold, relativeTo: .headline))
                 Spacer()
                 if backend.isLoadingSession || accountBusy { ProgressView() }
             }
@@ -144,7 +551,7 @@ struct RootView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(profile.nickname)
-                            .font(.title3.weight(.bold))
+                            .font(palette.appFont(size: 22, weight: .bold, relativeTo: .title3))
                         Text("\(profile.coins) coins · \(profile.totalPlayMs / 60_000) verified minutes")
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(Color(hex: palette.muted))
@@ -159,11 +566,12 @@ struct RootView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .padding(12)
-                        .background(.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 12))
+                        .background(
+                            Color.black.opacity(palette.isLight ? 0.06 : 0.24),
+                            in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
+                        )
                     Button("Confirm nickname") { Task { await saveNickname() } }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.cyan)
-                        .foregroundStyle(.black)
+                        .buttonStyle(WebSecondaryButtonStyle(theme: palette, accent: Color(hex: palette.chromeAccent)))
                         .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } else {
                     Text("Arcade runs use the deployed protocol-verified leaderboard.")
@@ -171,18 +579,18 @@ struct RootView: View {
                         .foregroundStyle(Color(hex: palette.muted))
                 }
             } else {
-                Text("Play locally now. Sign in to use the existing players, coins, and ranked leaderboard.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color(hex: palette.muted))
+                Text(
+                    "Play locally now. Sign in to use the existing players, coins, achievements, Pet Shop, and ranked leaderboard."
+                )
+                .font(.subheadline)
+                .foregroundStyle(Color(hex: palette.muted))
                 Button {
                     Task { await signIn() }
                 } label: {
                     Label("Continue with Google", systemImage: "person.badge.key.fill")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.white)
-                .foregroundStyle(.black)
+                .buttonStyle(WebSecondaryButtonStyle(theme: palette, accent: Color(hex: palette.chromeAccent)))
                 .disabled(!googleIdentity.isConfigured || accountBusy)
 
                 if !googleIdentity.isConfigured {
@@ -199,55 +607,38 @@ struct RootView: View {
             }
         }
         .foregroundStyle(Color(hex: palette.foreground))
-        .padding(16)
-        .background(
-            Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.84),
-            in: RoundedRectangle(cornerRadius: palette.cornerRadius)
-        )
+        .webCardStyle(theme: palette, padding: 16)
     }
 
-    private var footer: some View {
-        HStack(alignment: .bottom) {
-            Text("Build \(appBuildNumber) · API \(BackendClient.deployedBuildID)")
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(Color(hex: palette.muted).opacity(0.72))
-            Spacer()
-            Button("Remove Ads") {}
-                .buttonStyle(.bordered)
-                .frame(minWidth: 44, minHeight: 44)
-                .disabled(services.purchases.availability == .disabledForLocalAlpha)
-                .accessibilityHint("StoreKit is disabled in the internal alpha")
-        }
-        .padding(.bottom, 8)
-    }
-
-    private var appBuildNumber: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
-    }
-
-    private func modeLink(_ mode: GameMode, color: Color) -> some View {
-        NavigationLink(value: mode) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(mode.displayName)
-                        .font(.title3.weight(.bold))
-                    Text(mode == .arcade ? "Ranked when signed in" : "Endless local practice")
-                        .font(.caption.weight(.semibold))
-                        .opacity(0.65)
+    private var achievementsSheet: some View {
+        NavigationStack {
+            ZStack {
+                AppThemeBackground(theme: palette)
+                VStack(spacing: 16) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 48, weight: .black))
+                        .foregroundStyle(Color(hex: palette.achievementsAccent))
+                    Text("Achievements")
+                        .font(palette.appFont(size: 30, weight: .black, relativeTo: .largeTitle))
+                    Text(
+                        "The menu entry now matches the original. The native achievement catalog and claim flow are the next backend feature slice."
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(Color(hex: palette.muted))
+                    .multilineTextAlignment(.center)
                 }
-                Spacer()
-                Image(systemName: "arrow.right")
-                    .font(.headline.weight(.bold))
+                .foregroundStyle(Color(hex: palette.foreground))
+                .webCardStyle(theme: palette, padding: 20)
+                .padding(20)
             }
-            .foregroundStyle(.black)
-            .padding(.horizontal, 18)
-            .frame(maxWidth: .infinity, minHeight: 62)
-            .background(
-                mode == .arcade ? palette.color(at: 0) : palette.color(at: 3),
-                in: RoundedRectangle(cornerRadius: palette.cornerRadius, style: .continuous)
-            )
+            .navigationTitle("Achievements")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showsAchievements = false }
+                }
+            }
         }
-        .accessibilityIdentifier("mode-\(mode.rawValue)")
     }
 
     private func restoreSession() async {
@@ -306,23 +697,19 @@ struct RootView: View {
 
     private func configureDebugLaunch() {
         #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--play-arcade") {
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("--ui-test-glyphs-off") {
+                preferences.glyphsEnabled = false
+            } else if arguments.contains("--ui-test-glyphs-on") {
+                preferences.glyphsEnabled = true
+            }
+
+            if arguments.contains("--play-arcade") {
                 navigationPath = [.arcade]
-            } else if ProcessInfo.processInfo.arguments.contains("--play-zen") {
+            } else if arguments.contains("--play-zen") {
                 navigationPath = [.zen]
             }
         #endif
-    }
-
-    private func utilityLabel(_ text: String, systemImage: String) -> some View {
-        Label(text, systemImage: systemImage)
-            .font(.headline.weight(.bold))
-            .foregroundStyle(Color(hex: palette.foreground))
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background(
-                Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.84),
-                in: RoundedRectangle(cornerRadius: palette.cornerRadius)
-            )
     }
 
     private func configureAudio() {
@@ -340,4 +727,12 @@ struct RootView: View {
         .environmentObject(preferences)
         .environmentObject(cosmetics)
         .environmentObject(AudioController())
+}
+
+private struct MenuPetFramePreferenceKey: PreferenceKey {
+    static let defaultValue = CGRect.zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        value = nextValue()
+    }
 }

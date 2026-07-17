@@ -25,6 +25,10 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Native cosmetics/preferences/API-contract tests, including coalesced session loading, CSRF credential wiring, and stale-account response rejection; shop/settings UI tests; and deterministic validation of every migrated runtime/master/source asset.
 - Current reviewed Muse special-pet sprite/floor assets and deterministic coverage for pet presentation geometry, selected/visible mutations, gameplay lifecycle audio routing, and response-progress semantics.
 - Simulator regression coverage for static-until-tapped Pet Shop previews, special-pet presentation in menu/gameplay, and a decreasing Arcade response bar.
+- Deterministic UI-test fixtures for all four themes, compact-menu geometry coverage, and two-column Theme Shop layout coverage.
+- Reviewed Jersey 10 Pixel font and exact Disco concrete/tile textures with retained sources, licence/provenance, hashes, and resource validation.
+- Persisted Glyphs setting wired through theme previews, the gameplay color header, feedback, and SpriteKit cells.
+- StoreKit-safe Remove Ads placeholder, 26-item main-menu motivation pool, pet-facing resolver, and deterministic pet sleep/wake coverage.
 
 ### Changed
 
@@ -33,3 +37,10 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Made selected, hidden, equipped, and server-derived special-pet state resolve consistently across the menu, shop, and active game. When a special companion overrides shop presentation, the shop now explains that the underlying selection still changes.
 - Routed game-over and background abandonment directly to silent music state before subsequent menu routing, with stale asynchronous music transitions rejected.
 - Replaced the animated generic progress indicator with an active-round-only response bar that resets immediately to full and drains toward empty.
+- Rebuilt the main menu and Theme Shop around the reviewed web visual contract at parent commit `923a38e`: compact three-color wordmark/header, pet-safe hint stage, pink Arcade and green Zen actions, feature accents, themed panels/backgrounds, and two-column theme cards.
+- Suppressed real audio output only for deterministic Debug UI-test launches, avoiding Simulator audio-service crashes without changing normal Simulator, device, or Release audio behavior.
+- Replaced the scrollable floating main-menu dialog with a fixed safe-area layout and removed its build/backend/season diagnostics.
+- Matched the PHP gameplay composition with a custom utility header, three-column HUD, near-full-width transparent SpriteKit board, and styled Speed streak/multiplier above the bottom ad host.
+- Corrected Light theme surfaces without capsule cloud artifacts, increased Pixel typography by 10%, extended Pixel type to Leaderboard/Pet Shop/Settings, and applied Pet Shop pink accents to internal actions.
+- Added five-second menu pet sleep/wake, original 30-degree tap-follow facing, 40%-width gameplay placement, and five-point Foka/Misha habitat alignment.
+- Adopted the latest 26 web slogans with tap-to-advance and an intentional 10-second native rotation interval.

@@ -76,16 +76,19 @@ final class CosmeticsController: ObservableObject {
 
     private let backend: BackendClient
     private let preferences: AppPreferences
+    private let forcedUITestThemeID: String?
     private var sessionObservation: AnyCancellable?
     private var refreshGeneration = 0
 
     init(backend: BackendClient, preferences: AppPreferences) {
         self.backend = backend
         self.preferences = preferences
+        forcedUITestThemeID = Self.forcedUITestThemeArgument()
         selectedThemeID =
-            CosmeticCatalog.freeThemeIDs.contains(preferences.selectedThemeID)
-            ? preferences.selectedThemeID
-            : "classic"
+            forcedUITestThemeID
+            ?? (CosmeticCatalog.freeThemeIDs.contains(preferences.selectedThemeID)
+                ? preferences.selectedThemeID
+                : "classic")
         sessionObservation = backend.$sessionState.sink { [weak self] session in
             self?.applySession(session)
         }
@@ -276,10 +279,14 @@ final class CosmeticsController: ObservableObject {
         guard let profile else {
             coinBalance = 0
             ownedThemeIDs = CosmeticCatalog.freeThemeIDs
+            if let forcedUITestThemeID {
+                ownedThemeIDs.insert(forcedUITestThemeID)
+            }
             let localID =
-                CosmeticCatalog.freeThemeIDs.contains(preferences.selectedThemeID)
-                ? preferences.selectedThemeID
-                : "classic"
+                forcedUITestThemeID
+                ?? (CosmeticCatalog.freeThemeIDs.contains(preferences.selectedThemeID)
+                    ? preferences.selectedThemeID
+                    : "classic")
             selectedThemeID = localID
             ownedPetIDs = []
             selectedPetID = nil
@@ -290,9 +297,16 @@ final class CosmeticsController: ObservableObject {
 
         coinBalance = profile.coins
         ownedThemeIDs = Set(profile.ownedThemeIds).union(CosmeticCatalog.freeThemeIDs)
+        if let forcedUITestThemeID {
+            ownedThemeIDs.insert(forcedUITestThemeID)
+        }
         let serverThemeID = profile.selectedThemeId ?? "classic"
-        selectedThemeID = ownedThemeIDs.contains(serverThemeID) ? serverThemeID : "classic"
-        preferences.selectedThemeID = selectedThemeID
+        selectedThemeID =
+            forcedUITestThemeID
+            ?? (ownedThemeIDs.contains(serverThemeID) ? serverThemeID : "classic")
+        if forcedUITestThemeID == nil {
+            preferences.selectedThemeID = selectedThemeID
+        }
         ownedPetIDs = Set(profile.ownedPetIds)
         selectedPetID =
             profile.selectedPetId
@@ -318,5 +332,28 @@ final class CosmeticsController: ObservableObject {
     ) -> [CosmeticCatalogItem] {
         let valid = catalog.filter { !$0.id.isEmpty && !$0.name.isEmpty && $0.priceCoins >= 0 }
         return valid.isEmpty ? fallback : valid
+    }
+
+    private static func forcedUITestThemeArgument() -> String? {
+        #if DEBUG
+            let arguments = ProcessInfo.processInfo.arguments
+            guard arguments.contains("--uitesting") else { return nil }
+
+            let value: String?
+            if let argument = arguments.first(where: { $0.hasPrefix("--ui-test-theme=") }) {
+                value = String(argument.dropFirst("--ui-test-theme=".count))
+            } else if let index = arguments.firstIndex(of: "--ui-test-theme"),
+                arguments.indices.contains(index + 1)
+            {
+                value = arguments[index + 1]
+            } else {
+                value = nil
+            }
+
+            guard let value, ThemePalette.all.contains(where: { $0.id == value }) else { return nil }
+            return value
+        #else
+            return nil
+        #endif
     }
 }

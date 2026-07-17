@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ThemeShopView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
+    @EnvironmentObject private var preferences: AppPreferences
     @State private var showsCoinStore = false
 
     private var palette: ThemePalette { cosmetics.theme }
@@ -11,7 +12,7 @@ struct ThemeShopView: View {
             AppThemeBackground(theme: palette)
 
             ScrollView {
-                LazyVStack(spacing: 14) {
+                VStack(spacing: 12) {
                     walletHeader
 
                     if cosmetics.isLoading {
@@ -20,8 +21,16 @@ struct ThemeShopView: View {
                             .foregroundStyle(Color(hex: palette.foreground))
                     }
 
-                    ForEach(cosmetics.themes) { theme in
-                        themeCard(theme)
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 8),
+                            GridItem(.flexible(), spacing: 8),
+                        ],
+                        spacing: 8
+                    ) {
+                        ForEach(cosmetics.themes) { theme in
+                            themeCard(theme)
+                        }
                     }
 
                     if !cosmetics.themeMessage.isEmpty {
@@ -39,6 +48,13 @@ struct ThemeShopView: View {
         }
         .navigationTitle("Theme Shop")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Theme Shop")
+                    .font(palette.appFont(size: 19, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(Color(hex: palette.foreground))
+            }
+        }
         .task { await cosmetics.refresh() }
         .sheet(isPresented: $showsCoinStore) {
             CoinStorePlaceholderView()
@@ -48,25 +64,31 @@ struct ThemeShopView: View {
 
     private var walletHeader: some View {
         HStack(spacing: 12) {
-            Label("\(cosmetics.coinBalance)", systemImage: "circle.fill")
-                .font(.headline.monospacedDigit().weight(.black))
-                .foregroundStyle(.yellow)
-                .accessibilityLabel("\(cosmetics.coinBalance) coins")
+            HStack(spacing: 6) {
+                PixelCoinView(size: 18)
+                Text("\(cosmetics.coinBalance)")
+                    .font(.headline.monospacedDigit().weight(.black))
+            }
+            .foregroundStyle(.yellow)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(cosmetics.coinBalance) coins")
             Spacer()
             Button {
                 showsCoinStore = true
             } label: {
                 Label("Buy Coins", systemImage: "plus.circle.fill")
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(hex: palette.accent))
-            .foregroundStyle(.black)
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    accent: Color(hex: palette.themesAccent),
+                    minimumHeight: 44
+                )
+            )
             .accessibilityIdentifier("theme-buy-coins")
         }
-        .padding(14)
-        .background(
-            Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.86),
-            in: RoundedRectangle(cornerRadius: palette.cornerRadius))
+        .foregroundStyle(Color(hex: palette.foreground))
+        .webCardStyle(theme: palette, padding: 12)
     }
 
     private func themeCard(_ item: CosmeticCatalogItem) -> some View {
@@ -77,50 +99,62 @@ struct ThemeShopView: View {
             selectedID: cosmetics.selectedThemeID
         )
 
-        return HStack(spacing: 14) {
-            ThemePreview(theme: theme)
-                .frame(width: 92)
+        return VStack(spacing: 6) {
+            ThemePreview(theme: theme, showsGlyphs: preferences.glyphsEnabled)
+                .frame(maxWidth: .infinity)
 
-            VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(item.name)
-                    .font(.title3.weight(.black))
-                Text(cosmetics.ownedThemeIDs.contains(item.id) ? "Owned" : "\(item.priceCoins) coins")
-                    .font(.caption.monospacedDigit().weight(.bold))
-                    .foregroundStyle(Color(hex: palette.muted))
-
-                Button {
-                    Task { await cosmetics.performThemeAction(item) }
-                } label: {
-                    HStack(spacing: 6) {
-                        if cosmetics.pendingThemeID == item.id { ProgressView().controlSize(.small) }
-                        Text(themeActionLabel(action, item: item))
+                    .font(palette.appFont(size: 15, weight: .black, relativeTo: .body))
+                    .lineLimit(1)
+                Spacer(minLength: 3)
+                if cosmetics.ownedThemeIDs.contains(item.id) {
+                    Text(item.priceCoins == 0 ? "Free" : "Owned")
+                        .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                        .foregroundStyle(Color(hex: palette.muted))
+                } else {
+                    HStack(spacing: 3) {
+                        PixelCoinView(size: 12)
+                        Text("\(item.priceCoins)")
                     }
-                    .frame(maxWidth: .infinity)
+                    .font(palette.appFont(size: 12, weight: .black, relativeTo: .caption))
+                    .foregroundStyle(.yellow)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(action == .selected ? .secondary : Color(hex: theme.accent))
-                .foregroundStyle(.black)
-                .disabled(
-                    action == .selected || cosmetics.isLoading
-                        || cosmetics.isEconomyMutationPending
-                )
-                .accessibilityIdentifier("theme-action-\(item.id)")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                Task { await cosmetics.performThemeAction(item) }
+            } label: {
+                HStack(spacing: 5) {
+                    if cosmetics.pendingThemeID == item.id { ProgressView().controlSize(.small) }
+                    Text(themeActionLabel(action, item: item))
+                }
+                .frame(maxWidth: .infinity)
+                .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+            }
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    accent: action == .selected
+                        ? Color(hex: palette.isLight ? "#159dc7" : theme.accent)
+                        : nil,
+                    minimumHeight: 32
+                )
+            )
+            .disabled(
+                action == .selected || cosmetics.isLoading
+                    || cosmetics.isEconomyMutationPending
+            )
+            .accessibilityIdentifier("theme-action-\(item.id)")
         }
         .foregroundStyle(Color(hex: palette.foreground))
-        .padding(14)
-        .background(
-            Color(hex: palette.surface).opacity(palette.isLight ? 0.94 : 0.86),
-            in: RoundedRectangle(cornerRadius: palette.cornerRadius)
+        .webCardStyle(
+            theme: palette,
+            selectedAccent: item.id == cosmetics.selectedThemeID
+                ? Color(hex: palette.isLight ? "#159dc7" : theme.accent)
+                : nil,
+            padding: 7
         )
-        .overlay {
-            RoundedRectangle(cornerRadius: palette.cornerRadius)
-                .stroke(
-                    item.id == cosmetics.selectedThemeID ? Color(hex: theme.accent) : .clear,
-                    lineWidth: 2
-                )
-        }
     }
 
     private func themeActionLabel(_ action: ThemeShopAction, item: CosmeticCatalogItem) -> String {

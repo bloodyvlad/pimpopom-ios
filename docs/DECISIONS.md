@@ -204,3 +204,33 @@ Decision: The internal alpha reads `/api/themes` and `/api/pets`, displays serve
 Consequences: The shared Hostinger balance and existing atomic shop transactions remain authoritative; this repository adds no PHP, StoreKit, ad, or coin-generation route. Masters, generators, provenance, and hashes stay outside the app bundle while reviewed runtime files are deterministic build resources. Automated contracts and asset checks are required, but physical listening, touch/layout review, Silent switch, interruptions, and route changes remain acceptance gates. Pancake replacement art, final audio/logo acceptance, paid coins, and commercial ownership remain deferred.
 
 Revisit when: The compatibility backend changes its catalog/session contract, replacement Pancake art is approved, a public distribution is prepared, or StoreKit coin products are deliberately resumed.
+
+## P-016 — Translate the reviewed web menu and themes into native views
+
+- Date: 2026-07-16
+- Status: Accepted
+
+Context: The first native alpha proved the SwiftUI/SpriteKit architecture and backend path, but its menu, backgrounds, controls, typography, and Theme Shop diverged visibly from the established game. The owner asked to continue as close as practical to the original rather than restyle the port.
+
+Decision: Use parent SpeedyTapper commit `923a38e` as the fixed visual contract for the main menu and four themes, while retaining commit `7582b2d` as the pet-presentation contract. Translate the reviewed geometry, color tokens, gradients, texture use, compact wordmark, mode hierarchy, feature accents, and two-column Theme Shop into native SwiftUI/SpriteKit components. Bundle the exact reviewed Jersey 10 font and Disco textures with retained sources, licence/provenance, hashes, and deterministic resource checks. Keep native navigation, accessibility, deterministic engine, backend authority, audio lifecycle, ad reservation, and StoreKit placeholders; do not embed the browser implementation in a `WKWebView`.
+
+Consequences: PimPoPom can closely match the established visual identity while remaining a maintainable native game. Deterministic UI-test theme fixtures and compact-menu geometry tests become regression gates. Exact HTML/CSS reuse is intentionally unavailable in a native renderer, so CSS effects are translated to equivalent SwiftUI/SpriteKit composition. Achievements remains an explicitly labelled native placeholder until its backend feature slice is ported.
+
+Revisit when: A deliberately new PimPoPom brand system is accepted, the web design contract is intentionally advanced, or measured native accessibility/performance requires a documented visual exception.
+
+## P-017 — Use fixed native screens while preserving the current game presentation
+
+- Date: 2026-07-17
+- Status: Accepted
+
+Context: The scrollable floating web dialog was appropriate for a browser but made the native app feel like a restyled port. The owner requested a fixed main menu, closer gameplay chrome, repaired pet behavior, and specific Light/Pixel corrections while retaining the current rules and shared backend. Parent SpeedyTapper commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0` adds the current menu-slogan pool and rotation behavior.
+
+Decision: Keep the main menu inside the device safe area without a `ScrollView` or floating dialog panel; feature catalogs and settings may scroll where their content requires it. Remove build, backend, and season diagnostics from the menu footer. Keep Remove Ads at lower right and route it to a no-entitlement StoreKit placeholder. Add one persisted Glyphs preference that controls theme previews, the target header, feedback copy, and SpriteKit cell glyphs. Increase Jersey 10 typography by 10% and use it throughout Pixel Leaderboard, Pet Shop, and Settings surfaces. Light uses its sky gradient without decorative capsule cloud bars; the SpriteKit view must allow transparency so the white rounded board shell, rather than a black scene backing, occupies its corners.
+
+Use the native gameplay composition corresponding to the reviewed PHP design: PimPoPom utility header, Points/Top score and Survived/Lives stat columns, centered color hero with a left-anchored decreasing response bar, a square board up to screen width minus 24 points, and a separate tier-colored Speed streak/multiplier panel above the bottom ad host. Place the gameplay pet at 40% of screen width. In the menu, sleep directional pets after five seconds of inactivity, wake them on interaction, and face them using the original 2-point dead zone and 30-degree half/full-turn boundary. Keep Pet Shop previews static until tapped, keep habitats visible, raise Foka and Misha five points, and use the Pet Shop pink accent for its internal actions.
+
+After the first Arcade Game Over, rotate the exact 26-slogan pool and advance it on tap without an immediate repeat. Use the owner-requested **10-second** native interval; the reviewed web client currently uses five seconds, so this is an intentional native product override rather than accidental drift. Profile, detailed Leaderboard visual restyling, and the real Achievements catalog/claim flow remain outside this batch.
+
+Consequences: Compact-device geometry, non-scrolling behavior, glyph persistence, pet direction/sleep, response-bar drain, StoreKit placeholder safety, and all four theme fixtures are deterministic regression gates. Shops and settings retain native navigation and accessibility rather than copying HTML/CSS or embedding a `WKWebView`. Physical-device timing, listening, and touch validation remain required before release claims.
+
+Revisit when: Dynamic Type or localization cannot fit the fixed menu without an accepted compact adaptation, the parent design deliberately changes, or a new PimPoPom visual system replaces parity as the product goal.

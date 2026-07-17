@@ -79,6 +79,21 @@ struct ThemeAudioManifest: Equatable, Sendable {
     ]
 }
 
+struct AudioOutputPolicy: Equatable, Sendable {
+    static func isSuppressed(
+        arguments: [String],
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        #if DEBUG
+            arguments.contains("--uitesting")
+                || environment["XCTestConfigurationFilePath"] != nil
+                || environment["XCTestSessionIdentifier"] != nil
+        #else
+            false
+        #endif
+    }
+}
+
 @MainActor
 final class AudioController: NSObject, ObservableObject {
     @Published private(set) var statusMessage: String?
@@ -97,6 +112,7 @@ final class AudioController: NSObject, ObservableObject {
     private var audioSessionIsInterrupted = false
     private var outputRequiresUserResume = false
     private var hasConfiguration = false
+    private let outputIsSuppressed: Bool
 
     private var engine: AVAudioEngine?
     private var soundMixer: AVAudioMixerNode?
@@ -127,7 +143,11 @@ final class AudioController: NSObject, ObservableObject {
     private var launchStingDeadline: TimeInterval?
 
     override init() {
+        outputIsSuppressed = AudioOutputPolicy.isSuppressed(
+            arguments: ProcessInfo.processInfo.arguments
+        )
         super.init()
+        guard !outputIsSuppressed else { return }
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleInterruption(_:)),
@@ -165,6 +185,12 @@ final class AudioController: NSObject, ObservableObject {
         musicEnabled = preferences.musicEnabled
         musicVolume = preferences.musicVolume
         hasConfiguration = true
+
+        guard !outputIsSuppressed else {
+            tearDownAudio()
+            statusMessage = nil
+            return
+        }
 
         if !soundEffectsEnabled, !musicEnabled {
             tearDownAudio()
@@ -267,6 +293,7 @@ final class AudioController: NSObject, ObservableObject {
     }
 
     func resumeAfterUserAction() {
+        guard !outputIsSuppressed else { return }
         guard outputRequiresUserResume,
             !audioSessionIsInterrupted,
             applicationIsActive,
@@ -288,6 +315,7 @@ final class AudioController: NSObject, ObservableObject {
 
     func setApplicationActive(_ active: Bool) {
         applicationIsActive = active
+        guard !outputIsSuppressed else { return }
         guard hasConfiguration else { return }
         if active {
             if soundEffectsEnabled || musicEnabled {
@@ -499,7 +527,8 @@ final class AudioController: NSObject, ObservableObject {
     }
 
     private func ensureEngineRunning() -> Bool {
-        guard applicationIsActive,
+        guard !outputIsSuppressed,
+            applicationIsActive,
             !audioSessionIsInterrupted,
             !outputRequiresUserResume
         else { return false }

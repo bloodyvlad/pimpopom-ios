@@ -9,6 +9,8 @@ final class AppPreferences: ObservableObject {
         static let musicEnabled = "audio.music.enabled"
         static let musicVolume = "audio.music.volume"
         static let selectedThemeID = "cosmetics.local-theme-id"
+        static let glyphsEnabled = "appearance.glyphs.enabled"
+        static let menuMotivationUnlocked = "menu.motivation.unlocked"
     }
 
     @Published var soundEffectsEnabled: Bool {
@@ -31,6 +33,14 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(selectedThemeID, forKey: Key.selectedThemeID) }
     }
 
+    @Published var glyphsEnabled: Bool {
+        didSet { defaults.set(glyphsEnabled, forKey: Key.glyphsEnabled) }
+    }
+
+    @Published var menuMotivationUnlocked: Bool {
+        didSet { defaults.set(menuMotivationUnlocked, forKey: Key.menuMotivationUnlocked) }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -40,6 +50,9 @@ final class AppPreferences: ObservableObject {
         musicEnabled = defaults.object(forKey: Key.musicEnabled) as? Bool ?? true
         musicVolume = Self.clamp(defaults.object(forKey: Key.musicVolume) as? Double ?? 1)
         selectedThemeID = defaults.string(forKey: Key.selectedThemeID) ?? "classic"
+        glyphsEnabled = defaults.object(forKey: Key.glyphsEnabled) as? Bool ?? true
+        menuMotivationUnlocked =
+            defaults.object(forKey: Key.menuMotivationUnlocked) as? Bool ?? false
     }
 
     private static func clamp(_ value: Double) -> Double {

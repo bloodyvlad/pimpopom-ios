@@ -15,12 +15,16 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(initial.soundEffectsVolume, 1)
         XCTAssertEqual(initial.musicVolume, 1)
         XCTAssertEqual(initial.selectedThemeID, "classic")
+        XCTAssertTrue(initial.glyphsEnabled)
+        XCTAssertFalse(initial.menuMotivationUnlocked)
 
         initial.soundEffectsEnabled = false
         initial.soundEffectsVolume = 0.25
         initial.musicEnabled = true
         initial.musicVolume = 0.70
         initial.selectedThemeID = "disco"
+        initial.glyphsEnabled = false
+        initial.menuMotivationUnlocked = true
 
         let restored = AppPreferences(defaults: defaults)
         XCTAssertFalse(restored.soundEffectsEnabled)
@@ -28,6 +32,8 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(restored.soundEffectsVolume, 0.25, accuracy: 0.0001)
         XCTAssertEqual(restored.musicVolume, 0.70, accuracy: 0.0001)
         XCTAssertEqual(restored.selectedThemeID, "disco")
+        XCTAssertFalse(restored.glyphsEnabled)
+        XCTAssertTrue(restored.menuMotivationUnlocked)
     }
 
     func testStoredVolumesAreClamped() throws {

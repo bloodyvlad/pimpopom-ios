@@ -126,6 +126,72 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(ThemeAudioManifest.resolve("unknown").themeID, "classic")
     }
 
+    func testWebMenuMetricsMatchTheReviewedCompactContract() {
+        XCTAssertEqual(WebMenuMetrics.maximumPanelWidth, 460)
+        XCTAssertEqual(WebMenuMetrics.compactOuterInset, 10)
+        XCTAssertEqual(WebMenuMetrics.panelPadding, 22)
+        XCTAssertEqual(WebMenuMetrics.utilityTarget, 44)
+        XCTAssertEqual(WebMenuMetrics.headerHeight, 48)
+        XCTAssertEqual(WebMenuMetrics.hintHeight, 112)
+        XCTAssertEqual(WebMenuMetrics.modeHeight, 56)
+        XCTAssertEqual(WebMenuMetrics.standardControlHeight, 51)
+        XCTAssertEqual(WebMenuMetrics.featureControlHeight, 48)
+        XCTAssertEqual(WebMenuMetrics.actionGap, 9)
+        XCTAssertEqual(WebMenuMetrics.pairedGap, 8)
+    }
+
+    func testThemeVisualTokensMatchTheReviewedWebContract() {
+        XCTAssertEqual(ThemePalette.classic.backgroundTop, "#101326")
+        XCTAssertEqual(ThemePalette.classic.backgroundBottom, "#080a12")
+        XCTAssertEqual(ThemePalette.classic.achievementsAccent, "#ffd84d")
+        XCTAssertEqual(ThemePalette.classic.petsAccent, "#ff79ad")
+        XCTAssertEqual(ThemePalette.classic.themesAccent, "#63efff")
+
+        XCTAssertEqual(ThemePalette.disco.backgroundTop, "#030404")
+        XCTAssertEqual(ThemePalette.disco.surface, "#0c0f16")
+        XCTAssertEqual(ThemePalette.light.backgroundTop, "#bce9ff")
+        XCTAssertEqual(ThemePalette.light.backgroundBottom, "#eaf8ff")
+        XCTAssertEqual(ThemePalette.light.foreground, "#17263b")
+        XCTAssertEqual(ThemePalette.light.muted, "#5e7187")
+        XCTAssertEqual(ThemePalette.light.board, "#ffffff")
+        XCTAssertEqual(ThemePalette.light.idleCell, "#f5fbff")
+        XCTAssertEqual(ThemePalette.pixel.backgroundTop, "#1a1635")
+        XCTAssertEqual(ThemePalette.pixel.backgroundBottom, "#0c0c1d")
+        XCTAssertTrue(ThemePalette.pixel.isPixel)
+        XCTAssertEqual(ThemePalette.pixel.cornerRadius, 3)
+        XCTAssertEqual(ThemePalette.pixel.resolvedFontSize(10), 11, accuracy: 0.001)
+        XCTAssertEqual(ThemePalette.classic.resolvedFontSize(10), 10, accuracy: 0.001)
+    }
+
+    func testPixelFontAndDiscoTexturesAreBundled() throws {
+        XCTAssertNotNil(UIFont(name: "Jersey10-Regular", size: 16))
+        for asset in [
+            "disco-concrete-lights",
+            "disco-concrete",
+            "disco-tile-overlay",
+        ] {
+            let image = try bundledImage(named: asset)
+            XCTAssertEqual(image.cgImage?.width, 1_024, asset)
+            XCTAssertEqual(image.cgImage?.height, 1_024, asset)
+        }
+    }
+
+    func testUITestAudioSuppressionPolicyIsExplicit() {
+        XCTAssertTrue(
+            AudioOutputPolicy.isSuppressed(
+                arguments: ["PimPoPom", "--uitesting"],
+                environment: [:]
+            )
+        )
+        XCTAssertTrue(
+            AudioOutputPolicy.isSuppressed(
+                arguments: ["PimPoPom"],
+                environment: ["XCTestConfigurationFilePath": "/tmp/tests.xctestconfiguration"]
+            )
+        )
+        XCTAssertFalse(AudioOutputPolicy.isSuppressed(arguments: ["PimPoPom"], environment: [:]))
+    }
+
     func testPetPresentationNeverUsesUnapprovedPancakeBitmap() {
         let foka = PetPresentation.resolve("foka")
         XCTAssertEqual(foka.spriteAsset, "foka-sprite")
@@ -149,7 +215,7 @@ final class CosmeticsTests: XCTestCase {
             spriteSize: 64
         )
         XCTAssertEqual(standard.canvas, CGSize(width: 80, height: 80))
-        XCTAssertEqual(standard.spriteOffset, CGSize(width: 8, height: 0))
+        XCTAssertEqual(standard.spriteOffset, CGSize(width: 8, height: -5))
         XCTAssertEqual(standard.habitatSize, CGSize(width: 64, height: 64))
         XCTAssertEqual(standard.habitatOffset, CGSize(width: 8, height: 48))
 
@@ -159,6 +225,57 @@ final class CosmeticsTests: XCTestCase {
             spriteSize: 64
         )
         XCTAssertEqual(foka.spriteOffset, CGSize(width: 8, height: -5))
+
+        let kesha = PetArtworkGeometry.resolve(
+            placement: .shop,
+            petID: "kesha",
+            spriteSize: 64
+        )
+        XCTAssertEqual(kesha.spriteOffset, CGSize(width: 8, height: 0))
+    }
+
+    func testPetFacingUsesTheOriginalThirtyDegreeContract() {
+        let frame = CGRect(x: 0, y: 0, width: 100, height: 100)
+        XCTAssertEqual(
+            PetFacing.resolve(pointer: CGPoint(x: 52, y: 250), petFrame: frame),
+            .front
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointer: CGPoint(x: 60, y: 150), petFrame: frame),
+            .halfRight
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointer: CGPoint(x: 40, y: 150), petFrame: frame),
+            .halfLeft
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointer: CGPoint(x: 150, y: 60), petFrame: frame),
+            .right
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointer: CGPoint(x: -50, y: 60), petFrame: frame),
+            .left
+        )
+
+        let exactThirtyX = 50 + CGFloat(tan(Double.pi / 6) * 100)
+        XCTAssertEqual(
+            PetFacing.resolve(pointer: CGPoint(x: exactThirtyX, y: 150), petFrame: frame),
+            .halfRight
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointer: CGPoint(x: exactThirtyX + 0.1, y: 150), petFrame: frame),
+            .right
+        )
+    }
+
+    func testMenuMotivationUsesTheNativeTenSecondNonRepeatingContract() {
+        XCTAssertEqual(MenuMotivation.rotationInterval, .seconds(10))
+        XCTAssertEqual(MenuMotivation.hints.count, 26)
+        XCTAssertEqual(MenuMotivation.hints.first, "Go get your pet!")
+        XCTAssertEqual(MenuMotivation.hints.last, "Blink between rounds!")
+        XCTAssertEqual(MenuMotivation.nextIndex(previous: nil, randomValue: 0), 0)
+        XCTAssertEqual(MenuMotivation.nextIndex(previous: 0, randomValue: 0), 1)
+        XCTAssertEqual(MenuMotivation.nextIndex(previous: 25, randomValue: 0.999_999), 0)
     }
 
     func testPetPreviewAnimationStartsStaticAndReturnsToItsRestingFrame() {

@@ -35,6 +35,7 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var wasAbandoned = false
     var onSoundEvent: ((GameplaySoundEvent) -> Void)?
     var onLifecycleEvent: ((GameplayLifecycleEvent) -> Void)?
+    var onAcceptedBoardTap: ((CGPoint) -> Void)?
 
     private let engine: GameEngine
     private var targetTask: Task<Void, Never>?
@@ -79,6 +80,10 @@ final class GameCoordinator: ObservableObject {
 
     func applyTheme(_ themeID: String) {
         scene.applyTheme(themeID)
+    }
+
+    func applyGlyphsEnabled(_ enabled: Bool) {
+        scene.applyGlyphsEnabled(enabled)
     }
 
     func startNewRun() {
@@ -250,6 +255,7 @@ extension GameCoordinator: GameSceneEventDelegate {
     func gameScene(
         _: GameScene,
         didTapCell index: Int,
+        normalizedLocation: CGPoint,
         inputAt milliseconds: Double,
         handledAt: Double
     ) {
@@ -278,6 +284,7 @@ extension GameCoordinator: GameSceneEventDelegate {
         let stateBeforeTap = engine.state
         let result = engine.tap(cellIndex: index, now: inputAt, resolvedAt: handledAt)
         guard result.kind != .ignored else { return }
+        onAcceptedBoardTap?(normalizedLocation)
         pendingDeadlineCommit = nil
         if result.kind == .miss, result.reason == "late" {
             lastDeadlineResolutionAt = handledAt

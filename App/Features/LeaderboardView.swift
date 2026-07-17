@@ -17,14 +17,20 @@ struct LeaderboardView: View {
             AppThemeBackground(theme: palette)
             VStack(spacing: 12) {
                 Picker("Mode", selection: $mode) {
-                    Text("Arcade").tag(GameMode.arcade)
-                    Text("Zen history").tag(GameMode.zen)
+                    Text("Arcade")
+                        .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
+                        .tag(GameMode.arcade)
+                    Text("Zen history")
+                        .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
+                        .tag(GameMode.zen)
                 }
                 .pickerStyle(.segmented)
+                .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
 
                 if loading, response == nil {
                     Spacer()
                     ProgressView("Loading Season 1")
+                        .font(palette.appFont(size: 14, weight: .semibold, relativeTo: .body))
                         .foregroundStyle(Color(hex: palette.foreground))
                     Spacer()
                 } else if let response {
@@ -38,19 +44,21 @@ struct LeaderboardView: View {
                     }
                     if let rank = response.playerRank {
                         Text("Your best: #\(rank) of \(response.totalEntries)")
-                            .font(.footnote.weight(.bold))
+                            .font(palette.appFont(size: 13, weight: .bold, relativeTo: .footnote))
                             .foregroundStyle(Color(hex: palette.accent))
                     } else {
                         Text("\(response.totalEntries) ranked results")
-                            .font(.footnote)
+                            .font(palette.appFont(size: 13, relativeTo: .footnote))
                             .foregroundStyle(Color(hex: palette.muted))
                     }
                 } else {
                     Spacer()
                     Text(error ?? "No leaderboard results")
+                        .font(palette.appFont(size: 16, weight: .medium, relativeTo: .body))
                         .foregroundStyle(Color(hex: palette.muted))
                         .multilineTextAlignment(.center)
                     Button("Try again") { Task { await load() } }
+                        .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
                         .buttonStyle(.bordered)
                     Spacer()
                 }
@@ -59,6 +67,13 @@ struct LeaderboardView: View {
         }
         .navigationTitle("Leaderboard")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Leaderboard")
+                    .font(palette.appFont(size: 19, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(Color(hex: palette.foreground))
+            }
+        }
         .task(id: mode) { await load() }
         .refreshable { await load() }
     }
@@ -66,7 +81,7 @@ struct LeaderboardView: View {
     private func leaderboardRow(_ entry: LeaderboardEntry) -> some View {
         HStack(spacing: 12) {
             Text("#\(entry.rank)")
-                .font(.headline.monospacedDigit().weight(.black))
+                .font(palette.appFont(size: 17, weight: .black, relativeTo: .headline))
                 .foregroundStyle(entry.rank <= 3 ? .yellow : Color(hex: palette.muted))
                 .frame(width: 40, alignment: .leading)
             if let petID = entry.petId {
@@ -75,7 +90,8 @@ struct LeaderboardView: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    Text(entry.name).font(.headline)
+                    Text(entry.name)
+                        .font(palette.appFont(size: 17, weight: .semibold, relativeTo: .headline))
                     if entry.verification == "verified" {
                         Image(systemName: "checkmark.seal.fill")
                             .font(.caption)
@@ -83,12 +99,12 @@ struct LeaderboardView: View {
                     }
                 }
                 Text("\(entry.hits) hits · \(entry.dodges) dodges · \(formatDuration(entry.survivalMs))")
-                    .font(.caption.monospacedDigit())
+                    .font(palette.appFont(size: 12, relativeTo: .caption))
                     .foregroundStyle(Color(hex: palette.muted))
             }
             Spacer()
             Text(entry.score.formatted())
-                .font(.headline.monospacedDigit().weight(.bold))
+                .font(palette.appFont(size: 17, weight: .bold, relativeTo: .headline))
                 .foregroundStyle(Color(hex: palette.accent))
         }
         .foregroundStyle(Color(hex: palette.foreground))

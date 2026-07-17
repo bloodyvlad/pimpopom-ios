@@ -91,8 +91,22 @@ final class PimPoPomUITests: XCTestCase {
         openMenuControl("open-settings", in: app)
 
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.switches["glyphs-toggle"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.switches["sound-effects-toggle"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.switches["music-toggle"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.staticTexts["Current Theme"].exists)
+    }
+
+    func testGlyphsOffReachesTheGameplayHeader() throws {
+        let app = launch(additionalArguments: ["--ui-test-glyphs-off"])
+        let settings = app.descendants(matching: .any)["open-settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 3))
+        XCTAssertTrue(settings.label.contains("Glyphs off"))
+
+        app.buttons["mode-normal"].tap()
+        let target = app.descendants(matching: .any)["target-color"]
+        XCTAssertTrue(target.waitForExistence(timeout: 8))
+        XCTAssertFalse(target.label.localizedCaseInsensitiveContains("symbol"))
     }
 
     func testPetShopPreviewAnimatesOnlyAfterTapAndStops() throws {
@@ -143,6 +157,45 @@ final class PimPoPomUITests: XCTestCase {
 
         let gameplayPet = app.descendants(matching: .any)["gameplay-pet-muse"]
         XCTAssertTrue(gameplayPet.waitForExistence(timeout: 8))
+        let board = app.descendants(matching: .any)["reaction-board"]
+        XCTAssertTrue(board.waitForExistence(timeout: 3))
+        XCTAssertEqual(board.frame.width, app.frame.width - 24, accuracy: 4)
+        XCTAssertEqual(gameplayPet.frame.midX, app.frame.width * 0.40, accuracy: 4)
+        XCTAssertTrue(app.buttons["game-menu"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["speed-streak"].exists)
+    }
+
+    func testMenuPetSleepsAfterInactivityAndWakesOnTap() throws {
+        let app = launch(additionalArguments: ["--ui-test-pet-profile"])
+        let pet = app.descendants(matching: .any)["menu-pet-muse"]
+        XCTAssertTrue(pet.waitForExistence(timeout: 4))
+
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == 'Sleeping'"),
+                        object: pet
+                    )
+                ],
+                timeout: 7
+            ),
+            .completed
+        )
+
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.34)).tap()
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value != 'Sleeping'"),
+                        object: pet
+                    )
+                ],
+                timeout: 2
+            ),
+            .completed
+        )
     }
 
     func testResponseProgressDrainsWhileTargetIsActive() throws {
@@ -192,21 +245,127 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["pet-shop-status"].label.contains("special companion remains visible"))
     }
 
+    func testMenuMatchesTheReviewedWebGeometryOnSE() throws {
+        let app = launch(additionalArguments: ["--ui-test-pet-profile"])
+        XCTAssertEqual(app.frame.width, 375, accuracy: 0.5)
+
+        let dialog = app.descendants(matching: .any)["menu-dialog"]
+        let wordmark = app.descendants(matching: .any)["menu-wordmark"]
+        let coinStore = app.descendants(matching: .any)["open-coin-store"]
+        let leaderboard = app.descendants(matching: .any)["open-leaderboard"]
+        let profile = app.descendants(matching: .any)["open-profile"]
+        let arcade = app.buttons["mode-normal"]
+        let zen = app.buttons["mode-zen"]
+        let achievements = app.descendants(matching: .any)["open-achievements"]
+        let petShop = app.descendants(matching: .any)["open-pet-shop"]
+        let themes = app.descendants(matching: .any)["open-theme-shop"]
+        let settings = app.descendants(matching: .any)["open-settings"]
+        let pet = app.descendants(matching: .any)["menu-pet-muse"]
+        let removeAds = app.descendants(matching: .any)["remove-ads"]
+
+        for element in [
+            dialog, wordmark, coinStore, leaderboard, profile, arcade, zen, achievements,
+            petShop, themes, settings, pet, removeAds,
+        ] {
+            XCTAssertTrue(element.waitForExistence(timeout: 3), element.identifier)
+        }
+
+        XCTAssertEqual(dialog.frame.minX, 12, accuracy: 1)
+        XCTAssertEqual(dialog.frame.width, 351, accuracy: 1)
+        XCTAssertLessThan(wordmark.frame.maxX, coinStore.frame.minX)
+
+        for utility in [coinStore, leaderboard, profile] {
+            XCTAssertGreaterThanOrEqual(utility.frame.width, 44)
+            XCTAssertGreaterThanOrEqual(utility.frame.height, 44)
+        }
+
+        XCTAssertEqual(arcade.frame.height, 56, accuracy: 1)
+        XCTAssertEqual(zen.frame.height, 56, accuracy: 1)
+        XCTAssertEqual(arcade.frame.width, zen.frame.width, accuracy: 1)
+        XCTAssertLessThan(pet.frame.minY, arcade.frame.minY)
+        XCTAssertGreaterThanOrEqual(achievements.frame.height, 51)
+        XCTAssertEqual(petShop.frame.width, themes.frame.width, accuracy: 1)
+        XCTAssertEqual(themes.frame.minX - petShop.frame.maxX, 8, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(petShop.frame.height, 48)
+        XCTAssertGreaterThanOrEqual(settings.frame.height, 51)
+        XCTAssertGreaterThanOrEqual(removeAds.frame.height, 44)
+
+        let arcadeFrame = arcade.frame
+        let settingsFrame = settings.frame
+        app.swipeUp()
+        XCTAssertEqual(arcade.frame, arcadeFrame)
+        XCTAssertEqual(settings.frame, settingsFrame)
+        XCTAssertFalse(app.staticTexts["backend-environment"].exists)
+        XCTAssertEqual(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Hostinger'")).count,
+            0
+        )
+    }
+
+    func testRemoveAdsOpensAStoreKitPlaceholder() throws {
+        let app = launch()
+        let removeAds = app.buttons["remove-ads"]
+        XCTAssertTrue(removeAds.waitForExistence(timeout: 3))
+        removeAds.tap()
+
+        XCTAssertTrue(app.navigationBars["Remove Ads"].waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            app.descendants(matching: .any)["remove-ads-store-placeholder"]
+                .waitForExistence(timeout: 2)
+        )
+    }
+
+    func testMotivationAdvancesOnTap() throws {
+        let app = launch(additionalArguments: ["--ui-test-menu-motivation"])
+        let motivation = app.buttons["menu-motivation"]
+        XCTAssertTrue(motivation.waitForExistence(timeout: 3))
+        let first = motivation.label
+        motivation.tap()
+        XCTAssertNotEqual(motivation.label, first)
+    }
+
+    func testEveryThemeHasADeterministicVisualFixture() throws {
+        for themeID in ["classic", "disco", "light", "pixel"] {
+            let app = launch(additionalArguments: ["--ui-test-theme", themeID])
+            let dialog = app.descendants(matching: .any)["menu-dialog"]
+            XCTAssertTrue(dialog.waitForExistence(timeout: 3))
+            XCTAssertEqual(dialog.value as? String, "Theme \(themeID)")
+            app.terminate()
+        }
+    }
+
+    func testThemeShopUsesTwoColumnCardsAndShowsSelectedFixture() throws {
+        let app = launch(additionalArguments: ["--ui-test-theme", "pixel"])
+        openMenuControl("open-theme-shop", in: app)
+
+        let classic = app.buttons["theme-action-classic"]
+        let disco = app.buttons["theme-action-disco"]
+        let light = app.buttons["theme-action-light"]
+        let pixel = app.buttons["theme-action-pixel"]
+        for card in [classic, disco, light, pixel] {
+            XCTAssertTrue(card.waitForExistence(timeout: 3), card.identifier)
+        }
+
+        XCTAssertEqual(classic.frame.width, disco.frame.width, accuracy: 1)
+        XCTAssertEqual(classic.frame.minY, disco.frame.minY, accuracy: 1)
+        XCTAssertEqual(light.frame.minX, classic.frame.minX, accuracy: 1)
+        XCTAssertGreaterThan(light.frame.minY, classic.frame.maxY)
+
+        XCTAssertEqual(pixel.label, "Selected")
+    }
+
     private func launch(additionalArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--deterministic-game", "--uitesting"] + additionalArguments
         app.launch()
-        let environment = app.staticTexts["backend-environment"]
-        XCTAssertTrue(environment.waitForExistence(timeout: 3))
-        XCTAssertEqual(environment.label, "Offline UI Test")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 3)
+        )
         return app
     }
 
     private func openMenuControl(_ identifier: String, in app: XCUIApplication) {
         let control = app.descendants(matching: .any)[identifier]
-        for _ in 0..<5 where !control.isHittable {
-            app.swipeUp()
-        }
         XCTAssertTrue(control.exists, "Missing menu control: \(identifier)")
         XCTAssertTrue(control.isHittable, "Menu control is not hittable: \(identifier)")
         control.tap()

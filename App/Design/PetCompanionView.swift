@@ -84,11 +84,53 @@ enum PetPreviewAnimation {
     static let frameDuration = Duration.milliseconds(160)
 }
 
+enum PetFacing: String, Equatable, Sendable {
+    case front
+    case halfLeft
+    case left
+    case halfRight
+    case right
+
+    static let halfTurnMaximumDegrees = 30.0
+    static let frontDeadZone: CGFloat = 2
+
+    var frameIndex: Int {
+        switch self {
+        case .front: 0
+        case .halfLeft: 2
+        case .left: 3
+        case .halfRight: 6
+        case .right: 7
+        }
+    }
+
+    static func resolve(
+        pointer: CGPoint,
+        petFrame: CGRect,
+        fallback: PetFacing = .front
+    ) -> PetFacing {
+        guard pointer.x.isFinite, pointer.y.isFinite,
+            petFrame.width > 0, petFrame.height > 0
+        else { return fallback }
+
+        let deltaX = pointer.x - petFrame.midX
+        if abs(deltaX) <= frontDeadZone { return .front }
+        let deltaY = pointer.y - petFrame.midY
+        let angle = atan2(abs(deltaX), max(abs(deltaY), 1)) * 180 / .pi
+        if deltaX < 0 {
+            return angle <= halfTurnMaximumDegrees ? .halfLeft : .left
+        }
+        return angle <= halfTurnMaximumDegrees ? .halfRight : .right
+    }
+}
+
 struct PetCompanionView: View {
     let petID: String
     var size: CGFloat = 64
     var placement = PetCompanionPlacement.menu
     var animationTrigger = 0
+    var facing = PetFacing.front
+    var isSleeping = false
 
     @State private var frameIndex = 0
 
@@ -121,11 +163,12 @@ struct PetCompanionView: View {
             alignment: .topLeading
         )
         .clipped(antialiased: false)
-        .task(id: "\(petID)-\(animationTrigger)") {
-            await playPreviewIfRequested()
+        .task(id: "\(petID)-\(placement)-\(animationTrigger)-\(facing.rawValue)-\(isSleeping)") {
+            await updateAnimation()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(presentation.kind) companion")
+        .accessibilityValue(isSleeping ? "Sleeping" : facing.rawValue)
     }
 
     @ViewBuilder
@@ -188,9 +231,45 @@ struct PetCompanionView: View {
         )
     }
 
+    private func updateAnimation() async {
+        if placement == .shop {
+            await playPreviewIfRequested()
+            return
+        }
+
+        if isSleeping {
+            guard frameIndex != 9 else { return }
+            frameIndex = 8
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            frameIndex = 9
+            return
+        }
+
+        if frameIndex == 9 {
+            frameIndex = 8
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+        }
+
+        let frames: [Int]
+        switch facing {
+        case .front: frames = [0]
+        case .halfLeft: frames = [1, 2]
+        case .left: frames = [1, 2, 3]
+        case .halfRight: frames = [5, 6]
+        case .right: frames = [5, 6, 7]
+        }
+        for frame in frames {
+            guard !Task.isCancelled else { return }
+            frameIndex = frame
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
     private func playPreviewIfRequested() async {
         frameIndex = 0
-        guard placement == .shop, animationTrigger > 0 else { return }
+        guard animationTrigger > 0 else { return }
 
         for frame in PetPreviewAnimation.frames {
             guard !Task.isCancelled else { return }
@@ -202,7 +281,7 @@ struct PetCompanionView: View {
     }
 
     private var shouldShowHabitat: Bool {
-        !(placement == .shop && presentation.id == "kesha" && frameIndex >= 8)
+        !(presentation.id == "kesha" && frameIndex >= 8)
     }
 }
 
@@ -220,19 +299,17 @@ struct PetArtworkGeometry {
         switch placement {
         case .menu:
             let habitatY = petID == "mitsuri" ? -spriteSize * 0.3125 : spriteSize * 0.75
-            let spriteY = ["foka", "kesha"].contains(petID) ? -spriteSize * 0.09375 : -spriteSize * 0.0625
+            let baseSpriteY = -spriteSize * 0.0625
+            let requestedRaise = ["foka", "misha"].contains(petID) ? spriteSize * 0.078_125 : 0
             return PetArtworkGeometry(
                 canvas: CGSize(width: spriteSize, height: spriteSize * 2.25),
-                spriteOffset: CGSize(width: 0, height: spriteY),
+                spriteOffset: CGSize(width: 0, height: baseSpriteY - requestedRaise),
                 habitatSize: CGSize(width: spriteSize, height: spriteSize * 1.5),
                 habitatOffset: CGSize(width: 0, height: habitatY)
             )
         case .shop:
             let inset = spriteSize * 0.125
-            let spriteY =
-                ["foka", "kesha"].contains(petID)
-                ? -spriteSize * 0.078_125
-                : 0
+            let spriteY = ["foka", "misha"].contains(petID) ? -spriteSize * 0.078_125 : 0
             return PetArtworkGeometry(
                 canvas: CGSize(width: spriteSize * 1.25, height: spriteSize * 1.25),
                 spriteOffset: CGSize(width: inset, height: spriteY),

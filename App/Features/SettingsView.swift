@@ -11,50 +11,92 @@ struct SettingsView: View {
         ZStack {
             AppThemeBackground(theme: palette)
 
-            Form {
-                Section("Sound Effects") {
-                    Toggle("Sound Effects", isOn: $preferences.soundEffectsEnabled)
-                        .accessibilityIdentifier("sound-effects-toggle")
-                    HStack {
-                        Image(systemName: "speaker.fill")
-                        Slider(value: $preferences.soundEffectsVolume, in: 0...1)
+            ScrollView {
+                VStack(spacing: 12) {
+                    settingCard(title: "Glyphs", systemImage: "character.cursor.ibeam") {
+                        Toggle("Color-blind glyphs", isOn: $preferences.glyphsEnabled)
+                            .tint(Color(hex: palette.chromeAccent))
+                            .accessibilityIdentifier("glyphs-toggle")
+                        Text("Show a shape inside each color tile and in the target header.")
+                            .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                    }
+
+                    settingCard(title: "Sound Effects", systemImage: "speaker.wave.2.fill") {
+                        Toggle("Sound Effects", isOn: $preferences.soundEffectsEnabled)
+                            .tint(Color(hex: palette.chromeAccent))
+                            .accessibilityIdentifier("sound-effects-toggle")
+                        HStack {
+                            Image(systemName: "speaker.fill")
+                            Slider(value: $preferences.soundEffectsVolume, in: 0...1)
+                                .tint(Color(hex: palette.chromeAccent))
+                                .disabled(!preferences.soundEffectsEnabled)
+                            Image(systemName: "speaker.wave.3.fill")
+                        }
+                        Button("Test tap sound") { audio.playTap(hitNumber: 1) }
+                            .buttonStyle(
+                                WebSecondaryButtonStyle(
+                                    theme: palette,
+                                    accent: Color(hex: palette.chromeAccent),
+                                    minimumHeight: 44
+                                )
+                            )
                             .disabled(!preferences.soundEffectsEnabled)
-                        Image(systemName: "speaker.wave.3.fill")
                     }
-                    Button("Test tap sound") { audio.playTap(hitNumber: 1) }
-                        .disabled(!preferences.soundEffectsEnabled)
-                }
 
-                Section("Music") {
-                    Toggle("Music", isOn: $preferences.musicEnabled)
-                        .accessibilityIdentifier("music-toggle")
-                    HStack {
-                        Image(systemName: "speaker.fill")
-                        Slider(value: $preferences.musicVolume, in: 0...1)
-                            .disabled(!preferences.musicEnabled)
-                        Image(systemName: "speaker.wave.3.fill")
+                    settingCard(title: "Music", systemImage: "music.note") {
+                        Toggle("Music", isOn: $preferences.musicEnabled)
+                            .tint(Color(hex: palette.chromeAccent))
+                            .accessibilityIdentifier("music-toggle")
+                        HStack {
+                            Image(systemName: "speaker.fill")
+                            Slider(value: $preferences.musicVolume, in: 0...1)
+                                .tint(Color(hex: palette.chromeAccent))
+                                .disabled(!preferences.musicEnabled)
+                            Image(systemName: "speaker.wave.3.fill")
+                        }
+                        Text("Menu and gameplay loops are independent from Sound Effects.")
+                            .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
                     }
-                    Text("Menu and gameplay loops are independent from Sound Effects and follow the selected theme.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
 
-                Section("Current Theme") {
-                    HStack {
-                        ThemePreview(theme: palette).frame(width: 74)
-                        Text(palette.displayName).font(.headline)
+                    if let status = audio.statusMessage {
+                        Text(status)
+                            .font(palette.appFont(size: 13, weight: .bold, relativeTo: .footnote))
+                            .foregroundStyle(.orange)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .webCardStyle(theme: palette, padding: 14)
                     }
                 }
-
-                if let status = audio.statusMessage {
-                    Section("Audio Status") {
-                        Text(status).foregroundStyle(.orange)
-                    }
-                }
+                .padding(16)
+                .frame(maxWidth: 620)
+                .frame(maxWidth: .infinity)
             }
-            .scrollContentBackground(.hidden)
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Settings")
+                    .font(palette.appFont(size: 19, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(Color(hex: palette.foreground))
+            }
+        }
+    }
+
+    private func settingCard<Content: View>(
+        title: String,
+        systemImage: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(title, systemImage: systemImage)
+                .font(palette.appFont(size: 18, weight: .black, relativeTo: .headline))
+                .foregroundStyle(Color(hex: palette.foreground))
+            content()
+                .font(palette.appFont(size: 16, weight: .semibold, relativeTo: .body))
+                .foregroundStyle(Color(hex: palette.foreground))
+        }
+        .webCardStyle(theme: palette, padding: 16)
     }
 }
