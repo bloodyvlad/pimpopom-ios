@@ -15,12 +15,6 @@ struct ThemeShopView: View {
                 VStack(spacing: 12) {
                     walletHeader
 
-                    if cosmetics.isLoading {
-                        ProgressView("Loading themes…")
-                            .tint(Color(hex: palette.accent))
-                            .foregroundStyle(Color(hex: palette.foreground))
-                    }
-
                     LazyVGrid(
                         columns: [
                             GridItem(.flexible(), spacing: 8),
@@ -44,6 +38,10 @@ struct ThemeShopView: View {
                 .padding(16)
                 .frame(maxWidth: 620)
                 .frame(maxWidth: .infinity)
+            }
+
+            if cosmetics.isLoading {
+                WebLoadingOverlay(theme: palette, label: "Loading themes")
             }
         }
         .navigationTitle("Theme Shop")

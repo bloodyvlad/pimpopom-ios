@@ -227,10 +227,6 @@ final class CosmeticsController: ObservableObject {
             visible: petVisible
         )
 
-        if action == .buy, pet.id == "pancake" {
-            petMessage = "Pancake purchase is disabled until original replacement art is approved."
-            return
-        }
         if action == .buy, coinBalance < pet.priceCoins {
             petMessage = "You need \(pet.priceCoins - coinBalance) more coins for \(pet.name)."
             return

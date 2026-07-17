@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		022E13F9976B529A2E50B800 /* pancake-floor.png in Resources */ = {isa = PBXBuildFile; fileRef = 5E7E287D8050BCF1504A5002 /* pancake-floor.png */; };
 		03528CE7275198A4BEB75E9B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */; };
 		03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D742807F5506EC05BA9FAFE /* GameView.swift */; };
 		04052855CC26052581CF9499 /* audio-light-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */; };
@@ -18,6 +19,7 @@
 		1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */; };
 		21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */; };
 		228758F9D283D50E443CD560 /* audio-pixel-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */; };
+		22B0ADE3ECAA3BF9FCA9423C /* pancake-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 6D8B77DB0BBFFF1688760C67 /* pancake-sprite.png */; };
 		24F0C16C1DE42D0FB31628E2 /* kesha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = B194C5E2A0BBB6D9E67B30A2 /* kesha-sprite.png */; };
 		2749EA7C9189C2642CC5D2BB /* audio-pixel-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 12AF44BA9D72AACA0C78C26A /* audio-pixel-tones.wav */; };
 		2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */; };
@@ -29,6 +31,7 @@
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
 		56603C4049290197D71E7DE7 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C4870F00BE8DF3014F005A13 /* GoogleSignIn */; };
+		5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */; };
 		60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */; };
 		65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */; };
 		67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */; };
@@ -39,6 +42,7 @@
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
+		9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */; };
 		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
 		997453F97D0DAA43FBBF5C3B /* jersey-10-regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */; };
 		9B7E95ABFFA0240D9388D799 /* disco-concrete.png in Resources */ = {isa = PBXBuildFile; fileRef = CA0B3667E36EAC21E084AD82 /* disco-concrete.png */; };
@@ -99,6 +103,7 @@
 		29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesAndContractTests.swift; sourceTree = "<group>"; };
 		29E26897A668D55114A2D880 /* AudioResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioResourceTests.swift; sourceTree = "<group>"; };
 		2A0CD8335C4D1E08E4401607 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardComponents.swift; sourceTree = "<group>"; };
 		2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoinStorePlaceholderView.swift; sourceTree = "<group>"; };
 		30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClientTests.swift; sourceTree = "<group>"; };
 		343C3D60DEB6783CB739995F /* misha-climber.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-climber.png"; sourceTree = "<group>"; };
@@ -112,8 +117,10 @@
 		59325BF36E2F3C3A524AD069 /* PimPoPomTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D742807F5506EC05BA9FAFE /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		5E5B8A0B92FABA6CEC0AEBE9 /* audio-pixel-run.m4a */ = {isa = PBXFileReference; path = "audio-pixel-run.m4a"; sourceTree = "<group>"; };
+		5E7E287D8050BCF1504A5002 /* pancake-floor.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pancake-floor.png"; sourceTree = "<group>"; };
 		6038C3199A866EB364429ECE /* audio-disco-run.m4a */ = {isa = PBXFileReference; path = "audio-disco-run.m4a"; sourceTree = "<group>"; };
 		65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeShopView.swift; sourceTree = "<group>"; };
+		6D8B77DB0BBFFF1688760C67 /* pancake-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pancake-sprite.png"; sourceTree = "<group>"; };
 		753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-disco-tones.wav"; sourceTree = "<group>"; };
 		7A7AAB5003782A88EC74437A /* audio-light-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-light-tones.wav"; sourceTree = "<group>"; };
 		7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */ = {isa = PBXFileReference; path = "audio-pixel-menu.m4a"; sourceTree = "<group>"; };
@@ -148,6 +155,7 @@
 		DA2E75B83D2198FB2E99E518 /* BackendModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendModels.swift; sourceTree = "<group>"; };
 		DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */ = {isa = PBXFileReference; path = "audio-classic-menu.m4a"; sourceTree = "<group>"; };
 		DEC51376F984CE9F83F10F80 /* audio-oops.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-oops.wav"; sourceTree = "<group>"; };
+		E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		EB365660F1E96C034ECE4A85 /* tauta-bed.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-bed.png"; sourceTree = "<group>"; };
 		EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "jersey-10-regular.ttf"; sourceTree = "<group>"; };
 		F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-tile-overlay.png"; sourceTree = "<group>"; };
@@ -214,6 +222,8 @@
 				101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */,
 				AE0A4CFFE2AEF83863978D0D /* muse-floor.png */,
 				BE684D0E61B8053630D1E5B0 /* muse-sprite.png */,
+				5E7E287D8050BCF1504A5002 /* pancake-floor.png */,
+				6D8B77DB0BBFFF1688760C67 /* pancake-sprite.png */,
 				EB365660F1E96C034ECE4A85 /* tauta-bed.png */,
 				1FD1D8CB83628904EBD471FB /* tauta-sprite.png */,
 			);
@@ -275,8 +285,10 @@
 			children = (
 				2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */,
 				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
+				2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */,
 				0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */,
 				A54435E3370FE5F0E7640F4F /* PetShopView.swift */,
+				E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */,
 				4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */,
 				65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */,
 			);
@@ -504,6 +516,8 @@
 				B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */,
 				36B37175BB6E0CBFE6607C34 /* muse-floor.png in Resources */,
 				D67810BA07DC1F0D8729A51C /* muse-sprite.png in Resources */,
+				022E13F9976B529A2E50B800 /* pancake-floor.png in Resources */,
+				22B0ADE3ECAA3BF9FCA9423C /* pancake-sprite.png in Resources */,
 				D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */,
 				BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */,
 			);
@@ -539,11 +553,13 @@
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
 				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,
 				2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */,
+				9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */,
 				76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */,
 				60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */,
 				5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */,
 				7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */,
 				1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */,
+				5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */,
 				8A9091375A080E76B3131D5B /* RootView.swift in Sources */,
 				03528CE7275198A4BEB75E9B /* SettingsView.swift in Sources */,
 				65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */,

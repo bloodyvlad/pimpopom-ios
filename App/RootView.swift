@@ -24,6 +24,9 @@ struct RootView: View {
     @State private var menuPetSleeping = false
     @State private var menuPetActivity = 0
     @State private var menuPetFrame = CGRect.zero
+    @State private var introStampSeed = MenuMotivation.introStampSeed(
+        arguments: ProcessInfo.processInfo.arguments
+    )
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -33,7 +36,7 @@ struct RootView: View {
                 AppThemeBackground(theme: palette)
 
                 GeometryReader { proxy in
-                    menuPanel
+                    menuPanel(screenWidth: proxy.size.width)
                         .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -58,7 +61,14 @@ struct RootView: View {
             .navigationDestination(for: GameMode.self) { GameView(mode: $0) }
         }
         .tint(Color(hex: palette.foreground))
-        .sheet(isPresented: $showsProfile) { profileSheet }
+        .sheet(isPresented: $showsProfile) {
+            ProfileView(
+                googleIdentity: googleIdentity,
+                onDismiss: { showsProfile = false }
+            )
+            .environmentObject(backend)
+            .environmentObject(cosmetics)
+        }
         .sheet(isPresented: $showsAchievements) { achievementsSheet }
         .sheet(isPresented: $showsCoinStore) {
             CoinStorePlaceholderView()
@@ -95,7 +105,7 @@ struct RootView: View {
         }
     }
 
-    private var menuPanel: some View {
+    private func menuPanel(screenWidth: CGFloat) -> some View {
         ZStack(alignment: .topTrailing) {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -107,7 +117,7 @@ struct RootView: View {
 
             VStack(spacing: 0) {
                 utilityHeader
-                hintStage
+                hintStage(screenWidth: screenWidth)
                 actionStack
                 Spacer(minLength: 6)
                 menuFooter
@@ -118,10 +128,14 @@ struct RootView: View {
                     petID: petID,
                     size: 64,
                     placement: .menu,
+                    animationTrigger: menuPetActivity,
                     facing: menuPetFacing,
                     isSleeping: menuPetSleeping
                 )
-                .offset(x: 10, y: WebMenuMetrics.headerHeight + 17)
+                .offset(
+                    x: 10 - screenWidth * WebMenuMetrics.menuPetHorizontalShiftFraction,
+                    y: WebMenuMetrics.headerHeight + 17
+                )
                 .background {
                     GeometryReader { proxy in
                         Color.clear.preference(
@@ -212,25 +226,27 @@ struct RootView: View {
         .frame(minHeight: WebMenuMetrics.headerHeight)
     }
 
-    private var hintStage: some View {
+    private func hintStage(screenWidth: CGFloat) -> some View {
         Group {
             if motivationIsVisible {
                 Button {
                     advanceMotivation()
                 } label: {
-                    Text(MenuMotivation.hints[currentMotivationIndex])
-                        .font(palette.appFont(size: 16, weight: .black, relativeTo: .body))
-                        .foregroundStyle(motivationColor)
-                        .multilineTextAlignment(.leading)
-                        .rotationEffect(
-                            .degrees(MenuMotivation.tilts[currentMotivationIndex % MenuMotivation.tilts.count])
-                        )
-                        .shadow(
-                            color: motivationColor.opacity(palette.isLight ? 0.18 : 0.48),
-                            radius: palette.isPixel ? 0 : 7)
+                    GlowStampView(
+                        text: MenuMotivation.hints[currentMotivationIndex],
+                        tone: motivationColor,
+                        theme: palette,
+                        tilt: MenuMotivation.tilts[
+                            currentMotivationIndex % MenuMotivation.tilts.count
+                        ],
+                        size: 16 * WebMenuMetrics.motivationScale,
+                        horizontalPadding: 10,
+                        verticalPadding: 5
+                    )
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .offset(x: screenWidth * WebMenuMetrics.motivationHorizontalShiftFraction)
                 .accessibilityIdentifier("menu-motivation")
                 .task(id: motivationTaskID) {
                     guard motivationCanRotate else { return }
@@ -243,22 +259,46 @@ struct RootView: View {
                     advanceMotivation()
                 }
             } else {
-                Text("– Tap your color\n– Become the fastest\n– Collect rewards!")
-                    .font(palette.appFont(size: 15, weight: .medium, relativeTo: .body))
-                    .foregroundStyle(Color(hex: palette.muted))
-                    .lineSpacing(3)
-                    .shadow(
-                        color: palette.isLight
-                            ? Color(hex: "#159dc7").opacity(0.18)
-                            : Color(hex: "#63f8ff").opacity(0.12),
-                        radius: 7
-                    )
+                VStack(alignment: .leading, spacing: 5) {
+                    ForEach(Array(introHints.enumerated()), id: \.offset) { index, hint in
+                        GlowStampView(
+                            text: hint.text,
+                            tone: Color(hex: hint.color),
+                            theme: palette,
+                            tilt: MenuMotivation.tilts[
+                                (introStampSeed + index) % MenuMotivation.tilts.count
+                            ],
+                            size: 12,
+                            horizontalPadding: 9,
+                            verticalPadding: 4
+                        )
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Tap your color. Become the fastest. Collect rewards.")
+                .accessibilityIdentifier("menu-intro-stamps")
             }
         }
         .frame(maxWidth: .infinity, minHeight: WebMenuMetrics.hintHeight, alignment: .leading)
         .padding(.trailing, cosmetics.displayedPetID == nil ? 0 : 76)
         .padding(.top, 8)
         .padding(.bottom, 14)
+    }
+
+    private var introHints: [(text: String, color: String)] {
+        if palette.isLight {
+            [
+                ("Tap your color", "#087c9b"),
+                ("Become the fastest", "#bb257b"),
+                ("Collect rewards!", "#6942b7"),
+            ]
+        } else {
+            [
+                ("Tap your color", "#62f8ff"),
+                ("Become the fastest", "#ff71c7"),
+                ("Collect rewards!", "#b798ff"),
+            ]
+        }
     }
 
     private var actionStack: some View {

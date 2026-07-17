@@ -19,7 +19,8 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Original PimPoPom internal-alpha app-icon candidate with retained generation source, prompt, and hashes.
 - Native Theme Shop and Pet Shop backed by the deployed catalog/economy endpoints, including server-authoritative balance, ownership, selection, pet visibility, and signed-out free-theme behavior.
 - Shared disabled Buy Coins sheet in both shops; it contains no StoreKit product or value-granting path.
-- Four code-native theme presentations and reviewed runtime art for Foka, Kesha, Tauta, Misha, and server-derived Mitsuri and Muse; Pancake uses labelled code-native placeholder art.
+- Four code-native theme presentations and reviewed runtime art for Foka, Kesha, Tauta, Misha, server-derived Mitsuri/Muse, and the owner-approved native Pancake replacement with a glowing blue floor.
+- Illuminated randomly tilted intro and Perfect/Godlike millisecond stamps, non-shifting shop loading overlays, PHP-style Leaderboard/Profile/Game Over surfaces, and shared reaction-speed distribution components.
 - Independent persistent Music and Sound FX controls using one native audio engine, four migrated theme suites, the shared loss cue, menu/gameplay/silent routing, and lifecycle/interruption handling.
 - Original deterministic rising Pim–Po–Pom activation-cue candidate, with 24-bit master, generator, measurements, and hashes.
 - Native cosmetics/preferences/API-contract tests, including coalesced session loading, CSRF credential wiring, and stale-account response rejection; shop/settings UI tests; and deterministic validation of every migrated runtime/master/source asset.
@@ -45,3 +46,5 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Added five-second menu pet sleep/wake, original 30-degree tap-follow facing, 40%-width gameplay placement, and five-point Foka/Misha habitat alignment.
 - Adopted the latest 26 web slogans with tap-to-advance and an intentional 10-second native rotation interval.
 - Replaced the circular gameplay color swatch with a rounded square and removed the redundant visible “Tap [color]” prompt below the board while retaining its accessibility state.
+- Shifted the menu pet left and slogans right, enlarged slogans, applied the requested surface-specific pet offsets, and repaired staged tap-facing animation coordinates in shops, menus, and gameplay.
+- Added a Light-only readability plate behind the logo and replaced in-flow Theme/Pet Shop loading copy with a centered animated overlay that preserves layout.

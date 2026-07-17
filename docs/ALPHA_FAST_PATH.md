@@ -25,7 +25,7 @@ The code keeps ads and purchases behind disabled local implementations. Do not a
 - Live `GET /api/session` and public Arcade/Zen leaderboard reads.
 - Existing Google token exchange, profile/nickname, ranked ticket, abandon, and finish client paths. They activate only after a real iOS OAuth client is supplied and the player confirms a nickname.
 - Public theme/pet catalogs and authenticated atomic buy/select/hide/show mutations against the same profile and earned-coin balance. Theme Shop and Pet Shop both expose a deliberately disabled Buy Coins placeholder.
-- Four native theme palettes, retained pet sprites/habitats, and the backend-derived special pet. Pancake uses no migrated bitmap and cannot be newly purchased in this alpha.
+- Four native theme palettes, retained pet sprites/habitats, the backend-derived special pet, and an owner-approved native Pancake replacement with a glowing blue floor.
 - Independent default-on Music and Sound FX using the migrated per-theme suites, plus the shared loss cue and original Pim–Po–Pom activation-cue candidate.
 - Exact deployed compatibility constants: API base `https://speedytapper.otcsoft.com`, build `20260715-1`, ruleset `reaction-proof-v2`, proof version 1.
 - Google Sign-In 9.2.0 resolved by Swift Package Manager. Ads and StoreKit have no vendor/product configuration.
@@ -89,7 +89,7 @@ Exit: public data works immediately; authenticated shared-data/ranked paths work
 1. Read `/api/themes` and `/api/pets`; display server names/prices, profile ownership/selection, and `coinBalance`.
 2. Use the existing CSRF/session contract for atomic theme buy/select and pet buy/select/hide/show. Never submit price or balance from Swift.
 3. Keep signed-out local theme selection to always-free Default/Disco. Keep Buy Coins as one disabled explanatory sheet because the compatibility backend has no StoreKit credit route.
-4. Render native theme palettes and reviewed pet sheets outside the reaction board. Trust only backend `specialPetId`; use code-native placeholder art for Pancake. Freeze presentation choices for the duration of an active run.
+4. Render native theme palettes and reviewed pet sheets outside the reaction board. Trust only backend `specialPetId`; use the retained native Pancake replacement without changing its backend catalog rules. Freeze presentation choices for the duration of an active run.
 5. Port exact theme menu/gameplay/tap assets and shared loss cue into one lazy native audio engine with independent persisted Music/Sound FX controls.
 6. Generate the original rising Pim–Po–Pom activation-cue candidate, retain its lossless master/generator, and play it at most once after activation without delaying interaction.
 7. Coalesce session bootstrap, reject stale account/profile responses, and serialize all theme/pet economy mutations so a late response cannot restore an old player or balance.

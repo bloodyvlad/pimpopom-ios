@@ -195,7 +195,7 @@ Revisit when: The first physical-device alpha works, the deployed web build gate
 ## P-015 — Port the existing earned-coin cosmetics and audio into the internal alpha
 
 - Date: 2026-07-15
-- Status: Accepted
+- Status: Accepted; Pancake restriction superseded by P-018
 
 Context: The owner accepted the playable native checkpoint and asked to continue with the current Pet Shop, Theme Shop, earned coins, music, and sounds. The compatibility backend already owns the catalog prices, balance, ownership, selection, pet visibility, and atomic spending; it has no StoreKit coin-credit route. The reviewed web source also contains four fixed theme audio suites and current pet presentation assets.
 
@@ -234,3 +234,20 @@ After the first Arcade Game Over, rotate the exact 26-slogan pool and advance it
 Consequences: Compact-device geometry, non-scrolling behavior, glyph persistence, pet direction/sleep, response-bar drain, StoreKit placeholder safety, and all four theme fixtures are deterministic regression gates. Shops and settings retain native navigation and accessibility rather than copying HTML/CSS or embedding a `WKWebView`. Physical-device timing, listening, and touch validation remain required before release claims.
 
 Revisit when: Dynamic Type or localization cannot fit the fixed menu without an accepted compact adaptation, the parent design deliberately changes, or a new PimPoPom visual system replaces parity as the product goal.
+
+## P-018 — Complete the next native visual-parity and companion pass
+
+- Date: 2026-07-17
+- Status: Accepted
+
+Context: After accepting the fixed-screen native composition, the owner requested a closer translation of the remaining PHP presentation at parent web `main` commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0`. The requested batch adds expressive hit feedback, surface-specific companion placement, a replacement Pancake, stable shop loading, and detailed Leaderboard/Profile/Game Over presentation. It deliberately advances the items that P-017 left for a later batch.
+
+Decision: Show only Perfect and Godlike correct taps as short-lived illuminated bordered stamps containing the same rounded milliseconds used for rating classification. Select from safe anchors around all four board borders and independent tilt presets using presentation-only randomness; never consume deterministic gameplay randomness or alter proof events. Translate the three introductory menu instructions and rotating slogans into the same illuminated visual language. Move the menu pet left by 15% of screen width, move slogans right by 15%, and enlarge slogans by 15%. Apply companion vertical offsets per surface, not globally: raise Foka and Kesha another ten points only in Pet Shop; lower Misha, Tauta, and Pancake ten points only in the main menu. Preserve the original staged 30-degree half/full turn sequence and restart it for every accepted tap, including repeated taps toward the same side. Measure gameplay tap direction against the inner SpriteKit scene rather than the board padding.
+
+Use the owner-supplied Pancake concept as the identity reference for a native ten-frame sprite and replace its bed with a generated glowing blue floor. Retain the unmodified concept, generated sources, alpha masters, deterministic assembly script, runtime assets, hashes, and prompts. Remove the placeholder label and client-side purchase block; price, balance, ownership, purchase, selection, and visibility remain authoritative in the existing PHP catalog and mutations. This approval is for the internal build and does not replace the deferred public-release ownership review.
+
+In Light only, place a subtle white/blue button-like plate behind the wordmark for readability. Keep Theme Shop and Pet Shop content geometrically stable while loading by drawing a modal animated overlay above the existing layout; do not insert loading text into either scroll stack. Rebuild Leaderboard around rank context, current/legacy badges, pet rows, skipped-rank separators, reactions, rating distribution, and verification copy. Rebuild My Profile around signed-out benefits, nickname management, mode-specific rank context, and nearby results using `GET /api/profile?mode=normal|zen`. Rebuild Game Over around top restart/menu controls, a gradient score hero, four primary metrics, reaction distribution, and fixed save/retry status. These are native SwiftUI translations that preserve backend authority and accessibility identifiers, not embedded web views.
+
+Consequences: The native client gains the missing PHP information hierarchy without a schema migration or a second source of account/economy truth. Visual randomness is non-authoritative and deterministic under UI tests. New shared Leaderboard/rating/loading components and retained Pancake sources become regression and asset-validation inputs. Physical iPhone touch, animation, listening, Dynamic Type, VoiceOver, and final public artwork review remain explicit acceptance gates.
+
+Revisit when: Parent visual behavior changes, screen-reader or compact-layout evidence requires a different presentation, backend profile/leaderboard contracts change, or the deferred public-release ownership review rejects or replaces an asset.

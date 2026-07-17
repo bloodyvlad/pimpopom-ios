@@ -56,4 +56,32 @@ final class GameplayLifecycleTests: XCTestCase {
         scene.applyGlyphsEnabled(false)
         XCTAssertFalse(scene.children.contains { $0 is SKLabelNode })
     }
+
+    func testOnlyPerfectAndGodlikeHitsPublishRoundedStampEvents() {
+        let godlike = ratingStamp(reactionMilliseconds: 249.4)
+        XCTAssertEqual(godlike?.rating, .godlike)
+        XCTAssertEqual(godlike?.milliseconds, 249)
+
+        let perfect = ratingStamp(reactionMilliseconds: 300.4)
+        XCTAssertEqual(perfect?.rating, .perfect)
+        XCTAssertEqual(perfect?.milliseconds, 300)
+
+        XCTAssertNil(ratingStamp(reactionMilliseconds: 375))
+    }
+
+    private func ratingStamp(reactionMilliseconds: Double) -> GameplayRatingStampEvent? {
+        let coordinator = GameCoordinator(mode: .arcade)
+        coordinator.startNewRun()
+        let activeAt = ProcessInfo.processInfo.systemUptime * 1_000 + 1_000
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: activeAt)
+        coordinator.gameScene(
+            coordinator.scene,
+            didTapCell: 0,
+            normalizedLocation: CGPoint(x: 0.5, y: 0.5),
+            inputAt: activeAt + reactionMilliseconds,
+            handledAt: activeAt + reactionMilliseconds
+        )
+        coordinator.stop()
+        return coordinator.ratingStampEvent
+    }
 }

@@ -13,6 +13,12 @@ enum GameplayLifecycleEvent: Equatable, Sendable {
     case abandoned
 }
 
+struct GameplayRatingStampEvent: Equatable, Identifiable, Sendable {
+    let id: Int
+    let rating: SpeedRating
+    let milliseconds: Int
+}
+
 enum GameplayMusicRouting {
     static func context(for event: GameplayLifecycleEvent) -> MusicContext {
         switch event {
@@ -33,6 +39,7 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var feedback = "Get ready"
     @Published private(set) var isFinished = false
     @Published private(set) var wasAbandoned = false
+    @Published private(set) var ratingStampEvent: GameplayRatingStampEvent?
     var onSoundEvent: ((GameplaySoundEvent) -> Void)?
     var onLifecycleEvent: ((GameplayLifecycleEvent) -> Void)?
     var onAcceptedBoardTap: ((CGPoint) -> Void)?
@@ -45,6 +52,7 @@ final class GameCoordinator: ObservableObject {
     private var generation = 0
     private var lastPublishedAt = 0.0
     private var started = false
+    private var ratingStampSequence = 0
 
     init(mode: GameMode) {
         self.mode = mode
@@ -95,6 +103,7 @@ final class GameCoordinator: ObservableObject {
         pendingDeadlineCommit = nil
         lastDeadlineResolutionAt = nil
         feedback = "Get ready"
+        ratingStampEvent = nil
         let now = monotonicMilliseconds()
         snapshot = engine.start(now: now, mode: mode)
         scene.apply(snapshot)
@@ -175,6 +184,17 @@ final class GameCoordinator: ObservableObject {
             scene.setRoundPresentationExpired(false)
             let rating = transition.speedRating?.label ?? "Hit"
             feedback = "\(rating) · \(transition.displayedReactionMilliseconds ?? 0) ms"
+            if let speedRating = transition.speedRating,
+                speedRating == .perfect || speedRating == .godlike,
+                let milliseconds = transition.displayedReactionMilliseconds
+            {
+                ratingStampSequence += 1
+                ratingStampEvent = GameplayRatingStampEvent(
+                    id: ratingStampSequence,
+                    rating: speedRating,
+                    milliseconds: milliseconds
+                )
+            }
         case .miss:
             scene.setRoundPresentationExpired(false)
             feedback =

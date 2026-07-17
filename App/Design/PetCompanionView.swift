@@ -65,9 +65,9 @@ struct PetPresentation: Identifiable, Equatable, Sendable {
         "pancake": PetPresentation(
             id: "pancake",
             kind: "Pancake companion",
-            spriteAsset: nil,
-            habitatAsset: nil,
-            usesPlaceholderArt: true
+            spriteAsset: "pancake-sprite",
+            habitatAsset: "pancake-floor",
+            usesPlaceholderArt: false
         ),
     ]
 }
@@ -82,6 +82,53 @@ enum PetCompanionPlacement: Equatable, Sendable {
 enum PetPreviewAnimation {
     static let frames = [0, 2, 3, 0, 6, 7, 8, 9, 0]
     static let frameDuration = Duration.milliseconds(160)
+}
+
+struct PetAnimationStep: Equatable, Sendable {
+    let frameIndex: Int
+    let delayAfter: Duration
+}
+
+enum PetAnimationPlan {
+    static func wakeAndTurn(to facing: PetFacing) -> [PetAnimationStep] {
+        [
+            PetAnimationStep(frameIndex: 9, delayAfter: .milliseconds(189)),
+            PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(261)),
+        ] + turn(to: facing)
+    }
+
+    static func turn(to facing: PetFacing) -> [PetAnimationStep] {
+        switch facing {
+        case .front:
+            [PetAnimationStep(frameIndex: 0, delayAfter: .zero)]
+        case .halfLeft:
+            [
+                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 1, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 2, delayAfter: .zero),
+            ]
+        case .left:
+            [
+                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 1, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 2, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 3, delayAfter: .zero),
+            ]
+        case .halfRight:
+            [
+                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 6, delayAfter: .zero),
+            ]
+        case .right:
+            [
+                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 6, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 7, delayAfter: .zero),
+            ]
+        }
+    }
 }
 
 enum PetFacing: String, Equatable, Sendable {
@@ -145,13 +192,7 @@ struct PetCompanionView: View {
 
     var body: some View {
         Group {
-            if presentation.id == "pancake" {
-                PancakePlaceholder(size: size)
-                    .offset(
-                        x: (geometry.canvas.width - size) / 2,
-                        y: max(0, geometry.spriteOffset.height)
-                    )
-            } else if let spriteAsset = presentation.spriteAsset {
+            if let spriteAsset = presentation.spriteAsset {
                 artwork(spriteAsset: spriteAsset)
             } else {
                 Color.clear
@@ -239,37 +280,42 @@ struct PetCompanionView: View {
 
         if isSleeping {
             guard frameIndex != 9 else { return }
+            try? await Task.sleep(for: .milliseconds(261))
+            guard !Task.isCancelled else { return }
             frameIndex = 8
-            try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .milliseconds(189))
             guard !Task.isCancelled else { return }
             frameIndex = 9
             return
         }
 
-        if frameIndex == 9 {
-            frameIndex = 8
-            try? await Task.sleep(for: .milliseconds(450))
+        let plan =
+            frameIndex == 9
+            ? PetAnimationPlan.wakeAndTurn(to: facing)
+            : PetAnimationPlan.turn(to: facing)
+        for step in plan {
             guard !Task.isCancelled else { return }
-        }
-
-        let frames: [Int]
-        switch facing {
-        case .front: frames = [0]
-        case .halfLeft: frames = [1, 2]
-        case .left: frames = [1, 2, 3]
-        case .halfRight: frames = [5, 6]
-        case .right: frames = [5, 6, 7]
-        }
-        for frame in frames {
-            guard !Task.isCancelled else { return }
-            frameIndex = frame
-            try? await Task.sleep(for: .milliseconds(100))
+            frameIndex = step.frameIndex
+            if step.delayAfter > .zero {
+                try? await Task.sleep(for: step.delayAfter)
+            }
         }
     }
 
     private func playPreviewIfRequested() async {
         frameIndex = 0
         guard animationTrigger > 0 else { return }
+
+        if facing != .front {
+            for step in PetAnimationPlan.turn(to: facing) {
+                guard !Task.isCancelled else { return }
+                frameIndex = step.frameIndex
+                if step.delayAfter > .zero {
+                    try? await Task.sleep(for: step.delayAfter)
+                }
+            }
+            return
+        }
 
         for frame in PetPreviewAnimation.frames {
             guard !Task.isCancelled else { return }
@@ -299,17 +345,30 @@ struct PetArtworkGeometry {
         switch placement {
         case .menu:
             let habitatY = petID == "mitsuri" ? -spriteSize * 0.3125 : spriteSize * 0.75
-            let baseSpriteY = -spriteSize * 0.0625
-            let requestedRaise = ["foka", "misha"].contains(petID) ? spriteSize * 0.078_125 : 0
+            let point = spriteSize / 64
+            let spriteY =
+                switch petID {
+                case "foka": -9 * point
+                case "misha": 1 * point
+                case "tauta", "pancake": 6 * point
+                default: -4 * point
+                }
             return PetArtworkGeometry(
                 canvas: CGSize(width: spriteSize, height: spriteSize * 2.25),
-                spriteOffset: CGSize(width: 0, height: baseSpriteY - requestedRaise),
+                spriteOffset: CGSize(width: 0, height: spriteY),
                 habitatSize: CGSize(width: spriteSize, height: spriteSize * 1.5),
                 habitatOffset: CGSize(width: 0, height: habitatY)
             )
         case .shop:
             let inset = spriteSize * 0.125
-            let spriteY = ["foka", "misha"].contains(petID) ? -spriteSize * 0.078_125 : 0
+            let point = spriteSize / 64
+            let spriteY =
+                switch petID {
+                case "foka": -15 * point
+                case "kesha": -10 * point
+                case "misha": -5 * point
+                default: CGFloat.zero
+                }
             return PetArtworkGeometry(
                 canvas: CGSize(width: spriteSize * 1.25, height: spriteSize * 1.25),
                 spriteOffset: CGSize(width: inset, height: spriteY),
@@ -333,33 +392,6 @@ struct PetArtworkGeometry {
                 habitatOffset: CGSize(width: 4 * scale, height: habitatY)
             )
         }
-    }
-}
-
-private struct PancakePlaceholder: View {
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Ellipse()
-                .fill(Color.yellow.opacity(0.20))
-                .frame(width: size * 0.95, height: size * 0.20)
-                .offset(y: size * 0.39)
-            VStack(spacing: -size * 0.08) {
-                ForEach(0..<3, id: \.self) { layer in
-                    Capsule()
-                        .fill(layer == 0 ? Color(hex: "#ffd773") : Color(hex: "#d58a3a"))
-                        .overlay(Capsule().stroke(Color(hex: "#7f451d"), lineWidth: 1.5))
-                        .frame(width: size * (0.66 + CGFloat(layer) * 0.07), height: size * 0.23)
-                }
-            }
-            HStack(spacing: size * 0.16) {
-                Circle().fill(.black).frame(width: size * 0.07, height: size * 0.07)
-                Circle().fill(.black).frame(width: size * 0.07, height: size * 0.07)
-            }
-            .offset(y: -size * 0.02)
-        }
-        .frame(width: size, height: size)
     }
 }
 

@@ -1,3 +1,4 @@
+import PimPoPomCore
 import SwiftUI
 
 enum WebMenuMetrics {
@@ -13,6 +14,9 @@ enum WebMenuMetrics {
     static let featureControlHeight: CGFloat = 48
     static let actionGap: CGFloat = 9
     static let pairedGap: CGFloat = 8
+    static let menuPetHorizontalShiftFraction: CGFloat = 0.15
+    static let motivationHorizontalShiftFraction: CGFloat = 0.15
+    static let motivationScale: CGFloat = 1.15
 }
 
 struct PimPoPomWordmark: View {
@@ -31,6 +35,19 @@ struct PimPoPomWordmark: View {
                 .shadow(color: Color(hex: "#63fff2"), radius: 5)
                 .padding(.leading, 5)
                 .offset(y: -7)
+        }
+        .padding(.horizontal, theme.isLight ? 8 : 0)
+        .padding(.vertical, theme.isLight ? 6 : 0)
+        .background {
+            if theme.isLight {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.86))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color(hex: "#3f799d").opacity(0.24), lineWidth: 1)
+                    }
+                    .shadow(color: Color(hex: "#3f799d").opacity(0.16), radius: 8, y: 4)
+            }
         }
         .fixedSize(horizontal: true, vertical: false)
         .shadow(color: Color(hex: "#43f4ff").opacity(0.26), radius: theme.isPixel ? 0 : 7)
@@ -56,6 +73,92 @@ struct PimPoPomWordmark: View {
         } else {
             label.italic()
         }
+    }
+}
+
+struct GlowStampView: View {
+    let text: String
+    let tone: Color
+    let theme: ThemePalette
+    var tilt: Double = 0
+    var size: CGFloat = 15
+    var horizontalPadding: CGFloat = 11
+    var verticalPadding: CGFloat = 7
+
+    var body: some View {
+        Text(text)
+            .font(theme.appFont(size: size, weight: .black, relativeTo: .body))
+            .italic(!theme.isPixel)
+            .textCase(.uppercase)
+            .lineLimit(1)
+            .minimumScaleFactor(0.70)
+            .foregroundStyle(tone)
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
+            .background(
+                theme.isLight
+                    ? Color.white.opacity(0.91)
+                    : Color(hex: "#04060c").opacity(0.84),
+                in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 11, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 11, style: .continuous)
+                    .stroke(tone.opacity(theme.isLight ? 0.80 : 0.96), lineWidth: 2)
+            }
+            .shadow(color: tone.opacity(theme.isLight ? 0.20 : 0.62), radius: theme.isPixel ? 0 : 8)
+            .rotationEffect(.degrees(tilt))
+    }
+}
+
+struct WebLoadingOverlay: View {
+    let theme: ThemePalette
+    var label = "Loading"
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(theme.isLight ? 0.10 : 0.30)
+                .ignoresSafeArea()
+
+            TimelineView(.animation) { timeline in
+                let turn =
+                    timeline.date.timeIntervalSinceReferenceDate
+                    .truncatingRemainder(dividingBy: 1.15) / 1.15
+                ZStack {
+                    Circle()
+                        .stroke(Color(hex: theme.foreground).opacity(0.12), lineWidth: 5)
+                    Circle()
+                        .trim(from: 0.08, to: 0.72)
+                        .stroke(
+                            AngularGradient(
+                                colors: [
+                                    Color(hex: theme.accent).opacity(0.15),
+                                    Color(hex: theme.accent),
+                                    Color(hex: theme.petsAccent),
+                                ],
+                                center: .center
+                            ),
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(turn * 360))
+                }
+                .frame(width: 46, height: 46)
+                .padding(17)
+                .background(
+                    Color(hex: theme.surface).opacity(theme.isLight ? 0.94 : 0.91),
+                    in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 18, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 18, style: .continuous)
+                        .stroke(Color(hex: theme.accent).opacity(0.38), lineWidth: theme.isPixel ? 2 : 1)
+                }
+                .shadow(color: Color(hex: theme.accent).opacity(0.34), radius: theme.isPixel ? 0 : 16)
+            }
+        }
+        .transition(.opacity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityIdentifier("loading-overlay")
     }
 }
 

@@ -22,13 +22,6 @@ struct PetShopView: View {
                             .accessibilityIdentifier("pet-shop-status")
                     }
 
-                    if cosmetics.isLoading {
-                        ProgressView("Loading pets…")
-                            .font(palette.appFont(size: 14, weight: .semibold, relativeTo: .body))
-                            .tint(Color(hex: palette.accent))
-                            .foregroundStyle(Color(hex: palette.foreground))
-                    }
-
                     ForEach(cosmetics.pets) { pet in
                         petCard(pet)
                     }
@@ -36,6 +29,10 @@ struct PetShopView: View {
                 .padding(16)
                 .frame(maxWidth: 620)
                 .frame(maxWidth: .infinity)
+            }
+
+            if cosmetics.isLoading {
+                WebLoadingOverlay(theme: palette, label: "Loading pets")
             }
         }
         .navigationTitle("Pet Shop")
@@ -149,9 +146,6 @@ struct PetShopView: View {
     private func petActionLabel(_ action: PetShopAction, item: CosmeticCatalogItem) -> String {
         switch action {
         case .buy:
-            if item.id == "pancake" {
-                return "Art pending"
-            }
             return cosmetics.isAuthenticated ? "Buy · \(item.priceCoins)" : "Sign in to buy"
         case .select: return "Select"
         case .hide: return "Hide"
@@ -167,41 +161,64 @@ private struct PetShopPreviewButton: View {
     @State private var animationTrigger = 0
     @State private var isAnimating = false
     @State private var resetTask: Task<Void, Never>?
+    @State private var facing = PetFacing.front
 
     var body: some View {
-        Button {
-            animationTrigger += 1
-            isAnimating = true
-            resetTask?.cancel()
-            let trigger = animationTrigger
-            resetTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(1_500))
-                guard !Task.isCancelled, animationTrigger == trigger else { return }
-                isAnimating = false
-            }
-        } label: {
-            PetCompanionView(
-                petID: item.id,
-                size: 64,
-                placement: .shop,
-                animationTrigger: animationTrigger
-            )
-            .frame(width: 80, height: 80)
-            .background(
-                Color(hex: palette.backgroundTop).opacity(palette.isLight ? 0.24 : 0.70),
-                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 13)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 13)
-                    .stroke(Color(hex: palette.foreground).opacity(0.10))
-            }
+        PetCompanionView(
+            petID: item.id,
+            size: 64,
+            placement: .shop,
+            animationTrigger: animationTrigger,
+            facing: facing
+        )
+        .frame(width: 80, height: 80)
+        .background(
+            Color(hex: palette.backgroundTop).opacity(palette.isLight ? 0.24 : 0.70),
+            in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 13)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 13)
+                .stroke(Color(hex: palette.foreground).opacity(0.10))
         }
-        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .gesture(
+            SpatialTapGesture()
+                .onEnded { value in play(at: value.location) }
+        )
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { play(at: CGPoint(x: 72, y: 40)) }
         .accessibilityLabel("Play \(item.name) animation")
         .accessibilityValue(
             "\(isAnimating ? "Animating" : "Idle") · preview \(animationTrigger)"
         )
         .accessibilityIdentifier("pet-preview-\(item.id)")
         .onDisappear { resetTask?.cancel() }
+    }
+
+    private func play(at location: CGPoint) {
+        let geometry = PetArtworkGeometry.resolve(
+            placement: .shop,
+            petID: item.id,
+            spriteSize: 64
+        )
+        facing = PetFacing.resolve(
+            pointer: location,
+            petFrame: CGRect(
+                x: geometry.spriteOffset.width,
+                y: geometry.spriteOffset.height,
+                width: 64,
+                height: 64
+            ),
+            fallback: facing
+        )
+        animationTrigger += 1
+        isAnimating = true
+        resetTask?.cancel()
+        let trigger = animationTrigger
+        resetTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1_500))
+            guard !Task.isCancelled, animationTrigger == trigger else { return }
+            isAnimating = false
+        }
     }
 }

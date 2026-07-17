@@ -167,10 +167,10 @@ Achievement claims are durable, idempotent server ledger credits. Initial active
 - Selecting an owned item is free. The selected pet can be hidden without losing ownership or selection.
 - Non-game pet presentation may include its habitat; gameplay shows only the pet outside the reaction board. Hidden pets appear nowhere.
 - For Foka, Kesha, Tauta, and Misha, resolve direction from the visible sprite center: horizontal distance within 2 baseline CSS pixels is front; otherwise an angle up to 30° from the vertical axis is a persistent half-left/right pose and a wider angle is a full left/right pose. Baseline turn duration is 300 ms and wake/settle transition is 450 ms. Non-game pets settle after 5 seconds; these four stay awake during gameplay.
-- Pancake uses binary left/right by the sprite center, a 1.44-second stepped dance, and returns to its stopped pose after 5 seconds. Its high-contrast eyes remain part of the visual contract.
+- Pancake uses the shared staged half/full left/right facing contract, one-shot shop interaction, menu sleep/wake lifecycle, and gameplay tap-follow behavior. Its butter, syrup, high-contrast eyes, and glowing blue floor remain part of the native replacement contract.
 - Native points do not map one-to-one to baseline CSS pixels. Preserve relative visual placement through approved screenshots: habitats stay outside gameplay, Foka/Kesha sit slightly higher in shop/menu contexts, and Misha renders in front of both climber layers.
 - The one-time historical Misha nickname entitlement is server migration state. The iOS client consumes ownership returned by the server and never grants a pet from a later nickname change.
-- Pancake source rights are unresolved at the migration baseline and block shipping that asset until clearance or replacement.
+- The owner-approved native Pancake replacement is permitted for this internal build and has retained generation/chroma/alpha masters. Public-release ownership and redistribution evidence remains part of the deferred legal review.
 
 ## Audio and lifecycle
 

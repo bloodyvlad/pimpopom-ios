@@ -138,6 +138,9 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(WebMenuMetrics.featureControlHeight, 48)
         XCTAssertEqual(WebMenuMetrics.actionGap, 9)
         XCTAssertEqual(WebMenuMetrics.pairedGap, 8)
+        XCTAssertEqual(WebMenuMetrics.menuPetHorizontalShiftFraction, 0.15)
+        XCTAssertEqual(WebMenuMetrics.motivationHorizontalShiftFraction, 0.15)
+        XCTAssertEqual(WebMenuMetrics.motivationScale, 1.15)
     }
 
     func testThemeVisualTokensMatchTheReviewedWebContract() {
@@ -192,7 +195,7 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertFalse(AudioOutputPolicy.isSuppressed(arguments: ["PimPoPom"], environment: [:]))
     }
 
-    func testPetPresentationNeverUsesUnapprovedPancakeBitmap() {
+    func testPetPresentationIncludesApprovedPancakeReplacement() {
         let foka = PetPresentation.resolve("foka")
         XCTAssertEqual(foka.spriteAsset, "foka-sprite")
         XCTAssertFalse(foka.usesPlaceholderArt)
@@ -203,9 +206,9 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertFalse(muse.usesPlaceholderArt)
 
         let pancake = PetPresentation.resolve("pancake")
-        XCTAssertNil(pancake.spriteAsset)
-        XCTAssertNil(pancake.habitatAsset)
-        XCTAssertTrue(pancake.usesPlaceholderArt)
+        XCTAssertEqual(pancake.spriteAsset, "pancake-sprite")
+        XCTAssertEqual(pancake.habitatAsset, "pancake-floor")
+        XCTAssertFalse(pancake.usesPlaceholderArt)
     }
 
     func testShopPetGeometryMatchesOriginalPreviewScene() {
@@ -224,14 +227,38 @@ final class CosmeticsTests: XCTestCase {
             petID: "foka",
             spriteSize: 64
         )
-        XCTAssertEqual(foka.spriteOffset, CGSize(width: 8, height: -5))
+        XCTAssertEqual(foka.spriteOffset, CGSize(width: 8, height: -15))
 
         let kesha = PetArtworkGeometry.resolve(
             placement: .shop,
             petID: "kesha",
             spriteSize: 64
         )
-        XCTAssertEqual(kesha.spriteOffset, CGSize(width: 8, height: 0))
+        XCTAssertEqual(kesha.spriteOffset, CGSize(width: 8, height: -10))
+
+        let pancake = PetArtworkGeometry.resolve(
+            placement: .shop,
+            petID: "pancake",
+            spriteSize: 64
+        )
+        XCTAssertEqual(pancake.spriteOffset, CGSize(width: 8, height: 0))
+    }
+
+    func testMenuPetGeometryAppliesOnlyTheRequestedPerPetOffsets() {
+        XCTAssertEqual(
+            PetArtworkGeometry.resolve(placement: .menu, petID: "foka", spriteSize: 64)
+                .spriteOffset.height,
+            -9
+        )
+        for petID in ["misha", "tauta", "pancake"] {
+            let expected: CGFloat = petID == "misha" ? 1 : 6
+            XCTAssertEqual(
+                PetArtworkGeometry.resolve(placement: .menu, petID: petID, spriteSize: 64)
+                    .spriteOffset.height,
+                expected,
+                petID
+            )
+        }
     }
 
     func testPetFacingUsesTheOriginalThirtyDegreeContract() {
@@ -276,6 +303,8 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(MenuMotivation.nextIndex(previous: nil, randomValue: 0), 0)
         XCTAssertEqual(MenuMotivation.nextIndex(previous: 0, randomValue: 0), 1)
         XCTAssertEqual(MenuMotivation.nextIndex(previous: 25, randomValue: 0.999_999), 0)
+        XCTAssertEqual(MenuMotivation.introStampSeed(arguments: ["--uitesting"], randomValue: 5), 0)
+        XCTAssertEqual(MenuMotivation.introStampSeed(arguments: [], randomValue: 5), 5)
     }
 
     func testPetPreviewAnimationStartsStaticAndReturnsToItsRestingFrame() {
@@ -285,8 +314,38 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(PetPreviewAnimation.frames.count, 9)
     }
 
+    func testPetTurnAnimationMatchesTheWebTimingAndDirectionalFrames() {
+        XCTAssertEqual(
+            PetAnimationPlan.turn(to: .halfLeft),
+            [
+                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 1, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 2, delayAfter: .zero),
+            ]
+        )
+        XCTAssertEqual(
+            PetAnimationPlan.turn(to: .right),
+            [
+                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 6, delayAfter: .milliseconds(100)),
+                PetAnimationStep(frameIndex: 7, delayAfter: .zero),
+            ]
+        )
+        XCTAssertEqual(
+            PetAnimationPlan.wakeAndTurn(to: .halfRight),
+            [
+                PetAnimationStep(frameIndex: 9, delayAfter: .milliseconds(189)),
+                PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(261)),
+                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 6, delayAfter: .zero),
+            ]
+        )
+    }
+
     func testEveryApprovedPetSpriteAndHabitatIsBundled() throws {
-        for petID in ["foka", "kesha", "tauta", "misha", "mitsuri", "muse"] {
+        for petID in ["foka", "kesha", "tauta", "misha", "mitsuri", "muse", "pancake"] {
             let presentation = PetPresentation.resolve(petID)
             let spriteName = try XCTUnwrap(presentation.spriteAsset)
             let habitatName = try XCTUnwrap(presentation.habitatAsset)

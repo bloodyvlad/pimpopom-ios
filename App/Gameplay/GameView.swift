@@ -20,9 +20,12 @@ struct GameView: View {
     @State private var frozenPetID: String?
     @State private var frozenGlyphsEnabled = true
     @State private var gameplayPetFacing = PetFacing.front
+    @State private var gameplayPetActivity = 0
     @State private var boardSceneFrame = CGRect.zero
     @State private var gameplayPetFrame = CGRect.zero
     @State private var didFreezePresentation = false
+    @State private var ratingStampPresentation: RatingStampPresentation?
+    @State private var ratingStampTask: Task<Void, Never>?
 
     private var palette: ThemePalette { frozenTheme }
 
@@ -132,6 +135,11 @@ struct GameView: View {
                 audio.setMusicContext(.gameplay)
             }
         }
+        .onChange(of: coordinator.ratingStampEvent) { _, event in
+            guard let event else { return }
+            showRatingStamp(event)
+        }
+        .onDisappear { ratingStampTask?.cancel() }
     }
 
     private var gameUtilityHeader: some View {
@@ -353,7 +361,6 @@ struct GameView: View {
                 scene: coordinator.scene,
                 options: [.allowsTransparency, .ignoresSiblingOrder]
             )
-            .padding(8)
             .background {
                 GeometryReader { proxy in
                     Color.clear.preference(
@@ -361,6 +368,25 @@ struct GameView: View {
                         value: proxy.frame(in: .named("game-space"))
                     )
                 }
+            }
+            .padding(8)
+
+            if let stamp = ratingStampPresentation {
+                GeometryReader { proxy in
+                    GlowStampView(
+                        text: "\(stamp.event.rating.label) · \(stamp.event.milliseconds) ms",
+                        tone: stamp.tone,
+                        theme: palette,
+                        tilt: stamp.tilt,
+                        size: 12,
+                        horizontalPadding: 9,
+                        verticalPadding: 5
+                    )
+                    .position(stamp.position(in: proxy.size))
+                    .transition(.scale(scale: 0.75).combined(with: .opacity))
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
             }
 
             Text(displayedFeedback)
@@ -413,6 +439,7 @@ struct GameView: View {
                     petID: petID,
                     size: 54,
                     placement: .gameplay,
+                    animationTrigger: gameplayPetActivity,
                     facing: gameplayPetFacing
                 )
                 .frame(width: 54, height: 54)
@@ -531,67 +558,197 @@ struct GameView: View {
 
     private var resultOverlay: some View {
         ZStack {
-            Color.black.opacity(0.78).ignoresSafeArea()
-            VStack(spacing: 12) {
-                Text(
-                    coordinator.wasAbandoned ? "Run ended" : (coordinator.mode == .arcade ? "Game over" : "Zen results")
+            Color.black.opacity(palette.isLight ? 0.44 : 0.80).ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 11) {
+                    HStack(spacing: 8) {
+                        Button {
+                            Task { await prepareAndStart() }
+                        } label: {
+                            Label("Restart", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(
+                            WebSecondaryButtonStyle(
+                                theme: palette,
+                                accent: Color(hex: palette.accent),
+                                minimumHeight: 42
+                            )
+                        )
+                        .disabled(submissionStarted)
+                        .accessibilityIdentifier("results-restart")
+
+                        Button(action: { dismiss() }) {
+                            Label("Menu", systemImage: "house.fill")
+                        }
+                        .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 42))
+                        .disabled(submissionStarted)
+                        .accessibilityIdentifier("results-menu")
+                    }
+
+                    VStack(spacing: 4) {
+                        Text(resultTitle)
+                            .font(palette.appFont(size: 30, weight: .black, relativeTo: .largeTitle))
+                            .accessibilityIdentifier("results-title")
+                        Text(resultLeadCopy)
+                            .font(palette.appFont(size: 12, weight: .bold, relativeTo: .body))
+                            .foregroundStyle(Color(hex: palette.muted))
+                            .multilineTextAlignment(.center)
+                    }
+
+                    VStack(spacing: 3) {
+                        Text("SCORE")
+                            .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                            .tracking(1.2)
+                            .foregroundStyle(.white.opacity(0.78))
+                        Text(coordinator.snapshot.points.formatted())
+                            .font(palette.appFont(size: 48, weight: .black, relativeTo: .largeTitle))
+                            .foregroundStyle(.white)
+                            .monospacedDigit()
+                            .minimumScaleFactor(0.70)
+                        Text("\(coordinator.snapshot.hits) correct taps")
+                            .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                            .foregroundStyle(.white.opacity(0.78))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 116)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "#7657ff"), Color(hex: "#d33d91"), Color(hex: "#f3a53c")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 18, style: .continuous)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 18, style: .continuous)
+                            .stroke(.white.opacity(0.35), lineWidth: palette.isPixel ? 2 : 1)
+                    }
+                    .shadow(color: Color(hex: "#c658ff").opacity(0.35), radius: palette.isPixel ? 0 : 14)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("result-score-card")
+
+                    LazyVGrid(
+                        columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+                        spacing: 8
+                    ) {
+                        resultMetricCard(
+                            "Survived",
+                            formatDuration(coordinator.snapshot.elapsedMilliseconds),
+                            identifier: "result-survived"
+                        )
+                        resultMetricCard(
+                            "Fastest",
+                            coordinator.snapshot.fastestReactionMilliseconds.map { "\($0) ms" } ?? "—",
+                            identifier: "result-fastest"
+                        )
+                        resultMetricCard(
+                            "Average",
+                            coordinator.snapshot.averageReactionMilliseconds.map {
+                                "\(Int(floor($0 + 0.5))) ms"
+                            } ?? "—",
+                            identifier: "result-average"
+                        )
+                        resultMetricCard(
+                            "Dodged",
+                            "\(coordinator.snapshot.dodges)",
+                            identifier: "result-dodged"
+                        )
+                    }
+                    .accessibilityIdentifier("result-stats")
+
+                    SpeedRatingDistributionView(
+                        ratings: coordinator.snapshot.speedRatings,
+                        theme: palette
+                    )
+                    .webCardStyle(theme: palette, padding: 12)
+                    .accessibilityIdentifier("result-speed-ratings")
+
+                    VStack(spacing: 7) {
+                        Text(coordinator.mode == .arcade ? "LEADERBOARD" : "ZEN PRACTICE")
+                            .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                            .tracking(1)
+                            .foregroundStyle(Color(hex: palette.muted))
+
+                        if submissionStarted {
+                            ProgressView("Saving score…")
+                                .tint(Color(hex: palette.accent))
+                        } else {
+                            Text(runStatus.isEmpty ? "This result stays on this device." : runStatus)
+                                .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                                .foregroundStyle(Color(hex: palette.accent))
+                                .multilineTextAlignment(.center)
+                        }
+
+                        if submissionFailed, runTicket != nil, !submissionStarted {
+                            Button("Retry score upload") { submitRankedRunIfNeeded() }
+                                .buttonStyle(
+                                    WebSecondaryButtonStyle(
+                                        theme: palette,
+                                        accent: Color(hex: palette.accent),
+                                        minimumHeight: 38
+                                    )
+                                )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 60)
+                    .webCardStyle(theme: palette, padding: 11)
+                    .accessibilityIdentifier("result-save-panel")
+                }
+                .foregroundStyle(Color(hex: palette.foreground))
+                .padding(16)
+                .background(
+                    Color(hex: palette.surface).opacity(palette.isLight ? 0.97 : 0.96),
+                    in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 24, style: .continuous)
                 )
-                .font(.largeTitle.weight(.black))
-                .accessibilityIdentifier("results-title")
-                Text("\(coordinator.snapshot.points)")
-                    .font(.system(size: 54, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(hex: palette.accent))
-                Text(
-                    "\(coordinator.snapshot.hits) hits · \(coordinator.snapshot.misses) misses · \(coordinator.snapshot.dodges) dodges"
-                )
-                .font(.subheadline.monospacedDigit())
-                .foregroundStyle(Color(hex: palette.muted))
-                Text("\(formatDuration(coordinator.snapshot.elapsedMilliseconds)) elapsed")
-                    .font(.subheadline.monospacedDigit())
-                    .foregroundStyle(Color(hex: palette.muted))
-
-                if coordinator.snapshot.hits > 0 {
-                    Text(reactionSummary)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(Color(hex: palette.muted))
-                    Text(ratingSummary)
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(Color(hex: palette.muted).opacity(0.82))
-                        .multilineTextAlignment(.center)
+                .overlay {
+                    RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 24, style: .continuous)
+                        .stroke(Color(hex: palette.foreground).opacity(0.13), lineWidth: palette.isPixel ? 2 : 1)
                 }
-
-                if !runStatus.isEmpty {
-                    Text(runStatus)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(hex: palette.accent))
-                        .multilineTextAlignment(.center)
-                }
-
-                if submissionStarted {
-                    ProgressView("Saving score…")
-                        .tint(.cyan)
-                } else if submissionFailed, runTicket != nil {
-                    Button("Retry score upload") { submitRankedRunIfNeeded() }
-                        .buttonStyle(.bordered)
-                }
-
-                Button("Play again") { Task { await prepareAndStart() } }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(hex: palette.accent))
-                    .foregroundStyle(.black)
-                    .disabled(submissionStarted)
-                Button("Main menu") { dismiss() }
-                    .buttonStyle(.bordered)
-                    .disabled(submissionStarted)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
-            .foregroundStyle(Color(hex: palette.foreground))
-            .padding(22)
-            .frame(maxWidth: 330)
-            .background(
-                Color(hex: palette.surface),
-                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 28)
-            )
+            .frame(maxWidth: 460)
         }
+    }
+
+    private var resultTitle: String {
+        coordinator.wasAbandoned
+            ? "Run ended"
+            : (coordinator.mode == .arcade ? "Game over" : "Zen results")
+    }
+
+    private var resultLeadCopy: String {
+        if coordinator.wasAbandoned {
+            return "The run stopped when the app left the foreground."
+        }
+        if coordinator.mode == .zen {
+            return "A calm practice run with no lives, ranking, or coins."
+        }
+        return
+            "\(coordinator.snapshot.hits) hits · \(coordinator.snapshot.misses) misses · \(coordinator.snapshot.dodges) dodges"
+    }
+
+    private func resultMetricCard(
+        _ label: String,
+        _ value: String,
+        identifier: String
+    ) -> some View {
+        VStack(spacing: 3) {
+            Text(label.uppercased())
+                .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                .tracking(0.65)
+                .foregroundStyle(Color(hex: palette.muted))
+            Text(value)
+                .font(palette.appFont(size: 18, weight: .black, relativeTo: .headline))
+                .foregroundStyle(Color(hex: palette.foreground))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.70)
+        }
+        .frame(maxWidth: .infinity, minHeight: 58)
+        .webCardStyle(theme: palette, padding: 8)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
     }
 
     private var reactionSummary: String {
@@ -712,6 +869,30 @@ struct GameView: View {
             petFrame: gameplayPetFrame,
             fallback: gameplayPetFacing
         )
+        gameplayPetActivity += 1
+    }
+
+    private func showRatingStamp(_ event: GameplayRatingStampEvent) {
+        ratingStampTask?.cancel()
+        let deterministic: Bool
+        #if DEBUG
+            deterministic = ProcessInfo.processInfo.arguments.contains("--uitesting")
+        #else
+            deterministic = false
+        #endif
+        withAnimation(.spring(response: 0.20, dampingFraction: 0.72)) {
+            ratingStampPresentation = RatingStampPresentation.make(
+                event: event,
+                deterministic: deterministic
+            )
+        }
+        ratingStampTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(620))
+            guard !Task.isCancelled, ratingStampPresentation?.event.id == event.id else { return }
+            withAnimation(.easeOut(duration: 0.15)) {
+                ratingStampPresentation = nil
+            }
+        }
     }
 
     private func freezePresentationIfNeeded() {
@@ -722,6 +903,63 @@ struct GameView: View {
         frozenGlyphsEnabled = preferences.glyphsEnabled
         coordinator.applyTheme(frozenTheme.id)
         coordinator.applyGlyphsEnabled(frozenGlyphsEnabled)
+    }
+}
+
+struct RatingStampPresentation: Equatable {
+    enum Edge: Int, CaseIterable {
+        case top
+        case right
+        case bottom
+        case left
+    }
+
+    let event: GameplayRatingStampEvent
+    let edge: Edge
+    let laneFraction: CGFloat
+    let tilt: Double
+
+    var tone: Color {
+        switch event.rating {
+        case .godlike: Color(hex: "#ffd84d")
+        case .perfect: Color(hex: "#c68cff")
+        case .great: Color(hex: "#67adff")
+        case .good: Color(hex: "#72e995")
+        }
+    }
+
+    static func make(event: GameplayRatingStampEvent, deterministic: Bool) -> Self {
+        let lanes: [CGFloat] = [0.24, 0.50, 0.76]
+        let tilts = [-9.0, -6.0, -3.0, 3.0, 6.0, 9.0]
+        if deterministic {
+            return Self(
+                event: event,
+                edge: Edge.allCases[event.id % Edge.allCases.count],
+                laneFraction: lanes[event.id % lanes.count],
+                tilt: tilts[event.id % tilts.count]
+            )
+        }
+        return Self(
+            event: event,
+            edge: Edge.allCases.randomElement() ?? .top,
+            laneFraction: lanes.randomElement() ?? 0.5,
+            tilt: tilts.randomElement() ?? 3
+        )
+    }
+
+    func position(in size: CGSize) -> CGPoint {
+        let horizontalInset = min(68, max(48, size.width * 0.18))
+        let verticalInset = min(23, max(17, size.height * 0.055))
+        return switch edge {
+        case .top:
+            CGPoint(x: size.width * laneFraction, y: verticalInset)
+        case .right:
+            CGPoint(x: size.width - horizontalInset, y: size.height * laneFraction)
+        case .bottom:
+            CGPoint(x: size.width * laneFraction, y: size.height - verticalInset)
+        case .left:
+            CGPoint(x: horizontalInset, y: size.height * laneFraction)
+        }
     }
 }
 

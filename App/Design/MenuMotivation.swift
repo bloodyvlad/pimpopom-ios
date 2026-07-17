@@ -35,6 +35,16 @@ enum MenuMotivation {
     static let tones = ["cyan", "pink", "gold", "green", "violet"]
     static let tilts = [-3.0, 2.0, -2.0, 3.0, -1.0, 1.0]
 
+    static func introStampSeed(arguments: [String], randomValue: Int? = nil) -> Int {
+        #if DEBUG
+            if arguments.contains("--uitesting") { return 0 }
+        #endif
+        if let randomValue {
+            return min(max(0, randomValue), tilts.count - 1)
+        }
+        return Int.random(in: 0..<tilts.count)
+    }
+
     static func nextIndex(previous: Int?, randomValue: Double) -> Int {
         let normalized = randomValue.isFinite ? min(0.999_999_999, max(0, randomValue)) : 0
         var next = Int(floor(normalized * Double(hints.count)))

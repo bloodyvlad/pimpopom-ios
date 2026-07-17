@@ -11,59 +11,58 @@ struct LeaderboardView: View {
     @State private var loadGeneration = 0
 
     private var palette: ThemePalette { cosmetics.theme }
+    private var visibleResponse: LeaderboardResponse? {
+        response?.mode == mode.rawValue ? response : nil
+    }
 
     var body: some View {
         ZStack {
             AppThemeBackground(theme: palette)
-            VStack(spacing: 12) {
-                Picker("Mode", selection: $mode) {
-                    Text("Arcade")
-                        .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
-                        .tag(GameMode.arcade)
-                    Text("Zen history")
-                        .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
-                        .tag(GameMode.zen)
-                }
-                .pickerStyle(.segmented)
-                .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
 
-                if loading, response == nil {
-                    Spacer()
-                    ProgressView("Loading Season 1")
-                        .font(palette.appFont(size: 14, weight: .semibold, relativeTo: .body))
-                        .foregroundStyle(Color(hex: palette.foreground))
-                    Spacer()
-                } else if let response {
-                    ScrollView {
-                        LazyVStack(spacing: 9) {
-                            ForEach(response.entries) { entry in
-                                leaderboardRow(entry)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    if let rank = response.playerRank {
-                        Text("Your best: #\(rank) of \(response.totalEntries)")
-                            .font(palette.appFont(size: 13, weight: .bold, relativeTo: .footnote))
-                            .foregroundStyle(Color(hex: palette.accent))
-                    } else {
-                        Text("\(response.totalEntries) ranked results")
-                            .font(palette.appFont(size: 13, relativeTo: .footnote))
+            VStack(spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Leaderboard")
+                            .font(palette.appFont(size: 25, weight: .black, relativeTo: .title))
+                        Text("ALL RESULTS")
+                            .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                            .tracking(1.1)
                             .foregroundStyle(Color(hex: palette.muted))
                     }
-                } else {
                     Spacer()
-                    Text(error ?? "No leaderboard results")
-                        .font(palette.appFont(size: 16, weight: .medium, relativeTo: .body))
-                        .foregroundStyle(Color(hex: palette.muted))
-                        .multilineTextAlignment(.center)
-                    Button("Try again") { Task { await load() } }
-                        .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
-                        .buttonStyle(.bordered)
-                    Spacer()
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 25, weight: .black))
+                        .foregroundStyle(Color(hex: "#ffd84d"))
+                        .shadow(color: Color(hex: "#ffd84d").opacity(0.42), radius: palette.isPixel ? 0 : 8)
                 }
+
+                WebModeTabs(mode: $mode, theme: palette)
+
+                if let response = visibleResponse {
+                    positionStrip(response)
+                }
+
+                ZStack {
+                    leaderboardContent
+
+                    if loading {
+                        WebLoadingOverlay(theme: palette, label: "Loading leaderboard")
+                    }
+                }
+                .frame(maxHeight: .infinity)
+
+                Text(footerCopy)
+                    .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
+                    .foregroundStyle(Color(hex: palette.muted))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
             }
-            .padding(16)
+            .foregroundStyle(Color(hex: palette.foreground))
+            .padding(14)
+            .frame(maxWidth: 620, maxHeight: .infinity)
+            .webCardStyle(theme: palette, padding: 14)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
         }
         .navigationTitle("Leaderboard")
         .navigationBarTitleDisplayMode(.inline)
@@ -75,46 +74,93 @@ struct LeaderboardView: View {
             }
         }
         .task(id: mode) { await load() }
-        .refreshable { await load() }
     }
 
-    private func leaderboardRow(_ entry: LeaderboardEntry) -> some View {
-        HStack(spacing: 12) {
-            Text("#\(entry.rank)")
-                .font(palette.appFont(size: 17, weight: .black, relativeTo: .headline))
-                .foregroundStyle(entry.rank <= 3 ? .yellow : Color(hex: palette.muted))
-                .frame(width: 40, alignment: .leading)
-            if let petID = entry.petId {
-                PetCompanionView(petID: petID, size: 36, placement: .leaderboard)
-                    .frame(width: 48)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(entry.name)
-                        .font(palette.appFont(size: 17, weight: .semibold, relativeTo: .headline))
-                    if entry.verification == "verified" {
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.caption)
-                            .foregroundStyle(Color(hex: palette.accent))
+    @ViewBuilder
+    private var leaderboardContent: some View {
+        if let response = visibleResponse, !response.entries.isEmpty {
+            ScrollView {
+                LazyVStack(spacing: 7) {
+                    ForEach(Array(response.entries.enumerated()), id: \.element.id) { index, entry in
+                        if index > 0 {
+                            let previousRank = response.entries[index - 1].rank
+                            let skipped = entry.rank - previousRank - 1
+                            if skipped > 0 {
+                                LeaderboardRankGapView(skipped: skipped, theme: palette)
+                            }
+                        }
+                        LeaderboardRowView(entry: entry, theme: palette)
                     }
                 }
-                Text("\(entry.hits) hits · \(entry.dodges) dodges · \(formatDuration(entry.survivalMs))")
-                    .font(palette.appFont(size: 12, relativeTo: .caption))
+                .padding(.vertical, 2)
+            }
+            .refreshable { await load() }
+            .accessibilityIdentifier("leaderboard-results")
+        } else if !loading {
+            VStack(spacing: 12) {
+                Spacer()
+                Image(systemName: error == nil ? "flag.checkered" : "wifi.exclamationmark")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(Color(hex: palette.accent))
+                Text(error ?? "No leaderboard results yet")
+                    .font(palette.appFont(size: 15, weight: .bold, relativeTo: .body))
                     .foregroundStyle(Color(hex: palette.muted))
+                    .multilineTextAlignment(.center)
+                Button("Try again") { Task { await load() } }
+                    .buttonStyle(
+                        WebSecondaryButtonStyle(
+                            theme: palette,
+                            accent: Color(hex: palette.accent),
+                            minimumHeight: 42
+                        )
+                    )
+                    .frame(maxWidth: 180)
+                Spacer()
+            }
+        } else {
+            Color.clear
+        }
+    }
+
+    private func positionStrip(_ response: LeaderboardResponse) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(response.playerRank == nil ? "RANKED RESULTS" : "YOUR BEST POSITION")
+                    .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                    .tracking(0.75)
+                    .foregroundStyle(Color(hex: palette.muted))
+                Text(response.playerRank.map { "#\($0)" } ?? "\(response.totalEntries)")
+                    .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
+                    .foregroundStyle(Color(hex: palette.accent))
+                    .monospacedDigit()
             }
             Spacer()
-            Text(entry.score.formatted())
-                .font(palette.appFont(size: 17, weight: .bold, relativeTo: .headline))
-                .foregroundStyle(Color(hex: palette.accent))
+            if let percent = response.topPercent {
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("TOP RESULTS")
+                        .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                        .tracking(0.75)
+                        .foregroundStyle(Color(hex: palette.muted))
+                    Text("\(percent)%")
+                        .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
+                        .foregroundStyle(Color(hex: palette.accent))
+                        .monospacedDigit()
+                }
+            } else {
+                Text("\(response.totalEntries) total")
+                    .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                    .foregroundStyle(Color(hex: palette.muted))
+            }
         }
-        .foregroundStyle(Color(hex: palette.foreground))
-        .padding(13)
-        .background(
-            entry.isCurrentPlayer
-                ? Color(hex: palette.accent).opacity(0.16)
-                : Color(hex: palette.surface).opacity(0.80),
-            in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 14)
-        )
+        .webCardStyle(theme: palette, selectedAccent: Color(hex: palette.accent), padding: 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("leaderboard-position")
+    }
+
+    private var footerCopy: String {
+        mode == .arcade
+            ? "Accepted Arcade rows are protocol verified. This does not prove a human tap or prevent automation."
+            : "Zen history is retained read-only and does not award coins or create new ranked results."
     }
 
     private func load() async {
@@ -141,10 +187,5 @@ struct LeaderboardView: View {
             self.error = error.localizedDescription
             response = nil
         }
-    }
-
-    private func formatDuration(_ milliseconds: Int) -> String {
-        let seconds = milliseconds / 1_000
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 }

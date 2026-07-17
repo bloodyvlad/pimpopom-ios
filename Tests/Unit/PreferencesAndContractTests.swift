@@ -84,6 +84,19 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(ResponseProgressPresentation.remainingFraction(-0.4, isActive: true), 0)
     }
 
+    func testRatingStampPlacementIsDeterministicInUITestsAndStaysOnTheBorderLanes() {
+        let event = GameplayRatingStampEvent(id: 1, rating: .perfect, milliseconds: 321)
+        let presentation = RatingStampPresentation.make(event: event, deterministic: true)
+        let point = presentation.position(in: CGSize(width: 351, height: 351))
+
+        XCTAssertEqual(presentation.event, event)
+        XCTAssertEqual(presentation.edge, .right)
+        XCTAssertEqual(presentation.laneFraction, 0.5)
+        XCTAssertEqual(presentation.tilt, -6)
+        XCTAssertEqual(point.x, 287.82, accuracy: 0.001)
+        XCTAssertEqual(point.y, 175.5, accuracy: 0.001)
+    }
+
     func testCatalogAndMutationResponsesDecodeCurrentBackendKeys() throws {
         let catalogJSON = Data(
             """

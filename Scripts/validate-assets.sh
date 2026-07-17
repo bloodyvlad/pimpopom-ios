@@ -8,9 +8,8 @@ shasum -a 256 -c Scripts/asset-hashes.sha256
 
 test "$(find App/Resources/Audio -type f | wc -l | tr -d ' ')" = "14"
 test "$(find App/Resources/Fonts -type f | wc -l | tr -d ' ')" = "1"
-test "$(find App/Resources/Pets -type f | wc -l | tr -d ' ')" = "12"
+test "$(find App/Resources/Pets -type f | wc -l | tr -d ' ')" = "14"
 test "$(find App/Resources/Themes -type f | wc -l | tr -d ' ')" = "3"
-test ! -e App/Resources/Pets/pancake-sprite.png
 
 dimensions() {
   file=$1

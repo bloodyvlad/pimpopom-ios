@@ -97,6 +97,11 @@ final class BackendClient: ObservableObject {
 
     func loadLeaderboard(mode: GameMode) async throws -> LeaderboardResponse {
         if isUITestOffline {
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-leaderboard-fixture"),
+                let profile = uiTestSession?.profile
+            {
+                return Self.uiTestLeaderboard(mode: mode, playerName: profile.nickname)
+            }
             return LeaderboardResponse(
                 season: uiTestSession?.season ?? Self.uiTestSignedOutSession.season,
                 mode: mode.rawValue,
@@ -110,6 +115,24 @@ final class BackendClient: ObservableObject {
             )
         }
         return try await request(path: "/api/leaderboard?mode=\(mode.rawValue)")
+    }
+
+    func loadProfile(mode: GameMode) async throws -> ProfileResponse {
+        if isUITestOffline {
+            guard let profile = uiTestSession?.profile else {
+                throw Self.authenticationRequiredError
+            }
+            let leaderboard = Self.uiTestLeaderboard(mode: mode, playerName: profile.nickname)
+            return ProfileResponse(
+                profile: profile,
+                ranks: [
+                    GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 42, topPercent: 15),
+                    GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 8, topPercent: nil),
+                ],
+                leaderboard: leaderboard
+            )
+        }
+        return try await request(path: "/api/profile?mode=\(mode.rawValue)")
     }
 
     func loadThemes() async throws -> ThemeCatalogResponse {
@@ -588,6 +611,76 @@ final class BackendClient: ObservableObject {
         profile: nil,
         coinBalance: 0
     )
+
+    private static func uiTestLeaderboard(mode: GameMode, playerName: String) -> LeaderboardResponse {
+        let entries = [
+            LeaderboardEntry(
+                id: "ui-top",
+                rank: 1,
+                name: "TapNova",
+                petId: "kesha",
+                mode: mode.rawValue,
+                score: 12_480,
+                survivalMs: 184_000,
+                fastestReactionMs: 187,
+                averageReactionMs: 318,
+                hits: 94,
+                dodges: 12,
+                speedRatings: SpeedRatingCounts(godlike: 14, perfect: 32, great: 31, good: 17),
+                createdAt: "2026-07-15T00:00:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-player",
+                rank: 6,
+                name: playerName,
+                petId: "foka",
+                mode: mode.rawValue,
+                score: 8_640,
+                survivalMs: 121_000,
+                fastestReactionMs: 221,
+                averageReactionMs: 356,
+                hits: 65,
+                dodges: 7,
+                speedRatings: SpeedRatingCounts(godlike: 7, perfect: 19, great: 24, good: 15),
+                createdAt: "2026-07-15T00:01:00Z",
+                isCurrentPlayer: true,
+                isContextResult: true,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-neighbor",
+                rank: 7,
+                name: "PixelPaws",
+                petId: "misha",
+                mode: mode.rawValue,
+                score: 8_120,
+                survivalMs: 117_000,
+                fastestReactionMs: 238,
+                averageReactionMs: 371,
+                hits: 61,
+                dodges: 5,
+                speedRatings: SpeedRatingCounts(godlike: 5, perfect: 16, great: 23, good: 17),
+                createdAt: "2026-07-15T00:02:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+        ]
+        return LeaderboardResponse(
+            season: uiTestPetSession.season,
+            mode: mode.rawValue,
+            entries: entries,
+            totalEntries: mode == .arcade ? 42 : 8,
+            playerRank: mode == .arcade ? 6 : nil,
+            topPercent: mode == .arcade ? 15 : nil,
+            contextRank: mode == .arcade ? 6 : nil,
+            contextTopPercent: mode == .arcade ? 15 : nil,
+            contextEntryId: mode == .arcade ? "ui-player" : nil
+        )
+    }
 
     private static let uiTestOfflineError = BackendError(
         status: 0,

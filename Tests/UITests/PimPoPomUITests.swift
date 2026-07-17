@@ -51,6 +51,11 @@ final class PimPoPomUITests: XCTestCase {
         let resultTitle = app.staticTexts["results-title"]
         XCTAssertTrue(resultTitle.waitForExistence(timeout: 2))
         XCTAssertEqual(resultTitle.label, "Zen results")
+        XCTAssertTrue(app.descendants(matching: .any)["result-score-card"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["result-stats"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["result-speed-ratings"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["result-save-panel"].exists)
+        attachScreenshot(of: app, name: "SE Zen results")
     }
 
     func testThemeShopExposesCoinStorePlaceholder() throws {
@@ -69,14 +74,19 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
-    func testPetShopExposesCoinStoreAndPlaceholderPetArt() throws {
+    func testPetShopExposesCoinStoreAndApprovedPancakeArt() throws {
         let app = launch()
         openMenuControl("open-pet-shop", in: app)
 
         XCTAssertTrue(app.navigationBars["Pet Shop"].waitForExistence(timeout: 3))
         let buyCoins = app.buttons["pet-buy-coins"]
         XCTAssertTrue(buyCoins.waitForExistence(timeout: 3))
-        XCTAssertTrue(scrollToText("PLACEHOLDER", in: app))
+        let pancake = app.buttons["pet-preview-pancake"]
+        for _ in 0..<8 where !pancake.exists {
+            app.swipeUp()
+        }
+        XCTAssertTrue(pancake.exists)
+        XCTAssertFalse(app.staticTexts["PLACEHOLDER"].exists)
 
         for _ in 0..<8 where !buyCoins.isHittable {
             app.swipeDown()
@@ -152,7 +162,7 @@ final class PimPoPomUITests: XCTestCase {
 
         let arcade = app.buttons["mode-normal"]
         XCTAssertTrue(arcade.waitForExistence(timeout: 3))
-        XCTAssertGreaterThan(menuPet.frame.midX, app.frame.midX)
+        XCTAssertLessThan(menuPet.frame.midX, app.frame.width * 0.84)
         arcade.tap()
 
         let gameplayPet = app.descendants(matching: .any)["gameplay-pet-muse"]
@@ -324,6 +334,30 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertNotEqual(motivation.label, first)
     }
 
+    func testLeaderboardAndProfileExposeWebParityContext() throws {
+        let app = launch(
+            additionalArguments: ["--ui-test-pet-profile", "--ui-test-leaderboard-fixture"]
+        )
+
+        let leaderboardButton = app.buttons["open-leaderboard"]
+        XCTAssertTrue(leaderboardButton.waitForExistence(timeout: 3))
+        leaderboardButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-mode-tabs"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-position"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-entry-ui-player"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["speed-rating-distribution"].exists)
+        attachScreenshot(of: app, name: "SE leaderboard parity")
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let profileButton = app.buttons["open-profile"]
+        XCTAssertTrue(profileButton.waitForExistence(timeout: 3))
+        profileButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.navigationBars["My Profile"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["profile-rank-card"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any)["leaderboard-entry-ui-player"].exists)
+        attachScreenshot(of: app, name: "SE profile parity")
+    }
+
     func testEveryThemeHasADeterministicVisualFixture() throws {
         for themeID in ["classic", "disco", "light", "pixel"] {
             let app = launch(additionalArguments: ["--ui-test-theme", themeID])
@@ -377,6 +411,13 @@ final class PimPoPomUITests: XCTestCase {
             app.swipeUp()
         }
         return text.exists
+    }
+
+    private func attachScreenshot(of app: XCUIApplication, name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func waitForLabel(
