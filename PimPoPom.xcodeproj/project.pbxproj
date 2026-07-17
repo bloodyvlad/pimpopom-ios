@@ -49,6 +49,7 @@
 		9C470570FF857655FC7C104B /* audio-disco-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6038C3199A866EB364429ECE /* audio-disco-run.m4a */; };
 		9CAA0142DC9459BD38BB7961 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */; };
 		9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B807723F13D7024F84747F72 /* GameCoordinator.swift */; };
+		A19D6210497A3D375CDC07BE /* GameCellArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7C97DB7185189A114B58620 /* GameCellArtwork.swift */; };
 		AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */; };
 		B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */; };
 		B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9648B3C4989B1B1FF9557057 /* GameScene.swift */; };
@@ -156,6 +157,7 @@
 		DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */ = {isa = PBXFileReference; path = "audio-classic-menu.m4a"; sourceTree = "<group>"; };
 		DEC51376F984CE9F83F10F80 /* audio-oops.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-oops.wav"; sourceTree = "<group>"; };
 		E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		E7C97DB7185189A114B58620 /* GameCellArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCellArtwork.swift; sourceTree = "<group>"; };
 		EB365660F1E96C034ECE4A85 /* tauta-bed.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-bed.png"; sourceTree = "<group>"; };
 		EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "jersey-10-regular.ttf"; sourceTree = "<group>"; };
 		F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-tile-overlay.png"; sourceTree = "<group>"; };
@@ -243,6 +245,7 @@
 		445F7E700DC0D7AE3A16E35D /* Design */ = {
 			isa = PBXGroup;
 			children = (
+				E7C97DB7185189A114B58620 /* GameCellArtwork.swift */,
 				500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */,
 				06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */,
 				D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */,
@@ -549,6 +552,7 @@
 				46F5040558302ED97373D477 /* BackendModels.swift in Sources */,
 				67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */,
 				B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */,
+				A19D6210497A3D375CDC07BE /* GameCellArtwork.swift in Sources */,
 				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
 				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,

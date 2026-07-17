@@ -42,7 +42,7 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var ratingStampEvent: GameplayRatingStampEvent?
     var onSoundEvent: ((GameplaySoundEvent) -> Void)?
     var onLifecycleEvent: ((GameplayLifecycleEvent) -> Void)?
-    var onAcceptedBoardTap: ((CGPoint) -> Void)?
+    var onBoardTap: ((CGPoint) -> Void)?
 
     private let engine: GameEngine
     private var targetTask: Task<Void, Never>?
@@ -272,6 +272,10 @@ extension GameCoordinator: GameSceneEventDelegate {
         }
     }
 
+    func gameScene(_: GameScene, didPointAt normalizedLocation: CGPoint) {
+        onBoardTap?(normalizedLocation)
+    }
+
     func gameScene(
         _: GameScene,
         didTapCell index: Int,
@@ -304,7 +308,6 @@ extension GameCoordinator: GameSceneEventDelegate {
         let stateBeforeTap = engine.state
         let result = engine.tap(cellIndex: index, now: inputAt, resolvedAt: handledAt)
         guard result.kind != .ignored else { return }
-        onAcceptedBoardTap?(normalizedLocation)
         pendingDeadlineCommit = nil
         if result.kind == .miss, result.reason == "late" {
             lastDeadlineResolutionAt = handledAt

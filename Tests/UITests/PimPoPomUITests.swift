@@ -185,6 +185,17 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(gameplayPet.frame.midX, app.frame.width * 0.40, accuracy: 4)
         XCTAssertTrue(app.buttons["game-menu"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["speed-streak"].exists)
+
+        let feedback = app.staticTexts["game-feedback"]
+        let targetDeadline = Date().addingTimeInterval(5)
+        while Date() < targetDeadline, !feedback.label.hasPrefix("Tap ") {
+            usleep(20_000)
+        }
+        XCTAssertTrue(feedback.label.hasPrefix("Tap "))
+        board.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.50)).tap()
+        XCTAssertTrue(waitForValue("right", on: gameplayPet))
+        board.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.50)).tap()
+        XCTAssertTrue(waitForValue("left", on: gameplayPet))
     }
 
     func testMenuPetSleepsAfterInactivityAndWakesOnTap() throws {
@@ -231,6 +242,29 @@ final class PimPoPomUITests: XCTestCase {
             .completed
         )
 
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.25)).tap()
+        XCTAssertTrue(waitForValue("left", on: pet))
+
+    }
+
+    func testPancakeUsesRequestedMenuAndLeaderboardPlacement() throws {
+        let app = launch(
+            additionalArguments: [
+                "--ui-test-pancake-profile", "--ui-test-leaderboard-fixture",
+            ]
+        )
+        let menuPancake = app.descendants(matching: .any)["menu-pet-pancake"]
+        XCTAssertTrue(menuPancake.waitForExistence(timeout: 4))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.25)).tap()
+        XCTAssertTrue(waitForValue("left", on: menuPancake))
+        attachScreenshot(of: app, name: "SE Pancake menu placement")
+
+        openMenuControl("open-leaderboard", in: app)
+        let leaderboardPancake =
+            app.descendants(matching: .any)["leaderboard-entry-pet-ui-player"]
+        XCTAssertTrue(leaderboardPancake.waitForExistence(timeout: 4))
+        XCTAssertGreaterThan(leaderboardPancake.frame.height, 38)
+        attachScreenshot(of: app, name: "SE Pancake leaderboard placement")
     }
 
     func testResponseProgressDrainsWhileTargetIsActive() throws {
@@ -485,6 +519,22 @@ final class PimPoPomUITests: XCTestCase {
             for: [
                 XCTNSPredicateExpectation(
                     predicate: NSPredicate(format: "label == %@", label),
+                    object: element
+                )
+            ],
+            timeout: timeout
+        ) == .completed
+    }
+
+    private func waitForValue(
+        _ value: String,
+        on element: XCUIElement,
+        timeout: TimeInterval = 3
+    ) -> Bool {
+        XCTWaiter.wait(
+            for: [
+                XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "value == %@", value),
                     object: element
                 )
             ],

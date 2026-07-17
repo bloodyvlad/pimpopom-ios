@@ -182,8 +182,8 @@ final class CosmeticsTests: XCTestCase {
             0
         )
         XCTAssertEqual(
-            GameCellVisualMetrics.glyphSize(theme: .pixel, side: 40),
-            15,
+            GameCellVisualMetrics.glyphBoxSide(side: 100),
+            30,
             accuracy: 0.001
         )
         XCTAssertEqual(
@@ -191,8 +191,8 @@ final class CosmeticsTests: XCTestCase {
             4
         )
         XCTAssertEqual(
-            GameCellVisualMetrics.glyphSize(theme: .classic, side: 40),
-            12,
+            GameCellVisualMetrics.glyphBoxSide(side: 40),
+            14,
             accuracy: 0.001
         )
         XCTAssertEqual(GameCellVisualMetrics.targetBorderWidth, 3)
@@ -210,6 +210,64 @@ final class CosmeticsTests: XCTestCase {
             XCTAssertEqual(image.cgImage?.width, 1_024, asset)
             XCTAssertEqual(image.cgImage?.height, 1_024, asset)
         }
+    }
+
+    func testEveryGlyphUsesOneCanonicalBoxInSmoothAndPixelStyles() throws {
+        for side in [CGFloat(14), 24, 90] {
+            let target = CGRect(x: 7, y: 11, width: side, height: side)
+            for style in [GameGlyphStyle.smooth, .pixel] {
+                for yAxis in [GameGlyphYAxis.down, .up] {
+                    for glyph in GameGlyphGeometry.supportedGlyphs {
+                        let path = try XCTUnwrap(
+                            GameGlyphGeometry.path(
+                                for: glyph,
+                                in: target,
+                                style: style,
+                                yAxis: yAxis
+                            )
+                        )
+                        let bounds = path.boundingBoxOfPath
+                        XCTAssertEqual(bounds.minX, target.minX, accuracy: 0.001, glyph)
+                        XCTAssertEqual(bounds.minY, target.minY, accuracy: 0.001, glyph)
+                        XCTAssertEqual(bounds.width, target.width, accuracy: 0.001, glyph)
+                        XCTAssertEqual(bounds.height, target.height, accuracy: 0.001, glyph)
+                    }
+                }
+            }
+        }
+    }
+
+    func testThemeCellEffectsResolveIdenticallyForBoardAndPreviews() {
+        let discoIdle = GameCellSurfaceEffects.resolve(theme: .disco, isLit: false, seed: 2)
+        let discoActive = GameCellSurfaceEffects.resolve(theme: .disco, isLit: true, seed: 2)
+        XCTAssertFalse(discoIdle.discoBacklight)
+        XCTAssertTrue(discoActive.discoBacklight)
+        XCTAssertEqual(discoActive.glyphStyle, .smooth)
+
+        for isLit in [false, true] {
+            XCTAssertTrue(
+                GameCellSurfaceEffects.resolve(theme: .light, isLit: isLit, seed: 3)
+                    .lightGlass
+            )
+            let pixel = GameCellSurfaceEffects.resolve(
+                theme: .pixel,
+                isLit: isLit,
+                seed: 4
+            )
+            XCTAssertTrue(pixel.pixelNoise)
+            XCTAssertEqual(pixel.glyphStyle, .pixel)
+        }
+        XCTAssertEqual(
+            PixelNoisePattern.samples(seed: 8),
+            PixelNoisePattern.samples(seed: 8)
+        )
+        XCTAssertNotEqual(
+            PixelNoisePattern.samples(seed: 8),
+            PixelNoisePattern.samples(seed: 9)
+        )
+        XCTAssertEqual(PixelNoisePattern.samples(seed: 8).count, 16)
+        XCTAssertGreaterThan(GameCellEffectTokens.discoCenterWhiteOpacity, 0.5)
+        XCTAssertGreaterThan(GameCellEffectTokens.lightInnerStrokeOpacity, 0.8)
     }
 
     func testUITestAudioSuppressionPolicyIsExplicit() {
@@ -287,7 +345,7 @@ final class CosmeticsTests: XCTestCase {
             let expected: CGFloat =
                 switch petID {
                 case "misha": 1
-                case "pancake": 26
+                case "pancake": 41
                 default: 6
                 }
             XCTAssertEqual(
@@ -303,6 +361,29 @@ final class CosmeticsTests: XCTestCase {
         for petID in ["foka", "kesha", "tauta", "misha", "mitsuri", "muse"] {
             XCTAssertEqual(PetArtworkGeometry.gameplayViewVerticalOffset(petID: petID), -10)
         }
+        XCTAssertEqual(PetArtworkGeometry.gameplayViewVerticalOffset(petID: "pancake"), 10)
+    }
+
+    func testPancakeLeaderboardOffsetMovesOnlyTheSpriteAndExpandsItsCanvas() {
+        let geometry = PetArtworkGeometry.resolve(
+            placement: .leaderboard,
+            petID: "pancake",
+            spriteSize: 36
+        )
+        XCTAssertEqual(geometry.spriteOffset, CGSize(width: 4, height: 16))
+        XCTAssertEqual(geometry.habitatOffset, CGSize(width: 4, height: 27))
+        XCTAssertGreaterThanOrEqual(
+            geometry.canvas.height,
+            geometry.spriteOffset.height + 36
+        )
+        XCTAssertEqual(
+            PetArtworkGeometry.resolve(
+                placement: .shop,
+                petID: "pancake",
+                spriteSize: 64
+            ).spriteOffset.height,
+            20
+        )
         XCTAssertEqual(PetArtworkGeometry.gameplayViewVerticalOffset(petID: "pancake"), 10)
     }
 
@@ -353,6 +434,62 @@ final class CosmeticsTests: XCTestCase {
                 fallback: .halfLeft
             ),
             .halfLeft
+        )
+    }
+
+    func testSharedTapFollowUsesKnownGameplayLayoutWithoutMeasuredFrames() {
+        XCTAssertEqual(
+            PetTapFollow.resolveGameplay(
+                normalizedPointerX: 0.05,
+                screenWidth: 375,
+                current: .front
+            ),
+            .left
+        )
+        XCTAssertEqual(
+            PetTapFollow.resolveGameplay(
+                normalizedPointerX: 0.48,
+                screenWidth: 375,
+                current: .left
+            ),
+            .halfRight
+        )
+        XCTAssertEqual(
+            PetTapFollow.resolveGameplay(
+                normalizedPointerX: 0.95,
+                screenWidth: 375,
+                current: .halfRight
+            ),
+            .right
+        )
+        XCTAssertEqual(
+            PetTapFollow.resolveGameplay(
+                normalizedPointerX: .nan,
+                screenWidth: 0,
+                current: .halfLeft
+            ),
+            .halfLeft
+        )
+    }
+
+    func testMenuTapFollowUsesRenderedTrailingPetCenter() {
+        let centerX = PetTapFollow.resolveMenuPetCenterX(
+            screenWidth: 375,
+            canvasWidth: 64,
+            maximumPanelWidth: 460,
+            horizontalPadding: 12,
+            horizontalOffset: 10 - 375 * 0.15
+        )
+
+        XCTAssertEqual(centerX, 284.75, accuracy: 0.001)
+        XCTAssertEqual(
+            PetTapFollow.resolve(
+                pointerX: 18.75,
+                petCenterX: centerX,
+                interactionWidth: 375,
+                current: .right
+            ),
+            .left
         )
     }
 
@@ -469,6 +606,23 @@ final class CosmeticsTests: XCTestCase {
             PetAnimationPlan.wakeAndTurn(fromFrameIndex: 8, to: .left),
             [PetAnimationStep(frameIndex: 3, delayAfter: .zero)]
         )
+    }
+
+    func testPancakeFullLeftUsesTheCleanMirroredRightFrameOnly() {
+        XCTAssertEqual(
+            PetSpriteFramePolicy.resolve(petID: "pancake", semanticFrameIndex: 3),
+            PetSpriteFrameVariant(sourceFrameIndex: 7, mirrorsHorizontally: true)
+        )
+        XCTAssertEqual(
+            PetSpriteFramePolicy.resolve(petID: "pancake", semanticFrameIndex: 2),
+            PetSpriteFrameVariant(sourceFrameIndex: 2, mirrorsHorizontally: false)
+        )
+        for petID in ["foka", "kesha", "tauta", "misha", "mitsuri", "muse"] {
+            XCTAssertEqual(
+                PetSpriteFramePolicy.resolve(petID: petID, semanticFrameIndex: 3),
+                PetSpriteFrameVariant(sourceFrameIndex: 3, mirrorsHorizontally: false)
+            )
+        }
     }
 
     func testEveryApprovedPetSpriteAndHabitatIsBundled() throws {

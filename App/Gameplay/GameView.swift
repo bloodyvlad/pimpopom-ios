@@ -22,8 +22,6 @@ struct GameView: View {
     @State private var frozenGlyphsEnabled = true
     @State private var gameplayPetFacing = PetFacing.front
     @State private var gameplayPetActivity = 0
-    @State private var boardSceneFrame = CGRect.zero
-    @State private var gameplayPetFrame = CGRect.zero
     @State private var gameplayScreenWidth: CGFloat = 0
     @State private var didFreezePresentation = false
     @State private var ratingStampPresentation: RatingStampPresentation?
@@ -60,14 +58,6 @@ struct GameView: View {
             }
         }
         .coordinateSpace(name: "game-space")
-        .onPreferenceChange(BoardSceneFramePreferenceKey.self) { frame in
-            guard frame != boardSceneFrame else { return }
-            Task { @MainActor in boardSceneFrame = frame }
-        }
-        .onPreferenceChange(GameplayPetFramePreferenceKey.self) { frame in
-            guard frame != gameplayPetFrame else { return }
-            Task { @MainActor in gameplayPetFrame = frame }
-        }
         .onPreferenceChange(GameplayScreenWidthPreferenceKey.self) { width in
             guard width > 0, width != gameplayScreenWidth else { return }
             Task { @MainActor in gameplayScreenWidth = width }
@@ -101,7 +91,7 @@ struct GameView: View {
                     submitRankedRunIfNeeded()
                 }
             }
-            coordinator.onAcceptedBoardTap = { location in
+            coordinator.onBoardTap = { location in
                 handleGameplayTap(at: location)
             }
             await cosmetics.refresh()
@@ -116,7 +106,7 @@ struct GameView: View {
             coordinator.stop()
             coordinator.onSoundEvent = nil
             coordinator.onLifecycleEvent = nil
-            coordinator.onAcceptedBoardTap = nil
+            coordinator.onBoardTap = nil
             abandonTicketIfNeeded()
             audio.setMusicContext(.menu)
         }
@@ -353,14 +343,6 @@ struct GameView: View {
                 options: [.allowsTransparency, .ignoresSiblingOrder]
             )
             .allowsHitTesting(!preparing)
-            .background {
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: BoardSceneFramePreferenceKey.self,
-                        value: proxy.frame(in: .named("game-space"))
-                    )
-                }
-            }
             .padding(8)
 
             if let stamp = ratingStampPresentation {
@@ -473,14 +455,6 @@ struct GameView: View {
                     facing: gameplayPetFacing
                 )
                 .frame(width: 54, height: 54)
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: GameplayPetFramePreferenceKey.self,
-                            value: proxy.frame(in: .named("game-space"))
-                        )
-                    }
-                }
                 .offset(
                     x: screenWidth * 0.40 - (screenWidth - width) / 2 - 27,
                     y: PetArtworkGeometry.gameplayViewVerticalOffset(petID: petID)
@@ -888,22 +862,11 @@ struct GameView: View {
     }
 
     private func handleGameplayTap(at normalizedLocation: CGPoint) {
-        guard frozenPetID != nil,
-            boardSceneFrame.width > 0,
-            boardSceneFrame.height > 0,
-            gameplayPetFrame.width > 0,
-            gameplayPetFrame.height > 0
-        else { return }
-
-        let pointer = CGPoint(
-            x: boardSceneFrame.minX + normalizedLocation.x * boardSceneFrame.width,
-            y: boardSceneFrame.minY + normalizedLocation.y * boardSceneFrame.height
-        )
-        gameplayPetFacing = PetFacing.resolve(
-            pointerX: pointer.x,
-            petCenterX: gameplayPetFrame.midX,
-            interactionWidth: gameplayScreenWidth,
-            fallback: gameplayPetFacing
+        guard frozenPetID != nil, gameplayScreenWidth > 0 else { return }
+        gameplayPetFacing = PetTapFollow.resolveGameplay(
+            normalizedPointerX: normalizedLocation.x,
+            screenWidth: gameplayScreenWidth,
+            current: gameplayPetFacing
         )
         gameplayPetActivity += 1
     }
@@ -1091,22 +1054,6 @@ private struct ResponseProgressBar: View {
         .accessibilityLabel("Time left")
         .accessibilityValue("\(Int((remainingFraction * 100).rounded()))")
         .accessibilityIdentifier("response-progress")
-    }
-}
-
-private struct BoardSceneFramePreferenceKey: PreferenceKey {
-    static let defaultValue = CGRect.zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-
-private struct GameplayPetFramePreferenceKey: PreferenceKey {
-    static let defaultValue = CGRect.zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
     }
 }
 

@@ -41,9 +41,13 @@ final class BackendClient: ObservableObject {
         self.isUITestOffline = isUITestOffline
         uiTestSession =
             if isUITestOffline {
-                ProcessInfo.processInfo.arguments.contains("--ui-test-pet-profile")
-                    ? Self.uiTestPetSession
-                    : Self.uiTestSignedOutSession
+                if ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile") {
+                    Self.uiTestPancakeSession
+                } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pet-profile") {
+                    Self.uiTestPetSession
+                } else {
+                    Self.uiTestSignedOutSession
+                }
             } else {
                 nil
             }
@@ -592,6 +596,34 @@ final class BackendClient: ObservableObject {
         ]
     )
 
+    private static let uiTestPancakeSession = SessionResponse(
+        authenticated: true,
+        csrfToken: "ui-test-offline",
+        googleClientId: "placeholder.apps.googleusercontent.com",
+        season: Season(id: "ui-test", name: "Offline UI Test"),
+        profile: PlayerProfile(
+            id: "ui-test-pancake-player",
+            nickname: "PancakePilot",
+            nicknameConfirmed: true,
+            coins: 75,
+            totalPlayMs: 120_000,
+            ownedPetIds: ["pancake"],
+            selectedPetId: "pancake",
+            petVisible: true,
+            equippedPetId: "pancake",
+            specialPetId: nil,
+            ownedThemeIds: ["classic", "disco", "light", "pixel"],
+            selectedThemeId: "classic",
+            isAdmin: false,
+            createdAt: "2026-07-15T00:00:00Z",
+            updatedAt: "2026-07-15T00:00:00Z"
+        ),
+        ranks: [
+            GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
+            GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
+        ]
+    )
+
     private static let uiTestThemes = ThemeCatalogResponse(
         themes: [
             CosmeticCatalogItem(id: "classic", name: "Default", priceCoins: 0),
@@ -616,12 +648,13 @@ final class BackendClient: ObservableObject {
     )
 
     private static func uiTestLeaderboard(mode: GameMode, playerName: String) -> LeaderboardResponse {
+        let showsPancake = ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile")
         let entries = [
             LeaderboardEntry(
                 id: "ui-top",
                 rank: 1,
                 name: "TapNova",
-                petId: "kesha",
+                petId: showsPancake ? "pancake" : "kesha",
                 mode: mode.rawValue,
                 score: 12_480,
                 survivalMs: 184_000,
@@ -639,7 +672,7 @@ final class BackendClient: ObservableObject {
                 id: "ui-player",
                 rank: 6,
                 name: playerName,
-                petId: "foka",
+                petId: showsPancake ? "pancake" : "foka",
                 mode: mode.rawValue,
                 score: 8_640,
                 survivalMs: 121_000,

@@ -51,10 +51,100 @@ final class GameplayLifecycleTests: XCTestCase {
         let scene = GameScene()
 
         scene.apply(active)
-        XCTAssertTrue(scene.children.contains { $0 is SKLabelNode })
+        XCTAssertTrue(scene.children.contains { $0.name?.hasPrefix("cell-glyph-") == true })
+        XCTAssertTrue(
+            scene.children
+                .filter { $0.name?.hasPrefix("cell-glyph-") == true }
+                .allSatisfy { $0 is SKShapeNode }
+        )
 
         scene.applyGlyphsEnabled(false)
-        XCTAssertFalse(scene.children.contains { $0 is SKLabelNode })
+        XCTAssertFalse(scene.children.contains { $0.name?.hasPrefix("cell-glyph-") == true })
+    }
+
+    func testGameSceneSharesThemeEffectsAndPixelGlyphPathsWithPreviews() throws {
+        let engine = GameEngine(random: { 0 })
+        _ = engine.start(now: 0, mode: .arcade)
+        let active = engine.activateRound(now: 1_000).snapshot
+        let scene = GameScene()
+        scene.apply(active)
+
+        scene.applyTheme("disco")
+        XCTAssertTrue(scene.children.contains { $0.name?.contains("disco-backlight") == true })
+
+        scene.applyTheme("light")
+        XCTAssertTrue(scene.children.contains { $0.name?.contains("light-glass") == true })
+
+        scene.applyTheme("pixel")
+        XCTAssertTrue(scene.children.contains { $0.name?.contains("pixel-noise") == true })
+        let noise = try XCTUnwrap(
+            scene.children.first { $0.name?.contains("pixel-noise") == true }
+        )
+        let noiseCrop = try XCTUnwrap(noise as? SKCropNode)
+        let noiseSprite = try XCTUnwrap(noiseCrop.children.first as? SKSpriteNode)
+        XCTAssertEqual(noiseSprite.blendMode, .alpha)
+        XCTAssertEqual(noiseSprite.texture?.filteringMode, .nearest)
+        let pixelBorder = try XCTUnwrap(
+            scene.children.first { $0.name?.contains("pixel-border") == true } as? SKShapeNode
+        )
+        let pixelCell = try XCTUnwrap(
+            scene.children.first { $0.name == "cell-0" } as? SKShapeNode
+        )
+        XCTAssertEqual(pixelCell.strokeColor.cgColor.alpha, 0, accuracy: 0.001)
+        XCTAssertGreaterThan(pixelBorder.strokeColor.cgColor.alpha, 0)
+        let glyph = try XCTUnwrap(
+            scene.children.first { $0.name?.hasPrefix("cell-glyph-") == true } as? SKShapeNode
+        )
+        XCTAssertFalse(glyph.isAntialiased)
+    }
+
+    func testBoardTapReachesPetFollowBeforeGameplayAcceptance() {
+        let coordinator = GameCoordinator(mode: .arcade)
+        var received: [CGPoint] = []
+        coordinator.onBoardTap = { received.append($0) }
+        let now = ProcessInfo.processInfo.systemUptime * 1_000
+        let location = CGPoint(x: 0.91, y: 0.30)
+
+        coordinator.gameScene(coordinator.scene, didPointAt: location)
+        coordinator.gameScene(
+            coordinator.scene,
+            didTapCell: 0,
+            normalizedLocation: location,
+            inputAt: now,
+            handledAt: now
+        )
+
+        XCTAssertEqual(received, [location])
+    }
+
+    func testGameBoardGapTapStillReachesPetFollow() throws {
+        let engine = GameEngine(random: { 0 })
+        _ = engine.start(now: 0, mode: .arcade)
+        var now = 1_000.0
+        for _ in 0..<engine.configuration.twoByTwoStartsAtHits {
+            let active = engine.activateRound(now: now).snapshot
+            let targetIndex = try XCTUnwrap(active.targetIndex)
+            _ = engine.tap(
+                cellIndex: targetIndex,
+                now: now + 100,
+                resolvedAt: now + 100
+            )
+            now += 1_000
+        }
+        let twoByTwo = engine.activateRound(now: now).snapshot
+        XCTAssertEqual(twoByTwo.difficulty.gridDimension, 2)
+
+        let coordinator = GameCoordinator(mode: .arcade)
+        var received: [CGPoint] = []
+        coordinator.onBoardTap = { received.append($0) }
+        coordinator.scene.apply(twoByTwo)
+        coordinator.scene.handleBoardTouch(
+            at: CGPoint(x: 160, y: 160),
+            inputAt: now,
+            handledAt: now
+        )
+
+        XCTAssertEqual(received, [CGPoint(x: 0.5, y: 0.5)])
     }
 
     func testOnlyPerfectAndGodlikeHitsPublishRoundedStampEvents() {

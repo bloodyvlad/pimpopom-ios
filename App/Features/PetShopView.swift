@@ -215,11 +215,11 @@ private struct PetShopPreviewButton: View {
             petID: item.id,
             spriteSize: 64
         )
-        facing = PetFacing.resolve(
+        facing = PetTapFollow.resolve(
             pointerX: location.x,
             petCenterX: geometry.spriteOffset.width + 32,
             interactionWidth: 80,
-            fallback: facing
+            current: facing
         )
         animationTrigger += 1
         isAnimating = true

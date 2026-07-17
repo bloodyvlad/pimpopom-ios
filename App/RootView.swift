@@ -23,7 +23,6 @@ struct RootView: View {
     @State private var menuPetFacing = PetFacing.front
     @State private var menuPetSleeping = false
     @State private var menuPetActivity = 0
-    @State private var menuPetFrame = CGRect.zero
     @State private var introStampSeed = MenuMotivation.introStampSeed(
         arguments: ProcessInfo.processInfo.arguments
     )
@@ -47,7 +46,7 @@ struct RootView: View {
                         )
                         .contentShape(Rectangle())
                         .simultaneousGesture(
-                            SpatialTapGesture()
+                            SpatialTapGesture(coordinateSpace: .named("menu-space"))
                                 .onEnded {
                                     handleMenuTap(
                                         at: $0.location,
@@ -58,10 +57,6 @@ struct RootView: View {
                 }
             }
             .coordinateSpace(name: "menu-space")
-            .onPreferenceChange(MenuPetFramePreferenceKey.self) { frame in
-                guard frame != menuPetFrame else { return }
-                Task { @MainActor in menuPetFrame = frame }
-            }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: GameMode.self) { GameView(mode: $0) }
         }
@@ -141,14 +136,6 @@ struct RootView: View {
                     x: 10 - screenWidth * WebMenuMetrics.menuPetHorizontalShiftFraction,
                     y: WebMenuMetrics.headerHeight + 17
                 )
-                .background {
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: MenuPetFramePreferenceKey.self,
-                            value: proxy.frame(in: .named("menu-space"))
-                        )
-                    }
-                }
                 .task(id: "\(petID)-\(menuPetActivity)-\(scenePhase)") {
                     menuPetSleeping = false
                     guard scenePhase == .active, navigationPath.isEmpty else { return }
@@ -179,15 +166,6 @@ struct RootView: View {
                     width: WebMenuMetrics.utilityTarget,
                     height: WebMenuMetrics.utilityTarget
                 )
-                .overlay(alignment: .bottomTrailing) {
-                    WebUtilityBadge(
-                        text: "\(cosmetics.coinBalance)",
-                        kind: .coin,
-                        theme: palette
-                    )
-                    .offset(x: 5, y: 5)
-                    .accessibilityIdentifier("coin-balance-badge")
-                }
             }
             .buttonStyle(
                 WebSecondaryButtonStyle(
@@ -199,6 +177,17 @@ struct RootView: View {
             .frame(width: WebMenuMetrics.utilityTarget)
             .accessibilityLabel("Buy Coins. \(cosmetics.coinBalance) coins")
             .accessibilityIdentifier("open-coin-store")
+            .overlay(alignment: .bottomTrailing) {
+                WebUtilityBadge(
+                    text: "\(cosmetics.coinBalance)",
+                    kind: .coin,
+                    theme: palette
+                )
+                .offset(x: 5, y: 5)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .accessibilityIdentifier("coin-balance-badge")
+            }
 
             NavigationLink {
                 LeaderboardView()
@@ -211,15 +200,6 @@ struct RootView: View {
                     width: WebMenuMetrics.utilityTarget,
                     height: WebMenuMetrics.utilityTarget
                 )
-                .overlay(alignment: .topTrailing) {
-                    if let rank = arcadeRank {
-                        WebUtilityBadge(text: "#\(rank)", kind: .rank, theme: palette)
-                            .offset(x: 5, y: -5)
-                            .accessibilityLabel("Leaderboard position")
-                            .accessibilityValue("#\(rank)")
-                            .accessibilityIdentifier("leaderboard-rank-badge")
-                    }
-                }
             }
             .buttonStyle(
                 WebSecondaryButtonStyle(
@@ -231,6 +211,15 @@ struct RootView: View {
             .accessibilityLabel("Leaderboard")
             .accessibilityValue(arcadeRank.map { "Position #\($0)" } ?? "Unranked")
             .accessibilityIdentifier("open-leaderboard")
+            .overlay(alignment: .topTrailing) {
+                if let rank = arcadeRank {
+                    WebUtilityBadge(text: "#\(rank)", kind: .rank, theme: palette)
+                        .offset(x: 5, y: -5)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                        .accessibilityIdentifier("leaderboard-rank-badge")
+                }
+            }
 
             Button {
                 showsProfile = true
@@ -574,28 +563,20 @@ struct RootView: View {
     private func handleMenuTap(at location: CGPoint, screenWidth: CGFloat) {
         guard navigationPath.isEmpty, cosmetics.displayedPetID != nil else { return }
         menuPetSleeping = false
-        menuPetFacing = PetFacing.resolve(
+        menuPetFacing = PetTapFollow.resolve(
             pointerX: location.x,
-            petCenterX: menuPetSpriteFrame.midX,
+            petCenterX: PetTapFollow.resolveMenuPetCenterX(
+                screenWidth: screenWidth,
+                canvasWidth: 64,
+                maximumPanelWidth: WebMenuMetrics.maximumPanelWidth,
+                horizontalPadding: 12,
+                horizontalOffset: 10
+                    - screenWidth * WebMenuMetrics.menuPetHorizontalShiftFraction
+            ),
             interactionWidth: screenWidth,
-            fallback: menuPetFacing
+            current: menuPetFacing
         )
         menuPetActivity += 1
-    }
-
-    private var menuPetSpriteFrame: CGRect {
-        guard let petID = cosmetics.displayedPetID else { return .zero }
-        let geometry = PetArtworkGeometry.resolve(
-            placement: .menu,
-            petID: petID,
-            spriteSize: 64
-        )
-        return CGRect(
-            x: menuPetFrame.minX + geometry.spriteOffset.width,
-            y: menuPetFrame.minY + geometry.spriteOffset.height,
-            width: 64,
-            height: 64
-        )
     }
 
     private var profileSheet: some View {
@@ -809,12 +790,4 @@ struct RootView: View {
         .environmentObject(preferences)
         .environmentObject(cosmetics)
         .environmentObject(AudioController())
-}
-
-private struct MenuPetFramePreferenceKey: PreferenceKey {
-    static let defaultValue = CGRect.zero
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
 }

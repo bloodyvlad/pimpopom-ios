@@ -258,7 +258,7 @@ enum DiscoThemeTokens {
     static let cellBorderHex = "#5f666b"
     static let activeBorderHex = "#d9dde0"
     static let activeCellHexes = [
-        "#2ef4f5", "#ffe33f", "#ff4fad", "#8cec48", "#ff864b", "#a873ff",
+        "#00f2f7", "#ffe13f", "#ff3da8", "#7cf238", "#ff7a36", "#9368ff",
     ]
     static let idleScratchOpacity = 0.16
     static let activeScratchOpacity = 0.26
@@ -281,12 +281,11 @@ enum GameCellVisualMetrics {
         theme.isPixel ? .zero : max(minimum, side * 0.10)
     }
 
-    static func glyphSize(
-        theme: ThemePalette,
+    static func glyphBoxSide(
         side: CGFloat,
-        minimumBaseSize: CGFloat = 12
+        minimumBaseSide: CGFloat = 14
     ) -> CGFloat {
-        theme.resolvedFontSize(max(minimumBaseSize, side * 0.30))
+        max(minimumBaseSide, side * 0.30)
     }
 }
 
@@ -296,12 +295,21 @@ struct GameCellPreview: View {
     let glyph: String
     var showsGlyphs = true
     var isTarget = true
+    var textureSeed: Int?
 
     var body: some View {
         GeometryReader { proxy in
             let side = min(proxy.size.width, proxy.size.height)
             let cornerRadius = GameCellVisualMetrics.cornerRadius(theme: theme, side: side)
             let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            let effects = GameCellSurfaceEffects.resolve(
+                theme: theme,
+                isLit: colorIndex != nil,
+                seed: textureSeed ?? colorIndex ?? 0
+            )
+            let primaryGlowRadius =
+                effects.discoBacklight ? side * 0.09 : (isTarget ? 6 : 3)
+            let secondaryGlowRadius = effects.discoBacklight ? side * 0.18 : 0
 
             shape
                 .fill(fillColor)
@@ -316,11 +324,19 @@ struct GameCellPreview: View {
                     }
                 }
                 .overlay {
+                    GameCellSurfaceOverlay(
+                        theme: theme,
+                        cornerRadius: cornerRadius,
+                        effects: effects
+                    )
+                }
+                .overlay {
                     if showsGlyphs {
                         CenteredColorGlyphView(
                             glyph: glyph,
                             color: glyphColor,
-                            size: GameCellVisualMetrics.glyphSize(theme: theme, side: side)
+                            size: GameCellVisualMetrics.glyphBoxSide(side: side),
+                            style: effects.glyphStyle
                         )
                     }
                 }
@@ -333,8 +349,12 @@ struct GameCellPreview: View {
                     )
                 }
                 .shadow(
-                    color: glowColor,
-                    radius: theme.isPixel ? 0 : (isTarget ? 6 : 3)
+                    color: primaryGlowColor,
+                    radius: theme.isPixel ? 0 : primaryGlowRadius
+                )
+                .shadow(
+                    color: secondaryGlowColor,
+                    radius: secondaryGlowRadius
                 )
                 .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -359,9 +379,96 @@ struct GameCellPreview: View {
         return .white.opacity(isTarget ? 0.85 : 0.35)
     }
 
-    private var glowColor: Color {
+    private var primaryGlowColor: Color {
         guard let colorIndex else { return .clear }
-        return theme.color(at: colorIndex).opacity(theme.id == "disco" ? 0.48 : 0.30)
+        return theme.color(at: colorIndex).opacity(
+            theme.id == "disco" ? GameCellEffectTokens.discoPrimaryGlowOpacity : 0.30
+        )
+    }
+
+    private var secondaryGlowColor: Color {
+        guard colorIndex != nil, theme.id == "disco" else { return .clear }
+        return Color.white.opacity(GameCellEffectTokens.discoSecondaryGlowOpacity)
+    }
+}
+
+private struct GameCellSurfaceOverlay: View {
+    let theme: ThemePalette
+    let cornerRadius: CGFloat
+    let effects: GameCellSurfaceEffects
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+            ZStack {
+                if effects.discoBacklight {
+                    RadialGradient(
+                        stops: [
+                            .init(
+                                color: .white.opacity(
+                                    GameCellEffectTokens.discoCenterWhiteOpacity
+                                ),
+                                location: 0
+                            ),
+                            .init(
+                                color: .white.opacity(
+                                    GameCellEffectTokens.discoMidpointWhiteOpacity
+                                ),
+                                location: 0.45
+                            ),
+                            .init(color: .clear, location: 0.78),
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: side * 0.72
+                    )
+                    .blendMode(.screen)
+                }
+
+                if effects.lightGlass {
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(GameCellEffectTokens.lightTopHighlightOpacity),
+                            .white.opacity(0.08),
+                            Color(hex: "#2e91b8").opacity(
+                                GameCellEffectTokens.lightLowerShadeOpacity
+                            ),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .blendMode(.screen)
+
+                    Rectangle()
+                        .fill(
+                            Color.white.opacity(GameCellEffectTokens.lightSpecularOpacity)
+                        )
+                        .frame(width: side * 0.18, height: side * 1.55)
+                        .rotationEffect(.degrees(38))
+                        .offset(x: -side * 0.15, y: -side * 0.08)
+
+                    RoundedRectangle(
+                        cornerRadius: max(0, cornerRadius - 2),
+                        style: .continuous
+                    )
+                    .stroke(
+                        Color.white.opacity(GameCellEffectTokens.lightInnerStrokeOpacity),
+                        lineWidth: 1.5
+                    )
+                    .padding(2)
+                }
+
+                if effects.pixelNoise {
+                    PixelTileNoiseView(seed: effects.seed)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipShape(shape)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -384,7 +491,8 @@ struct ThemePreview: View {
                             colorIndex: index,
                             glyph: color.glyph,
                             showsGlyphs: showsGlyphs,
-                            isTarget: false
+                            isTarget: false,
+                            textureSeed: index
                         )
                     }
                 }

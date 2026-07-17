@@ -253,13 +253,14 @@ struct WebUtilityBadge: View {
     var body: some View {
         Text(text)
             .font(theme.appFont(size: 9, weight: .black, relativeTo: .caption2))
-            .foregroundStyle(kind.foreground)
+            .foregroundColor(kind.foreground)
             .monospacedDigit()
             .lineLimit(1)
             .padding(.horizontal, 5)
             .frame(minWidth: 26, minHeight: 19)
-            .background(kind.background, in: Capsule())
+            .background { Capsule().fill(kind.background) }
             .overlay { Capsule().stroke(Color(hex: "#111426"), lineWidth: 2) }
+            .compositingGroup()
             .shadow(
                 color: kind == .rank ? Color(hex: "#63fff2").opacity(0.55) : .clear,
                 radius: kind == .rank ? 5 : 0
@@ -271,61 +272,32 @@ struct CenteredColorGlyphView: View {
     let glyph: String
     let color: Color
     var size: CGFloat = 20
+    var style = GameGlyphStyle.smooth
 
     var body: some View {
         Canvas(opaque: false, colorMode: .nonLinear) { context, canvasSize in
             let side = min(canvasSize.width, canvasSize.height)
             let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-
-            func centeredRect(width: CGFloat, height: CGFloat) -> CGRect {
-                CGRect(
-                    x: center.x - width / 2,
-                    y: center.y - height / 2,
-                    width: width,
-                    height: height
-                )
-            }
-
-            var path = Path()
-            switch glyph {
-            case "●":
-                path.addEllipse(in: centeredRect(width: side * 0.50, height: side * 0.50))
-            case "▲":
-                path.move(to: CGPoint(x: center.x, y: center.y - side * 0.29))
-                path.addLine(to: CGPoint(x: center.x + side * 0.29, y: center.y + side * 0.25))
-                path.addLine(to: CGPoint(x: center.x - side * 0.29, y: center.y + side * 0.25))
-                path.closeSubpath()
-            case "■":
-                path.addRect(centeredRect(width: side * 0.50, height: side * 0.50))
-            case "◆":
-                path.move(to: CGPoint(x: center.x, y: center.y - side * 0.30))
-                path.addLine(to: CGPoint(x: center.x + side * 0.30, y: center.y))
-                path.addLine(to: CGPoint(x: center.x, y: center.y + side * 0.30))
-                path.addLine(to: CGPoint(x: center.x - side * 0.30, y: center.y))
-                path.closeSubpath()
-            case "✚":
-                path.addRect(centeredRect(width: side * 0.18, height: side * 0.58))
-                path.addRect(centeredRect(width: side * 0.58, height: side * 0.18))
-            case "★":
-                for pointIndex in 0..<10 {
-                    let radius = side * (pointIndex.isMultiple(of: 2) ? 0.31 : 0.14)
-                    let angle = -Double.pi / 2 + Double(pointIndex) * Double.pi / 5
-                    let point = CGPoint(
-                        x: center.x + CGFloat(cos(angle)) * radius,
-                        y: center.y + CGFloat(sin(angle)) * radius
-                    )
-                    if pointIndex == 0 { path.move(to: point) } else { path.addLine(to: point) }
-                }
-                path.closeSubpath()
-            default:
+            let rect = CGRect(
+                x: center.x - side / 2,
+                y: center.y - side / 2,
+                width: side,
+                height: side
+            )
+            if let path = GameGlyphGeometry.path(
+                for: glyph,
+                in: rect,
+                style: style,
+                yAxis: .down
+            ) {
+                context.fill(Path(path), with: .color(color))
+            } else {
                 context.draw(
                     Text(glyph).font(.system(size: side * 0.78, weight: .black)).foregroundStyle(color),
                     at: center,
                     anchor: .center
                 )
-                return
             }
-            context.fill(path, with: .color(color))
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)

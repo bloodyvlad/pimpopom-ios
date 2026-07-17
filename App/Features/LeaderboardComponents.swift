@@ -169,7 +169,11 @@ struct LeaderboardRowView: View {
                             .foregroundStyle(Color(hex: theme.muted).opacity(0.55))
                     }
                 }
-                .frame(width: 42, height: 38)
+                .frame(
+                    width: 42,
+                    height: entry.petId == "pancake" ? 53 : 38,
+                    alignment: .top
+                )
                 .accessibilityIdentifier("leaderboard-entry-pet-\(entry.id)")
             }
             .frame(width: 42)

@@ -198,6 +198,81 @@ enum PetFacing: String, Equatable, Sendable {
     }
 }
 
+enum PetTapFollow {
+    static let maximumGameplayBoardWidth: CGFloat = 680
+    static let gameplayOuterHorizontalInset: CGFloat = 12
+    static let gameplaySceneInset: CGFloat = 8
+
+    static func resolve(
+        pointerX: CGFloat,
+        petCenterX: CGFloat,
+        interactionWidth: CGFloat,
+        current: PetFacing
+    ) -> PetFacing {
+        PetFacing.resolve(
+            pointerX: pointerX,
+            petCenterX: petCenterX,
+            interactionWidth: interactionWidth,
+            fallback: current
+        )
+    }
+
+    static func resolveMenuPetCenterX(
+        screenWidth: CGFloat,
+        canvasWidth: CGFloat,
+        maximumPanelWidth: CGFloat,
+        horizontalPadding: CGFloat,
+        horizontalOffset: CGFloat
+    ) -> CGFloat {
+        guard screenWidth.isFinite, screenWidth > 0 else { return 0 }
+        let availableWidth = max(0, screenWidth - horizontalPadding * 2)
+        let panelWidth = min(availableWidth, maximumPanelWidth)
+        let panelMinX = (screenWidth - panelWidth) / 2
+        return panelMinX + panelWidth - canvasWidth / 2 + horizontalOffset
+    }
+
+    static func resolveGameplay(
+        normalizedPointerX: CGFloat,
+        screenWidth: CGFloat,
+        current: PetFacing
+    ) -> PetFacing {
+        guard screenWidth.isFinite, screenWidth > 0 else { return current }
+        let outerBoardWidth = min(
+            max(0, screenWidth - gameplayOuterHorizontalInset * 2),
+            maximumGameplayBoardWidth
+        )
+        let sceneWidth = max(1, outerBoardWidth - gameplaySceneInset * 2)
+        let sceneMinX = (screenWidth - outerBoardWidth) / 2 + gameplaySceneInset
+        let clampedX = min(1, max(0, normalizedPointerX))
+        return resolve(
+            pointerX: sceneMinX + clampedX * sceneWidth,
+            petCenterX: screenWidth * 0.40,
+            interactionWidth: screenWidth,
+            current: current
+        )
+    }
+}
+
+struct PetSpriteFrameVariant: Equatable, Sendable {
+    let sourceFrameIndex: Int
+    let mirrorsHorizontally: Bool
+}
+
+enum PetSpriteFramePolicy {
+    static func resolve(petID: String, semanticFrameIndex: Int) -> PetSpriteFrameVariant {
+        if petID == "pancake", semanticFrameIndex == PetFacing.left.frameIndex {
+            return PetSpriteFrameVariant(
+                sourceFrameIndex: PetFacing.right.frameIndex,
+                mirrorsHorizontally: true
+            )
+        }
+        return PetSpriteFrameVariant(
+            sourceFrameIndex: semanticFrameIndex,
+            mirrorsHorizontally: false
+        )
+    }
+}
+
 struct PetCompanionView: View {
     let petID: String
     var size: CGFloat = 64
@@ -261,7 +336,11 @@ struct PetCompanionView: View {
                     )
             }
 
-            if let sprite = PetArtwork.spriteFrame(named: spriteAsset, index: frameIndex) {
+            if let sprite = PetArtwork.spriteFrame(
+                named: spriteAsset,
+                petID: presentation.id,
+                index: frameIndex
+            ) {
                 Image(uiImage: sprite)
                     .resizable()
                     .interpolation(.none)
@@ -373,7 +452,7 @@ struct PetArtworkGeometry {
                 case "foka": -9 * point
                 case "misha": 1 * point
                 case "tauta": 6 * point
-                case "pancake": 26 * point
+                case "pancake": 41 * point
                 default: -4 * point
                 }
             return PetArtworkGeometry(
@@ -409,9 +488,13 @@ struct PetArtworkGeometry {
         case .leaderboard:
             let scale = spriteSize / 36
             let habitatY = petID == "mitsuri" ? -8 * scale : 27 * scale
+            let spriteY = scale + (petID == "pancake" ? 15 : 0)
             return PetArtworkGeometry(
-                canvas: CGSize(width: 44 * scale, height: 44 * scale),
-                spriteOffset: CGSize(width: 4 * scale, height: scale),
+                canvas: CGSize(
+                    width: 44 * scale,
+                    height: max(44 * scale, spriteY + spriteSize)
+                ),
+                spriteOffset: CGSize(width: 4 * scale, height: spriteY),
                 habitatSize: CGSize(width: spriteSize, height: 54 * scale),
                 habitatOffset: CGSize(width: 4 * scale, height: habitatY)
             )
@@ -424,11 +507,23 @@ struct PetArtworkGeometry {
 }
 
 @MainActor
-private enum PetArtwork {
+enum PetArtwork {
     private static var cache: [String: UIImage] = [:]
 
-    static func spriteFrame(named name: String, index: Int) -> UIImage? {
-        cropped(named: name, index: index, columns: 10)
+    static func spriteFrame(named name: String, petID: String, index: Int) -> UIImage? {
+        let variant = PetSpriteFramePolicy.resolve(
+            petID: petID,
+            semanticFrameIndex: index
+        )
+        guard
+            let frame = cropped(
+                named: name,
+                index: variant.sourceFrameIndex,
+                columns: 10
+            )
+        else { return nil }
+        guard variant.mirrorsHorizontally else { return frame }
+        return mirroredHorizontally(frame, cacheKey: "\(name)-mirrored-\(variant.sourceFrameIndex)")
     }
 
     static func habitatLayer(named name: String, index: Int) -> UIImage? {
@@ -449,6 +544,20 @@ private enum PetArtwork {
         guard let frame = image.cropping(to: rect) else { return nil }
         let result = UIImage(cgImage: frame, scale: 1, orientation: .up)
         cache[key] = result
+        return result
+    }
+
+    private static func mirroredHorizontally(_ image: UIImage, cacheKey: String) -> UIImage {
+        if let cached = cache[cacheKey] { return cached }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+        let result = UIGraphicsImageRenderer(size: image.size, format: format).image { context in
+            context.cgContext.translateBy(x: image.size.width, y: 0)
+            context.cgContext.scaleBy(x: -1, y: 1)
+            image.draw(in: CGRect(origin: .zero, size: image.size))
+        }
+        cache[cacheKey] = result
         return result
     }
 }
