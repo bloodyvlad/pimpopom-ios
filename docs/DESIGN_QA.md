@@ -4,7 +4,23 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 ## Current evidence
 
-The playable Xcode alpha has current fixed-screen parity evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles at implementation commit `ec71d21`. Follow-up implementation commit `d3ffd87`, which removes the redundant visible active-target prompt and changes the Your Color swatch to a rounded square, was development-signed, installed, and launched successfully on the owner's physical iPhone SE with iOS 26.3. Per owner request, it was not retested. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+The playable Xcode alpha has current expanded visual-parity evidence on the named iPhone SE 2022 Simulator at implementation commit `bf73ecd`, with earlier three-profile fixed-screen evidence retained at `ec71d21`. Follow-up implementation commit `d3ffd87`, which removes the redundant visible active-target prompt and changes the Your Color swatch to a rounded square, was development-signed, installed, and launched successfully on the owner's physical iPhone SE with iOS 26.3. Per owner request, it was not retested. The current `bf73ecd` batch was not installed on physical hardware, and the 13 mini/13 Pro profiles were not rerun for it. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+
+## Expanded visual-parity Simulator pass — 2026-07-17
+
+- **Candidate/version/build:** PimPoPom 0.1.0 (1).
+- **Implementation commit:** `bf73ecd0ec62a8862aea253ece3410f01509173a` (`feat: complete native visual parity pass`).
+- **Device and OS:** named iPhone SE (3rd generation, 2022) Simulator on iOS 26.5 (23F77).
+- **Configuration:** Debug; deterministic `--uitesting` fixtures for automation and final menu capture; production network mutations and real audio output disabled for automated paths; ads and StoreKit remain non-granting placeholders.
+- **Parity reference:** parent SpeedyTapper web `main` commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0`, plus the owner-supplied Pancake concept retained under `assets/pets/sources/chroma/`.
+- **Screens/states:** fixed Light menu with logo plate and illuminated tilted slogan; public Leaderboard; signed-out and deterministic signed-in Profile; Pet Shop placement/static preview states; and Game Over score, metrics, reaction distribution, and save-status hierarchy.
+- **Accessibility settings:** Simulator defaults only. Stable identifiers and labels, fixed geometry, menu scroll resistance, mode tabs, rank context, shop controls, and results sections were exercised by XCUITest; VoiceOver, Dynamic Type extremes, contrast, and Reduce Motion were not reviewed.
+- **Capture:** [`SE Light menu`](evidence/2026-07-17/bf73ecd-se-light-menu.png) SHA-256 `8f1ee64a76aa698c3204961f1b8cd29a99ba3435e65ac045d96b2d289472d1ba`.
+- **Automated checks:** `Scripts/check.sh` passed 29 pure Swift checks, 37 native app tests, a generic Simulator build, all 17 SE XCUITest paths, 65 committed asset hashes plus format/geometry/provenance validation, strict Swift formatting, and `git diff --check`. The final Xcode result contains 54 passed tests and zero failures.
+- **Manual Simulator inspection:** the final Light menu fits without scrolling; the logo plate and illuminated slogan remain readable and unclipped. During implementation, the public Leaderboard, both Profile states, Game Over hierarchy, and Pet Shop Foka/Kesha placement were directly inspected on the same SE profile. The Pancake runtime sprite and glowing floor were inspected as image assets and reached by deterministic UI automation.
+- **Behavior evidence:** structured tests cover presentation-only Perfect/Godlike millisecond events and safe randomized border lanes, surface-specific companion offsets, inner-board tap coordinates, staged wake/turn plans, static shop previews, deterministic intro/slogan tilts in UI tests, and non-shifting loading overlays. Reaction stamps were not timing-reviewed by eye on physical hardware.
+- **Remaining checks:** physical installation and structured touch/listening review of this commit; current-batch 13 mini/13 Pro layout reruns; 60/120 Hz touch timing; VoiceOver, Dynamic Type, contrast, and Reduce Motion; real signed-in backend mutations; audio routes/interruptions/Silent switch; haptics; live ads; and StoreKit.
+- **Evidence statement:** exact-commit SE Simulator build, regression, and limited visual evidence only; not physical-device, audio-listening, or production validation.
 
 ## Physical iPhone SE install-and-launch checkpoint — 2026-07-17
 
