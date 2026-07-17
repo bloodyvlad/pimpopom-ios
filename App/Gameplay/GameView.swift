@@ -232,7 +232,7 @@ struct GameView: View {
                 .foregroundStyle(Color(hex: palette.muted))
 
             HStack(spacing: 8) {
-                Circle()
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(
                         coordinator.mode == .zen
                             ? Color(hex: palette.foreground).opacity(0.12)
@@ -249,7 +249,10 @@ struct GameView: View {
                                 )
                         }
                     }
-                    .overlay { Circle().stroke(.white.opacity(0.80), lineWidth: 2) }
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(.white.opacity(0.80), lineWidth: 2)
+                    }
                     .frame(width: 40, height: 40)
 
                 Text(name)
@@ -362,7 +365,11 @@ struct GameView: View {
 
             Text(displayedFeedback)
                 .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
-                .foregroundStyle(Color(hex: palette.muted))
+                .foregroundStyle(
+                    displayedFeedback.hasPrefix("Tap ")
+                        ? Color.clear
+                        : Color(hex: palette.muted)
+                )
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .accessibilityIdentifier("game-feedback")

@@ -44,3 +44,4 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Corrected Light theme surfaces without capsule cloud artifacts, increased Pixel typography by 10%, extended Pixel type to Leaderboard/Pet Shop/Settings, and applied Pet Shop pink accents to internal actions.
 - Added five-second menu pet sleep/wake, original 30-degree tap-follow facing, 40%-width gameplay placement, and five-point Foka/Misha habitat alignment.
 - Adopted the latest 26 web slogans with tap-to-advance and an intentional 10-second native rotation interval.
+- Replaced the circular gameplay color swatch with a rounded square and removed the redundant visible “Tap [color]” prompt below the board while retaining its accessibility state.
