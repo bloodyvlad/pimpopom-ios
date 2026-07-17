@@ -4,7 +4,18 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 ## Current evidence
 
-The playable Xcode alpha has current fixed-screen parity evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles at implementation commit `ec71d21`. The earlier gameplay/icon checkpoint was development-signed, installed, launched, and reported working on the owner's physical iPhone SE with iOS 26.3. The newer cosmetics/economy/audio checkpoint was development-signed and installed on that device, but automatic launch was denied because the phone was locked. Neither physical checkpoint is a structured timing, layout, accessibility, or audio pass. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+The playable Xcode alpha has current fixed-screen parity evidence on iOS 26.5 for the named iPhone SE 2022, iPhone 13 mini, and iPhone 13 Pro profiles at implementation commit `ec71d21`. Follow-up implementation commit `d3ffd87`, which removes the redundant visible active-target prompt and changes the Your Color swatch to a rounded square, was development-signed, installed, and launched successfully on the owner's physical iPhone SE with iOS 26.3. Per owner request, it was not retested. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+
+## Physical iPhone SE install-and-launch checkpoint — 2026-07-17
+
+- **Candidate/version/build:** PimPoPom 0.1.0 (1).
+- **Implementation commit:** `d3ffd87958d1eba4ca175b2e0590c1b234063072` (`fix: simplify gameplay color prompt`).
+- **Device and OS:** owner's wired iPhone SE (3rd generation), iOS 26.3 (23D127); paired, trusted, and Developer Mode enabled.
+- **Configuration:** Debug; automatic Apple development signing with team `APX2925X66`; bundle `com.otcsoft.pimpopom.alpha`.
+- **Evidence:** the physical-device build succeeded, CoreDevice reported successful installation, and CoreDevice then reported successful application launch.
+- **Scope:** confirms compilation, signing, packaging, installation, and process launch for the exact commit containing the rounded-square Your Color swatch and hidden duplicate active-target prompt.
+- **Not covered:** per explicit owner request, no unit, UI, Simulator, structured visual, gameplay, touch, audio, Google, backend-mutation, accessibility, or performance retest was run for this checkpoint.
+- **Evidence statement:** physical install-and-launch checkpoint only; not a structured device-tested or production-verified feature pass.
 
 ## Fixed-screen visual-parity Simulator pass — 2026-07-17
 
