@@ -183,14 +183,14 @@ final class GameScene: SKScene {
                     cell.kind == .target
                     ? GameCellVisualMetrics.targetBorderWidth
                     : GameCellVisualMetrics.activeBorderWidth
-                if theme.id == "disco" {
-                    node.glowWidth = cell.kind == .target ? 10 : 6
-                }
             }
             let finalBorderColor = node.strokeColor
             let finalBorderWidth = node.lineWidth
             if theme.id == "pixel" {
                 node.strokeColor = .clear
+            }
+            if theme.id == "disco" {
+                addDiscoCornerUnderlay(in: rect, index: index)
             }
             node.zPosition = 1
             addChild(node)
@@ -260,7 +260,7 @@ final class GameScene: SKScene {
         crop.name = "cell-wear-\(index)"
         crop.position = CGPoint(x: rect.midX, y: rect.midY)
         crop.maskNode = mask
-        crop.zPosition = 1.5
+        crop.zPosition = 1.72
         crop.addChild(wear)
         addChild(crop)
     }
@@ -286,6 +286,17 @@ final class GameScene: SKScene {
         backer.zPosition = 0.7
         addChild(backer)
 
+        let colorBoost = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
+        colorBoost.name = "cell-\(index)-disco-color-boost"
+        colorBoost.fillColor = color.withAlphaComponent(
+            GameCellEffectTokens.discoColorBoostOpacity
+        )
+        colorBoost.strokeColor = .clear
+        colorBoost.lineWidth = 0
+        colorBoost.blendMode = .add
+        colorBoost.zPosition = 1.60
+        addChild(colorBoost)
+
         addClippedTexture(
             GameCellTextureFactory.discoBacklight,
             name: "cell-\(index)-disco-backlight",
@@ -294,6 +305,16 @@ final class GameScene: SKScene {
             blendMode: .screen,
             zPosition: 1.65
         )
+    }
+
+    private func addDiscoCornerUnderlay(in rect: CGRect, index: Int) {
+        let underlay = SKShapeNode(rect: rect)
+        underlay.name = "cell-\(index)-disco-corner-underlay"
+        underlay.fillColor = .black
+        underlay.strokeColor = .clear
+        underlay.lineWidth = 0
+        underlay.zPosition = 0.8
+        addChild(underlay)
     }
 
     private func addLightGlass(in rect: CGRect, cornerRadius: CGFloat, index: Int) {
@@ -515,7 +536,7 @@ private enum GameCellTextureFactory {
 
     private static func makePixelNoiseImage(seed: Int) -> UIImage {
         render { context, size in
-            let pixel = max(1, floor(size.width / 96))
+            let pixel = PixelNoisePattern.squareSide(for: size.width)
             for sample in PixelNoisePattern.samples(seed: seed) {
                 let rawX = CGFloat(sample.x) / CGFloat(PixelNoisePattern.gridSize) * size.width
                 let rawY = CGFloat(sample.y) / CGFloat(PixelNoisePattern.gridSize) * size.height

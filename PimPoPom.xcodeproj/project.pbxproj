@@ -39,6 +39,7 @@
 		7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54435E3370FE5F0E7640F4F /* PetShopView.swift */; };
 		754E8CD00718D0D507BB1414 /* audio-oops.wav in Resources */ = {isa = PBXBuildFile; fileRef = DEC51376F984CE9F83F10F80 /* audio-oops.wav */; };
 		76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */; };
+		79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF525ACA8A69F39145C25A62 /* AchievementsView.swift */; };
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
@@ -162,6 +163,7 @@
 		EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "jersey-10-regular.ttf"; sourceTree = "<group>"; };
 		F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-tile-overlay.png"; sourceTree = "<group>"; };
 		FA9F840B4895429C17E7AA09 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		FF525ACA8A69F39145C25A62 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */ = {isa = PBXFileReference; path = "audio-classic-run.m4a"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -286,6 +288,7 @@
 		65D86F956D0B213E18CB7DF9 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				FF525ACA8A69F39145C25A62 /* AchievementsView.swift */,
 				2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */,
 				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
 				2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */,
@@ -545,6 +548,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */,
 				1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */,
 				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
 				3E8B789C6846539EE101679E /* AudioController.swift in Sources */,

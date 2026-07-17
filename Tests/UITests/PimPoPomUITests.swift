@@ -85,6 +85,44 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
+    func testAchievementsClaimUsesTheAuthoritativeRewardFixture() throws {
+        let app = launch(additionalArguments: ["--ui-test-achievements-profile"])
+        let menuButton = app.buttons["open-achievements"]
+        XCTAssertTrue(menuButton.waitForExistence(timeout: 3))
+        XCTAssertEqual(menuButton.value as? String, "1 reward ready to claim")
+        menuButton.tap()
+
+        XCTAssertTrue(app.navigationBars["Achievements"].waitForExistence(timeout: 3))
+        let progress = app.descendants(matching: .any)["achievements-progress"]
+        XCTAssertTrue(progress.waitForExistence(timeout: 2))
+        XCTAssertEqual(progress.value as? String, "1 of 5")
+        let coinBalance = app.descendants(matching: .any)["achievements-coin-balance"]
+        XCTAssertTrue(coinBalance.waitForExistence(timeout: 2))
+        XCTAssertEqual(coinBalance.label, "9 coins")
+
+        for id in [
+            "complete_arcade", "godlike_speed", "collect_5_coins", "score_over_100k",
+            "buy_a_pet",
+        ] {
+            XCTAssertTrue(
+                app.descendants(matching: .any)["achievement-card-\(id)"]
+                    .waitForExistence(timeout: 2),
+                id
+            )
+        }
+
+        let claimable = app.descendants(matching: .any)["achievement-card-complete_arcade"]
+        XCTAssertEqual(claimable.value as? String, "Ready to claim. Reward: 1 coin")
+        claimable.tap()
+        XCTAssertTrue(waitForValue("Claimed. Reward: 1 coin", on: claimable))
+        XCTAssertTrue(waitForLabel("10 coins", on: coinBalance))
+        XCTAssertEqual(progress.value as? String, "2 of 5")
+
+        app.navigationBars["Achievements"].buttons["Done"].tap()
+        XCTAssertTrue(menuButton.waitForExistence(timeout: 2))
+        XCTAssertEqual(menuButton.value as? String, "2 / 5 claimed")
+    }
+
     func testPetShopExposesCoinStoreAndApprovedPancakeArt() throws {
         let app = launch()
         openMenuControl("open-pet-shop", in: app)

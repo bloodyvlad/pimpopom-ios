@@ -237,11 +237,33 @@ final class CosmeticsTests: XCTestCase {
         }
     }
 
+    func testSmoothCrossIsOneSolidShapeWithNoCenterHole() throws {
+        let target = CGRect(x: 0, y: 0, width: 100, height: 100)
+        for yAxis in [GameGlyphYAxis.down, .up] {
+            let path = try XCTUnwrap(
+                GameGlyphGeometry.path(
+                    for: "✚",
+                    in: target,
+                    style: .smooth,
+                    yAxis: yAxis
+                )
+            )
+            for rule in [CGPathFillRule.winding, .evenOdd] {
+                XCTAssertTrue(path.contains(CGPoint(x: 50, y: 50), using: rule))
+                XCTAssertTrue(path.contains(CGPoint(x: 50, y: 10), using: rule))
+                XCTAssertTrue(path.contains(CGPoint(x: 10, y: 50), using: rule))
+                XCTAssertFalse(path.contains(CGPoint(x: 15, y: 15), using: rule))
+            }
+        }
+    }
+
     func testThemeCellEffectsResolveIdenticallyForBoardAndPreviews() {
         let discoIdle = GameCellSurfaceEffects.resolve(theme: .disco, isLit: false, seed: 2)
         let discoActive = GameCellSurfaceEffects.resolve(theme: .disco, isLit: true, seed: 2)
         XCTAssertFalse(discoIdle.discoBacklight)
         XCTAssertTrue(discoActive.discoBacklight)
+        XCTAssertTrue(discoIdle.requiresBlackCornerUnderlay)
+        XCTAssertTrue(discoActive.requiresBlackCornerUnderlay)
         XCTAssertEqual(discoActive.glyphStyle, .smooth)
 
         for isLit in [false, true] {
@@ -265,9 +287,68 @@ final class CosmeticsTests: XCTestCase {
             PixelNoisePattern.samples(seed: 8),
             PixelNoisePattern.samples(seed: 9)
         )
-        XCTAssertEqual(PixelNoisePattern.samples(seed: 8).count, 16)
-        XCTAssertGreaterThan(GameCellEffectTokens.discoCenterWhiteOpacity, 0.5)
+        let samples = PixelNoisePattern.samples(seed: 8)
+        XCTAssertEqual(samples.count, 32)
+        XCTAssertEqual(Set(samples.map { "\($0.x):\($0.y)" }).count, samples.count)
+        XCTAssertEqual(samples.filter(\.isLight).count, 24)
+        XCTAssertEqual(samples.filter { !$0.isLight }.count, 8)
+        XCTAssertEqual(PixelNoisePattern.squareSide(for: 128), 4)
+        XCTAssertEqual(PixelNoisePattern.squareSide(for: 40), 1)
+        XCTAssertGreaterThanOrEqual(GameCellEffectTokens.pixelLightNoiseOpacity, 0.12)
+        XCTAssertGreaterThan(
+            GameCellEffectTokens.pixelLightNoiseOpacity,
+            GameCellEffectTokens.pixelDarkNoiseOpacity
+        )
+        XCTAssertLessThanOrEqual(GameCellEffectTokens.discoCenterWhiteOpacity, 0.10)
+        XCTAssertLessThanOrEqual(GameCellEffectTokens.discoMidpointWhiteOpacity, 0.03)
+        XCTAssertGreaterThanOrEqual(GameCellEffectTokens.discoColorBoostOpacity, 0.35)
         XCTAssertGreaterThan(GameCellEffectTokens.lightInnerStrokeOpacity, 0.8)
+    }
+
+    func testDiscoActiveColorsStayVividInsteadOfBeingWhitened() {
+        XCTAssertEqual(
+            DiscoThemeTokens.activeCellHexes,
+            ["#00ffff", "#ffe600", "#ff008c", "#61ff00", "#ff5a00", "#7b00ff"]
+        )
+        for hex in DiscoThemeTokens.activeCellHexes {
+            var hue: CGFloat = 0
+            var saturation: CGFloat = 0
+            var brightness: CGFloat = 0
+            var alpha: CGFloat = 0
+            XCTAssertTrue(
+                UIColor(hexString: hex).getHue(
+                    &hue,
+                    saturation: &saturation,
+                    brightness: &brightness,
+                    alpha: &alpha
+                ),
+                hex
+            )
+            XCTAssertGreaterThanOrEqual(saturation, 0.90, hex)
+            XCTAssertGreaterThanOrEqual(brightness, 0.95, hex)
+            XCTAssertEqual(alpha, 1, accuracy: 0.001, hex)
+        }
+    }
+
+    func testAchievementFallbackCatalogMatchesTheServerStableIDsAndRewards() {
+        XCTAssertEqual(
+            AchievementCatalog.definitions.map(\.id),
+            [
+                "complete_arcade",
+                "godlike_speed",
+                "collect_5_coins",
+                "score_over_100k",
+                "buy_a_pet",
+            ]
+        )
+        XCTAssertEqual(AchievementCatalog.definitions.map(\.rewardCoins), [1, 1, 5, 5, 10])
+
+        let signedOut = AchievementCatalog.lockedResponse(authenticated: false)
+        XCTAssertFalse(signedOut.authenticated)
+        XCTAssertEqual(signedOut.totalCount, 5)
+        XCTAssertEqual(signedOut.claimedCount, 0)
+        XCTAssertEqual(signedOut.claimableCount, 0)
+        XCTAssertTrue(signedOut.achievements.allSatisfy { $0.state == .locked })
     }
 
     func testUITestAudioSuppressionPolicyIsExplicit() {

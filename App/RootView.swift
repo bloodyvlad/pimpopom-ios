@@ -6,6 +6,7 @@ struct RootView: View {
     @EnvironmentObject private var backend: BackendClient
     @EnvironmentObject private var preferences: AppPreferences
     @EnvironmentObject private var cosmetics: CosmeticsController
+    @EnvironmentObject private var achievements: AchievementsController
     @EnvironmentObject private var audio: AudioController
 
     let services: AlphaServices
@@ -17,6 +18,7 @@ struct RootView: View {
     @State private var navigationPath: [GameMode] = []
     @State private var showsProfile = false
     @State private var showsAchievements = false
+    @State private var opensProfileAfterAchievements = false
     @State private var showsCoinStore = false
     @State private var showsRemoveAdsStore = false
     @State private var motivationIndex: Int?
@@ -61,7 +63,12 @@ struct RootView: View {
             .navigationDestination(for: GameMode.self) { GameView(mode: $0) }
         }
         .tint(Color(hex: palette.foreground))
-        .sheet(isPresented: $showsProfile) {
+        .sheet(
+            isPresented: $showsProfile,
+            onDismiss: {
+                Task { await achievements.refresh(showLoading: false) }
+            }
+        ) {
             ProfileView(
                 googleIdentity: googleIdentity,
                 onDismiss: { showsProfile = false }
@@ -69,7 +76,22 @@ struct RootView: View {
             .environmentObject(backend)
             .environmentObject(cosmetics)
         }
-        .sheet(isPresented: $showsAchievements) { achievementsSheet }
+        .sheet(
+            isPresented: $showsAchievements,
+            onDismiss: {
+                guard opensProfileAfterAchievements else { return }
+                opensProfileAfterAchievements = false
+                showsProfile = true
+            }
+        ) {
+            AchievementsView(
+                onDismiss: { showsAchievements = false },
+                onOpenProfile: {
+                    opensProfileAfterAchievements = true
+                    showsAchievements = false
+                }
+            )
+        }
         .sheet(isPresented: $showsCoinStore) {
             CoinStorePlaceholderView()
                 .environmentObject(cosmetics)
@@ -86,6 +108,7 @@ struct RootView: View {
             audio.playLaunchSting()
             await restoreSession()
             await cosmetics.refresh()
+            await achievements.refresh(showLoading: false)
         }
         .onChange(of: cosmetics.selectedThemeID) { _, themeID in
             audio.configure(themeID: themeID, preferences: preferences)
@@ -102,6 +125,14 @@ struct RootView: View {
             if phase == .active, navigationPath.isEmpty {
                 audio.setMusicContext(.menu)
             }
+        }
+        .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
+            guard isEmpty, !wasEmpty else { return }
+            Task { await achievements.refresh(showLoading: false) }
+        }
+        .onChange(of: cosmetics.ownedPetIDs) { oldIDs, newIDs in
+            guard newIDs.count > oldIDs.count else { return }
+            Task { await achievements.refresh(showLoading: false) }
         }
     }
 
@@ -338,7 +369,7 @@ struct RootView: View {
                     Text("Achievements")
                         .font(palette.appFont(size: 16, weight: .bold, relativeTo: .body))
                     Spacer(minLength: 6)
-                    Text(backend.isAuthenticated ? "0 / 5 claimed" : "Sign in to claim")
+                    Text(achievements.menuSummary)
                         .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
                         .foregroundStyle(Color(hex: palette.muted))
                 }
@@ -349,6 +380,30 @@ struct RootView: View {
                     theme: palette,
                     accent: Color(hex: palette.achievementsAccent)
                 )
+            )
+            .overlay(alignment: .topTrailing) {
+                if achievements.payload.authenticated, achievements.claimableCount > 0 {
+                    GlowStampView(
+                        text: "*",
+                        tone: Color(hex: palette.achievementsAccent),
+                        theme: palette,
+                        tilt: -9,
+                        size: 11,
+                        horizontalPadding: 6,
+                        verticalPadding: 2
+                    )
+                    .offset(x: 5, y: -6)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
+            .accessibilityLabel("Achievements")
+            .accessibilityValue(
+                achievements.claimableCount > 0
+                    ? "\(achievements.claimableCount) "
+                        + (achievements.claimableCount == 1 ? "reward" : "rewards")
+                        + " ready to claim"
+                    : achievements.menuSummary
             )
             .accessibilityIdentifier("open-achievements")
 
@@ -673,37 +728,6 @@ struct RootView: View {
         .webCardStyle(theme: palette, padding: 16)
     }
 
-    private var achievementsSheet: some View {
-        NavigationStack {
-            ZStack {
-                AppThemeBackground(theme: palette)
-                VStack(spacing: 16) {
-                    Image(systemName: "trophy.fill")
-                        .font(.system(size: 48, weight: .black))
-                        .foregroundStyle(Color(hex: palette.achievementsAccent))
-                    Text("Achievements")
-                        .font(palette.appFont(size: 30, weight: .black, relativeTo: .largeTitle))
-                    Text(
-                        "The menu entry now matches the original. The native achievement catalog and claim flow are the next backend feature slice."
-                    )
-                    .font(palette.appFont(size: 15, relativeTo: .body))
-                    .foregroundStyle(Color(hex: palette.muted))
-                    .multilineTextAlignment(.center)
-                }
-                .foregroundStyle(Color(hex: palette.foreground))
-                .webCardStyle(theme: palette, padding: 20)
-                .padding(20)
-            }
-            .navigationTitle("Achievements")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showsAchievements = false }
-                }
-            }
-        }
-    }
-
     private func restoreSession() async {
         accountBusy = true
         defer { accountBusy = false }
@@ -729,6 +753,7 @@ struct RootView: View {
             let token = try await googleIdentity.signIn()
             let session = try await backend.login(googleIDToken: token)
             nickname = session.profile?.nicknameConfirmed == false ? "" : session.profile?.nickname ?? ""
+            await achievements.refresh(showLoading: false)
             accountStatus = nil
         } catch {
             accountStatus = error.localizedDescription
@@ -741,6 +766,7 @@ struct RootView: View {
         do {
             _ = try await backend.logout()
             googleIdentity.signOut()
+            await achievements.refresh(showLoading: false)
             accountStatus = nil
         } catch {
             accountStatus = error.localizedDescription
@@ -785,9 +811,11 @@ struct RootView: View {
     let backend = BackendClient()
     let preferences = AppPreferences()
     let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
+    let achievements = AchievementsController(backend: backend)
     RootView(services: .localOnly, googleIdentity: GoogleIdentityService())
         .environmentObject(backend)
         .environmentObject(preferences)
         .environmentObject(cosmetics)
+        .environmentObject(achievements)
         .environmentObject(AudioController())
 }

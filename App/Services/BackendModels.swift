@@ -135,6 +135,119 @@ struct PetVisibilityResponse: Codable, Equatable {
     let coinBalance: Int
 }
 
+enum AchievementState: String, Codable, Equatable, Sendable {
+    case locked
+    case claimable
+    case claimed
+}
+
+struct AchievementItem: Codable, Equatable, Identifiable, Sendable {
+    let id: String
+    let title: String
+    let description: String
+    let rewardCoins: Int
+    let state: AchievementState
+    let unlockedAt: String?
+    let claimedAt: String?
+}
+
+struct AchievementsResponse: Codable, Equatable, Sendable {
+    let authenticated: Bool
+    let achievements: [AchievementItem]
+    let claimedCount: Int
+    let totalCount: Int
+    let coinBalance: Int
+    let achievement: AchievementItem?
+    let coinsEarned: Int?
+    let duplicate: Bool?
+
+    init(
+        authenticated: Bool,
+        achievements: [AchievementItem],
+        claimedCount: Int,
+        totalCount: Int,
+        coinBalance: Int,
+        achievement: AchievementItem? = nil,
+        coinsEarned: Int? = nil,
+        duplicate: Bool? = nil
+    ) {
+        self.authenticated = authenticated
+        self.achievements = achievements
+        self.claimedCount = claimedCount
+        self.totalCount = totalCount
+        self.coinBalance = coinBalance
+        self.achievement = achievement
+        self.coinsEarned = coinsEarned
+        self.duplicate = duplicate
+    }
+
+    var claimableCount: Int {
+        achievements.filter { $0.state == .claimable }.count
+    }
+}
+
+enum AchievementCatalog {
+    static let definitions = [
+        definition(
+            id: "complete_arcade",
+            title: "Complete Arcade mode",
+            description: "Play until all three Arcade lives are gone.",
+            rewardCoins: 1
+        ),
+        definition(
+            id: "godlike_speed",
+            title: "Show Godlike speed",
+            description: "Make a correct tap in under 250 ms.",
+            rewardCoins: 1
+        ),
+        definition(
+            id: "collect_5_coins",
+            title: "Collect 5 coins",
+            description: "Collect five coins in total.",
+            rewardCoins: 5
+        ),
+        definition(
+            id: "score_over_100k",
+            title: "Score more than 100K",
+            description: "Score over 100,000 points in one run.",
+            rewardCoins: 5
+        ),
+        definition(
+            id: "buy_a_pet",
+            title: "Buy a pet",
+            description: "Purchase any pet from the shop.",
+            rewardCoins: 10
+        ),
+    ]
+
+    static func lockedResponse(authenticated: Bool, coinBalance: Int = 0) -> AchievementsResponse {
+        AchievementsResponse(
+            authenticated: authenticated,
+            achievements: definitions,
+            claimedCount: 0,
+            totalCount: definitions.count,
+            coinBalance: coinBalance
+        )
+    }
+
+    private static func definition(
+        id: String,
+        title: String,
+        description: String,
+        rewardCoins: Int
+    ) -> AchievementItem {
+        AchievementItem(
+            id: id,
+            title: title,
+            description: description,
+            rewardCoins: rewardCoins,
+            state: .locked,
+            unlockedAt: nil,
+            claimedAt: nil
+        )
+    }
+}
+
 struct RunTicket: Codable, Equatable {
     let runId: String
     let mode: String

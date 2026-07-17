@@ -258,7 +258,7 @@ enum DiscoThemeTokens {
     static let cellBorderHex = "#5f666b"
     static let activeBorderHex = "#d9dde0"
     static let activeCellHexes = [
-        "#00f2f7", "#ffe13f", "#ff3da8", "#7cf238", "#ff7a36", "#9368ff",
+        "#00ffff", "#ffe600", "#ff008c", "#61ff00", "#ff5a00", "#7b00ff",
     ]
     static let idleScratchOpacity = 0.16
     static let activeScratchOpacity = 0.26
@@ -311,52 +311,64 @@ struct GameCellPreview: View {
                 effects.discoBacklight ? side * 0.09 : (isTarget ? 6 : 3)
             let secondaryGlowRadius = effects.discoBacklight ? side * 0.18 : 0
 
-            shape
-                .fill(fillColor)
-                .overlay {
-                    if theme.id == "disco", colorIndex != nil {
-                        Image("disco-tile-overlay", bundle: .main)
-                            .resizable()
-                            .scaledToFill()
-                            .blendMode(.screen)
-                            .opacity(DiscoThemeTokens.activeScratchOpacity)
-                            .clipShape(shape)
+            ZStack {
+                if effects.discoBacklight {
+                    shape
+                        .fill(primaryGlowColor.opacity(0.24))
+                        .shadow(color: primaryGlowColor, radius: primaryGlowRadius)
+                        .shadow(color: secondaryGlowColor, radius: secondaryGlowRadius)
+                }
+
+                if effects.requiresBlackCornerUnderlay {
+                    Rectangle().fill(Color.black)
+                }
+
+                shape
+                    .fill(fillColor)
+                    .overlay {
+                        if theme.id == "disco", colorIndex != nil {
+                            Image("disco-tile-overlay", bundle: .main)
+                                .resizable()
+                                .scaledToFill()
+                                .blendMode(.screen)
+                                .opacity(DiscoThemeTokens.activeScratchOpacity)
+                                .clipShape(shape)
+                        }
                     }
-                }
-                .overlay {
-                    GameCellSurfaceOverlay(
-                        theme: theme,
-                        cornerRadius: cornerRadius,
-                        effects: effects
-                    )
-                }
-                .overlay {
-                    if showsGlyphs {
-                        CenteredColorGlyphView(
-                            glyph: glyph,
-                            color: glyphColor,
-                            size: GameCellVisualMetrics.glyphBoxSide(side: side),
-                            style: effects.glyphStyle
+                    .overlay {
+                        GameCellSurfaceOverlay(
+                            theme: theme,
+                            cornerRadius: cornerRadius,
+                            effects: effects,
+                            activeColor: colorIndex.map { theme.color(at: $0) }
                         )
                     }
-                }
-                .overlay {
-                    shape.stroke(
-                        strokeColor,
-                        lineWidth: isTarget
-                            ? GameCellVisualMetrics.targetBorderWidth
-                            : GameCellVisualMetrics.activeBorderWidth
+                    .overlay {
+                        if showsGlyphs {
+                            CenteredColorGlyphView(
+                                glyph: glyph,
+                                color: glyphColor,
+                                size: GameCellVisualMetrics.glyphBoxSide(side: side),
+                                style: effects.glyphStyle
+                            )
+                        }
+                    }
+                    .overlay {
+                        shape.stroke(
+                            strokeColor,
+                            lineWidth: isTarget
+                                ? GameCellVisualMetrics.targetBorderWidth
+                                : GameCellVisualMetrics.activeBorderWidth
+                        )
+                    }
+                    .shadow(
+                        color: effects.requiresBlackCornerUnderlay
+                            ? .clear
+                            : primaryGlowColor,
+                        radius: theme.isPixel ? 0 : primaryGlowRadius
                     )
-                }
-                .shadow(
-                    color: primaryGlowColor,
-                    radius: theme.isPixel ? 0 : primaryGlowRadius
-                )
-                .shadow(
-                    color: secondaryGlowColor,
-                    radius: secondaryGlowRadius
-                )
-                .frame(width: proxy.size.width, height: proxy.size.height)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .aspectRatio(1, contentMode: .fit)
     }
@@ -396,6 +408,7 @@ private struct GameCellSurfaceOverlay: View {
     let theme: ThemePalette
     let cornerRadius: CGFloat
     let effects: GameCellSurfaceEffects
+    let activeColor: Color?
 
     var body: some View {
         GeometryReader { proxy in
@@ -404,6 +417,16 @@ private struct GameCellSurfaceOverlay: View {
 
             ZStack {
                 if effects.discoBacklight {
+                    if let activeColor {
+                        shape
+                            .fill(
+                                activeColor.opacity(
+                                    GameCellEffectTokens.discoColorBoostOpacity
+                                )
+                            )
+                            .blendMode(.plusLighter)
+                    }
+
                     RadialGradient(
                         stops: [
                             .init(

@@ -5,6 +5,7 @@ struct PimPoPomApp: App {
     @StateObject private var backend: BackendClient
     @StateObject private var preferences: AppPreferences
     @StateObject private var cosmetics: CosmeticsController
+    @StateObject private var achievements: AchievementsController
     @StateObject private var audio: AudioController
     private let services = AlphaServices.localOnly
     private let googleIdentity = GoogleIdentityService()
@@ -17,6 +18,7 @@ struct PimPoPomApp: App {
         _cosmetics = StateObject(
             wrappedValue: CosmeticsController(backend: backend, preferences: preferences)
         )
+        _achievements = StateObject(wrappedValue: AchievementsController(backend: backend))
         _audio = StateObject(wrappedValue: AudioController())
     }
 
@@ -26,6 +28,7 @@ struct PimPoPomApp: App {
                 .environmentObject(backend)
                 .environmentObject(preferences)
                 .environmentObject(cosmetics)
+                .environmentObject(achievements)
                 .environmentObject(audio)
                 .onOpenURL { _ = googleIdentity.handle($0) }
                 .preferredColorScheme(cosmetics.theme.isLight ? .light : .dark)

@@ -23,6 +23,7 @@ final class BackendClient: ObservableObject {
     private let urlSession: URLSession
     private let isUITestOffline: Bool
     private var uiTestSession: SessionResponse?
+    private var uiTestAchievements: AchievementsResponse?
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
     private var csrfToken: String?
@@ -41,7 +42,9 @@ final class BackendClient: ObservableObject {
         self.isUITestOffline = isUITestOffline
         uiTestSession =
             if isUITestOffline {
-                if ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile") {
+                if ProcessInfo.processInfo.arguments.contains("--ui-test-achievements-profile") {
+                    Self.uiTestAchievementSession
+                } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile") {
                     Self.uiTestPancakeSession
                 } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pet-profile") {
                     Self.uiTestPetSession
@@ -51,6 +54,14 @@ final class BackendClient: ObservableObject {
             } else {
                 nil
             }
+        if isUITestOffline {
+            uiTestAchievements = Self.uiTestAchievementResponse(
+                session: uiTestSession,
+                exposesClaimableFixture: ProcessInfo.processInfo.arguments.contains(
+                    "--ui-test-achievements-profile"
+                )
+            )
+        }
         if let urlSession {
             self.urlSession = urlSession
         } else {
@@ -159,6 +170,91 @@ final class BackendClient: ObservableObject {
             )
         }
         return try await request(path: "/api/pets")
+    }
+
+    func loadAchievements() async throws -> AchievementsResponse {
+        if isUITestOffline {
+            return uiTestAchievements
+                ?? Self.uiTestAchievementResponse(
+                    session: uiTestSession,
+                    exposesClaimableFixture: false
+                )
+        }
+
+        let epoch = sessionStateEpoch
+        let playerID = sessionState?.profile?.id
+        let response: AchievementsResponse = try await request(path: "/api/achievements")
+        guard Self.isValidAchievementCatalog(response) else {
+            throw Self.invalidAchievementResponseError
+        }
+        if response.authenticated != isAuthenticated {
+            let refreshedSession = try await loadSession()
+            guard response.authenticated == refreshedSession.authenticated else {
+                throw Self.invalidAchievementResponseError
+            }
+        }
+        guard epoch == sessionStateEpoch, playerID == sessionState?.profile?.id else {
+            throw Self.staleSessionError
+        }
+        if response.authenticated,
+            let profile = sessionState?.profile,
+            profile.id == playerID,
+            response.coinBalance >= 0
+        {
+            replaceProfile(replacingCoins(in: profile, with: response.coinBalance))
+        }
+        return response
+    }
+
+    @discardableResult
+    func claimAchievement(_ achievementID: String) async throws -> AchievementsResponse {
+        let id = achievementID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !id.isEmpty else { throw Self.invalidAchievementError }
+        if isUITestOffline { return try uiTestClaimAchievement(id) }
+
+        let body = try encoder.encode(["id": id])
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            let response: AchievementsResponse = try await request(
+                path: "/api/achievements/claim",
+                method: "POST",
+                body: body,
+                csrf: csrfToken
+            )
+            guard isCurrent(token),
+                token.playerID == sessionState?.profile?.id
+            else {
+                throw Self.staleSessionError
+            }
+            guard
+                Self.isValidAchievementCatalog(response),
+                response.authenticated,
+                let claimedAchievement = response.achievement,
+                claimedAchievement.id == id,
+                claimedAchievement.state == .claimed,
+                response.achievements.contains(where: {
+                    $0.id == id && $0.state == .claimed
+                }),
+                let coinsEarned = response.coinsEarned,
+                coinsEarned >= 0,
+                response.duplicate != nil
+            else {
+                throw Self.invalidAchievementResponseError
+            }
+            if let currentProfile = sessionState?.profile {
+                replaceProfile(replacingCoins(in: currentProfile, with: response.coinBalance))
+            }
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            if let backendError = error as? BackendError,
+                backendError.status == 401 || backendError.status == 403
+            {
+                _ = try? await loadSession()
+            }
+            throw error
+        }
     }
 
     @discardableResult
@@ -559,6 +655,87 @@ final class BackendClient: ObservableObject {
         )
     }
 
+    private func replacingCoins(
+        in profile: PlayerProfile,
+        with coins: Int
+    ) -> PlayerProfile {
+        PlayerProfile(
+            id: profile.id,
+            nickname: profile.nickname,
+            nicknameConfirmed: profile.nicknameConfirmed,
+            coins: coins,
+            totalPlayMs: profile.totalPlayMs,
+            ownedPetIds: profile.ownedPetIds,
+            selectedPetId: profile.selectedPetId,
+            petVisible: profile.petVisible,
+            equippedPetId: profile.equippedPetId,
+            specialPetId: profile.specialPetId,
+            ownedThemeIds: profile.ownedThemeIds,
+            selectedThemeId: profile.selectedThemeId,
+            isAdmin: profile.isAdmin,
+            createdAt: profile.createdAt,
+            updatedAt: profile.updatedAt
+        )
+    }
+
+    private static func isValidAchievementCatalog(_ response: AchievementsResponse) -> Bool {
+        let items = response.achievements
+        return response.coinBalance >= 0
+            && response.claimedCount >= 0
+            && response.totalCount == items.count
+            && response.claimedCount == items.filter { $0.state == .claimed }.count
+            && Set(items.map(\.id)).count == items.count
+            && items.allSatisfy {
+                !$0.id.isEmpty
+                    && !$0.title.isEmpty
+                    && !$0.description.isEmpty
+                    && $0.rewardCoins > 0
+            }
+    }
+
+    private func uiTestClaimAchievement(_ achievementID: String) throws -> AchievementsResponse {
+        guard let current = uiTestAchievements,
+            let item = current.achievements.first(where: { $0.id == achievementID })
+        else { throw Self.invalidAchievementError }
+        guard item.state != .locked else {
+            throw BackendError(
+                status: 409,
+                message: "Complete this achievement before claiming its coins.",
+                code: "achievement-locked"
+            )
+        }
+        guard let currentProfile = uiTestSession?.profile else {
+            throw Self.authenticationRequiredError
+        }
+
+        let duplicate = item.state == .claimed
+        let coinsEarned = duplicate ? 0 : item.rewardCoins
+        let claimed = AchievementItem(
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            rewardCoins: item.rewardCoins,
+            state: .claimed,
+            unlockedAt: item.unlockedAt ?? "2026-07-17T00:00:00.000Z",
+            claimedAt: item.claimedAt ?? "2026-07-17T00:00:01.000Z"
+        )
+        let items = current.achievements.map { $0.id == achievementID ? claimed : $0 }
+        let coinBalance = currentProfile.coins + coinsEarned
+        let response = AchievementsResponse(
+            authenticated: true,
+            achievements: items,
+            claimedCount: items.filter { $0.state == .claimed }.count,
+            totalCount: items.count,
+            coinBalance: coinBalance,
+            achievement: claimed,
+            coinsEarned: coinsEarned,
+            duplicate: duplicate
+        )
+        uiTestAchievements = response
+        replaceProfile(replacingCoins(in: currentProfile, with: coinBalance))
+        return response
+    }
+
     private static let uiTestSignedOutSession = SessionResponse(
         authenticated: false,
         csrfToken: "ui-test-offline",
@@ -623,6 +800,71 @@ final class BackendClient: ObservableObject {
             GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
         ]
     )
+
+    private static let uiTestAchievementSession = SessionResponse(
+        authenticated: true,
+        csrfToken: "ui-test-offline",
+        googleClientId: "placeholder.apps.googleusercontent.com",
+        season: Season(id: "ui-test", name: "Offline UI Test"),
+        profile: PlayerProfile(
+            id: "ui-test-achievement-player",
+            nickname: "RewardRunner",
+            nicknameConfirmed: true,
+            coins: 9,
+            totalPlayMs: 120_000,
+            ownedPetIds: ["foka"],
+            selectedPetId: "foka",
+            petVisible: true,
+            equippedPetId: "foka",
+            specialPetId: nil,
+            ownedThemeIds: ["classic", "disco", "light", "pixel"],
+            selectedThemeId: "classic",
+            isAdmin: false,
+            createdAt: "2026-07-15T00:00:00Z",
+            updatedAt: "2026-07-15T00:00:00Z"
+        ),
+        ranks: [
+            GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
+            GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
+        ]
+    )
+
+    private static func uiTestAchievementResponse(
+        session: SessionResponse?,
+        exposesClaimableFixture: Bool
+    ) -> AchievementsResponse {
+        guard exposesClaimableFixture, session?.authenticated == true else {
+            return AchievementCatalog.lockedResponse(
+                authenticated: session?.authenticated == true,
+                coinBalance: session?.profile?.coins ?? 0
+            )
+        }
+
+        let items = AchievementCatalog.definitions.map { item in
+            let state: AchievementState =
+                switch item.id {
+                case "complete_arcade": .claimable
+                case "godlike_speed": .claimed
+                default: .locked
+                }
+            return AchievementItem(
+                id: item.id,
+                title: item.title,
+                description: item.description,
+                rewardCoins: item.rewardCoins,
+                state: state,
+                unlockedAt: state == .locked ? nil : "2026-07-17T00:00:00.000Z",
+                claimedAt: state == .claimed ? "2026-07-17T00:00:01.000Z" : nil
+            )
+        }
+        return AchievementsResponse(
+            authenticated: true,
+            achievements: items,
+            claimedCount: 1,
+            totalCount: items.count,
+            coinBalance: session?.profile?.coins ?? 0
+        )
+    }
 
     private static let uiTestThemes = ThemeCatalogResponse(
         themes: [
@@ -740,5 +982,17 @@ final class BackendClient: ObservableObject {
         status: 401,
         message: "Sign in with Google to continue.",
         code: "authentication-required"
+    )
+
+    private static let invalidAchievementError = BackendError(
+        status: 400,
+        message: "An achievement ID is required.",
+        code: "invalid-achievement"
+    )
+
+    private static let invalidAchievementResponseError = BackendError(
+        status: 0,
+        message: "The achievement response could not be verified. Refresh and try again.",
+        code: "invalid-response"
     )
 }

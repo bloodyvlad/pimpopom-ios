@@ -70,6 +70,30 @@ final class GameplayLifecycleTests: XCTestCase {
         scene.apply(active)
 
         scene.applyTheme("disco")
+        let discoCell = try XCTUnwrap(
+            scene.children.first { $0.name == "cell-0" } as? SKShapeNode
+        )
+        let discoUnderlay = try XCTUnwrap(
+            scene.children.first { $0.name == "cell-0-disco-corner-underlay" }
+                as? SKShapeNode
+        )
+        assertColor(discoUnderlay.fillColor, equals: .black)
+        XCTAssertEqual(discoUnderlay.fillColor.cgColor.alpha, 1, accuracy: 0.001)
+        XCTAssertLessThan(discoUnderlay.zPosition, discoCell.zPosition)
+        XCTAssertEqual(discoCell.glowWidth, 0)
+
+        let discoBoost = try XCTUnwrap(
+            scene.children.first { $0.name == "cell-0-disco-color-boost" }
+                as? SKShapeNode
+        )
+        XCTAssertEqual(discoBoost.blendMode, .add)
+        assertColor(
+            discoBoost.fillColor,
+            equals: ThemePalette.disco.uiColor(at: 0).withAlphaComponent(
+                GameCellEffectTokens.discoColorBoostOpacity
+            )
+        )
+        XCTAssertGreaterThan(discoBoost.zPosition, discoCell.zPosition)
         XCTAssertTrue(scene.children.contains { $0.name?.contains("disco-backlight") == true })
 
         scene.applyTheme("light")
@@ -199,5 +223,47 @@ final class GameplayLifecycleTests: XCTestCase {
         )
         coordinator.stop()
         return coordinator.ratingStampEvent
+    }
+
+    private func assertColor(
+        _ actual: UIColor,
+        equals expected: UIColor,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        var actualRed: CGFloat = 0
+        var actualGreen: CGFloat = 0
+        var actualBlue: CGFloat = 0
+        var actualAlpha: CGFloat = 0
+        var expectedRed: CGFloat = 0
+        var expectedGreen: CGFloat = 0
+        var expectedBlue: CGFloat = 0
+        var expectedAlpha: CGFloat = 0
+        XCTAssertTrue(
+            actual.getRed(
+                &actualRed,
+                green: &actualGreen,
+                blue: &actualBlue,
+                alpha: &actualAlpha
+            ),
+            file: file,
+            line: line
+        )
+        XCTAssertTrue(
+            expected.getRed(
+                &expectedRed,
+                green: &expectedGreen,
+                blue: &expectedBlue,
+                alpha: &expectedAlpha
+            ),
+            file: file,
+            line: line
+        )
+        for (actualComponent, expectedComponent) in zip(
+            [actualRed, actualGreen, actualBlue, actualAlpha],
+            [expectedRed, expectedGreen, expectedBlue, expectedAlpha]
+        ) {
+            XCTAssertEqual(actualComponent, expectedComponent, accuracy: 0.001, file: file, line: line)
+        }
     }
 }

@@ -53,8 +53,19 @@ enum GameGlyphGeometry {
             raw.addLine(to: CGPoint(x: 0, y: 0.5))
             raw.closeSubpath()
         case "✚":
-            raw.addRect(CGRect(x: 0.34, y: 0, width: 0.32, height: 1))
-            raw.addRect(CGRect(x: 0, y: 0.34, width: 1, height: 0.32))
+            raw.move(to: CGPoint(x: 0.34, y: 0))
+            raw.addLine(to: CGPoint(x: 0.66, y: 0))
+            raw.addLine(to: CGPoint(x: 0.66, y: 0.34))
+            raw.addLine(to: CGPoint(x: 1, y: 0.34))
+            raw.addLine(to: CGPoint(x: 1, y: 0.66))
+            raw.addLine(to: CGPoint(x: 0.66, y: 0.66))
+            raw.addLine(to: CGPoint(x: 0.66, y: 1))
+            raw.addLine(to: CGPoint(x: 0.34, y: 1))
+            raw.addLine(to: CGPoint(x: 0.34, y: 0.66))
+            raw.addLine(to: CGPoint(x: 0, y: 0.66))
+            raw.addLine(to: CGPoint(x: 0, y: 0.34))
+            raw.addLine(to: CGPoint(x: 0.34, y: 0.34))
+            raw.closeSubpath()
         default:
             let startAngle = yAxis == .down ? -Double.pi / 2 : Double.pi / 2
             for index in 0..<10 {
@@ -150,22 +161,38 @@ struct PixelNoiseSample: Equatable, Sendable {
 
 enum PixelNoisePattern {
     static let gridSize = 32
-    static let sampleCount = 16
+    static let sampleCount = 32
+    static let lightSampleRatio = 0.75
+
+    static func squareSide(for side: CGFloat) -> CGFloat {
+        max(1, floor(side / CGFloat(gridSize)))
+    }
 
     static func samples(seed: Int) -> [PixelNoiseSample] {
         var state = UInt64(bitPattern: Int64(seed)) ^ 0x9E37_79B9_7F4A_7C15
-        return (0..<sampleCount).map { index in
+        var occupied: Set<Int> = []
+        var result: [PixelNoiseSample] = []
+        while result.count < sampleCount {
             state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
             let x = Int((state >> 18) % UInt64(gridSize))
             state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
             let y = Int((state >> 21) % UInt64(gridSize))
-            return PixelNoiseSample(x: x, y: y, isLight: index.isMultiple(of: 2))
+            guard occupied.insert(y * gridSize + x).inserted else { continue }
+            result.append(
+                PixelNoiseSample(
+                    x: x,
+                    y: y,
+                    isLight: Double(result.count) / Double(sampleCount) < lightSampleRatio
+                )
+            )
         }
+        return result
     }
 }
 
 struct GameCellSurfaceEffects: Equatable, Sendable {
     let discoBacklight: Bool
+    let requiresBlackCornerUnderlay: Bool
     let lightGlass: Bool
     let pixelNoise: Bool
     let glyphStyle: GameGlyphStyle
@@ -174,6 +201,7 @@ struct GameCellSurfaceEffects: Equatable, Sendable {
     static func resolve(theme: ThemePalette, isLit: Bool, seed: Int) -> Self {
         Self(
             discoBacklight: theme.id == "disco" && isLit,
+            requiresBlackCornerUnderlay: theme.id == "disco",
             lightGlass: theme.id == "light",
             pixelNoise: theme.id == "pixel",
             glyphStyle: theme.isPixel ? .pixel : .smooth,
@@ -183,16 +211,17 @@ struct GameCellSurfaceEffects: Equatable, Sendable {
 }
 
 enum GameCellEffectTokens {
-    static let discoCenterWhiteOpacity = 0.58
-    static let discoMidpointWhiteOpacity = 0.22
-    static let discoPrimaryGlowOpacity = 0.82
-    static let discoSecondaryGlowOpacity = 0.46
+    static let discoCenterWhiteOpacity = 0.08
+    static let discoMidpointWhiteOpacity = 0.02
+    static let discoColorBoostOpacity = 0.38
+    static let discoPrimaryGlowOpacity = 0.90
+    static let discoSecondaryGlowOpacity = 0.16
     static let lightTopHighlightOpacity = 0.55
     static let lightSpecularOpacity = 0.18
     static let lightLowerShadeOpacity = 0.10
     static let lightInnerStrokeOpacity = 0.82
-    static let pixelLightNoiseOpacity = 0.055
-    static let pixelDarkNoiseOpacity = 0.040
+    static let pixelLightNoiseOpacity = 0.15
+    static let pixelDarkNoiseOpacity = 0.03
 }
 
 struct PixelTileNoiseView: View {
@@ -201,7 +230,7 @@ struct PixelTileNoiseView: View {
     var body: some View {
         Canvas(opaque: false, colorMode: .nonLinear) { context, size in
             let side = min(size.width, size.height)
-            let pixel = max(1, floor(side / 64))
+            let pixel = PixelNoisePattern.squareSide(for: side)
             for sample in PixelNoisePattern.samples(seed: seed) {
                 let rawX = CGFloat(sample.x) / CGFloat(PixelNoisePattern.gridSize) * size.width
                 let rawY = CGFloat(sample.y) / CGFloat(PixelNoisePattern.gridSize) * size.height

@@ -121,6 +121,339 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(recorder.requests(forPath: "/api/logout").count, 0)
     }
 
+    func testAchievementLoadAndClaimUseAuthoritativeCSRFContractAndUpdateCoins() async throws {
+        let recorder = RequestRecorder()
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let claimable = AchievementItem(
+            id: "complete_arcade",
+            title: "Complete Arcade mode",
+            description: "Play until all three Arcade lives are gone.",
+            rewardCoins: 1,
+            state: .claimable,
+            unlockedAt: "2026-07-17T00:00:00.000Z",
+            claimedAt: nil
+        )
+        let loaded = AchievementsResponse(
+            authenticated: true,
+            achievements: [claimable],
+            claimedCount: 0,
+            totalCount: 1,
+            coinBalance: 75
+        )
+        let claimed = AchievementItem(
+            id: claimable.id,
+            title: claimable.title,
+            description: claimable.description,
+            rewardCoins: claimable.rewardCoins,
+            state: .claimed,
+            unlockedAt: claimable.unlockedAt,
+            claimedAt: "2026-07-17T00:00:01.000Z"
+        )
+        let claimResponse = AchievementsResponse(
+            authenticated: true,
+            achievements: [claimed],
+            claimedCount: 1,
+            totalCount: 1,
+            coinBalance: 76,
+            achievement: claimed,
+            coinsEarned: 1,
+            duplicate: false
+        )
+        let loadedData = try JSONEncoder().encode(loaded)
+        let claimData = try JSONEncoder().encode(claimResponse)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): return StubResponse(data: sessionData)
+            case ("/api/achievements", "GET"): return StubResponse(data: loadedData)
+            case ("/api/achievements/claim", "POST"):
+                return StubResponse(data: claimData, statusCode: 201)
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let loadedResponse = try await backend.loadAchievements()
+        XCTAssertEqual(loadedResponse, loaded)
+        let response = try await backend.claimAchievement("complete_arcade")
+
+        XCTAssertEqual(response, claimResponse)
+        XCTAssertEqual(backend.profile?.coins, 76)
+        let getRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/achievements").first
+        )
+        XCTAssertEqual(getRequest.method, "GET")
+        let claimRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/achievements/claim").first
+        )
+        XCTAssertEqual(claimRequest.method, "POST")
+        XCTAssertEqual(claimRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+        let body = try XCTUnwrap(claimRequest.body)
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: body) as? [String: String]
+        )
+        XCTAssertEqual(payload, ["id": "complete_arcade"])
+    }
+
+    func testBlankAchievementIDIsRejectedBeforeANetworkMutation() async throws {
+        let recorder = RequestRecorder()
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(data: Data("{}".utf8), statusCode: 500)
+        }
+        let backend = makeBackend()
+
+        do {
+            _ = try await backend.claimAchievement("   ")
+            XCTFail("A blank stable achievement ID must be rejected.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "invalid-achievement")
+        }
+        XCTAssertTrue(recorder.requests(forPath: "/api/achievements/claim").isEmpty)
+    }
+
+    func testAchievementPayloadDecodesTheCurrentPHPShape() throws {
+        let json = Data(
+            #"""
+            {
+              "authenticated": true,
+              "achievements": [{
+                "id": "godlike_speed",
+                "title": "Show Godlike speed",
+                "description": "Make a correct tap in under 250 ms.",
+                "rewardCoins": 1,
+                "state": "claimable",
+                "unlockedAt": "2026-07-17T00:00:00.000Z",
+                "claimedAt": null
+              }],
+              "claimedCount": 0,
+              "totalCount": 5,
+              "coinBalance": 9
+            }
+            """#.utf8
+        )
+
+        let response = try JSONDecoder().decode(AchievementsResponse.self, from: json)
+
+        XCTAssertTrue(response.authenticated)
+        XCTAssertEqual(response.achievements.first?.state, .claimable)
+        XCTAssertEqual(response.claimableCount, 1)
+        XCTAssertNil(response.achievement)
+        XCTAssertNil(response.coinsEarned)
+        XCTAssertNil(response.duplicate)
+    }
+
+    func testRefreshDuringAchievementClaimCannotLeaveClaimsDisabled() async throws {
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let claimable = AchievementItem(
+            id: "complete_arcade",
+            title: "Complete Arcade mode",
+            description: "Play until all three Arcade lives are gone.",
+            rewardCoins: 1,
+            state: .claimable,
+            unlockedAt: "2026-07-17T00:00:00.000Z",
+            claimedAt: nil
+        )
+        let loaded = AchievementsResponse(
+            authenticated: true,
+            achievements: [claimable],
+            claimedCount: 0,
+            totalCount: 1,
+            coinBalance: 75
+        )
+        let claimed = AchievementItem(
+            id: claimable.id,
+            title: claimable.title,
+            description: claimable.description,
+            rewardCoins: claimable.rewardCoins,
+            state: .claimed,
+            unlockedAt: claimable.unlockedAt,
+            claimedAt: "2026-07-17T00:00:01.000Z"
+        )
+        let claimResponse = AchievementsResponse(
+            authenticated: true,
+            achievements: [claimed],
+            claimedCount: 1,
+            totalCount: 1,
+            coinBalance: 76,
+            achievement: claimed,
+            coinsEarned: 1,
+            duplicate: false
+        )
+        let loadedData = try JSONEncoder().encode(loaded)
+        let claimData = try JSONEncoder().encode(claimResponse)
+        StubURLProtocol.handler = { request in
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): StubResponse(data: sessionData)
+            case ("/api/achievements", "GET"): StubResponse(data: loadedData)
+            case ("/api/achievements/claim", "POST"):
+                StubResponse(data: claimData, statusCode: 201, delay: 0.15)
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let controller = AchievementsController(backend: backend)
+        await controller.refresh()
+        let claimTask = Task { @MainActor in await controller.claim(claimable) }
+        try await Task.sleep(for: .milliseconds(25))
+
+        await controller.refresh(showLoading: false)
+        await claimTask.value
+
+        XCTAssertNil(controller.pendingClaimID)
+        XCTAssertEqual(controller.payload.achievements.first?.state, .claimed)
+        XCTAssertEqual(controller.claimedCount, 1)
+        XCTAssertEqual(backend.profile?.coins, 76)
+    }
+
+    func testMalformedSuccessfulClaimResponseIsRejectedWithoutChangingCoins() async throws {
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let claimed = AchievementItem(
+            id: "complete_arcade",
+            title: "Complete Arcade mode",
+            description: "Play until all three Arcade lives are gone.",
+            rewardCoins: 1,
+            state: .claimed,
+            unlockedAt: "2026-07-17T00:00:00.000Z",
+            claimedAt: "2026-07-17T00:00:01.000Z"
+        )
+        let malformed = AchievementsResponse(
+            authenticated: true,
+            achievements: [claimed],
+            claimedCount: 1,
+            totalCount: 1,
+            coinBalance: 76,
+            achievement: claimed
+        )
+        let malformedData = try JSONEncoder().encode(malformed)
+        StubURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/session": StubResponse(data: sessionData)
+            case "/api/achievements/claim": StubResponse(data: malformedData, statusCode: 201)
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        do {
+            _ = try await backend.claimAchievement("complete_arcade")
+            XCTFail("A malformed successful response must not update local economy state.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "invalid-response")
+        }
+        XCTAssertEqual(backend.profile?.coins, 75)
+    }
+
+    func testAchievementAuthenticationMismatchRefreshesTheSession() async throws {
+        let sessionRequestCounter = LockedCounter()
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        let signedOutData = try JSONEncoder().encode(Self.signedOutSession)
+        let achievementsData = try JSONEncoder().encode(
+            AchievementCatalog.lockedResponse(authenticated: false)
+        )
+        StubURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/session":
+                StubResponse(
+                    data: sessionRequestCounter.increment() == 1 ? signedInData : signedOutData
+                )
+            case "/api/achievements": StubResponse(data: achievementsData)
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        XCTAssertTrue(backend.isAuthenticated)
+
+        do {
+            _ = try await backend.loadAchievements()
+            XCTFail("The response belongs to the expired account identity.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "stale-session")
+        }
+        XCTAssertFalse(backend.isAuthenticated)
+        XCTAssertNil(backend.profile)
+    }
+
+    func testExpiredSessionDuringAchievementClaimSignsTheLocalPlayerOut() async throws {
+        let sessionRequestCounter = LockedCounter()
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        let signedOutData = try JSONEncoder().encode(Self.signedOutSession)
+        StubURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/session":
+                StubResponse(
+                    data: sessionRequestCounter.increment() == 1 ? signedInData : signedOutData
+                )
+            case "/api/achievements/claim":
+                StubResponse(
+                    data: Data(#"{"error":"Sign in with Google to continue."}"#.utf8),
+                    statusCode: 401
+                )
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        do {
+            _ = try await backend.claimAchievement("complete_arcade")
+            XCTFail("An expired authenticated session must reject the claim.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.status, 401)
+        }
+        XCTAssertFalse(backend.isAuthenticated)
+        XCTAssertNil(backend.profile)
+        XCTAssertEqual(sessionRequestCounter.currentValue, 2)
+    }
+
+    func testExpiredCSRFDuringAchievementClaimRefreshesTheSecurityToken() async throws {
+        let sessionRequestCounter = LockedCounter()
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        let refreshedSession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-3",
+            googleClientId: Self.signedInSession.googleClientId,
+            season: Self.signedInSession.season,
+            profile: Self.signedInSession.profile,
+            ranks: Self.signedInSession.ranks
+        )
+        let refreshedData = try JSONEncoder().encode(refreshedSession)
+        StubURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/session":
+                StubResponse(
+                    data: sessionRequestCounter.increment() == 1
+                        ? signedInData
+                        : refreshedData
+                )
+            case "/api/achievements/claim":
+                StubResponse(
+                    data: Data(#"{"error":"Your security token expired. Please try again."}"#.utf8),
+                    statusCode: 403
+                )
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        do {
+            _ = try await backend.claimAchievement("complete_arcade")
+            XCTFail("An expired CSRF token must reject the first claim attempt.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.status, 403)
+        }
+        XCTAssertTrue(backend.isAuthenticated)
+        XCTAssertEqual(backend.sessionState?.csrfToken, "csrf-3")
+        XCTAssertEqual(sessionRequestCounter.currentValue, 2)
+    }
+
     func testRankedRunStartAndFinishPreserveTicketProofContract() async throws {
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.signedInSession)
@@ -435,6 +768,10 @@ private struct RecordedRequest: @unchecked Sendable {
 private final class LockedCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var value = 0
+
+    var currentValue: Int {
+        lock.withLock { value }
+    }
 
     func increment() -> Int {
         lock.withLock {
