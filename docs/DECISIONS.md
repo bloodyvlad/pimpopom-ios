@@ -221,7 +221,7 @@ Revisit when: A deliberately new PimPoPom brand system is accepted, the web desi
 ## P-017 — Use fixed native screens while preserving the current game presentation
 
 - Date: 2026-07-17
-- Status: Accepted
+- Status: Accepted; pet-facing detail superseded by P-019
 
 Context: The scrollable floating web dialog was appropriate for a browser but made the native app feel like a restyled port. The owner requested a fixed main menu, closer gameplay chrome, repaired pet behavior, and specific Light/Pixel corrections while retaining the current rules and shared backend. Parent SpeedyTapper commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0` adds the current menu-slogan pool and rotation behavior.
 
@@ -238,7 +238,7 @@ Revisit when: Dynamic Type or localization cannot fit the fixed menu without an 
 ## P-018 — Complete the next native visual-parity and companion pass
 
 - Date: 2026-07-17
-- Status: Accepted
+- Status: Accepted; slogan, companion, Leaderboard, and result details superseded by P-019
 
 Context: After accepting the fixed-screen native composition, the owner requested a closer translation of the remaining PHP presentation at parent web `main` commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0`. The requested batch adds expressive hit feedback, surface-specific companion placement, a replacement Pancake, stable shop loading, and detailed Leaderboard/Profile/Game Over presentation. It deliberately advances the items that P-017 left for a later batch.
 
@@ -251,3 +251,22 @@ In Light only, place a subtle white/blue button-like plate behind the wordmark f
 Consequences: The native client gains the missing PHP information hierarchy without a schema migration or a second source of account/economy truth. Visual randomness is non-authoritative and deterministic under UI tests. New shared Leaderboard/rating/loading components and retained Pancake sources become regression and asset-validation inputs. Physical iPhone touch, animation, listening, Dynamic Type, VoiceOver, and final public artwork review remain explicit acceptance gates.
 
 Revisit when: Parent visual behavior changes, screen-reader or compact-layout evidence requires a different presentation, backend profile/leaderboard contracts change, or the deferred public-release ownership review rejects or replaces an asset.
+
+## P-019 — Refine native utilities, live ranking presentation, and companion controls
+
+- Date: 2026-07-17
+- Status: Accepted
+
+Context: The expanded parity build retained service/version/local-practice explanations in player-facing Leaderboard and Game Over surfaces, used separate Theme action buttons, and still interpreted companion direction with a vertical-angle rule. The owner requested the cleaner current web utility styling, direct theme-tile interaction, exact horizontal pet-facing zones, final surface offsets, and a Game Center connection or placeholder without replacing the existing live backend.
+
+Decision: Keep Hostinger as the only authoritative leaderboard and economy. Public Leaderboard reads remain live. A Google-authenticated player with a confirmed nickname automatically requests an Arcade run ticket and submits the chronological proof at Game Over; anonymous Arcade and all Zen runs remain unranked. Remove the Leaderboard service footer and the persistent result block that described local practice, service, or version. Show only transient saving or upload-failure/retry state. Preserve the ranked ticket, CSRF, build, ruleset, proof-version, abandon, finish, and session-refresh paths.
+
+Use the exact reviewed web coin geometry and colors wherever a visible coin accompanies a balance or price. Give menu coin and rank badges the reviewed black border; show the current signed-in Arcade rank on the trophy. Stack each Leaderboard pet below its place number so nickname and result detail receive the released horizontal space, while keeping the whole result as one coherent accessibility element. Add a clearly non-connecting Game Center placeholder to Profile for the internal alpha. P-011 remains the authority boundary: no GameKit entitlement, identity binding, score mirror, purchase, or economy effect is implied.
+
+Make the complete Theme preview/name tile the select or buy target and remove its nested Select button. A selected tile is disabled and visually selected; an in-flight mutation uses a non-shifting overlay. Give Disco previews an explicit near-black base independently of the active theme. Optically center the six code-native color glyphs in theme previews and the gameplay Your Color swatch. Move the enlarged menu slogan from 15% to 10% right shift, keep the Pet Shop/Theme icons large and leading, and hide the redundant pale hit-rating line below the board while retaining mistakes, accessibility state, and the Perfect/Godlike border stamps.
+
+Companion direction depends only on horizontal distance from the rendered pet center; tap y never affects it. Treat alignment within 0.5 point as front, the first 15% of the active interaction width on either side as half-left/half-right, and farther taps as full-left/full-right. Use full screen width in the menu and gameplay and the 80-point preview width in Pet Shop. Preserve staged wake/turn animation and restart it for each accepted tap. Relative to P-018, move Foka four points down in Pet Shop, move Pancake twenty points down in Pet Shop and the menu, and apply a common ten-point gameplay lift after Pancake's twenty-point downward move, yielding a net ten-point downward Pancake gameplay offset and a ten-point upward offset for every other pet. Offset the whole gameplay companion view so sprite clipping does not undo the placement.
+
+Consequences: The internal alpha presents live ranking and economy state without duplicating technical service copy or creating a second authority. Whole-tile theme interaction and shared web utility assets reduce visual drift. Horizontal pet zones are predictable regardless of tap height. Deterministic unit/API/UI coverage becomes the regression gate for the automatic ranked proof contract, exact thresholds/offsets, direct tile actions, rank badge, Game Center placeholder, hidden duplicate feedback, and clean Leaderboard/results presentation. Real signed-in mutation, Game Center integration, physical touch/listening, accessibility-matrix, and 60/120 Hz validation remain explicit later gates.
+
+Revisit when: Hostinger introduces a native session contract, Game Center is deliberately enabled under P-011, public-release copy requires a verification disclosure elsewhere, measured touch evidence changes the facing zones, or accessibility review requires a different compact row/theme interaction.

@@ -30,6 +30,8 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Reviewed Jersey 10 Pixel font and exact Disco concrete/tile textures with retained sources, licence/provenance, hashes, and resource validation.
 - Persisted Glyphs setting wired through theme previews, the gameplay color header, feedback, and SpriteKit cells.
 - StoreKit-safe Remove Ads placeholder, 26-item main-menu motivation pool, pet-facing resolver, and deterministic pet sleep/wake coverage.
+- Exact web coin art, black-bordered coin/rank utility badges, signed-in Arcade position on the menu trophy, and a non-connecting Game Center profile placeholder.
+- Ranked start/finish contract coverage proving that eligible native Arcade runs retain CSRF, ticket, build, ruleset, proof-version, and chronological event payloads.
 
 ### Changed
 
@@ -43,8 +45,12 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Replaced the scrollable floating main-menu dialog with a fixed safe-area layout and removed its build/backend/season diagnostics.
 - Matched the PHP gameplay composition with a custom utility header, three-column HUD, near-full-width transparent SpriteKit board, and styled Speed streak/multiplier above the bottom ad host.
 - Corrected Light theme surfaces without capsule cloud artifacts, increased Pixel typography by 10%, extended Pixel type to Leaderboard/Pet Shop/Settings, and applied Pet Shop pink accents to internal actions.
-- Added five-second menu pet sleep/wake, original 30-degree tap-follow facing, 40%-width gameplay placement, and five-point Foka/Misha habitat alignment.
+- Added five-second menu pet sleep/wake, horizontal 15%-width half/full tap-follow facing, 40%-width gameplay placement, and surface-specific habitat alignment.
 - Adopted the latest 26 web slogans with tap-to-advance and an intentional 10-second native rotation interval.
 - Replaced the circular gameplay color swatch with a rounded square and removed the redundant visible “Tap [color]” prompt below the board while retaining its accessibility state.
 - Shifted the menu pet left and slogans right, enlarged slogans, applied the requested surface-specific pet offsets, and repaired staged tap-facing animation coordinates in shops, menus, and gameplay.
 - Added a Light-only readability plate behind the logo and replaced in-flow Theme/Pet Shop loading copy with a centered animated overlay that preserves layout.
+- Removed the Leaderboard service footer and obsolete local-practice/version result panel while preserving automatic eligible Arcade submission and transient upload failure/retry feedback.
+- Stacked Leaderboard pets under rank, widened player details, made each theme tile its own select/buy action, forced a black Disco preview base, and optically centered native color glyphs.
+- Matched final companion placement and direction requests: Foka moves four points down in Pet Shop; Pancake moves twenty points down on every requested surface before the common ten-point gameplay lift; direction now depends only on the tap's horizontal distance from the pet.
+- Moved the enlarged slogan back to a 10% right shift, enlarged and left-aligned the Pet Shop/Theme icons, and hid the pale duplicate hit-rating copy below the board while retaining feedback stamps and accessibility state.
