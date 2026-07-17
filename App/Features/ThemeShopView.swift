@@ -29,7 +29,7 @@ struct ThemeShopView: View {
 
                     if !cosmetics.themeMessage.isEmpty {
                         Text(cosmetics.themeMessage)
-                            .font(.footnote.weight(.semibold))
+                            .font(palette.appFont(size: 13, weight: .semibold, relativeTo: .footnote))
                             .foregroundStyle(Color(hex: palette.muted))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 4)
@@ -65,7 +65,8 @@ struct ThemeShopView: View {
             HStack(spacing: 6) {
                 PixelCoinView(size: 18)
                 Text("\(cosmetics.coinBalance)")
-                    .font(.headline.monospacedDigit().weight(.black))
+                    .font(palette.appFont(size: 17, weight: .black, relativeTo: .headline))
+                    .monospacedDigit()
             }
             .foregroundStyle(.yellow)
             .accessibilityElement(children: .ignore)
@@ -98,6 +99,7 @@ struct ThemeShopView: View {
         )
 
         return Button {
+            guard action != .selected else { return }
             Task { await cosmetics.performThemeAction(item) }
         } label: {
             VStack(spacing: 7) {
@@ -151,8 +153,7 @@ struct ThemeShopView: View {
         .buttonStyle(.plain)
         .contentShape(Rectangle())
         .disabled(
-            action == .selected || cosmetics.isLoading
-                || cosmetics.isEconomyMutationPending
+            cosmetics.isLoading || cosmetics.isEconomyMutationPending
         )
         .accessibilityHint(action == .selected ? "Current theme" : "Tap the theme tile to use it")
         .accessibilityAddTraits(action == .selected ? .isSelected : [])

@@ -43,7 +43,7 @@ struct CoinStorePlaceholderView: View {
                         .padding(.top, 24)
 
                     Text(offer.heading)
-                        .font(.largeTitle.weight(.black))
+                        .font(palette.appFont(size: 34, weight: .black, relativeTo: .largeTitle))
                     if offer == .coinPacks {
                         HStack(spacing: 7) {
                             PixelCoinView(size: 24)
@@ -56,7 +56,7 @@ struct CoinStorePlaceholderView: View {
                         .accessibilityLabel("\(cosmetics.coinBalance) coins")
                     } else {
                         Text("One-time StoreKit purchase")
-                            .font(.title3.weight(.bold))
+                            .font(palette.appFont(size: 20, weight: .bold, relativeTo: .title3))
                             .foregroundStyle(.cyan)
                     }
 
@@ -89,7 +89,7 @@ struct CoinStorePlaceholderView: View {
                             )
                         }
                     }
-                    .font(.subheadline)
+                    .font(palette.appFont(size: 15, weight: .regular, relativeTo: .body))
                     .foregroundStyle(.secondary)
                     .padding(16)
                     .background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))

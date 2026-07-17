@@ -69,6 +69,32 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertNil(ratingStamp(reactionMilliseconds: 375))
     }
 
+    func testTooEarlyRecoveryDoesNotReintroduceGetReadyOrRestartLifecycle() {
+        let coordinator = GameCoordinator(mode: .arcade)
+        var events: [GameplayLifecycleEvent] = []
+        var soundEvents: [GameplaySoundEvent] = []
+        coordinator.onLifecycleEvent = { events.append($0) }
+        coordinator.onSoundEvent = { soundEvents.append($0) }
+        coordinator.startNewRun()
+
+        let now = ProcessInfo.processInfo.systemUptime * 1_000
+        coordinator.gameScene(
+            coordinator.scene,
+            didTapCell: 0,
+            normalizedLocation: CGPoint(x: 0.5, y: 0.5),
+            inputAt: now,
+            handledAt: now
+        )
+        XCTAssertEqual(coordinator.feedback, "Too early")
+        XCTAssertEqual(soundEvents, [.lifeLoss])
+        XCTAssertEqual(coordinator.snapshot.lives, 2)
+
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: now + 2_000)
+        XCTAssertTrue(coordinator.feedback.hasPrefix("Tap "))
+        XCTAssertEqual(events, [.started])
+        coordinator.stop()
+    }
+
     private func ratingStamp(reactionMilliseconds: Double) -> GameplayRatingStampEvent? {
         let coordinator = GameCoordinator(mode: .arcade)
         coordinator.startNewRun()

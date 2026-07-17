@@ -79,54 +79,79 @@ enum PetCompanionPlacement: Equatable, Sendable {
     case leaderboard
 }
 
-enum PetPreviewAnimation {
-    static let frames = [0, 2, 3, 0, 6, 7, 8, 9, 0]
-    static let frameDuration = Duration.milliseconds(160)
-}
-
 struct PetAnimationStep: Equatable, Sendable {
     let frameIndex: Int
     let delayAfter: Duration
 }
 
 enum PetAnimationPlan {
-    static func wakeAndTurn(to facing: PetFacing) -> [PetAnimationStep] {
-        [
-            PetAnimationStep(frameIndex: 9, delayAfter: .milliseconds(189)),
-            PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(261)),
-        ] + turn(to: facing)
+    static let directionalFrames = [3, 2, 0, 6, 7]
+    static let directionalStepDuration = Duration.milliseconds(100)
+
+    static func wakeAndTurn(
+        fromFrameIndex currentFrameIndex: Int,
+        to facing: PetFacing
+    ) -> [PetAnimationStep] {
+        switch currentFrameIndex {
+        case 9:
+            return [
+                PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(189)),
+                PetAnimationStep(frameIndex: facing.frameIndex, delayAfter: .zero),
+            ]
+        case 8:
+            return [PetAnimationStep(frameIndex: facing.frameIndex, delayAfter: .zero)]
+        default:
+            return turn(fromFrameIndex: currentFrameIndex, to: facing)
+        }
     }
 
-    static func turn(to facing: PetFacing) -> [PetAnimationStep] {
-        switch facing {
-        case .front:
-            [PetAnimationStep(frameIndex: 0, delayAfter: .zero)]
-        case .halfLeft:
+    static func turn(
+        fromFrameIndex currentFrameIndex: Int,
+        to facing: PetFacing
+    ) -> [PetAnimationStep] {
+        let current = normalizedDirectionalFrame(currentFrameIndex)
+        let target = facing.frameIndex
+        guard let currentPosition = directionalFrames.firstIndex(of: current),
+            let targetPosition = directionalFrames.firstIndex(of: target),
+            currentPosition != targetPosition
+        else { return [] }
+
+        let direction = targetPosition > currentPosition ? 1 : -1
+        let positions = Array(
+            stride(
+                from: currentPosition + direction,
+                through: targetPosition,
+                by: direction
+            )
+        )
+        return positions.enumerated().map { offset, position in
+            PetAnimationStep(
+                frameIndex: directionalFrames[position],
+                delayAfter: offset == positions.count - 1 ? .zero : directionalStepDuration
+            )
+        }
+    }
+
+    static func sleep(fromFrameIndex currentFrameIndex: Int) -> [PetAnimationStep] {
+        switch currentFrameIndex {
+        case 9:
+            []
+        case 8:
+            [PetAnimationStep(frameIndex: 9, delayAfter: .zero)]
+        default:
             [
-                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
-                PetAnimationStep(frameIndex: 1, delayAfter: .milliseconds(150)),
-                PetAnimationStep(frameIndex: 2, delayAfter: .zero),
+                PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(189)),
+                PetAnimationStep(frameIndex: 9, delayAfter: .zero),
             ]
-        case .left:
-            [
-                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(100)),
-                PetAnimationStep(frameIndex: 1, delayAfter: .milliseconds(100)),
-                PetAnimationStep(frameIndex: 2, delayAfter: .milliseconds(100)),
-                PetAnimationStep(frameIndex: 3, delayAfter: .zero),
-            ]
-        case .halfRight:
-            [
-                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
-                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(150)),
-                PetAnimationStep(frameIndex: 6, delayAfter: .zero),
-            ]
-        case .right:
-            [
-                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(100)),
-                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(100)),
-                PetAnimationStep(frameIndex: 6, delayAfter: .milliseconds(100)),
-                PetAnimationStep(frameIndex: 7, delayAfter: .zero),
-            ]
+        }
+    }
+
+    private static func normalizedDirectionalFrame(_ frameIndex: Int) -> Int {
+        switch frameIndex {
+        case 3, 2, 0, 6, 7: frameIndex
+        case 1: 2
+        case 5: 6
+        default: 0
         }
     }
 }
@@ -211,7 +236,8 @@ struct PetCompanionView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(presentation.kind) companion")
-        .accessibilityValue(isSleeping ? "Sleeping" : facing.rawValue)
+        .accessibilityValue(isSleeping ? "Sleeping" : displayedFacing.rawValue)
+        .accessibilityHint("Sprite frame \(frameIndex)")
     }
 
     @ViewBuilder
@@ -281,20 +307,18 @@ struct PetCompanionView: View {
         }
 
         if isSleeping {
-            guard frameIndex != 9 else { return }
-            try? await Task.sleep(for: .milliseconds(261))
-            guard !Task.isCancelled else { return }
-            frameIndex = 8
-            try? await Task.sleep(for: .milliseconds(189))
-            guard !Task.isCancelled else { return }
-            frameIndex = 9
+            await play(PetAnimationPlan.sleep(fromFrameIndex: frameIndex))
             return
         }
 
-        let plan =
-            frameIndex == 9
-            ? PetAnimationPlan.wakeAndTurn(to: facing)
-            : PetAnimationPlan.turn(to: facing)
+        let plan = PetAnimationPlan.wakeAndTurn(
+            fromFrameIndex: frameIndex,
+            to: facing
+        )
+        await play(plan)
+    }
+
+    private func play(_ plan: [PetAnimationStep]) async {
         for step in plan {
             guard !Task.isCancelled else { return }
             frameIndex = step.frameIndex
@@ -305,27 +329,23 @@ struct PetCompanionView: View {
     }
 
     private func playPreviewIfRequested() async {
-        frameIndex = 0
         guard animationTrigger > 0 else { return }
+        await play(
+            PetAnimationPlan.wakeAndTurn(
+                fromFrameIndex: frameIndex,
+                to: facing
+            )
+        )
+    }
 
-        if facing != .front {
-            for step in PetAnimationPlan.turn(to: facing) {
-                guard !Task.isCancelled else { return }
-                frameIndex = step.frameIndex
-                if step.delayAfter > .zero {
-                    try? await Task.sleep(for: step.delayAfter)
-                }
-            }
-            return
+    private var displayedFacing: PetFacing {
+        switch frameIndex {
+        case 3: .left
+        case 2, 1: .halfLeft
+        case 6, 5: .halfRight
+        case 7: .right
+        default: .front
         }
-
-        for frame in PetPreviewAnimation.frames {
-            guard !Task.isCancelled else { return }
-            frameIndex = frame
-            try? await Task.sleep(for: PetPreviewAnimation.frameDuration)
-        }
-        guard !Task.isCancelled else { return }
-        frameIndex = 0
     }
 
     private var shouldShowHabitat: Bool {

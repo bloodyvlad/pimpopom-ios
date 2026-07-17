@@ -12,6 +12,7 @@ struct GameView: View {
     @StateObject private var coordinator: GameCoordinator
     @State private var runTicket: RunTicket?
     @State private var preparing = true
+    @State private var showsGetReady = false
     @State private var submissionStarted = false
     @State private var submissionFailed = false
     @State private var submissionError: String?
@@ -54,20 +55,8 @@ struct GameView: View {
                 .preference(key: GameplayScreenWidthPreferenceKey.self, value: proxy.size.width)
             }
 
-            if coordinator.isFinished || coordinator.wasAbandoned {
+            if !preparing, coordinator.isFinished || coordinator.wasAbandoned {
                 resultOverlay
-            }
-
-            if preparing {
-                Color.black.opacity(0.72).ignoresSafeArea()
-                ProgressView("Preparing \(coordinator.mode.displayName)…")
-                    .tint(Color(hex: palette.accent))
-                    .foregroundStyle(Color(hex: palette.foreground))
-                    .padding(22)
-                    .background(
-                        Color(hex: palette.surface),
-                        in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 18)
-                    )
             }
         }
         .coordinateSpace(name: "game-space")
@@ -123,6 +112,7 @@ struct GameView: View {
         }
         .onDisappear {
             preparationGeneration += 1
+            showsGetReady = false
             coordinator.stop()
             coordinator.onSoundEvent = nil
             coordinator.onLifecycleEvent = nil
@@ -133,6 +123,7 @@ struct GameView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase != .active {
                 preparationGeneration += 1
+                showsGetReady = false
                 abandonTicketIfNeeded()
                 coordinator.abandonForBackground()
             } else if preparing {
@@ -239,45 +230,34 @@ struct GameView: View {
         let name = coordinator.mode == .zen ? "Any" : coordinator.snapshot.playerColor.name
         let glyph = coordinator.mode == .zen ? "☯" : coordinator.snapshot.playerColor.glyph
 
-        return VStack(spacing: 5) {
+        return VStack(alignment: .leading, spacing: 5) {
             Text("YOUR COLOR")
                 .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
                 .tracking(0.7)
                 .foregroundStyle(Color(hex: palette.muted))
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            HStack(spacing: 8) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(
-                        coordinator.mode == .zen
-                            ? Color(hex: palette.foreground).opacity(0.12)
-                            : palette.color(at: colorIndex)
-                    )
-                    .overlay {
-                        if frozenGlyphsEnabled {
-                            CenteredColorGlyphView(
-                                glyph: glyph,
-                                color: coordinator.mode == .zen
-                                    ? Color(hex: palette.foreground)
-                                    : palette.promptInkColor(at: colorIndex),
-                                size: 23
-                            )
-                        }
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(.white.opacity(0.80), lineWidth: 2)
-                    }
-                    .frame(width: 40, height: 40)
+            HStack(spacing: 12) {
+                GameCellPreview(
+                    theme: palette,
+                    colorIndex: coordinator.mode == .zen ? nil : colorIndex,
+                    glyph: glyph,
+                    showsGlyphs: frozenGlyphsEnabled,
+                    isTarget: true
+                )
+                .frame(width: 40, height: 40)
 
                 Text(name)
                     .font(palette.appFont(size: 18, weight: .black, relativeTo: .headline))
                     .foregroundStyle(Color(hex: palette.foreground))
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 7)
+        .padding(.horizontal, 12)
         .padding(.bottom, 4)
         .background(
             Color(hex: palette.surface).opacity(palette.isLight ? 0.88 : 0.82),
@@ -362,11 +342,17 @@ struct GameView: View {
     }
 
     private func gameBoard(side: CGFloat) -> some View {
-        ZStack(alignment: .bottom) {
+        let announcement = GameplayAnnouncementPresentation.resolve(
+            showsGetReady: showsGetReady,
+            feedback: displayedFeedback
+        )
+
+        return ZStack(alignment: .bottom) {
             SpriteView(
                 scene: coordinator.scene,
                 options: [.allowsTransparency, .ignoresSiblingOrder]
             )
+            .allowsHitTesting(!preparing)
             .background {
                 GeometryReader { proxy in
                     Color.clear.preference(
@@ -395,17 +381,29 @@ struct GameView: View {
                 .accessibilityHidden(true)
             }
 
-            Text(displayedFeedback)
-                .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
-                .foregroundStyle(
-                    GameplayFeedbackPresentation.isVisuallyHidden(displayedFeedback)
-                        ? Color.clear
-                        : Color(hex: palette.muted)
+            if let announcement {
+                GameplayCenterAnnouncementView(
+                    announcement: announcement,
+                    theme: palette
                 )
-                .allowsHitTesting(false)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .transition(.scale(scale: 0.82).combined(with: .opacity))
+                .zIndex(5)
                 .accessibilityIdentifier("game-feedback")
+            } else {
+                Text(displayedFeedback)
+                    .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                    .foregroundStyle(
+                        GameplayFeedbackPresentation.isVisuallyHidden(displayedFeedback)
+                            ? Color.clear
+                            : Color(hex: palette.muted)
+                    )
+                    .allowsHitTesting(false)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .accessibilityHidden(displayedFeedback == "Get ready")
+                    .accessibilityIdentifier("game-feedback")
+            }
         }
         .frame(width: side, height: side)
         .background(boardShell)
@@ -416,24 +414,49 @@ struct GameView: View {
 
     private var boardShell: some View {
         let shape = RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 22, style: .continuous)
-        return
-            shape
-            .fill(Color(hex: palette.board))
-            .overlay {
-                shape.stroke(
-                    palette.isLight
+        return ZStack {
+            shape.fill(Color(hex: palette.board))
+            if palette.id == "disco" {
+                GeometryReader { proxy in
+                    ZStack {
+                        Image("disco-concrete", bundle: .main)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                        Image("disco-concrete-lights", bundle: .main)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .blendMode(.screen)
+                            .saturation(1.18)
+                            .opacity(0.58)
+                            .clipped()
+                        Color.black.opacity(0.36)
+                    }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+                }
+            }
+        }
+        .clipShape(shape)
+        .overlay {
+            shape.stroke(
+                palette.id == "disco"
+                    ? Color(hex: DiscoThemeTokens.cellBorderHex)
+                    : palette.isLight
                         ? Color.white
                         : Color(hex: palette.foreground).opacity(0.12),
-                    lineWidth: palette.isPixel ? 2 : 1
-                )
-            }
-            .shadow(
-                color: palette.isLight
-                    ? Color(hex: "#3d789e").opacity(0.20)
-                    : .black.opacity(0.34),
-                radius: palette.isPixel ? 0 : 14,
-                y: palette.isPixel ? 0 : 7
+                lineWidth: palette.id == "disco" || palette.isPixel ? 2 : 1
             )
+        }
+        .shadow(
+            color: palette.isLight
+                ? Color(hex: "#3d789e").opacity(0.20)
+                : .black.opacity(0.34),
+            radius: palette.isPixel ? 0 : 14,
+            y: palette.isPixel ? 0 : 7
+        )
     }
 
     private func streakAndPet(width: CGFloat, screenWidth: CGFloat) -> some View {
@@ -554,7 +577,7 @@ struct GameView: View {
 
     private var adPlaceholder: some View {
         Text("Ads disabled · internal alpha")
-            .font(.caption2.weight(.semibold))
+            .font(palette.appFont(size: 10, weight: .semibold, relativeTo: .caption2))
             .foregroundStyle(Color(hex: palette.muted).opacity(0.78))
             .frame(maxWidth: .infinity, minHeight: 26)
             .background(
@@ -771,10 +794,11 @@ struct GameView: View {
     private func stat(_ label: String, _ value: String, identifier: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
-                .font(.caption2.weight(.bold))
+                .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
                 .foregroundStyle(Color(hex: palette.muted))
             Text(value)
-                .font(.headline.monospacedDigit())
+                .font(palette.appFont(size: 17, weight: .semibold, relativeTo: .headline))
+                .monospacedDigit()
                 .foregroundStyle(Color(hex: palette.foreground))
         }
         .accessibilityElement(children: .combine)
@@ -791,6 +815,7 @@ struct GameView: View {
         preparationGeneration += 1
         let preparation = preparationGeneration
         preparing = true
+        showsGetReady = false
         audio.setMusicContext(.gameplay)
         submissionStarted = false
         submissionFailed = false
@@ -820,7 +845,18 @@ struct GameView: View {
             }
         }
         guard preparation == preparationGeneration, !Task.isCancelled else { return }
+        showsGetReady = true
+        do {
+            try await Task.sleep(for: GameplayAnnouncementPresentation.getReadyDuration)
+        } catch {
+            if preparation == preparationGeneration {
+                showsGetReady = false
+            }
+            return
+        }
+        guard preparation == preparationGeneration, !Task.isCancelled else { return }
         coordinator.startNewRun()
+        showsGetReady = false
         preparing = false
     }
 
@@ -972,9 +1008,69 @@ enum ResponseProgressPresentation {
 
 enum GameplayFeedbackPresentation {
     static func isVisuallyHidden(_ feedback: String) -> Bool {
+        if ["Get ready", "Too early", "Too slow"].contains(feedback) { return true }
         if feedback.hasPrefix("Tap ") { return true }
         return ["Godlike ·", "Perfect ·", "Great ·", "Good ·", "Hit ·"]
             .contains { feedback.hasPrefix($0) }
+    }
+}
+
+enum GameplayCenterAnnouncement: Equatable, Sendable {
+    case getReady
+    case tooEarly
+    case tooSlow
+
+    var text: String {
+        switch self {
+        case .getReady: "Get ready"
+        case .tooEarly: "Too early"
+        case .tooSlow: "Too slow"
+        }
+    }
+}
+
+enum GameplayAnnouncementPresentation {
+    static let getReadyDuration = Duration.seconds(1)
+
+    static func resolve(
+        showsGetReady: Bool,
+        feedback: String
+    ) -> GameplayCenterAnnouncement? {
+        if showsGetReady { return .getReady }
+        if feedback == "Too early" { return .tooEarly }
+        if feedback == "Too slow" { return .tooSlow }
+        return nil
+    }
+}
+
+private struct GameplayCenterAnnouncementView: View {
+    let announcement: GameplayCenterAnnouncement
+    let theme: ThemePalette
+
+    var body: some View {
+        GlowStampView(
+            text: announcement.text,
+            tone: tone,
+            theme: theme,
+            size: 30,
+            horizontalPadding: 22,
+            verticalPadding: 13
+        )
+        .shadow(color: tone.opacity(theme.isLight ? 0.28 : 0.74), radius: theme.isPixel ? 0 : 18)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(announcement.text)
+    }
+
+    private var tone: Color {
+        switch announcement {
+        case .getReady:
+            Color(hex: theme.accent)
+        case .tooEarly:
+            Color(hex: theme.isLight ? "#b94117" : "#ff9b5c")
+        case .tooSlow:
+            Color(hex: theme.isLight ? "#a52b50" : "#ff6f9f")
+        }
     }
 }
 

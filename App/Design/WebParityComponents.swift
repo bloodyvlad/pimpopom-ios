@@ -12,11 +12,16 @@ enum WebMenuMetrics {
     static let modeHeight: CGFloat = 56
     static let standardControlHeight: CGFloat = 51
     static let featureControlHeight: CGFloat = 48
+    static let featureIconLeadingInset: CGFloat = 19
     static let actionGap: CGFloat = 9
     static let pairedGap: CGFloat = 8
     static let menuPetHorizontalShiftFraction: CGFloat = 0.15
     static let motivationHorizontalShiftFraction: CGFloat = 0.10
     static let motivationScale: CGFloat = 1.15
+}
+
+enum PimPoPomBrandColors {
+    static let pimGradient = ["#16b887", "#39c85f", "#86bd3c"]
 }
 
 struct PimPoPomWordmark: View {
@@ -25,7 +30,7 @@ struct PimPoPomWordmark: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: -1.5) {
-            wordPart("Pim", colors: ["#58fff3", "#84ff83", "#ffe659"])
+            wordPart("Pim", colors: PimPoPomBrandColors.pimGradient)
             wordPart("Po", colors: ["#ffe659", "#ff9a56", "#ff6fc8"])
             wordPart("Pom", colors: ["#ff6fc8", "#a58aff", "#69d7ff"])
 

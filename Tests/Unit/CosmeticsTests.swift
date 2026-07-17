@@ -136,6 +136,7 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(WebMenuMetrics.modeHeight, 56)
         XCTAssertEqual(WebMenuMetrics.standardControlHeight, 51)
         XCTAssertEqual(WebMenuMetrics.featureControlHeight, 48)
+        XCTAssertEqual(WebMenuMetrics.featureIconLeadingInset, 19)
         XCTAssertEqual(WebMenuMetrics.actionGap, 9)
         XCTAssertEqual(WebMenuMetrics.pairedGap, 8)
         XCTAssertEqual(WebMenuMetrics.menuPetHorizontalShiftFraction, 0.15)
@@ -152,7 +153,14 @@ final class CosmeticsTests: XCTestCase {
 
         XCTAssertEqual(ThemePalette.disco.backgroundTop, "#030404")
         XCTAssertEqual(ThemePalette.disco.surface, "#0c0f16")
+        XCTAssertEqual(ThemePalette.disco.board, "#07090d")
+        XCTAssertEqual(ThemePalette.disco.idleCell, DiscoThemeTokens.idleCellHex)
+        XCTAssertEqual(ThemePalette.disco.tileColors, DiscoThemeTokens.activeCellHexes)
+        XCTAssertEqual(DiscoThemeTokens.idleCellHex, "#908f8c")
+        XCTAssertEqual(DiscoThemeTokens.cellBorderHex, "#5f666b")
+        XCTAssertEqual(DiscoThemeTokens.activeBorderHex, "#d9dde0")
         XCTAssertEqual(ThemePreviewStyle.discoBackgroundHex, "#080909")
+        XCTAssertEqual(ThemePreviewStyle.aspectRatio, 1.45, accuracy: 0.001)
         XCTAssertEqual(ThemePalette.light.backgroundTop, "#bce9ff")
         XCTAssertEqual(ThemePalette.light.backgroundBottom, "#eaf8ff")
         XCTAssertEqual(ThemePalette.light.foreground, "#17263b")
@@ -163,8 +171,32 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(ThemePalette.pixel.backgroundBottom, "#0c0c1d")
         XCTAssertTrue(ThemePalette.pixel.isPixel)
         XCTAssertEqual(ThemePalette.pixel.cornerRadius, 3)
-        XCTAssertEqual(ThemePalette.pixel.resolvedFontSize(10), 11, accuracy: 0.001)
+        XCTAssertEqual(ThemePalette.pixel.resolvedFontSize(10), 12.5, accuracy: 0.001)
         XCTAssertEqual(ThemePalette.classic.resolvedFontSize(10), 10, accuracy: 0.001)
+        XCTAssertEqual(
+            PimPoPomBrandColors.pimGradient,
+            ["#16b887", "#39c85f", "#86bd3c"]
+        )
+        XCTAssertEqual(
+            GameCellVisualMetrics.cornerRadius(theme: .pixel, side: 40),
+            0
+        )
+        XCTAssertEqual(
+            GameCellVisualMetrics.glyphSize(theme: .pixel, side: 40),
+            15,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            GameCellVisualMetrics.cornerRadius(theme: .classic, side: 40),
+            4
+        )
+        XCTAssertEqual(
+            GameCellVisualMetrics.glyphSize(theme: .classic, side: 40),
+            12,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(GameCellVisualMetrics.targetBorderWidth, 3)
+        XCTAssertEqual(GameCellVisualMetrics.activeBorderWidth, 2)
     }
 
     func testPixelFontAndDiscoTexturesAreBundled() throws {
@@ -324,16 +356,44 @@ final class CosmeticsTests: XCTestCase {
         )
     }
 
-    func testGameplayFeedbackHidesTargetsAndSpeedRatingsButRetainsMistakes() {
+    func testGameplayFeedbackUsesCenteredAnnouncementsAndHidesLegacyCopies() {
+        XCTAssertEqual(GameplayAnnouncementPresentation.getReadyDuration, .seconds(1))
         for feedback in [
             "Tap Pink ■", "Godlike · 201 ms", "Perfect · 301 ms", "Great · 401 ms",
-            "Good · 501 ms", "Hit · 250 ms",
+            "Good · 501 ms", "Hit · 250 ms", "Get ready", "Too early", "Too slow",
         ] {
             XCTAssertTrue(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
-        for feedback in ["Too slow", "Wrong cell", "Too early", "Decoy dodged"] {
+        for feedback in ["Wrong cell", "Decoy dodged"] {
             XCTAssertFalse(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
+        XCTAssertEqual(
+            GameplayAnnouncementPresentation.resolve(
+                showsGetReady: true,
+                feedback: "Too early"
+            ),
+            .getReady
+        )
+        XCTAssertEqual(
+            GameplayAnnouncementPresentation.resolve(
+                showsGetReady: false,
+                feedback: "Too early"
+            ),
+            .tooEarly
+        )
+        XCTAssertEqual(
+            GameplayAnnouncementPresentation.resolve(
+                showsGetReady: false,
+                feedback: "Too slow"
+            ),
+            .tooSlow
+        )
+        XCTAssertNil(
+            GameplayAnnouncementPresentation.resolve(
+                showsGetReady: false,
+                feedback: "Wrong cell"
+            )
+        )
     }
 
     func testMenuMotivationUsesTheNativeTenSecondNonRepeatingContract() {
@@ -348,40 +408,66 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(MenuMotivation.introStampSeed(arguments: [], randomValue: 5), 5)
     }
 
-    func testPetPreviewAnimationStartsStaticAndReturnsToItsRestingFrame() {
-        XCTAssertEqual(PetPreviewAnimation.frames.first, 0)
-        XCTAssertTrue(PetPreviewAnimation.frames.dropFirst().contains { $0 != 0 })
-        XCTAssertEqual(PetPreviewAnimation.frames.last, 0)
-        XCTAssertEqual(PetPreviewAnimation.frames.count, 9)
-    }
-
-    func testPetTurnAnimationMatchesTheWebTimingAndDirectionalFrames() {
+    func testPetTurnAnimationMovesOnlyThroughAdjacentDirectionalPoses() {
+        XCTAssertEqual(PetAnimationPlan.directionalFrames, [3, 2, 0, 6, 7])
         XCTAssertEqual(
-            PetAnimationPlan.turn(to: .halfLeft),
+            PetAnimationPlan.turn(fromFrameIndex: 6, to: .right),
             [
-                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
-                PetAnimationStep(frameIndex: 1, delayAfter: .milliseconds(150)),
-                PetAnimationStep(frameIndex: 2, delayAfter: .zero),
+                PetAnimationStep(frameIndex: 7, delayAfter: .zero)
             ]
         )
         XCTAssertEqual(
-            PetAnimationPlan.turn(to: .right),
+            PetAnimationPlan.turn(fromFrameIndex: 3, to: .right),
             [
+                PetAnimationStep(frameIndex: 2, delayAfter: .milliseconds(100)),
                 PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(100)),
-                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(100)),
                 PetAnimationStep(frameIndex: 6, delayAfter: .milliseconds(100)),
                 PetAnimationStep(frameIndex: 7, delayAfter: .zero),
             ]
         )
+
+        for source in PetAnimationPlan.directionalFrames {
+            for target in [
+                PetFacing.left, .halfLeft, .front, .halfRight, .right,
+            ] {
+                let steps = PetAnimationPlan.turn(fromFrameIndex: source, to: target)
+                if source == target.frameIndex {
+                    XCTAssertTrue(steps.isEmpty)
+                    continue
+                }
+                XCTAssertEqual(steps.last?.frameIndex, target.frameIndex)
+                var previous = try! XCTUnwrap(
+                    PetAnimationPlan.directionalFrames.firstIndex(of: source)
+                )
+                for step in steps {
+                    let position = try! XCTUnwrap(
+                        PetAnimationPlan.directionalFrames.firstIndex(of: step.frameIndex)
+                    )
+                    XCTAssertEqual(abs(position - previous), 1)
+                    previous = position
+                }
+            }
+        }
+    }
+
+    func testPetSleepAndWakeNeverForceTheSpriteThroughCenter() {
         XCTAssertEqual(
-            PetAnimationPlan.wakeAndTurn(to: .halfRight),
+            PetAnimationPlan.wakeAndTurn(fromFrameIndex: 9, to: .halfRight),
             [
-                PetAnimationStep(frameIndex: 9, delayAfter: .milliseconds(189)),
-                PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(261)),
-                PetAnimationStep(frameIndex: 0, delayAfter: .milliseconds(150)),
-                PetAnimationStep(frameIndex: 5, delayAfter: .milliseconds(150)),
+                PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(189)),
                 PetAnimationStep(frameIndex: 6, delayAfter: .zero),
             ]
+        )
+        XCTAssertEqual(
+            PetAnimationPlan.sleep(fromFrameIndex: 7),
+            [
+                PetAnimationStep(frameIndex: 8, delayAfter: .milliseconds(189)),
+                PetAnimationStep(frameIndex: 9, delayAfter: .zero),
+            ]
+        )
+        XCTAssertEqual(
+            PetAnimationPlan.wakeAndTurn(fromFrameIndex: 8, to: .left),
+            [PetAnimationStep(frameIndex: 3, delayAfter: .zero)]
         )
     }
 

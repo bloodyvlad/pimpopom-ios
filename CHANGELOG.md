@@ -44,7 +44,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Suppressed real audio output only for deterministic Debug UI-test launches, avoiding Simulator audio-service crashes without changing normal Simulator, device, or Release audio behavior.
 - Replaced the scrollable floating main-menu dialog with a fixed safe-area layout and removed its build/backend/season diagnostics.
 - Matched the PHP gameplay composition with a custom utility header, three-column HUD, near-full-width transparent SpriteKit board, and styled Speed streak/multiplier above the bottom ad host.
-- Corrected Light theme surfaces without capsule cloud artifacts, increased Pixel typography by 10%, extended Pixel type to Leaderboard/Pet Shop/Settings, and applied Pet Shop pink accents to internal actions.
+- Corrected Light theme surfaces without capsule cloud artifacts, increased Pixel typography by 25% throughout the app, and applied Pet Shop pink accents to internal actions.
 - Added five-second menu pet sleep/wake, horizontal 15%-width half/full tap-follow facing, 40%-width gameplay placement, and surface-specific habitat alignment.
 - Adopted the latest 26 web slogans with tap-to-advance and an intentional 10-second native rotation interval.
 - Replaced the circular gameplay color swatch with a rounded square and removed the redundant visible “Tap [color]” prompt below the board while retaining its accessibility state.
@@ -54,3 +54,8 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Stacked Leaderboard pets under rank, widened player details, made each theme tile its own select/buy action, forced a black Disco preview base, and optically centered native color glyphs.
 - Matched final companion placement and direction requests: Foka moves four points down in Pet Shop; Pancake moves twenty points down on every requested surface before the common ten-point gameplay lift; direction now depends only on the tap's horizontal distance from the pet.
 - Moved the enlarged slogan back to a 10% right shift, enlarged and left-aligned the Pet Shop/Theme icons, and hid the pale duplicate hit-rating copy below the board while retaining feedback stamps and accessibility state.
+- Darkened the inactive Disco tile by exactly 40% to `#908f8c`, brightened active tiles, added silver scratched-floor treatment, and retained the concrete/blurred-light surround using the reviewed in-repository textures.
+- Made every Theme Shop preview depend only on its candidate theme, kept selected tiles undimmed, and made the gameplay Your Color swatch share the same geometry, border, glyph, and Pixel styling as a real board cell.
+- Replaced the Preparing copy and tiny recovery feedback with centered backlit Get ready, Too early, and Too slow announcements; Get ready now delays a new run by exactly one second and is not replayed after a lost life.
+- Changed companion turns to advance from the current sprite pose through adjacent directional frames, so a half-right pet reaches full-right in one frame instead of restarting at center.
+- Resumed the Sound FX engine from the accepted tap before playing the bundled `oops` cue on life loss, while retaining the existing no-loss Zen and terminal-event rules.

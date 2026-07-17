@@ -11,10 +11,19 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(arcade.waitForExistence(timeout: 8))
         arcade.tap()
 
+        XCTAssertEqual(
+            app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Preparing '")).count,
+            0
+        )
         let board = app.otherElements["reaction-board"]
         XCTAssertTrue(board.waitForExistence(timeout: 8))
 
         let feedback = app.staticTexts["game-feedback"]
+        XCTAssertTrue(feedback.waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            feedback.label == "Get ready" || feedback.label.hasPrefix("Tap "),
+            "Unexpected start feedback: \(feedback.label)"
+        )
         let targetDeadline = Date().addingTimeInterval(5)
         while Date() < targetDeadline, !feedback.label.hasPrefix("Tap ") {
             usleep(20_000)
@@ -36,6 +45,7 @@ final class PimPoPomUITests: XCTestCase {
             .completed,
             "Expected a scored first tap, got: \(score.label)"
         )
+
     }
 
     func testZenCanEndIntoResults() throws {
@@ -195,12 +205,24 @@ final class PimPoPomUITests: XCTestCase {
             .completed
         )
 
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.20)).tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.25)).tap()
         XCTAssertEqual(
             XCTWaiter.wait(
                 for: [
                     XCTNSPredicateExpectation(
                         predicate: NSPredicate(format: "value != 'Sleeping'"),
+                        object: pet
+                    )
+                ],
+                timeout: 2
+            ),
+            .completed
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == 'right'"),
                         object: pet
                     )
                 ],
@@ -403,6 +425,7 @@ final class PimPoPomUITests: XCTestCase {
 
         XCTAssertEqual(pixel.label, "Pixel")
         XCTAssertEqual(pixel.value as? String, "Selected")
+        XCTAssertTrue(pixel.isEnabled)
 
         classic.tap()
         XCTAssertEqual(

@@ -143,31 +143,51 @@ final class GameScene: SKScene {
                 width: cellSide,
                 height: cellSide
             )
-            let cornerRadius = theme.isPixel ? CGFloat.zero : max(12, cellSide * 0.10)
+            let cornerRadius = GameCellVisualMetrics.cornerRadius(
+                theme: theme,
+                side: cellSide,
+                minimum: 12
+            )
             let node = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
             node.name = "cell-\(index)"
             node.lineWidth = 2
             node.strokeColor =
-                theme.id == "light"
-                ? UIColor.white
-                : UIColor(hexString: theme.accent).withAlphaComponent(0.18)
+                theme.id == "disco"
+                ? UIColor(hexString: DiscoThemeTokens.cellBorderHex)
+                : theme.id == "light"
+                    ? UIColor.white
+                    : UIColor(hexString: theme.accent).withAlphaComponent(0.18)
             node.fillColor = UIColor(hexString: theme.idleCell)
+            var isLit = false
 
             if let colorIndex = cell.colorIndex,
                 !(roundPresentationExpired && cell.kind == .target)
             {
+                isLit = true
                 let spec = gameColors[colorIndex]
                 node.fillColor = theme.uiColor(at: colorIndex)
                 node.strokeColor =
+                    theme.id == "disco"
+                    ? UIColor(hexString: DiscoThemeTokens.activeBorderHex)
+                    : cell.kind == .target
+                        ? UIColor.white.withAlphaComponent(0.85)
+                        : UIColor.white.withAlphaComponent(0.35)
+                node.lineWidth =
                     cell.kind == .target
-                    ? UIColor.white.withAlphaComponent(0.85)
-                    : UIColor.white.withAlphaComponent(0.35)
-                node.lineWidth = cell.kind == .target ? 4 : 2
+                    ? GameCellVisualMetrics.targetBorderWidth
+                    : GameCellVisualMetrics.activeBorderWidth
+                if theme.id == "disco" {
+                    node.glowWidth = cell.kind == .target ? 6 : 3
+                }
 
                 if glyphsEnabled {
                     let glyph = SKLabelNode(text: spec.glyph)
                     glyph.fontName = theme.isPixel ? "Jersey10-Regular" : "AvenirNext-Heavy"
-                    glyph.fontSize = theme.resolvedFontSize(max(24, cellSide * 0.30))
+                    glyph.fontSize = GameCellVisualMetrics.glyphSize(
+                        theme: theme,
+                        side: cellSide,
+                        minimumBaseSize: 24
+                    )
                     glyph.fontColor = theme.cellInkUIColor(at: colorIndex)
                     glyph.verticalAlignmentMode = .center
                     glyph.horizontalAlignmentMode = .center
@@ -178,7 +198,46 @@ final class GameScene: SKScene {
             }
             node.zPosition = 1
             addChild(node)
+            if theme.id == "disco" {
+                addDiscoWear(
+                    in: rect,
+                    cornerRadius: cornerRadius,
+                    isLit: isLit,
+                    index: index
+                )
+            }
             cellFrames.append(rect)
         }
+    }
+
+    private func addDiscoWear(
+        in rect: CGRect,
+        cornerRadius: CGFloat,
+        isLit: Bool,
+        index: Int
+    ) {
+        let texture = SKTexture(imageNamed: "disco-tile-overlay")
+        texture.filteringMode = .linear
+
+        let wear = SKSpriteNode(texture: texture)
+        wear.size = rect.size
+        wear.alpha =
+            isLit
+            ? DiscoThemeTokens.activeScratchOpacity
+            : DiscoThemeTokens.idleScratchOpacity
+        wear.blendMode = isLit ? .screen : .multiply
+
+        let mask = SKShapeNode(rectOf: rect.size, cornerRadius: cornerRadius)
+        mask.fillColor = .white
+        mask.strokeColor = .clear
+        mask.lineWidth = 0
+
+        let crop = SKCropNode()
+        crop.name = "cell-wear-\(index)"
+        crop.position = CGPoint(x: rect.midX, y: rect.midY)
+        crop.maskNode = mask
+        crop.zPosition = 1.5
+        crop.addChild(wear)
+        addChild(crop)
     }
 }

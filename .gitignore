@@ -2,6 +2,7 @@
 
 # Xcode and Swift build products
 DerivedData/
+.derivedData/
 build/
 .build/
 *.xcuserstate

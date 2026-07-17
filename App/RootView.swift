@@ -172,14 +172,21 @@ struct RootView: View {
             Button {
                 showsCoinStore = true
             } label: {
-                ZStack(alignment: .bottomTrailing) {
+                ZStack {
                     PixelCoinView(size: 19)
+                }
+                .frame(
+                    width: WebMenuMetrics.utilityTarget,
+                    height: WebMenuMetrics.utilityTarget
+                )
+                .overlay(alignment: .bottomTrailing) {
                     WebUtilityBadge(
                         text: "\(cosmetics.coinBalance)",
                         kind: .coin,
                         theme: palette
                     )
-                    .offset(x: 6, y: 6)
+                    .offset(x: 5, y: 5)
+                    .accessibilityIdentifier("coin-balance-badge")
                 }
             }
             .buttonStyle(
@@ -196,12 +203,18 @@ struct RootView: View {
             NavigationLink {
                 LeaderboardView()
             } label: {
-                ZStack(alignment: .topTrailing) {
+                ZStack {
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 16, weight: .bold))
+                }
+                .frame(
+                    width: WebMenuMetrics.utilityTarget,
+                    height: WebMenuMetrics.utilityTarget
+                )
+                .overlay(alignment: .topTrailing) {
                     if let rank = arcadeRank {
                         WebUtilityBadge(text: "#\(rank)", kind: .rank, theme: palette)
-                            .offset(x: 8, y: -9)
+                            .offset(x: 5, y: -5)
                             .accessibilityLabel("Leaderboard position")
                             .accessibilityValue("#\(rank)")
                             .accessibilityIdentifier("leaderboard-rank-badge")
@@ -454,11 +467,7 @@ struct RootView: View {
     }
 
     private func featureLabel(_ title: String, systemImage: String, value: String) -> some View {
-        HStack(spacing: 7) {
-            Image(systemName: systemImage)
-                .font(.system(size: 24, weight: .black))
-                .frame(width: 28)
-
+        ZStack {
             VStack(spacing: 2) {
                 Text(title)
                     .font(palette.appFont(size: 14, weight: .bold, relativeTo: .body))
@@ -469,8 +478,16 @@ struct RootView: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
+
+            HStack(spacing: 0) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 24, weight: .black))
+                    .frame(width: 28)
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, WebMenuMetrics.featureIconLeadingInset)
         }
-        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity)
     }
 
     private var arcadeRank: Int? {
@@ -617,12 +634,13 @@ struct RootView: View {
                         Text(profile.nickname)
                             .font(palette.appFont(size: 22, weight: .bold, relativeTo: .title3))
                         Text("\(profile.coins) coins · \(profile.totalPlayMs / 60_000) verified minutes")
-                            .font(.caption.monospacedDigit())
+                            .font(palette.appFont(size: 12, weight: .regular, relativeTo: .caption))
+                            .monospacedDigit()
                             .foregroundStyle(Color(hex: palette.muted))
                     }
                     Spacer()
                     Button("Sign out") { Task { await signOut() } }
-                        .font(.caption.weight(.bold))
+                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
                 }
 
                 if !profile.nicknameConfirmed {
@@ -639,14 +657,14 @@ struct RootView: View {
                         .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 } else {
                     Text("Arcade runs use the deployed protocol-verified leaderboard.")
-                        .font(.caption)
+                        .font(palette.appFont(size: 12, relativeTo: .caption))
                         .foregroundStyle(Color(hex: palette.muted))
                 }
             } else {
                 Text(
                     "Play locally now. Sign in to use the existing players, coins, achievements, Pet Shop, and ranked leaderboard."
                 )
-                .font(.subheadline)
+                .font(palette.appFont(size: 15, relativeTo: .body))
                 .foregroundStyle(Color(hex: palette.muted))
                 Button {
                     Task { await signIn() }
@@ -659,14 +677,14 @@ struct RootView: View {
 
                 if !googleIdentity.isConfigured {
                     Text("Google placeholder active: add the iOS OAuth client ID in Config/Local.xcconfig.")
-                        .font(.caption)
+                        .font(palette.appFont(size: 12, relativeTo: .caption))
                         .foregroundStyle(.yellow.opacity(0.80))
                 }
             }
 
             if let status = accountStatus ?? backend.lastError {
                 Text(status)
-                    .font(.caption)
+                    .font(palette.appFont(size: 12, relativeTo: .caption))
                     .foregroundStyle(.orange)
             }
         }
@@ -687,7 +705,7 @@ struct RootView: View {
                     Text(
                         "The menu entry now matches the original. The native achievement catalog and claim flow are the next backend feature slice."
                     )
-                    .font(.subheadline)
+                    .font(palette.appFont(size: 15, relativeTo: .body))
                     .foregroundStyle(Color(hex: palette.muted))
                     .multilineTextAlignment(.center)
                 }

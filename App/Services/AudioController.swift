@@ -277,6 +277,7 @@ final class AudioController: NSObject, ObservableObject {
     }
 
     func playLifeLoss() {
+        resumeAfterUserAction()
         guard soundEffectsEnabled,
             applicationIsActive,
             let loss = sharedSoundEffects?.loss,
