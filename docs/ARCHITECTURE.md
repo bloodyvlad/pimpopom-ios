@@ -83,6 +83,7 @@ Test on 60 Hz and 120 Hz hardware. `CADisplayLink`/SpriteKit callback time is st
 ### Current internal-alpha implementations
 
 - `BackendClient` coalesces session bootstrap and uses session/player generations so a superseded request cannot replace a newer login, logout, or account profile.
+- `AchievementsController` owns only native loading, claim progress, error copy, menu summary, and theme-aware presentation state. It resets on account identity changes and rejects stale responses; the PHP catalog, unlock state, rewards, idempotency, and coin balance remain authoritative.
 - `CosmeticsController` merges public catalog reads with authenticated server profiles, but never computes authoritative prices, purchases, ownership, or balance. It serializes all economy mutations across both shops. Signed-out local selection is limited to the two always-free theme IDs.
 - `ThemePalette` and `PetPresentation` map stable backend IDs to native presentation only. The backend alone supplies the special-pet override. Pancake uses the retained native replacement sprite/floor while its price, ownership, selection, and visibility remain server-authoritative.
 - `AudioController` owns one `AVAudioEngine` with independent Sound FX/Music mixer buses. It lazy-decodes only enabled categories, keeps shared loss/sting buffers across enabled theme swaps, rejects stale loads, routes menu/gameplay/silent contexts, and stops immediately on background/interruption.

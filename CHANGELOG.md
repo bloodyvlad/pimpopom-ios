@@ -32,6 +32,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - StoreKit-safe Remove Ads placeholder, 26-item main-menu motivation pool, pet-facing resolver, and deterministic pet sleep/wake coverage.
 - Exact web coin art, black-bordered coin/rank utility badges, signed-in Arcade position on the menu trophy, and a non-connecting Game Center profile placeholder.
 - Ranked start/finish contract coverage proving that eligible native Arcade runs retain CSRF, ticket, build, ruleset, proof-version, and chronological event payloads.
+- Live five-goal Achievements catalog and idempotent coin-claim flow backed by the existing Hostinger endpoints, with themed locked/ready/claimed cards, menu reward marker, authoritative balance refresh, stale-account protection, and deterministic API/UI coverage.
 
 ### Changed
 
@@ -62,3 +63,4 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Unified all six live and preview glyphs behind one exact-size vector/pixel geometry, added crystal Light cells and clipped faint Pixel grain, and raised active Disco cells to the vivid saturated backlit palette while retaining the darker uneven inactive floor.
 - Made coin/rank badge contents fully opaque above their button borders and kept their established lower-right/upper-right corner placement.
 - Reused the Pet Shop horizontal-facing resolver in menu and gameplay, forwarded board-gap touches for presentation-only facing, lowered Pancake fifteen points only on menu/Leaderboard surfaces, and mirrored its clean full-right frame for artifact-free full-left presentation.
+- Replaced the overlapping smooth cross paths with one solid outline, intensified Disco targets with highly saturated colors and opaque black rounded-corner surrounds, and made Pixel's clipped block grain visibly brighter and square while keeping live cells, Theme Shop previews, and Your Color consistent.

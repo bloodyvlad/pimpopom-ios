@@ -12,7 +12,7 @@ Google is optional for local play and public leaderboard reads. Ranked play need
 
 - Sign in with Apple, account linking/deletion, a dedicated native session/build contract, and staging.
 - StoreKit, coin purchases, Remove Ads entitlement, ad SDKs, consent, ATT, and live ad identifiers. Existing earned coins and server-authoritative cosmetic spending are in scope; buying coins is not.
-- Achievements UI and any new cross-platform persistence contract.
+- Any new cross-platform achievements persistence contract; the existing PHP catalog and claim flow are implemented for the internal alpha.
 - Game Center, App Attest, analytics, production CI, TestFlight, and App Store records.
 - Final logo/activation-cue acceptance and haptics. The internal icon, theme audio, Music/Sound FX controls, and activation-cue candidate are implemented but still need physical review.
 - Commercial ownership, accounting, tax, legal, and storefront work.
@@ -25,6 +25,7 @@ The code keeps ads and purchases behind disabled local implementations. Do not a
 - Live `GET /api/session` and public Arcade/Zen leaderboard reads.
 - Existing Google token exchange, profile/nickname, ranked ticket, abandon, and finish client paths. They activate only after a real iOS OAuth client is supplied and the player confirms a nickname.
 - Public theme/pet catalogs and authenticated atomic buy/select/hide/show mutations against the same profile and earned-coin balance. Theme Shop and Pet Shop both expose a deliberately disabled Buy Coins placeholder.
+- Public achievement catalog reads plus authenticated, CSRF-protected claims for the existing five PHP goals. Locked/ready/claimed state, rewards, and balance remain server-authoritative.
 - Four native theme palettes, retained pet sprites/habitats, the backend-derived special pet, and an owner-approved native Pancake replacement with a glowing blue floor.
 - Independent default-on Music and Sound FX using the migrated per-theme suites, plus the shared loss cue and original Pim–Po–Pom activation-cue candidate.
 - Exact deployed compatibility constants: API base `https://speedytapper.otcsoft.com`, build `20260715-1`, ruleset `reaction-proof-v2`, proof version 1.
@@ -95,6 +96,17 @@ Exit: public data works immediately; authenticated shared-data/ranked paths work
 7. Coalesce session bootstrap, reject stale account/profile responses, and serialize all theme/pet economy mutations so a late response cannot restore an old player or balance.
 
 Exit: automated catalogs/action matrices/contracts/assets pass, and the feature build installs on the SE. Physical listening remains required before audio acceptance.
+
+### A3.7 — Port current achievements and reward claims
+
+1. Read `/api/achievements` for the five server goals and display the returned locked, claimable, and claimed state without calculating unlocks in Swift.
+2. Claim only a server-returned claimable stable ID through `POST /api/achievements/claim`, exact body `{"id":"<stable-id>"}`, and the current `X-SpeedyTapper-CSRF` token.
+3. Treat HTTP 201 as the first claim and HTTP 200 as the idempotent duplicate path. Use the returned `coinBalance`; never add a local reward amount to the balance.
+4. Reject malformed responses and any response superseded by a player/session change. Reconcile session/CSRF after 401/403 before a user retry.
+5. Refresh after account changes, returning from gameplay, and a new pet purchase so protocol-verified run and first-pet unlocks appear without relaunching.
+6. Keep the local five-item definitions as signed-out/error presentation only. They cannot unlock an achievement, claim a reward, or grant value.
+
+Exit: all three achievement states and the first-claim contract are tested; the client also handles the server's idempotent duplicate response, and the themed screen plus menu ready marker pass the SE Simulator fixture. Real authenticated production mutation remains a separate deliberate check.
 
 ### A4 — Validate the agreed device matrix
 

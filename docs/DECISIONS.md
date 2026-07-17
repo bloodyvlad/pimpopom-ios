@@ -306,3 +306,20 @@ Use one horizontal `PetTapFollow` resolver for Pet Shop, menu, and gameplay. Der
 Consequences: Glyph proportions, preview/live materials, and companion direction have one implementation contract instead of three similar render/input paths. Deterministic unit tests cover every glyph, scale, style, effect token, tap zone, board-gap route, Pancake offset, and mirror rule; XCUITest covers menu/gameplay following and Pancake placement. These are presentation changes only. Physical-device touch, 60/120 Hz timing, VoiceOver/Dynamic Type, performance profiling, and current-batch 13 mini/13 Pro layout validation remain later gates.
 
 Revisit when: A theme deliberately adopts a non-canonical glyph language, new pet sheets supply corrected directional art, performance evidence requires pre-rendered material assets, or physical-device input testing exposes a coordinate-space mismatch.
+
+## P-022 — Port server-authoritative achievements and refine canonical cells
+
+- Date: 2026-07-18
+- Status: Accepted; supersedes the Achievements-placeholder scope in P-016/P-017 and refines the cell presentation in P-021
+
+Context: The existing PHP service already exposes five achievement goals, unlock state, idempotent reward claims, and the authoritative earned-coin balance. PimPoPom still showed a placeholder, while the current canonical cell renderer left a hole where two smooth cross paths overlapped, muted active Disco colors, exposed nonblack corners around rounded Disco tiles, and made Pixel grain too faint to read as brighter squares.
+
+Decision: Reuse the deployed compatibility contract for the internal alpha. `GET /api/achievements` is a public catalog/state read. `POST /api/achievements/claim` is an authenticated CSRF mutation with the exact body `{"id":"<stable-id>"}`; HTTP 201 is the first claim and HTTP 200 is an idempotent duplicate. The server-returned catalog, locked/claimable/claimed state, reward, count, and `coinBalance` are authoritative. A bundled five-item catalog exists only for signed-out/error presentation and cannot unlock an item, grant coins, or override a response. Serialize claims with the existing session/player mutation generation, reject stale account responses, refresh an expired session or CSRF token, and update local profile coins only from a validated server response. Describe `coinsEarned` as credited because server-side debt may absorb some or all of the nominal reward.
+
+Present the catalog through one theme-aware native Achievements surface with progress, authoritative balance, locked/ready/claimed cards, a signed-out Profile route, and a main-menu marker when a reward is ready. Refresh after session changes, eligible game return, and a new pet purchase. This does not enable StoreKit, ads, Game Center authority, or a new persistence contract.
+
+Use one non-overlapping outline for the smooth cross so its center remains filled under winding and even-odd rules. Keep Disco's retained texture language but use the accepted high-saturation active tokens, restrained white wash, same-color additive light, and an opaque black square below every rounded cell so the exposed corner areas are black. Render Pixel grain as deterministic clipped 32-grid squares, biased toward subtle brighter samples, identically in SpriteKit cells and SwiftUI previews.
+
+Consequences: PimPoPom can display and claim the same earned rewards as the PHP version without duplicating economy truth. Unit and UI tests cover the exact routes/body/CSRF, malformed and stale responses, session expiry, the five stable fallback IDs/rewards, an offline 9-to-10 coin claim, solid cross center, Disco color/corner layering, and Pixel sample geometry. Real authenticated Hostinger claim, physical-device visual/touch review, 13 mini/13 Pro reruns, and the accessibility matrix remain explicit validation gates.
+
+Revisit when: the versioned native API replaces the compatibility routes, the server catalog/schema changes, StoreKit or Game Center is deliberately connected, or physical/accessibility evidence requires another presentation treatment.
