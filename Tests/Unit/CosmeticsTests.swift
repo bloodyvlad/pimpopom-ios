@@ -191,6 +191,23 @@ final class CosmeticsTests: XCTestCase {
             4
         )
         XCTAssertEqual(
+            GameCellVisualMetrics.liveCornerRadius(theme: .disco, gridDimension: 1),
+            22
+        )
+        XCTAssertEqual(
+            GameCellVisualMetrics.liveCornerRadius(theme: .disco, gridDimension: 2),
+            15
+        )
+        XCTAssertEqual(
+            GameCellVisualMetrics.liveCornerRadius(theme: .disco, gridDimension: 4),
+            11
+        )
+        XCTAssertEqual(
+            GameCellVisualMetrics.liveCornerRadius(theme: .pixel, gridDimension: 1),
+            0
+        )
+        XCTAssertEqual(GameBoardVisualMetrics.shellCornerRadius(theme: .disco), 22)
+        XCTAssertEqual(
             GameCellVisualMetrics.glyphBoxSide(side: 40),
             14,
             accuracy: 0.001
@@ -261,10 +278,8 @@ final class CosmeticsTests: XCTestCase {
     func testThemeCellEffectsResolveIdenticallyForBoardAndPreviews() {
         let discoIdle = GameCellSurfaceEffects.resolve(theme: .disco, isLit: false, seed: 2)
         let discoActive = GameCellSurfaceEffects.resolve(theme: .disco, isLit: true, seed: 2)
-        XCTAssertFalse(discoIdle.discoBacklight)
-        XCTAssertTrue(discoActive.discoBacklight)
-        XCTAssertTrue(discoIdle.requiresBlackCornerUnderlay)
-        XCTAssertTrue(discoActive.requiresBlackCornerUnderlay)
+        XCTAssertFalse(discoIdle.discoGlow)
+        XCTAssertTrue(discoActive.discoGlow)
         XCTAssertEqual(discoActive.glyphStyle, .smooth)
 
         for isLit in [false, true] {
@@ -300,21 +315,23 @@ final class CosmeticsTests: XCTestCase {
             GameCellEffectTokens.pixelLightNoiseOpacity,
             GameCellEffectTokens.pixelDarkNoiseOpacity
         )
-        XCTAssertLessThanOrEqual(GameCellEffectTokens.discoCenterWhiteOpacity, 0.10)
-        XCTAssertLessThanOrEqual(GameCellEffectTokens.discoMidpointWhiteOpacity, 0.03)
-        XCTAssertGreaterThanOrEqual(GameCellEffectTokens.discoColorBoostOpacity, 0.35)
-        XCTAssertEqual(GameCellEffectTokens.discoGlowFillOpacity, 0.34, accuracy: 0.001)
-        XCTAssertEqual(GameCellEffectTokens.discoPrimaryGlowOpacity, 1, accuracy: 0.001)
-        XCTAssertEqual(GameCellEffectTokens.discoSecondaryGlowOpacity, 0.28, accuracy: 0.001)
-        XCTAssertEqual(GameCellEffectTokens.discoGlowWidthScale, 0.22, accuracy: 0.001)
-        XCTAssertEqual(GameCellEffectTokens.discoHaloClipScale, 0.012, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoCenterWhiteOpacity, 0.42, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoMidpointWhiteOpacity, 0.11, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoGlowNearOpacity, 0.68, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoGlowFarOpacity, 0.34, accuracy: 0.001)
+        XCTAssertLessThan(GameCellEffectTokens.discoGlowOpacity, 1)
+        XCTAssertGreaterThan(GameCellEffectTokens.discoGlowOpacity, 0)
+        XCTAssertEqual(GameCellEffectTokens.discoGlowNearBlurMaximum, 13)
+        XCTAssertEqual(GameCellEffectTokens.discoGlowFarBlurMaximum, 30)
+        XCTAssertEqual(DiscoThemeTokens.idleScratchOpacity, 0.16, accuracy: 0.001)
+        XCTAssertEqual(DiscoThemeTokens.activeScratchOpacity, 0.34, accuracy: 0.001)
         XCTAssertGreaterThan(GameCellEffectTokens.lightInnerStrokeOpacity, 0.8)
     }
 
-    func testDiscoActiveColorsStayVividInsteadOfBeingWhitened() {
+    func testDiscoActiveColorsMatchTheWebMaterialPalette() {
         XCTAssertEqual(
             DiscoThemeTokens.activeCellHexes,
-            ["#00ffff", "#ffe600", "#ff008c", "#61ff00", "#ff5a00", "#7b00ff"]
+            ["#65e9f1", "#ffe681", "#ff86bc", "#b2ee7c", "#ffb06f", "#c3a8ff"]
         )
         for hex in DiscoThemeTokens.activeCellHexes {
             var hue: CGFloat = 0
@@ -330,10 +347,64 @@ final class CosmeticsTests: XCTestCase {
                 ),
                 hex
             )
-            XCTAssertGreaterThanOrEqual(saturation, 0.90, hex)
-            XCTAssertGreaterThanOrEqual(brightness, 0.95, hex)
+            XCTAssertGreaterThanOrEqual(saturation, 0.30, hex)
+            XCTAssertGreaterThanOrEqual(brightness, 0.90, hex)
             XCTAssertEqual(alpha, 1, accuracy: 0.001, hex)
         }
+    }
+
+    @MainActor
+    func testDiscoOutgoingGlowHasASoftExteriorAndTransparentCenter() throws {
+        let geometry = DiscoGlowGeometry.resolve(cellSide: 128, cornerRadius: 12.8)
+        XCTAssertEqual(geometry.nearBlurRadius, 7.68, accuracy: 0.001)
+        XCTAssertEqual(geometry.farBlurRadius, 15.36, accuracy: 0.001)
+        XCTAssertEqual(geometry.extent, 27)
+
+        let image = DiscoOutgoingGlowArtwork.image(
+            cellSide: geometry.cellSide,
+            cornerRadius: geometry.cornerRadius
+        )
+        XCTAssertTrue(
+            image
+                === DiscoOutgoingGlowArtwork.image(
+                    cellSide: geometry.cellSide,
+                    cornerRadius: geometry.cornerRadius
+                )
+        )
+        let cgImage = try XCTUnwrap(image.cgImage)
+        XCTAssertEqual(cgImage.width, Int(geometry.imageSize.width))
+        XCTAssertEqual(cgImage.height, Int(geometry.imageSize.height))
+
+        let centerAlpha = try alpha(
+            in: cgImage,
+            at: CGPoint(x: geometry.tileRect.midX, y: geometry.tileRect.midY)
+        )
+        let nearHaloAlpha = try alpha(
+            in: cgImage,
+            at: CGPoint(x: geometry.tileRect.minX - 2, y: geometry.tileRect.midY)
+        )
+        let farHaloAlpha = try alpha(
+            in: cgImage,
+            at: CGPoint(x: 1, y: geometry.tileRect.midY)
+        )
+        XCTAssertLessThan(centerAlpha, 0.02)
+        XCTAssertGreaterThan(nearHaloAlpha, 0.05)
+        XCTAssertGreaterThan(nearHaloAlpha, farHaloAlpha)
+    }
+
+    func testGameBoardLayoutKeepsSwiftUIAndSpriteKitCellsOnOneGrid() {
+        let layout = GameBoardLayout(size: CGSize(width: 320, height: 320), dimension: 2)
+        XCTAssertEqual(layout.boardFrame, CGRect(x: 12, y: 12, width: 296, height: 296))
+        XCTAssertEqual(layout.gap, 8)
+        XCTAssertEqual(layout.cellSide, 144)
+        XCTAssertEqual(
+            layout.cellFrame(at: 0, yAxis: .down),
+            CGRect(x: 12, y: 12, width: 144, height: 144)
+        )
+        XCTAssertEqual(
+            layout.cellFrame(at: 0, yAxis: .up),
+            CGRect(x: 12, y: 164, width: 144, height: 144)
+        )
     }
 
     func testAchievementFallbackCatalogMatchesTheServerStableIDsAndRewards() {
@@ -583,14 +654,15 @@ final class CosmeticsTests: XCTestCase {
     func testGameplayFeedbackUsesCenteredAnnouncementsAndHidesLegacyCopies() {
         XCTAssertEqual(GameplayAnnouncementPresentation.getReadyDuration, .seconds(1))
         for feedback in [
-            "Tap Pink ■", "Godlike · 201 ms", "Perfect · 301 ms", "Hit · 250 ms",
+            "Tap Pink ■", "Godlike - 201ms", "Perfect - 301ms", "Hit",
             "Get ready", "Missed", "Too early", "Too slow", "Wrong cell",
         ] {
             XCTAssertTrue(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
-        for feedback in ["Great · 401 ms", "Good · 501 ms", "Decoy dodged"] {
-            XCTAssertFalse(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
+        for feedback in ["Great - 401ms", "Good - 501ms"] {
+            XCTAssertTrue(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
+        XCTAssertFalse(GameplayFeedbackPresentation.isVisuallyHidden("Decoy dodged"))
         XCTAssertEqual(
             GameplayAnnouncementPresentation.resolve(
                 showsGetReady: true,
@@ -619,12 +691,28 @@ final class CosmeticsTests: XCTestCase {
             )
         )
         XCTAssertGreaterThan(
+            GameplayOverlayLayer.scoreFlyout,
+            GameplayOverlayLayer.ratingStamp
+        )
+        XCTAssertGreaterThan(
             GameplayOverlayLayer.ratingStamp,
             GameplayOverlayLayer.announcement
         )
         XCTAssertGreaterThan(
             GameplayOverlayLayer.announcement,
+            GameplayOverlayLayer.boardShellBorder
+        )
+        XCTAssertGreaterThan(
+            GameplayOverlayLayer.boardShellBorder,
+            GameplayOverlayLayer.discoGlow
+        )
+        XCTAssertGreaterThan(
+            GameplayOverlayLayer.discoGlow,
             GameplayOverlayLayer.board
+        )
+        XCTAssertGreaterThan(
+            GameplayOverlayLayer.board,
+            GameplayOverlayLayer.boardShell
         )
     }
 
@@ -762,5 +850,30 @@ final class CosmeticsTests: XCTestCase {
     private func bundledImage(named name: String) throws -> UIImage {
         let path = try XCTUnwrap(Bundle.main.path(forResource: name, ofType: "png"))
         return try XCTUnwrap(UIImage(contentsOfFile: path))
+    }
+
+    private func alpha(in image: CGImage, at point: CGPoint) throws -> CGFloat {
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let bitmapInfo =
+            CGBitmapInfo.byteOrder32Big.rawValue
+            | CGImageAlphaInfo.premultipliedLast.rawValue
+        let context = try XCTUnwrap(
+            CGContext(
+                data: &pixel,
+                width: 1,
+                height: 1,
+                bitsPerComponent: 8,
+                bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: bitmapInfo
+            )
+        )
+        context.interpolationQuality = .none
+        context.translateBy(x: -point.x, y: -point.y)
+        context.draw(
+            image,
+            in: CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        )
+        return CGFloat(pixel[3]) / 255
     }
 }

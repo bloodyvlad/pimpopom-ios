@@ -73,48 +73,21 @@ final class GameplayLifecycleTests: XCTestCase {
         let discoCell = try XCTUnwrap(
             scene.children.first { $0.name == "cell-0" } as? SKShapeNode
         )
-        let discoUnderlay = try XCTUnwrap(
-            scene.children.first { $0.name == "cell-0-disco-corner-underlay" }
-                as? SKShapeNode
-        )
-        let discoGlow = try XCTUnwrap(
-            scene.children.first { $0.name == "cell-0-disco-glow" } as? SKCropNode
-        )
-        let discoGlowMask = try XCTUnwrap(discoGlow.maskNode as? SKShapeNode)
-        assertColor(discoUnderlay.fillColor, equals: .black)
-        XCTAssertEqual(discoUnderlay.fillColor.cgColor.alpha, 1, accuracy: 0.001)
-        assertColor(discoGlowMask.fillColor, equals: .white)
-        XCTAssertLessThan(discoUnderlay.zPosition, discoGlow.zPosition)
-        XCTAssertLessThan(discoGlow.zPosition, discoCell.zPosition)
-        let discoCellBounds = try XCTUnwrap(discoCell.path?.boundingBoxOfPath)
-        let discoGlowMaskBounds = try XCTUnwrap(discoGlowMask.path?.boundingBoxOfPath)
-        let expectedHaloInset =
-            discoCellBounds.width * GameCellEffectTokens.discoHaloClipScale
-        XCTAssertEqual(
-            discoGlowMaskBounds.minX,
-            discoCellBounds.minX - expectedHaloInset,
-            accuracy: 0.001
-        )
-        XCTAssertEqual(
-            discoGlowMaskBounds.maxX,
-            discoCellBounds.maxX + expectedHaloInset,
-            accuracy: 0.001
+        XCTAssertFalse(scene.children.contains { $0.name?.contains("corner-underlay") == true })
+        XCTAssertFalse(
+            scene.children.contains { $0.name?.contains("disco-outgoing-glow") == true }
         )
         XCTAssertEqual(discoCell.glowWidth, 0)
-
-        let discoBoost = try XCTUnwrap(
-            scene.children.first { $0.name == "cell-0-disco-color-boost" }
-                as? SKShapeNode
+        let discoBorder = try XCTUnwrap(
+            scene.children.first { $0.name == "cell-0-disco-border" } as? SKShapeNode
         )
-        XCTAssertEqual(discoBoost.blendMode, .add)
-        assertColor(
-            discoBoost.fillColor,
-            equals: ThemePalette.disco.uiColor(at: 0).withAlphaComponent(
-                GameCellEffectTokens.discoColorBoostOpacity
-            )
+        let discoGlyph = try XCTUnwrap(
+            scene.children.first { $0.name == "cell-glyph-0" } as? SKShapeNode
         )
-        XCTAssertGreaterThan(discoBoost.zPosition, discoCell.zPosition)
-        XCTAssertTrue(scene.children.contains { $0.name?.contains("disco-backlight") == true })
+        XCTAssertLessThan(discoCell.zPosition, discoBorder.zPosition)
+        XCTAssertLessThan(discoBorder.zPosition, discoGlyph.zPosition)
+        XCTAssertTrue(scene.children.contains { $0.name?.contains("disco-active-glaze") == true })
+        XCTAssertTrue(scene.children.contains { $0.name?.contains("disco-active-depth") == true })
 
         scene.applyTheme("light")
         XCTAssertTrue(scene.children.contains { $0.name?.contains("light-glass") == true })
@@ -191,16 +164,80 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertEqual(received, [CGPoint(x: 0.5, y: 0.5)])
     }
 
-    func testOnlyPerfectAndGodlikeHitsPublishRoundedStampEvents() {
-        let godlike = ratingStamp(reactionMilliseconds: 249.4)
+    func testGameBoardGapTapBecomesAProtocolValidMiss() throws {
+        let coordinator = GameCoordinator(mode: .arcade)
+        var soundEvents: [GameplaySoundEvent] = []
+        coordinator.onSoundEvent = { soundEvents.append($0) }
+        coordinator.startNewRun()
+
+        var now = ProcessInfo.processInfo.systemUptime * 1_000 + 1_000
+        for _ in 0..<GameConfiguration.standard.twoByTwoStartsAtHits {
+            coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: now)
+            let target = try XCTUnwrap(coordinator.snapshot.targetIndex)
+            coordinator.gameScene(
+                coordinator.scene,
+                didTapCell: target,
+                normalizedLocation: CGPoint(x: 0.5, y: 0.5),
+                inputAt: now + 100,
+                handledAt: now + 100
+            )
+            now += 1_000
+        }
+
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: now)
+        XCTAssertEqual(coordinator.snapshot.difficulty.gridDimension, 2)
+        let activeTarget = try XCTUnwrap(coordinator.snapshot.targetIndex)
+        let livesBefore = coordinator.snapshot.lives
+
+        coordinator.scene.handleBoardTouch(
+            at: CGPoint(x: 160, y: 160),
+            inputAt: now + 200,
+            handledAt: now + 200
+        )
+
+        XCTAssertEqual(coordinator.feedback, "Missed")
+        XCTAssertEqual(coordinator.snapshot.lives, livesBefore - 1)
+        XCTAssertEqual(soundEvents.last, .lifeLoss)
+        let miss = try XCTUnwrap(coordinator.proofEvents().last)
+        XCTAssertEqual(miss.first, 2)
+        XCTAssertNotEqual(miss[4], activeTarget)
+        XCTAssertTrue((0..<4).contains(miss[4]))
+        coordinator.stop()
+    }
+
+    func testEveryAcceptedHitPublishesRoundedStampAndScoreFlyoutData() {
+        let godlike = hitFeedback(reactionMilliseconds: 249.4)
         XCTAssertEqual(godlike?.rating, .godlike)
         XCTAssertEqual(godlike?.milliseconds, 249)
 
-        let perfect = ratingStamp(reactionMilliseconds: 300.4)
+        let perfect = hitFeedback(reactionMilliseconds: 300.4)
         XCTAssertEqual(perfect?.rating, .perfect)
         XCTAssertEqual(perfect?.milliseconds, 300)
 
-        XCTAssertNil(ratingStamp(reactionMilliseconds: 375))
+        XCTAssertEqual(hitFeedback(reactionMilliseconds: 375)?.rating, .great)
+        let good = hitFeedback(reactionMilliseconds: 500)
+        XCTAssertEqual(good?.rating, .good)
+        XCTAssertGreaterThan(good?.pointsAwarded ?? 0, 0)
+        XCTAssertEqual(good?.normalizedLocation, CGPoint(x: 0.25, y: 0.75))
+    }
+
+    func testDeadlineExpiryPublishesTheSameTargetVisibilityAsSpriteKit() throws {
+        let coordinator = GameCoordinator(mode: .arcade)
+        coordinator.startNewRun()
+        let activeAt = ProcessInfo.processInfo.systemUptime * 1_000 + 1_000
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: activeAt)
+        let responseWindow = coordinator.snapshot.difficulty.responseWindowMilliseconds
+        let deadline = activeAt + Double(responseWindow)
+
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: deadline)
+        XCTAssertTrue(coordinator.isRoundPresentationExpired)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: deadline + 1)
+        XCTAssertTrue(coordinator.isRoundPresentationExpired)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: deadline + 2)
+
+        XCTAssertFalse(coordinator.isRoundPresentationExpired)
+        XCTAssertEqual(coordinator.feedback, "Too slow")
+        coordinator.stop()
     }
 
     func testMissedRecoveryDoesNotReintroduceGetReadyOrRestartLifecycle() {
@@ -236,7 +273,7 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertEqual(GameplayMissPresentation.copy(for: "late"), "Too slow")
     }
 
-    private func ratingStamp(reactionMilliseconds: Double) -> GameplayRatingStampEvent? {
+    private func hitFeedback(reactionMilliseconds: Double) -> GameplayHitFeedbackEvent? {
         let coordinator = GameCoordinator(mode: .arcade)
         coordinator.startNewRun()
         let activeAt = ProcessInfo.processInfo.systemUptime * 1_000 + 1_000
@@ -244,12 +281,12 @@ final class GameplayLifecycleTests: XCTestCase {
         coordinator.gameScene(
             coordinator.scene,
             didTapCell: 0,
-            normalizedLocation: CGPoint(x: 0.5, y: 0.5),
+            normalizedLocation: CGPoint(x: 0.25, y: 0.75),
             inputAt: activeAt + reactionMilliseconds,
             handledAt: activeAt + reactionMilliseconds
         )
         coordinator.stop()
-        return coordinator.ratingStampEvent
+        return coordinator.hitFeedbackEvent
     }
 
     private func assertColor(

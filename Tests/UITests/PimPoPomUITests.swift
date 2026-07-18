@@ -6,7 +6,7 @@ final class PimPoPomUITests: XCTestCase {
     }
 
     func testArcadeLaunchesAndAcceptsFirstTap() throws {
-        let app = launch()
+        let app = launch(additionalArguments: ["--ui-test-reaction-ms", "200"])
         let arcade = app.buttons["mode-normal"]
         XCTAssertTrue(arcade.waitForExistence(timeout: 8))
         arcade.tap()
@@ -30,6 +30,10 @@ final class PimPoPomUITests: XCTestCase {
         }
         XCTAssertTrue(feedback.label.hasPrefix("Tap "), "A target never became active")
         board.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        usleep(140_000)
+        attachScreenshot(of: app, name: "SE hit stamp and score flyout")
+        usleep(100_000)
+        attachScreenshot(of: app, name: "SE fast stamp feeds Speed Bar")
 
         let score = app.staticTexts["game-score"]
         XCTAssertEqual(
@@ -45,7 +49,6 @@ final class PimPoPomUITests: XCTestCase {
             .completed,
             "Expected a scored first tap, got: \(score.label)"
         )
-
     }
 
     func testZenCanEndIntoResults() throws {
@@ -56,6 +59,26 @@ final class PimPoPomUITests: XCTestCase {
 
         let endButton = app.buttons["end-zen-run"]
         XCTAssertTrue(endButton.waitForExistence(timeout: 8))
+
+        let target = app.descendants(matching: .any)["target-color"]
+        XCTAssertTrue(target.waitForExistence(timeout: 3))
+        XCTAssertEqual(target.label, "Target color Any")
+        XCTAssertFalse(target.label.contains("☯"))
+        XCTAssertFalse(target.label.localizedCaseInsensitiveContains("symbol"))
+
+        let lives = app.descendants(matching: .any)["game-lives"]
+        XCTAssertTrue(lives.waitForExistence(timeout: 2))
+        XCTAssertTrue(lives.label.contains("∞"))
+
+        let speedBar = app.descendants(matching: .any)["speed-streak"]
+        XCTAssertTrue(speedBar.waitForExistence(timeout: 2))
+        XCTAssertEqual(speedBar.label, "Speed bar")
+
+        let adPlaceholder = app.descendants(matching: .any)["ad-placeholder"]
+        XCTAssertTrue(adPlaceholder.waitForExistence(timeout: 2))
+        XCTAssertGreaterThanOrEqual(adPlaceholder.frame.height, 50)
+        attachScreenshot(of: app, name: "SE Zen rainbow target and standard banner")
+
         endButton.tap()
 
         let resultTitle = app.staticTexts["results-title"]

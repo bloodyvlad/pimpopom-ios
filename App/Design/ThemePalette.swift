@@ -216,7 +216,6 @@ struct AppThemeBackground: View {
 struct DiscoConcreteBackdrop: View {
     enum Context {
         case screen
-        case board
         case preview
     }
 
@@ -276,7 +275,6 @@ struct DiscoConcreteBackdrop: View {
     private var concreteOpacity: Double {
         switch context {
         case .screen: 1.0
-        case .board: 0.96
         case .preview: 0.92
         }
     }
@@ -284,7 +282,6 @@ struct DiscoConcreteBackdrop: View {
     private var concreteBrightness: Double {
         switch context {
         case .screen: 0.08
-        case .board: 0.06
         case .preview: 0.05
         }
     }
@@ -292,7 +289,6 @@ struct DiscoConcreteBackdrop: View {
     private var fixedReflectionOpacity: Double {
         switch context {
         case .screen: 0.30
-        case .board: 0.22
         case .preview: 0.24
         }
     }
@@ -300,7 +296,6 @@ struct DiscoConcreteBackdrop: View {
     private var textureOverlayOpacity: Double {
         switch context {
         case .screen: 0.58
-        case .board: 0.48
         case .preview: 0.52
         }
     }
@@ -318,7 +313,6 @@ struct DiscoConcreteBackdrop: View {
     private var reflectionOpacity: Double {
         switch context {
         case .screen: 0.82
-        case .board: 0.76
         case .preview: 0.70
         }
     }
@@ -326,7 +320,6 @@ struct DiscoConcreteBackdrop: View {
     private var blackVeilOpacity: Double {
         switch context {
         case .screen: 0.12
-        case .board: 0.20
         case .preview: 0.18
         }
     }
@@ -358,10 +351,27 @@ enum DiscoThemeTokens {
     static let cellBorderHex = "#4a5056"
     static let activeBorderHex = "#d9dde0"
     static let activeCellHexes = [
-        "#00ffff", "#ffe600", "#ff008c", "#61ff00", "#ff5a00", "#7b00ff",
+        "#65e9f1", "#ffe681", "#ff86bc", "#b2ee7c", "#ffb06f", "#c3a8ff",
     ]
-    static let idleScratchOpacity = 0.10
-    static let activeScratchOpacity = 0.26
+    static let idleScratchOpacity = 0.16
+    static let activeScratchOpacity = 0.34
+
+    static func activeBorderColor(for color: UIColor) -> UIColor {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+            return UIColor(hexString: activeBorderHex)
+        }
+        let whiteMix: CGFloat = 0.38
+        return UIColor(
+            red: red * (1 - whiteMix) + whiteMix,
+            green: green * (1 - whiteMix) + whiteMix,
+            blue: blue * (1 - whiteMix) + whiteMix,
+            alpha: 1
+        )
+    }
 }
 
 enum ThemePreviewStyle {
@@ -381,11 +391,27 @@ enum GameCellVisualMetrics {
         theme.isPixel ? .zero : max(minimum, side * 0.10)
     }
 
+    static func liveCornerRadius(
+        theme: ThemePalette,
+        gridDimension: Int
+    ) -> CGFloat {
+        guard !theme.isPixel else { return 0 }
+        // Match the parent game's clamp(11px, 30px / grid-size, 22px)
+        // instead of allowing a one-cell board to grow an oversized curve.
+        return min(22, max(11, 30 / CGFloat(max(1, gridDimension))))
+    }
+
     static func glyphBoxSide(
         side: CGFloat,
         minimumBaseSide: CGFloat = 14
     ) -> CGFloat {
         max(minimumBaseSide, side * 0.30)
+    }
+}
+
+enum GameBoardVisualMetrics {
+    static func shellCornerRadius(theme: ThemePalette) -> CGFloat {
+        theme.isPixel ? 0 : 22
     }
 }
 
@@ -408,40 +434,19 @@ struct GameCellPreview: View {
                 seed: textureSeed ?? colorIndex ?? 0
             )
             let primaryGlowRadius =
-                effects.discoBacklight
-                ? side * GameCellEffectTokens.discoGlowWidthScale * 0.55
-                : (isTarget ? 6 : 3)
-            let secondaryGlowRadius =
-                effects.discoBacklight
-                ? side * GameCellEffectTokens.discoGlowWidthScale
-                : 0
-            let discoHaloInset = side * GameCellEffectTokens.discoHaloClipScale
+                theme.id == "disco" ? CGFloat.zero : (isTarget ? 6 : 3)
 
             ZStack {
-                if effects.requiresBlackCornerUnderlay {
-                    Rectangle().fill(Color.black)
-                }
-
-                if effects.discoBacklight {
-                    shape
-                        .fill(
-                            primaryGlowColor.opacity(
-                                GameCellEffectTokens.discoGlowFillOpacity
-                            )
-                        )
-                        .shadow(color: primaryGlowColor, radius: primaryGlowRadius)
-                        .shadow(color: secondaryGlowColor, radius: secondaryGlowRadius)
-                        .mask {
-                            RoundedRectangle(
-                                cornerRadius: cornerRadius + discoHaloInset,
-                                style: .continuous
-                            )
-                            .padding(-discoHaloInset)
-                        }
-                }
-
                 shape
                     .fill(fillColor)
+                    .overlay {
+                        GameCellSurfaceOverlay(
+                            theme: theme,
+                            cornerRadius: cornerRadius,
+                            effects: effects,
+                            activeColor: colorIndex.map { theme.color(at: $0) }
+                        )
+                    }
                     .overlay {
                         if theme.id == "disco" {
                             Image("disco-tile-overlay", bundle: .main)
@@ -455,14 +460,6 @@ struct GameCellPreview: View {
                                 )
                                 .clipShape(shape)
                         }
-                    }
-                    .overlay {
-                        GameCellSurfaceOverlay(
-                            theme: theme,
-                            cornerRadius: cornerRadius,
-                            effects: effects,
-                            activeColor: colorIndex.map { theme.color(at: $0) }
-                        )
                     }
                     .overlay {
                         if showsGlyphs {
@@ -483,11 +480,20 @@ struct GameCellPreview: View {
                         )
                     }
                     .shadow(
-                        color: effects.requiresBlackCornerUnderlay
-                            ? .clear
-                            : primaryGlowColor,
+                        color: primaryGlowColor,
                         radius: theme.isPixel ? 0 : primaryGlowRadius
                     )
+
+            }
+            .frame(width: side, height: side)
+            .overlay {
+                if effects.discoGlow, let colorIndex {
+                    DiscoOutgoingGlowView(
+                        color: theme.color(at: colorIndex),
+                        cellSide: side,
+                        cornerRadius: cornerRadius
+                    )
+                }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
@@ -512,22 +518,68 @@ struct GameCellPreview: View {
                 ? Color(hex: DiscoThemeTokens.cellBorderHex)
                 : Color(hex: theme.foreground).opacity(0.18)
         }
-        if theme.id == "disco" { return Color(hex: DiscoThemeTokens.activeBorderHex) }
+        if theme.id == "disco" {
+            guard let colorIndex else {
+                return Color(hex: DiscoThemeTokens.activeBorderHex)
+            }
+            return Color(
+                uiColor: DiscoThemeTokens.activeBorderColor(
+                    for: theme.uiColor(at: colorIndex)
+                )
+            )
+        }
         return .white.opacity(isTarget ? 0.85 : 0.35)
     }
 
     private var primaryGlowColor: Color {
         guard let colorIndex else { return .clear }
         return theme.color(at: colorIndex).opacity(
-            theme.id == "disco" ? GameCellEffectTokens.discoPrimaryGlowOpacity : 0.30
+            theme.id == "disco" ? 0 : 0.30
         )
     }
+}
 
-    private var secondaryGlowColor: Color {
-        guard let colorIndex, theme.id == "disco" else { return .clear }
-        return theme.color(at: colorIndex).opacity(
-            GameCellEffectTokens.discoSecondaryGlowOpacity
-        )
+enum ZenAnyCellTokens {
+    static let previewSide: CGFloat = 40
+    static let rainbowHexes = [
+        "#ff4f85", "#ffcf4f", "#72ed76", "#35e6df", "#6c9cff", "#b76cff",
+        "#ff4f85",
+    ]
+}
+
+struct ZenAnyCellPreview: View {
+    let theme: ThemePalette
+
+    var body: some View {
+        GeometryReader { proxy in
+            let side = min(proxy.size.width, proxy.size.height)
+            let cornerRadius = GameCellVisualMetrics.cornerRadius(theme: theme, side: side)
+            let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+            shape
+                .fill(
+                    RadialGradient(
+                        colors: ZenAnyCellTokens.rainbowHexes.map { Color(hex: $0) },
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: side * 0.72
+                    )
+                )
+                .overlay {
+                    shape.stroke(
+                        Color.white.opacity(0.92),
+                        lineWidth: GameCellVisualMetrics.targetBorderWidth
+                    )
+                }
+                .shadow(
+                    color: Color(hex: "#6c9cff").opacity(theme.isPixel ? 0 : 0.42),
+                    radius: theme.isPixel ? 0 : 6
+                )
+                .frame(width: side, height: side)
+                .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .accessibilityHidden(true)
     }
 }
 
@@ -543,38 +595,51 @@ private struct GameCellSurfaceOverlay: View {
             let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
 
             ZStack {
-                if effects.discoBacklight {
-                    if let activeColor {
-                        shape
-                            .fill(
-                                activeColor.opacity(
-                                    GameCellEffectTokens.discoColorBoostOpacity
-                                )
-                            )
-                            .blendMode(.plusLighter)
-                    }
+                if effects.discoGlow {
+                    if activeColor != nil {
+                        RadialGradient(
+                            stops: [
+                                .init(
+                                    color: .white.opacity(
+                                        GameCellEffectTokens.discoCenterWhiteOpacity
+                                    ),
+                                    location: 0
+                                ),
+                                .init(
+                                    color: .white.opacity(
+                                        GameCellEffectTokens.discoMidpointWhiteOpacity
+                                    ),
+                                    location: 0.34
+                                ),
+                                .init(color: .clear, location: 0.64),
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: side * 0.64
+                        )
+                        .blendMode(.screen)
 
-                    RadialGradient(
-                        stops: [
-                            .init(
-                                color: .white.opacity(
-                                    GameCellEffectTokens.discoCenterWhiteOpacity
-                                ),
-                                location: 0
-                            ),
-                            .init(
-                                color: .white.opacity(
-                                    GameCellEffectTokens.discoMidpointWhiteOpacity
-                                ),
-                                location: 0.45
-                            ),
-                            .init(color: .clear, location: 0.78),
-                        ],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: side * 0.72
-                    )
-                    .blendMode(.screen)
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(GameCellEffectTokens.discoGlazeWhiteOpacity),
+                                .clear,
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .blendMode(.screen)
+
+                        LinearGradient(
+                            colors: [
+                                .clear,
+                                .clear,
+                                .black.opacity(GameCellEffectTokens.discoDepthOpacity),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                        .blendMode(.multiply)
+                    }
                 }
 
                 if effects.lightGlass {

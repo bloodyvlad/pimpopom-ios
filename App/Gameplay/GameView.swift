@@ -26,8 +26,9 @@ struct GameView: View {
     @State private var gameplayPetActivity = 0
     @State private var gameplayScreenWidth: CGFloat = 0
     @State private var didFreezePresentation = false
-    @State private var ratingStampPresentation: RatingStampPresentation?
-    @State private var ratingStampTask: Task<Void, Never>?
+    @State private var hitFeedbackPresentations: [GameplayHitPresentation] = []
+    @State private var hitFeedbackTasks: [Int: Task<Void, Never>] = [:]
+    @State private var speedBarTrackFrame = CGRect.zero
     private let onRunFinished: () -> Void
 
     private var palette: ThemePalette { frozenTheme }
@@ -43,7 +44,9 @@ struct GameView: View {
 
             GeometryReader { proxy in
                 let boardWidth = min(proxy.size.width - 24, 680)
-                let reservedHeight: CGFloat = frozenPetID == nil ? 218 : 246
+                let reservedHeight = GameplayLayoutMetrics.reservedHeight(
+                    hasPet: frozenPetID != nil
+                )
                 let boardSide = min(boardWidth, max(220, proxy.size.height - reservedHeight))
 
                 VStack(spacing: 8) {
@@ -69,6 +72,10 @@ struct GameView: View {
         .onPreferenceChange(GameplayScreenWidthPreferenceKey.self) { width in
             guard width > 0, width != gameplayScreenWidth else { return }
             Task { @MainActor in gameplayScreenWidth = width }
+        }
+        .onPreferenceChange(SpeedBarTrackFramePreferenceKey.self) { frame in
+            guard !frame.isEmpty, frame != speedBarTrackFrame else { return }
+            Task { @MainActor in speedBarTrackFrame = frame }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !coordinator.isFinished,
@@ -116,6 +123,7 @@ struct GameView: View {
             coordinator.onSoundEvent = nil
             coordinator.onLifecycleEvent = nil
             coordinator.onBoardTap = nil
+            clearHitFeedback()
             abandonTicketIfNeeded()
             audio.setMusicContext(.menu)
         }
@@ -131,11 +139,10 @@ struct GameView: View {
                 audio.setMusicContext(.gameplay)
             }
         }
-        .onChange(of: coordinator.ratingStampEvent) { _, event in
+        .onChange(of: coordinator.hitFeedbackEvent) { _, event in
             guard let event else { return }
-            showRatingStamp(event)
+            showHitFeedback(event)
         }
-        .onDisappear { ratingStampTask?.cancel() }
     }
 
     private var gameUtilityHeader: some View {
@@ -211,7 +218,12 @@ struct GameView: View {
                         formatDuration(coordinator.snapshot.elapsedMilliseconds),
                         identifier: "game-time"
                     )
-                    compactStat("Lives", livesPresentation, identifier: "game-lives")
+                    compactStat(
+                        "Lives",
+                        livesPresentation,
+                        identifier: "game-lives",
+                        valueColor: Color(hex: GameHUDMetrics.livesColorHex)
+                    )
                 }
                 .frame(width: sideWidth)
             }
@@ -227,7 +239,6 @@ struct GameView: View {
         )
         let colorIndex = coordinator.snapshot.playerColorIndex
         let name = coordinator.mode == .zen ? "Any" : coordinator.snapshot.playerColor.name
-        let glyph = coordinator.mode == .zen ? "☯" : coordinator.snapshot.playerColor.glyph
 
         return VStack(alignment: .leading, spacing: 5) {
             Text("YOUR COLOR")
@@ -237,14 +248,23 @@ struct GameView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 
             HStack(spacing: 12) {
-                GameCellPreview(
-                    theme: palette,
-                    colorIndex: coordinator.mode == .zen ? nil : colorIndex,
-                    glyph: glyph,
-                    showsGlyphs: frozenGlyphsEnabled,
-                    isTarget: true
+                Group {
+                    if coordinator.mode == .zen {
+                        ZenAnyCellPreview(theme: palette)
+                    } else {
+                        GameCellPreview(
+                            theme: palette,
+                            colorIndex: colorIndex,
+                            glyph: coordinator.snapshot.playerColor.glyph,
+                            showsGlyphs: frozenGlyphsEnabled,
+                            isTarget: true
+                        )
+                    }
+                }
+                .frame(
+                    width: ZenAnyCellTokens.previewSide,
+                    height: ZenAnyCellTokens.previewSide
                 )
-                .frame(width: 40, height: 40)
 
                 Text(name)
                     .font(palette.appFont(size: 18, weight: .black, relativeTo: .headline))
@@ -282,7 +302,7 @@ struct GameView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 11))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(targetAccessibilityLabel(name: name, glyph: glyph))
+        .accessibilityLabel(targetAccessibilityLabel(name: name))
         .accessibilityIdentifier("target-color")
     }
 
@@ -300,13 +320,19 @@ struct GameView: View {
         return "Tap \(coordinator.snapshot.playerColor.name)"
     }
 
-    private func targetAccessibilityLabel(name: String, glyph: String) -> String {
-        frozenGlyphsEnabled
-            ? "Target color \(name), symbol \(glyph)"
-            : "Target color \(name)"
+    private func targetAccessibilityLabel(name: String) -> String {
+        guard coordinator.mode == .arcade, frozenGlyphsEnabled else {
+            return "Target color \(name)"
+        }
+        return "Target color \(name), symbol \(coordinator.snapshot.playerColor.glyph)"
     }
 
-    private func compactStat(_ label: String, _ value: String, identifier: String) -> some View {
+    private func compactStat(
+        _ label: String,
+        _ value: String,
+        identifier: String,
+        valueColor: Color? = nil
+    ) -> some View {
         VStack(spacing: 1) {
             Text(label.uppercased())
                 .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
@@ -317,7 +343,7 @@ struct GameView: View {
             Text(value)
                 .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
                 .monospacedDigit()
-                .foregroundStyle(Color(hex: palette.foreground))
+                .foregroundStyle(valueColor ?? Color(hex: palette.foreground))
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
@@ -345,33 +371,120 @@ struct GameView: View {
             showsGetReady: showsGetReady,
             feedback: displayedFeedback
         )
+        let shell = RoundedRectangle(
+            cornerRadius: GameBoardVisualMetrics.shellCornerRadius(theme: palette),
+            style: .continuous
+        )
 
         return ZStack(alignment: .bottom) {
+            shell
+                .fill(
+                    palette.id == "disco"
+                        ? Color.black.opacity(0.34)
+                        : Color(hex: palette.board)
+                )
+                .shadow(
+                    color: palette.isLight
+                        ? Color(hex: "#3d789e").opacity(0.20)
+                        : .black.opacity(0.34),
+                    radius: palette.isPixel ? 0 : 14,
+                    y: palette.isPixel ? 0 : 7
+                )
+                .allowsHitTesting(false)
+                .zIndex(GameplayOverlayLayer.boardShell)
+
             SpriteView(
                 scene: coordinator.scene,
                 options: [.allowsTransparency, .ignoresSiblingOrder]
             )
+            .clipShape(shell)
             .allowsHitTesting(!preparing)
-            .padding(8)
             .zIndex(GameplayOverlayLayer.board)
 
-            if let stamp = ratingStampPresentation {
+            if palette.id == "disco" {
+                DiscoBoardGlowOverlay(
+                    snapshot: coordinator.snapshot,
+                    theme: palette,
+                    roundPresentationExpired: coordinator.isRoundPresentationExpired
+                )
+                .clipShape(shell)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .zIndex(GameplayOverlayLayer.discoGlow)
+            }
+
+            shell
+                .stroke(
+                    palette.id == "disco"
+                        ? Color.white.opacity(0.16)
+                        : palette.isLight
+                            ? Color.white
+                            : Color(hex: palette.foreground).opacity(0.12),
+                    lineWidth: palette.isPixel ? 2 : 1
+                )
+                .allowsHitTesting(false)
+                .zIndex(GameplayOverlayLayer.boardShellBorder)
+
+            ForEach(hitFeedbackPresentations) { presentation in
                 GeometryReader { proxy in
+                    let boardFrame = proxy.frame(in: .named("game-space"))
+
                     GlowStampView(
-                        text: "\(stamp.event.rating.label) · \(stamp.event.milliseconds) ms",
-                        tone: stamp.tone,
+                        text: GameplayRatingFormatting.stamp(
+                            rating: presentation.event.rating,
+                            milliseconds: presentation.event.milliseconds
+                        ),
+                        tone: presentation.stamp.tone,
                         theme: palette,
-                        tilt: stamp.tilt,
+                        tilt: presentation.stamp.tilt,
                         size: 12,
                         horizontalPadding: 9,
-                        verticalPadding: 5
+                        verticalPadding: 5,
+                        uppercasesText: false,
+                        usesTransparentBackground: true
                     )
-                    .position(stamp.position(in: proxy.size))
-                    .transition(.scale(scale: 0.75).combined(with: .opacity))
+                    .position(
+                        presentation.stampPosition(
+                            in: proxy.size,
+                            boardFrame: boardFrame,
+                            speedBarTrackFrame: speedBarTrackFrame
+                        )
+                    )
+                    .opacity(presentation.stampOpacity)
+                    .scaleEffect(presentation.stampScale)
                 }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
                 .zIndex(GameplayOverlayLayer.ratingStamp)
+            }
+
+            ForEach(hitFeedbackPresentations) { presentation in
+                GeometryReader { proxy in
+                    Text(presentation.scoreText)
+                        .font(
+                            palette.appFont(
+                                size: 14,
+                                weight: .black,
+                                relativeTo: .headline
+                            )
+                        )
+                        .monospacedDigit()
+                        .foregroundStyle(presentation.stamp.tone)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(.black.opacity(0.52), in: Capsule())
+                        .overlay {
+                            Capsule()
+                                .stroke(presentation.stamp.tone.opacity(0.88), lineWidth: 1)
+                        }
+                        .shadow(color: presentation.stamp.tone.opacity(0.94), radius: 8)
+                        .position(presentation.scorePosition(in: proxy.size))
+                        .opacity(presentation.isScoreVisible ? 1 : 0)
+                        .scaleEffect(presentation.isScoreVisible ? 1 : 0.84)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .zIndex(GameplayOverlayLayer.scoreFlyout)
             }
 
             if let announcement {
@@ -400,44 +513,14 @@ struct GameView: View {
             }
         }
         .frame(width: side, height: side)
-        .background(boardShell)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Reaction board")
         .accessibilityIdentifier("reaction-board")
     }
 
-    private var boardShell: some View {
-        let shape = RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 22, style: .continuous)
-        return ZStack {
-            shape.fill(Color(hex: palette.board))
-            if palette.id == "disco" {
-                DiscoConcreteBackdrop(context: .board)
-            }
-        }
-        .clipShape(shape)
-        .overlay {
-            shape.stroke(
-                palette.id == "disco"
-                    ? Color(hex: DiscoThemeTokens.cellBorderHex)
-                    : palette.isLight
-                        ? Color.white
-                        : Color(hex: palette.foreground).opacity(0.12),
-                lineWidth: palette.id == "disco" || palette.isPixel ? 2 : 1
-            )
-        }
-        .shadow(
-            color: palette.isLight
-                ? Color(hex: "#3d789e").opacity(0.20)
-                : .black.opacity(0.34),
-            radius: palette.isPixel ? 0 : 14,
-            y: palette.isPixel ? 0 : 7
-        )
-    }
-
     private func streakAndPet(width: CGFloat, screenWidth: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             streakMeter
-                .padding(.top, frozenPetID == nil ? 0 : 28)
 
             if let petID = frozenPetID {
                 PetCompanionView(
@@ -450,13 +533,14 @@ struct GameView: View {
                 .frame(width: 54, height: 54)
                 .offset(
                     x: screenWidth * 0.40 - (screenWidth - width) / 2 - 27,
-                    y: PetArtworkGeometry.gameplayViewVerticalOffset(petID: petID)
+                    y: -28 + PetArtworkGeometry.gameplayViewVerticalOffset(petID: petID)
                 )
                 .allowsHitTesting(false)
                 .accessibilityIdentifier("gameplay-pet-\(petID)")
             }
         }
-        .frame(width: width, height: frozenPetID == nil ? 50 : 78, alignment: .bottom)
+        .frame(width: width, height: 50, alignment: .bottom)
+        .padding(.bottom, GameplayLayoutMetrics.footerLift)
     }
 
     private var streakMeter: some View {
@@ -480,13 +564,18 @@ struct GameView: View {
                         )
                         .frame(width: progressWidth)
                         .clipShape(Capsule())
-                    Text("SPEED STREAK")
+                        .animation(.easeOut(duration: 0.45), value: streakProgressFraction)
+                    Text("SPEED BAR")
                         .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption2))
                         .tracking(0.65)
                         .foregroundStyle(Color(hex: palette.foreground))
                         .shadow(color: .black.opacity(palette.isLight ? 0.12 : 0.65), radius: 2)
                         .padding(.leading, 12)
                 }
+                .preference(
+                    key: SpeedBarTrackFramePreferenceKey.self,
+                    value: proxy.frame(in: .named("game-space"))
+                )
             }
             .frame(height: 36)
 
@@ -512,7 +601,7 @@ struct GameView: View {
                 .stroke(streakTierColor.opacity(0.42), lineWidth: palette.isPixel ? 2 : 1)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Speed streak")
+        .accessibilityLabel("Speed bar")
         .accessibilityValue(
             "Multiplier \(coordinator.snapshot.multiplier), \(coordinator.snapshot.streakProgress) of \(coordinator.snapshot.streakTarget)"
         )
@@ -546,7 +635,10 @@ struct GameView: View {
         Text("Ads disabled · internal alpha")
             .font(palette.appFont(size: 10, weight: .semibold, relativeTo: .caption2))
             .foregroundStyle(Color(hex: palette.muted).opacity(0.78))
-            .frame(maxWidth: .infinity, minHeight: 26)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: GameplayLayoutMetrics.adBannerHeight
+            )
             .background(
                 Color(hex: palette.surface).opacity(0.78),
                 in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 8)
@@ -790,6 +882,7 @@ struct GameView: View {
 
     private func prepareAndStart() async {
         coordinator.stop()
+        clearHitFeedback()
         preparationGeneration += 1
         let preparation = preparationGeneration
         preparing = true
@@ -952,27 +1045,100 @@ struct GameView: View {
         gameplayPetActivity += 1
     }
 
-    private func showRatingStamp(_ event: GameplayRatingStampEvent) {
-        ratingStampTask?.cancel()
+    private func showHitFeedback(_ event: GameplayHitFeedbackEvent) {
         let deterministic: Bool
         #if DEBUG
             deterministic = ProcessInfo.processInfo.arguments.contains("--uitesting")
         #else
             deterministic = false
         #endif
-        withAnimation(.spring(response: 0.20, dampingFraction: 0.72)) {
-            ratingStampPresentation = RatingStampPresentation.make(
+        if hitFeedbackPresentations.count >= 8,
+            let oldest = hitFeedbackPresentations.first
+        {
+            hitFeedbackTasks.removeValue(forKey: oldest.id)?.cancel()
+            hitFeedbackPresentations.removeFirst()
+        }
+
+        hitFeedbackPresentations.append(
+            GameplayHitPresentation(
                 event: event,
-                deterministic: deterministic
+                stamp: RatingStampPresentation.make(
+                    event: event,
+                    deterministic: deterministic
+                ),
+                stampPhase: .hidden,
+                isScoreVisible: false
             )
-        }
-        ratingStampTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(620))
-            guard !Task.isCancelled, ratingStampPresentation?.event.id == event.id else { return }
-            withAnimation(.easeOut(duration: 0.15)) {
-                ratingStampPresentation = nil
+        )
+        let task = Task { @MainActor in
+            // Give SwiftUI one display frame to commit the inserted, transparent
+            // presentation before animating it visible.
+            try? await Task.sleep(for: .milliseconds(16))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.09)) {
+                updateHitFeedback(
+                    id: event.id,
+                    stampPhase: .visible,
+                    isScoreVisible: true
+                )
             }
+
+            if RatingStampMotionPolicy.feedsSpeedBar(event.rating) {
+                try? await Task.sleep(for: .milliseconds(90))
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeInOut(duration: 0.34)) {
+                    updateHitFeedback(
+                        id: event.id,
+                        stampPhase: .absorbing
+                    )
+                }
+                try? await Task.sleep(for: .milliseconds(340))
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeIn(duration: 0.10)) {
+                    updateHitFeedback(
+                        id: event.id,
+                        stampPhase: .absorbed,
+                        isScoreVisible: false
+                    )
+                }
+                try? await Task.sleep(for: .milliseconds(100))
+            } else {
+                try? await Task.sleep(for: .milliseconds(420))
+                guard !Task.isCancelled else { return }
+                withAnimation(.easeIn(duration: 0.20)) {
+                    updateHitFeedback(
+                        id: event.id,
+                        stampPhase: .hidden,
+                        isScoreVisible: false
+                    )
+                }
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            guard !Task.isCancelled else { return }
+            hitFeedbackPresentations.removeAll { $0.id == event.id }
+            hitFeedbackTasks.removeValue(forKey: event.id)
         }
+        hitFeedbackTasks[event.id] = task
+    }
+
+    private func updateHitFeedback(
+        id: Int,
+        stampPhase: GameplayHitAnimationPhase,
+        isScoreVisible: Bool? = nil
+    ) {
+        guard let index = hitFeedbackPresentations.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+        hitFeedbackPresentations[index].stampPhase = stampPhase
+        if let isScoreVisible {
+            hitFeedbackPresentations[index].isScoreVisible = isScoreVisible
+        }
+    }
+
+    private func clearHitFeedback() {
+        for task in hitFeedbackTasks.values { task.cancel() }
+        hitFeedbackTasks.removeAll(keepingCapacity: true)
+        hitFeedbackPresentations.removeAll(keepingCapacity: true)
     }
 
     private func freezePresentationIfNeeded() {
@@ -994,7 +1160,7 @@ struct RatingStampPresentation: Equatable {
         case left
     }
 
-    let event: GameplayRatingStampEvent
+    let event: GameplayHitFeedbackEvent
     let edge: Edge
     let laneFraction: CGFloat
     let tilt: Double
@@ -1008,7 +1174,7 @@ struct RatingStampPresentation: Equatable {
         }
     }
 
-    static func make(event: GameplayRatingStampEvent, deterministic: Bool) -> Self {
+    static func make(event: GameplayHitFeedbackEvent, deterministic: Bool) -> Self {
         let lanes: [CGFloat] = [0.24, 0.50, 0.76]
         let tilts = [-9.0, -6.0, -3.0, 3.0, 6.0, 9.0]
         if deterministic {
@@ -1043,6 +1209,137 @@ struct RatingStampPresentation: Equatable {
     }
 }
 
+enum GameplayHitAnimationPhase: Equatable {
+    case hidden
+    case visible
+    case absorbing
+    case absorbed
+}
+
+enum RatingStampMotionPolicy {
+    static func feedsSpeedBar(_ rating: SpeedRating) -> Bool {
+        rating == .godlike || rating == .perfect
+    }
+
+    static func speedBarDestination(
+        boardFrame: CGRect,
+        speedBarTrackFrame: CGRect
+    ) -> CGPoint? {
+        guard !boardFrame.isEmpty, !speedBarTrackFrame.isEmpty else { return nil }
+        return CGPoint(
+            x: speedBarTrackFrame.midX - boardFrame.minX,
+            y: speedBarTrackFrame.midY - boardFrame.minY
+        )
+    }
+}
+
+struct GameplayHitPresentation: Equatable, Identifiable {
+    let event: GameplayHitFeedbackEvent
+    let stamp: RatingStampPresentation
+    var stampPhase: GameplayHitAnimationPhase
+    var isScoreVisible: Bool
+
+    var id: Int { event.id }
+
+    var scoreText: String {
+        GameplayScoreFormatting.flyout(points: event.pointsAwarded)
+    }
+
+    var stampOpacity: Double {
+        stampPhase == .hidden || stampPhase == .absorbed ? 0 : 1
+    }
+
+    var stampScale: CGFloat {
+        switch stampPhase {
+        case .hidden: 0.88
+        case .visible: 1
+        case .absorbing: 0.42
+        case .absorbed: 0.18
+        }
+    }
+
+    func stampPosition(
+        in size: CGSize,
+        boardFrame: CGRect,
+        speedBarTrackFrame: CGRect
+    ) -> CGPoint {
+        let startingPosition = stamp.position(in: size)
+        guard RatingStampMotionPolicy.feedsSpeedBar(event.rating),
+            stampPhase == .absorbing || stampPhase == .absorbed,
+            let destination = RatingStampMotionPolicy.speedBarDestination(
+                boardFrame: boardFrame,
+                speedBarTrackFrame: speedBarTrackFrame
+            )
+        else { return startingPosition }
+        return destination
+    }
+
+    func scorePosition(in size: CGSize) -> CGPoint {
+        CGPoint(
+            x: event.normalizedLocation.x * size.width,
+            y: event.normalizedLocation.y * size.height - 15
+        )
+    }
+}
+
+private struct DiscoBoardGlowOverlay: View {
+    let snapshot: GameSnapshot
+    let theme: ThemePalette
+    let roundPresentationExpired: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let layout = GameBoardLayout(
+                size: proxy.size,
+                dimension: snapshot.difficulty.gridDimension
+            )
+            let cornerRadius = GameCellVisualMetrics.liveCornerRadius(
+                theme: theme,
+                gridDimension: snapshot.difficulty.gridDimension
+            )
+            // Resolve the cached bitmap while the board is waiting/Get ready,
+            // before the first timed target for each grid dimension appears.
+            let _ = DiscoOutgoingGlowArtwork.image(
+                cellSide: layout.cellSide,
+                cornerRadius: cornerRadius
+            )
+
+            ZStack {
+                ForEach(snapshot.cells.indices, id: \.self) { index in
+                    let cell = snapshot.cells[index]
+                    if let colorIndex = cell.colorIndex,
+                        !(roundPresentationExpired && cell.kind == .target)
+                    {
+                        let frame = layout.cellFrame(at: index, yAxis: .down)
+                        DiscoOutgoingGlowView(
+                            color: theme.color(at: colorIndex),
+                            cellSide: layout.cellSide,
+                            cornerRadius: cornerRadius
+                        )
+                        .position(x: frame.midX, y: frame.midY)
+                    }
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+        }
+    }
+}
+
+enum GameplayScoreFormatting {
+    static func flyout(points: Int) -> String {
+        let digits = Array(String(max(0, points)))
+        var grouped = ""
+        grouped.reserveCapacity(digits.count + digits.count / 3)
+        for (index, digit) in digits.enumerated() {
+            if index > 0, (digits.count - index).isMultiple(of: 3) {
+                grouped.append(",")
+            }
+            grouped.append(digit)
+        }
+        return "+\(grouped)"
+    }
+}
+
 enum ResponseProgressPresentation {
     static func remainingFraction(_ progress: Double?, isActive: Bool) -> Double? {
         guard isActive, let progress else { return nil }
@@ -1052,6 +1349,16 @@ enum ResponseProgressPresentation {
 
 enum GameHUDMetrics {
     static let colorHeroOutlineWidth = 3.0
+    static let livesColorHex = "#ff5370"
+}
+
+enum GameplayLayoutMetrics {
+    static let footerLift: CGFloat = 8
+    static let adBannerHeight: CGFloat = 50
+
+    static func reservedHeight(hasPet _: Bool) -> CGFloat {
+        218 + footerLift
+    }
 }
 
 enum GameplayFeedbackPresentation {
@@ -1060,15 +1367,22 @@ enum GameplayFeedbackPresentation {
             return true
         }
         if feedback.hasPrefix("Tap ") { return true }
-        return ["Godlike ·", "Perfect ·", "Hit ·"]
+        if feedback == "Hit" { return true }
+        return ["Godlike -", "Perfect -", "Great -", "Good -"]
             .contains { feedback.hasPrefix($0) }
     }
 }
 
 enum GameplayOverlayLayer {
+    static let boardShell = -10.0
     static let board = 0.0
+    // The additive Disco bloom is deliberately above every active cell and
+    // below all copy/feedback layers.
+    static let discoGlow = 100.0
+    static let boardShellBorder = 150.0
     static let announcement = 200.0
     static let ratingStamp = 300.0
+    static let scoreFlyout = 310.0
 }
 
 enum GameplayCenterAnnouncement: Equatable, Sendable {
@@ -1155,6 +1469,15 @@ private struct GameplayScreenWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+private struct SpeedBarTrackFramePreferenceKey: PreferenceKey {
+    static let defaultValue = CGRect.zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if !next.isEmpty { value = next }
     }
 }
 

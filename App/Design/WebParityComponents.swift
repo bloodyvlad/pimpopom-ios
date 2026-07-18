@@ -89,21 +89,25 @@ struct GlowStampView: View {
     var size: CGFloat = 15
     var horizontalPadding: CGFloat = 11
     var verticalPadding: CGFloat = 7
+    var uppercasesText = true
+    var usesTransparentBackground = false
 
     var body: some View {
         Text(text)
             .font(theme.appFont(size: size, weight: .black, relativeTo: .body))
             .italic(!theme.isPixel)
-            .textCase(.uppercase)
+            .textCase(uppercasesText ? .uppercase : nil)
             .lineLimit(1)
             .minimumScaleFactor(0.70)
             .foregroundStyle(tone)
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
             .background(
-                theme.isLight
-                    ? Color.white.opacity(0.91)
-                    : Color(hex: "#04060c").opacity(0.84),
+                usesTransparentBackground
+                    ? Color.clear
+                    : theme.isLight
+                        ? Color.white.opacity(0.91)
+                        : Color(hex: "#04060c").opacity(0.84),
                 in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 11, style: .continuous)
             )
             .overlay {

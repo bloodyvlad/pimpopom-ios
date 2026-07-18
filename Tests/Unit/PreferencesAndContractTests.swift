@@ -1,3 +1,4 @@
+import PimPoPomCore
 import UIKit
 import XCTest
 
@@ -143,7 +144,13 @@ final class PreferencesAndContractTests: XCTestCase {
     }
 
     func testRatingStampPlacementIsDeterministicInUITestsAndStaysOnTheBorderLanes() {
-        let event = GameplayRatingStampEvent(id: 1, rating: .perfect, milliseconds: 321)
+        let event = GameplayHitFeedbackEvent(
+            id: 1,
+            rating: .perfect,
+            milliseconds: 321,
+            pointsAwarded: 2_343,
+            normalizedLocation: CGPoint(x: 0.25, y: 0.60)
+        )
         let presentation = RatingStampPresentation.make(event: event, deterministic: true)
         let point = presentation.position(in: CGSize(width: 351, height: 351))
 
@@ -153,6 +160,82 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(presentation.tilt, -6)
         XCTAssertEqual(point.x, 287.82, accuracy: 0.001)
         XCTAssertEqual(point.y, 175.5, accuracy: 0.001)
+
+        let hit = GameplayHitPresentation(
+            event: event,
+            stamp: presentation,
+            stampPhase: .visible,
+            isScoreVisible: true
+        )
+        XCTAssertEqual(
+            GameplayRatingFormatting.stamp(rating: .good, milliseconds: 802),
+            "Good - 802ms"
+        )
+        XCTAssertEqual(hit.scoreText, "+2,343")
+        XCTAssertEqual(
+            hit.scorePosition(in: CGSize(width: 320, height: 320)),
+            CGPoint(x: 80, y: 177)
+        )
+
+        var absorbing = hit
+        absorbing.stampPhase = .absorbing
+        XCTAssertEqual(
+            absorbing.stampPosition(
+                in: CGSize(width: 351, height: 351),
+                boardFrame: CGRect(x: 10, y: 100, width: 351, height: 351),
+                speedBarTrackFrame: CGRect(x: 30, y: 500, width: 200, height: 36)
+            ),
+            CGPoint(x: 120, y: 418)
+        )
+
+        XCTAssertTrue(RatingStampMotionPolicy.feedsSpeedBar(.godlike))
+        XCTAssertTrue(RatingStampMotionPolicy.feedsSpeedBar(.perfect))
+        XCTAssertFalse(RatingStampMotionPolicy.feedsSpeedBar(.great))
+        XCTAssertFalse(RatingStampMotionPolicy.feedsSpeedBar(.good))
+
+        for rating in [SpeedRating.great, .good] {
+            let stationaryEvent = GameplayHitFeedbackEvent(
+                id: 2,
+                rating: rating,
+                milliseconds: 500,
+                pointsAwarded: 10,
+                normalizedLocation: CGPoint(x: 0.5, y: 0.5)
+            )
+            let stationaryStamp = RatingStampPresentation.make(
+                event: stationaryEvent,
+                deterministic: true
+            )
+            let stationary = GameplayHitPresentation(
+                event: stationaryEvent,
+                stamp: stationaryStamp,
+                stampPhase: .absorbing,
+                isScoreVisible: false
+            )
+            XCTAssertEqual(
+                stationary.stampPosition(
+                    in: CGSize(width: 351, height: 351),
+                    boardFrame: CGRect(x: 10, y: 100, width: 351, height: 351),
+                    speedBarTrackFrame: CGRect(x: 30, y: 500, width: 200, height: 36)
+                ),
+                stationaryStamp.position(in: CGSize(width: 351, height: 351))
+            )
+        }
+    }
+
+    func testGameplayHUDUsesRequestedZenAndFooterMetrics() {
+        XCTAssertEqual(GameHUDMetrics.livesColorHex, "#ff5370")
+        XCTAssertEqual(GameplayLayoutMetrics.footerLift, 8)
+        XCTAssertEqual(GameplayLayoutMetrics.adBannerHeight, 50)
+        XCTAssertEqual(GameplayLayoutMetrics.reservedHeight(hasPet: false), 226)
+        XCTAssertEqual(GameplayLayoutMetrics.reservedHeight(hasPet: true), 226)
+        XCTAssertEqual(ZenAnyCellTokens.previewSide, 40)
+        XCTAssertEqual(
+            ZenAnyCellTokens.rainbowHexes,
+            [
+                "#ff4f85", "#ffcf4f", "#72ed76", "#35e6df", "#6c9cff", "#b76cff",
+                "#ff4f85",
+            ]
+        )
     }
 
     func testCatalogAndMutationResponsesDecodeCurrentBackendKeys() throws {

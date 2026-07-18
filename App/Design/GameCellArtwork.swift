@@ -1,5 +1,6 @@
 import CoreGraphics
 import SwiftUI
+import UIKit
 
 enum GameGlyphStyle: Equatable, Sendable {
     case smooth
@@ -191,8 +192,7 @@ enum PixelNoisePattern {
 }
 
 struct GameCellSurfaceEffects: Equatable, Sendable {
-    let discoBacklight: Bool
-    let requiresBlackCornerUnderlay: Bool
+    let discoGlow: Bool
     let lightGlass: Bool
     let pixelNoise: Bool
     let glyphStyle: GameGlyphStyle
@@ -200,8 +200,7 @@ struct GameCellSurfaceEffects: Equatable, Sendable {
 
     static func resolve(theme: ThemePalette, isLit: Bool, seed: Int) -> Self {
         Self(
-            discoBacklight: theme.id == "disco" && isLit,
-            requiresBlackCornerUnderlay: theme.id == "disco",
+            discoGlow: theme.id == "disco" && isLit,
             lightGlass: theme.id == "light",
             pixelNoise: theme.id == "pixel",
             glyphStyle: theme.isPixel ? .pixel : .smooth,
@@ -211,14 +210,15 @@ struct GameCellSurfaceEffects: Equatable, Sendable {
 }
 
 enum GameCellEffectTokens {
-    static let discoCenterWhiteOpacity = 0.08
-    static let discoMidpointWhiteOpacity = 0.02
-    static let discoGlowFillOpacity = 0.34
-    static let discoColorBoostOpacity = 0.46
-    static let discoPrimaryGlowOpacity = 1.0
-    static let discoSecondaryGlowOpacity = 0.28
-    static let discoGlowWidthScale = 0.22
-    static let discoHaloClipScale = 0.012
+    static let discoCenterWhiteOpacity = 0.42
+    static let discoMidpointWhiteOpacity = 0.11
+    static let discoGlazeWhiteOpacity = 0.23
+    static let discoDepthOpacity = 0.18
+    static let discoGlowOpacity = 0.88
+    static let discoGlowNearOpacity = 0.68
+    static let discoGlowFarOpacity = 0.34
+    static let discoGlowNearBlurMaximum: CGFloat = 13
+    static let discoGlowFarBlurMaximum: CGFloat = 30
     static let lightTopHighlightOpacity = 0.55
     static let lightSpecularOpacity = 0.18
     static let lightLowerShadeOpacity = 0.10
@@ -228,9 +228,204 @@ enum GameCellEffectTokens {
 }
 
 enum GameCellLayerOrder {
-    static let discoCornerUnderlay: CGFloat = 0.6
-    static let discoBacklight: CGFloat = 0.7
     static let cell: CGFloat = 1
+    static let discoMaterial: CGFloat = 1.30
+    static let discoWear: CGFloat = 1.45
+    static let discoBorder: CGFloat = 1.80
+    static let glyph: CGFloat = 2
+}
+
+enum GameBoardGeometry {
+    // GameView gives SpriteKit the full shell. The shared inset keeps live
+    // SpriteKit cells and the SwiftUI glow overlay on exactly the same grid.
+    static let sceneInset: CGFloat = 12
+}
+
+enum GameBoardYAxis: Equatable, Sendable {
+    case down
+    case up
+}
+
+struct GameBoardLayout: Equatable, Sendable {
+    let size: CGSize
+    let dimension: Int
+    let boardFrame: CGRect
+    let gap: CGFloat
+    let cellSide: CGFloat
+
+    init(size: CGSize, dimension: Int) {
+        self.size = size
+        self.dimension = dimension
+        let boardSide = min(size.width, size.height) - GameBoardGeometry.sceneInset * 2
+        boardFrame = CGRect(
+            x: (size.width - boardSide) / 2,
+            y: (size.height - boardSide) / 2,
+            width: boardSide,
+            height: boardSide
+        )
+        gap = dimension == 4 ? 5 : 8
+        cellSide = (boardSide - gap * CGFloat(dimension - 1)) / CGFloat(dimension)
+    }
+
+    func cellFrame(at index: Int, yAxis: GameBoardYAxis) -> CGRect {
+        let rowFromTop = index / dimension
+        let column = index % dimension
+        let row = yAxis == .down ? rowFromTop : dimension - 1 - rowFromTop
+        return CGRect(
+            x: boardFrame.minX + CGFloat(column) * (cellSide + gap),
+            y: boardFrame.minY + CGFloat(row) * (cellSide + gap),
+            width: cellSide,
+            height: cellSide
+        )
+    }
+}
+
+struct DiscoGlowGeometry: Equatable, Sendable {
+    let cellSide: CGFloat
+    let cornerRadius: CGFloat
+    let nearBlurRadius: CGFloat
+    let farBlurRadius: CGFloat
+    let extent: CGFloat
+
+    var imageSize: CGSize {
+        CGSize(width: cellSide + extent * 2, height: cellSide + extent * 2)
+    }
+
+    var tileRect: CGRect {
+        CGRect(x: extent, y: extent, width: cellSide, height: cellSide)
+    }
+
+    static func resolve(cellSide: CGFloat, cornerRadius: CGFloat) -> Self {
+        let safeSide = max(1, cellSide)
+        let nearBlur = min(
+            GameCellEffectTokens.discoGlowNearBlurMaximum,
+            max(4, safeSide * 0.06)
+        )
+        let farBlur = min(
+            GameCellEffectTokens.discoGlowFarBlurMaximum,
+            max(9, safeSide * 0.12)
+        )
+        return Self(
+            cellSide: safeSide,
+            cornerRadius: max(0, min(cornerRadius, safeSide / 2)),
+            nearBlurRadius: nearBlur,
+            farBlurRadius: farBlur,
+            extent: ceil(max(12, farBlur * 1.75))
+        )
+    }
+}
+
+@MainActor
+enum DiscoOutgoingGlowArtwork {
+    private struct CacheKey: Hashable {
+        let cellSideTenths: Int
+        let cornerRadiusTenths: Int
+    }
+
+    private static var images: [CacheKey: UIImage] = [:]
+
+    static func image(cellSide: CGFloat, cornerRadius: CGFloat) -> UIImage {
+        let key = CacheKey(
+            cellSideTenths: Int((cellSide * 10).rounded()),
+            cornerRadiusTenths: Int((cornerRadius * 10).rounded())
+        )
+        if let image = images[key] { return image }
+        let geometry = DiscoGlowGeometry.resolve(
+            cellSide: CGFloat(key.cellSideTenths) / 10,
+            cornerRadius: CGFloat(key.cornerRadiusTenths) / 10
+        )
+        let image = makeImage(geometry: geometry)
+        images[key] = image
+        return image
+    }
+
+    private static func makeImage(geometry: DiscoGlowGeometry) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.opaque = false
+        format.scale = 1
+        return UIGraphicsImageRenderer(
+            size: geometry.imageSize,
+            format: format
+        ).image { rendererContext in
+            let context = rendererContext.cgContext
+            context.setAllowsAntialiasing(true)
+            let tilePath = UIBezierPath(
+                roundedRect: geometry.tileRect,
+                cornerRadius: geometry.cornerRadius
+            ).cgPath
+
+            drawBlurredPass(
+                in: context,
+                path: tilePath,
+                blur: geometry.farBlurRadius,
+                opacity: GameCellEffectTokens.discoGlowFarOpacity
+            )
+            drawBlurredPass(
+                in: context,
+                path: tilePath,
+                blur: geometry.nearBlurRadius,
+                opacity: GameCellEffectTokens.discoGlowNearOpacity
+            )
+
+            // The glow is an outgoing halo rendered above the tile, not a
+            // duplicate luminous fill. Clear the tile body after producing
+            // the Gaussian passes so only the feathered exterior remains.
+            context.saveGState()
+            context.setBlendMode(.clear)
+            let clearInset: CGFloat = -0.75
+            context.addPath(
+                UIBezierPath(
+                    roundedRect: geometry.tileRect.insetBy(
+                        dx: clearInset,
+                        dy: clearInset
+                    ),
+                    cornerRadius: geometry.cornerRadius - clearInset
+                ).cgPath
+            )
+            context.fillPath()
+            context.restoreGState()
+        }
+    }
+
+    private static func drawBlurredPass(
+        in context: CGContext,
+        path: CGPath,
+        blur: CGFloat,
+        opacity: CGFloat
+    ) {
+        context.saveGState()
+        context.setShadow(
+            offset: .zero,
+            blur: blur,
+            color: UIColor.white.withAlphaComponent(opacity).cgColor
+        )
+        context.setFillColor(UIColor.white.cgColor)
+        context.addPath(path)
+        context.fillPath()
+        context.restoreGState()
+    }
+}
+
+struct DiscoOutgoingGlowView: View {
+    let color: Color
+    let cellSide: CGFloat
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        let image = DiscoOutgoingGlowArtwork.image(
+            cellSide: cellSide,
+            cornerRadius: cornerRadius
+        )
+        Image(uiImage: image)
+            .renderingMode(.template)
+            .resizable()
+            .foregroundStyle(color)
+            .frame(width: image.size.width, height: image.size.height)
+            .opacity(GameCellEffectTokens.discoGlowOpacity)
+            .blendMode(.plusLighter)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
 }
 
 struct PixelTileNoiseView: View {

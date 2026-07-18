@@ -13,10 +13,12 @@ enum GameplayLifecycleEvent: Equatable, Sendable {
     case abandoned
 }
 
-struct GameplayRatingStampEvent: Equatable, Identifiable, Sendable {
+struct GameplayHitFeedbackEvent: Equatable, Identifiable, Sendable {
     let id: Int
     let rating: SpeedRating
     let milliseconds: Int
+    let pointsAwarded: Int
+    let normalizedLocation: CGPoint
 }
 
 enum GameplayMusicRouting {
@@ -36,6 +38,12 @@ enum GameplayMissPresentation {
     }
 }
 
+enum GameplayRatingFormatting {
+    static func stamp(rating: SpeedRating, milliseconds: Int) -> String {
+        "\(rating.label) - \(milliseconds)ms"
+    }
+}
+
 @MainActor
 final class GameCoordinator: ObservableObject {
     let mode: GameMode
@@ -45,7 +53,8 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var feedback = "Get ready"
     @Published private(set) var isFinished = false
     @Published private(set) var wasAbandoned = false
-    @Published private(set) var ratingStampEvent: GameplayRatingStampEvent?
+    @Published private(set) var isRoundPresentationExpired = false
+    @Published private(set) var hitFeedbackEvent: GameplayHitFeedbackEvent?
     var onSoundEvent: ((GameplaySoundEvent) -> Void)?
     var onLifecycleEvent: ((GameplayLifecycleEvent) -> Void)?
     var onBoardTap: ((CGPoint) -> Void)?
@@ -58,7 +67,7 @@ final class GameCoordinator: ObservableObject {
     private var generation = 0
     private var lastPublishedAt = 0.0
     private var started = false
-    private var ratingStampSequence = 0
+    private var hitFeedbackSequence = 0
 
     init(mode: GameMode) {
         self.mode = mode
@@ -109,7 +118,7 @@ final class GameCoordinator: ObservableObject {
         pendingDeadlineCommit = nil
         lastDeadlineResolutionAt = nil
         feedback = "Get ready"
-        ratingStampEvent = nil
+        hitFeedbackEvent = nil
         let now = monotonicMilliseconds()
         snapshot = engine.start(now: now, mode: mode)
         scene.apply(snapshot)
@@ -187,30 +196,25 @@ final class GameCoordinator: ObservableObject {
         scene.apply(snapshot)
         switch transition.kind {
         case .hit:
-            scene.setRoundPresentationExpired(false)
-            let rating = transition.speedRating?.label ?? "Hit"
-            feedback = "\(rating) · \(transition.displayedReactionMilliseconds ?? 0) ms"
-            if let speedRating = transition.speedRating,
-                speedRating == .perfect || speedRating == .godlike,
-                let milliseconds = transition.displayedReactionMilliseconds
-            {
-                ratingStampSequence += 1
-                ratingStampEvent = GameplayRatingStampEvent(
-                    id: ratingStampSequence,
-                    rating: speedRating,
-                    milliseconds: milliseconds
+            setRoundPresentationExpired(false)
+            if let rating = transition.speedRating {
+                feedback = GameplayRatingFormatting.stamp(
+                    rating: rating,
+                    milliseconds: transition.displayedReactionMilliseconds ?? 0
                 )
+            } else {
+                feedback = "Hit"
             }
         case .miss:
-            scene.setRoundPresentationExpired(false)
+            setRoundPresentationExpired(false)
             feedback = GameplayMissPresentation.copy(for: transition.reason)
         case .decoysDodged:
             feedback = transition.dodgesAwarded == 1 ? "Decoy dodged" : "\(transition.dodgesAwarded) decoys dodged"
         case .roundActive:
-            scene.setRoundPresentationExpired(false)
+            setRoundPresentationExpired(false)
             feedback = "Tap \(snapshot.playerColor.name) \(snapshot.playerColor.glyph)"
         case .zenEnded:
-            scene.setRoundPresentationExpired(false)
+            setRoundPresentationExpired(false)
             feedback = "Zen complete"
         case .ignored, .decoyActive:
             break
@@ -232,7 +236,14 @@ final class GameCoordinator: ObservableObject {
         decoyTask = nil
         pendingDeadlineCommit = nil
         scene.cancelQueuedActivations()
-        scene.setRoundPresentationExpired(false)
+        setRoundPresentationExpired(false)
+    }
+
+    private func setRoundPresentationExpired(_ expired: Bool) {
+        if isRoundPresentationExpired != expired {
+            isRoundPresentationExpired = expired
+        }
+        scene.setRoundPresentationExpired(expired)
     }
 
     private func monotonicMilliseconds() -> Double {
@@ -284,10 +295,21 @@ extension GameCoordinator: GameSceneEventDelegate {
         inputAt milliseconds: Double,
         handledAt: Double
     ) {
-        let inputAt = InputTiming.resolveInputTimestamp(
+        var inputAt = InputTiming.resolveInputTimestamp(
             eventTimestampMilliseconds: milliseconds,
             currentTimeMilliseconds: handledAt
         )
+        #if DEBUG
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("--uitesting"),
+                let optionIndex = arguments.firstIndex(of: "--ui-test-reaction-ms"),
+                arguments.indices.contains(optionIndex + 1),
+                let forcedReaction = Double(arguments[optionIndex + 1]),
+                let activeAt = engine.activeAt
+            {
+                inputAt = activeAt + max(0, forcedReaction)
+            }
+        #endif
         if let activeAt = engine.activeAt,
             InputTiming.predatesPresentation(
                 inputAtMilliseconds: inputAt,
@@ -316,6 +338,21 @@ extension GameCoordinator: GameSceneEventDelegate {
         restartDecoyCadenceAfterLifeLossIfNeeded(result, at: handledAt)
         handle(result)
 
+        if result.kind == .hit,
+            let speedRating = result.speedRating,
+            let milliseconds = result.displayedReactionMilliseconds,
+            let pointsAwarded = result.pointsAwarded
+        {
+            hitFeedbackSequence += 1
+            hitFeedbackEvent = GameplayHitFeedbackEvent(
+                id: hitFeedbackSequence,
+                rating: speedRating,
+                milliseconds: milliseconds,
+                pointsAwarded: pointsAwarded,
+                normalizedLocation: normalizedLocation
+            )
+        }
+
         let pendingZenTarget = mode == .zen && stateBeforeTap == .waiting
         if engine.state == .waiting, !pendingZenTarget {
             scheduleTarget(from: handledAt)
@@ -337,7 +374,7 @@ extension GameCoordinator {
                 engine.activeAt == pending.activeAt
             else {
                 pendingDeadlineCommit = nil
-                scene.setRoundPresentationExpired(false)
+                setRoundPresentationExpired(false)
                 return
             }
             if pending.framesRemaining > 1 {
@@ -351,7 +388,7 @@ extension GameCoordinator {
             if result.kind == .miss {
                 lastDeadlineResolutionAt = milliseconds
             } else {
-                scene.setRoundPresentationExpired(false)
+                setRoundPresentationExpired(false)
             }
             restartDecoyCadenceAfterLifeLossIfNeeded(result, at: milliseconds)
             handle(result)
@@ -374,7 +411,7 @@ extension GameCoordinator {
             activeAt: activeAt,
             framesRemaining: 2
         )
-        scene.setRoundPresentationExpired(true)
+        setRoundPresentationExpired(true)
     }
 
     fileprivate func restartDecoyCadenceAfterLifeLossIfNeeded(

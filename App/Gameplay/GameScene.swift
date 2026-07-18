@@ -49,6 +49,9 @@ final class GameScene: SKScene {
 
     func applyTheme(_ themeID: String) {
         theme = ThemePalette.resolve(themeID)
+        if theme.id == "disco" {
+            GameCellTextureFactory.prewarmDisco()
+        }
         rebuildBoard()
     }
 
@@ -113,7 +116,10 @@ final class GameScene: SKScene {
             y: min(1, max(0, 1 - (location.y / max(size.height, 1))))
         )
         eventDelegate?.gameScene(self, didPointAt: normalizedLocation)
-        guard let index = cellFrames.firstIndex(where: { $0.contains(location) }) else { return }
+        let index =
+            cellFrames.firstIndex(where: { $0.contains(location) })
+            ?? gapMissCellIndex(closestTo: location)
+        guard let index else { return }
         eventDelegate?.gameScene(
             self,
             didTapCell: index,
@@ -123,46 +129,52 @@ final class GameScene: SKScene {
         )
     }
 
+    private func gapMissCellIndex(closestTo location: CGPoint) -> Int? {
+        guard let snapshot, cellFrames.count > 1 else { return nil }
+        let excludedTarget = snapshot.state == .active ? snapshot.targetIndex : nil
+        return cellFrames.indices
+            .filter { $0 != excludedTarget }
+            .min { lhs, rhs in
+                squaredDistance(
+                    from: location,
+                    to: CGPoint(x: cellFrames[lhs].midX, y: cellFrames[lhs].midY)
+                )
+                    < squaredDistance(
+                        from: location,
+                        to: CGPoint(x: cellFrames[rhs].midX, y: cellFrames[rhs].midY)
+                    )
+            }
+    }
+
+    private func squaredDistance(from lhs: CGPoint, to rhs: CGPoint) -> CGFloat {
+        let x = lhs.x - rhs.x
+        let y = lhs.y - rhs.y
+        return x * x + y * y
+    }
+
     private func rebuildBoard() {
         guard let snapshot, size.width > 0, size.height > 0 else { return }
         removeAllChildren()
         cellFrames.removeAll(keepingCapacity: true)
 
-        let boardSide = min(size.width, size.height) - 8
-        boardFrame = CGRect(
-            x: (size.width - boardSide) / 2,
-            y: (size.height - boardSide) / 2,
-            width: boardSide,
-            height: boardSide
-        )
         let dimension = snapshot.difficulty.gridDimension
-        let gap = dimension == 4 ? CGFloat(5) : CGFloat(8)
-        let cellSide = (boardSide - gap * CGFloat(dimension - 1)) / CGFloat(dimension)
+        let layout = GameBoardLayout(size: size, dimension: dimension)
+        boardFrame = layout.boardFrame
 
         for (index, cell) in snapshot.cells.enumerated() {
-            let rowFromTop = index / dimension
-            let column = index % dimension
-            let rowFromBottom = dimension - 1 - rowFromTop
-            let rect = CGRect(
-                x: boardFrame.minX + CGFloat(column) * (cellSide + gap),
-                y: boardFrame.minY + CGFloat(rowFromBottom) * (cellSide + gap),
-                width: cellSide,
-                height: cellSide
-            )
-            let cornerRadius = GameCellVisualMetrics.cornerRadius(
+            let rect = layout.cellFrame(at: index, yAxis: .up)
+            let cellSide = layout.cellSide
+            let cornerRadius = GameCellVisualMetrics.liveCornerRadius(
                 theme: theme,
-                side: cellSide,
-                minimum: 12
+                gridDimension: dimension
             )
             let node = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
             node.name = "cell-\(index)"
             node.lineWidth = 2
             node.strokeColor =
-                theme.id == "disco"
-                ? UIColor(hexString: DiscoThemeTokens.cellBorderHex)
-                : theme.id == "light"
-                    ? UIColor.white
-                    : UIColor(hexString: theme.accent).withAlphaComponent(0.18)
+                theme.id == "light"
+                ? UIColor.white
+                : UIColor(hexString: theme.accent).withAlphaComponent(0.18)
             node.fillColor = UIColor(hexString: theme.idleCell)
             var isLit = false
             var activeColorIndex: Int?
@@ -174,11 +186,9 @@ final class GameScene: SKScene {
                 activeColorIndex = colorIndex
                 node.fillColor = theme.uiColor(at: colorIndex)
                 node.strokeColor =
-                    theme.id == "disco"
-                    ? UIColor(hexString: DiscoThemeTokens.activeBorderHex)
-                    : cell.kind == .target
-                        ? UIColor.white.withAlphaComponent(0.85)
-                        : UIColor.white.withAlphaComponent(0.35)
+                    cell.kind == .target
+                    ? UIColor.white.withAlphaComponent(0.85)
+                    : UIColor.white.withAlphaComponent(0.35)
                 node.lineWidth =
                     cell.kind == .target
                     ? GameCellVisualMetrics.targetBorderWidth
@@ -186,20 +196,17 @@ final class GameScene: SKScene {
             }
             let finalBorderColor = node.strokeColor
             let finalBorderWidth = node.lineWidth
-            if theme.id == "pixel" {
+            if theme.id == "pixel" || theme.id == "disco" {
                 node.strokeColor = .clear
-            }
-            if theme.id == "disco" {
-                addDiscoCornerUnderlay(in: rect, index: index)
+                node.lineWidth = 0
             }
             node.zPosition = GameCellLayerOrder.cell
             addChild(node)
             if theme.id == "disco" {
-                if let activeColorIndex {
-                    addDiscoBacklight(
+                if activeColorIndex != nil {
+                    addDiscoActiveMaterial(
                         in: rect,
                         cornerRadius: cornerRadius,
-                        color: theme.uiColor(at: activeColorIndex),
                         index: index
                     )
                 }
@@ -207,6 +214,13 @@ final class GameScene: SKScene {
                     in: rect,
                     cornerRadius: cornerRadius,
                     isLit: isLit,
+                    index: index
+                )
+                addDiscoBorder(
+                    in: rect,
+                    cornerRadius: cornerRadius,
+                    activeColor: activeColorIndex.map(theme.uiColor(at:)),
+                    lineWidth: isLit ? finalBorderWidth : 2,
                     index: index
                 )
             } else if theme.id == "light" {
@@ -260,77 +274,50 @@ final class GameScene: SKScene {
         crop.name = "cell-wear-\(index)"
         crop.position = CGPoint(x: rect.midX, y: rect.midY)
         crop.maskNode = mask
-        crop.zPosition = 1.72
+        crop.zPosition = GameCellLayerOrder.discoWear
         crop.addChild(wear)
         addChild(crop)
     }
 
-    private func addDiscoBacklight(
+    private func addDiscoActiveMaterial(
         in rect: CGRect,
         cornerRadius: CGFloat,
-        color: UIColor,
         index: Int
     ) {
-        let haloInset = rect.width * GameCellEffectTokens.discoHaloClipScale
-        let crop = SKCropNode()
-        crop.name = "cell-\(index)-disco-glow"
-        crop.zPosition = GameCellLayerOrder.discoBacklight
-
-        let glowMask = SKShapeNode(
-            rect: rect.insetBy(dx: -haloInset, dy: -haloInset),
-            cornerRadius: cornerRadius + haloInset
-        )
-        glowMask.fillColor = .white
-        glowMask.strokeColor = .clear
-        glowMask.lineWidth = 0
-        crop.maskNode = glowMask
-
-        let backer = SKShapeNode(
-            rect: rect.insetBy(dx: -1.5, dy: -1.5),
-            cornerRadius: cornerRadius + 1.5
-        )
-        backer.name = "cell-\(index)-disco-glow-shape"
-        backer.fillColor = color.withAlphaComponent(
-            GameCellEffectTokens.discoGlowFillOpacity
-        )
-        backer.strokeColor = color.withAlphaComponent(
-            GameCellEffectTokens.discoPrimaryGlowOpacity
-        )
-        backer.lineWidth = 2
-        backer.glowWidth = rect.width * GameCellEffectTokens.discoGlowWidthScale
-        backer.blendMode = .add
-        crop.addChild(backer)
-        addChild(crop)
-
-        let colorBoost = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
-        colorBoost.name = "cell-\(index)-disco-color-boost"
-        colorBoost.fillColor = color.withAlphaComponent(
-            GameCellEffectTokens.discoColorBoostOpacity
-        )
-        colorBoost.strokeColor = .clear
-        colorBoost.lineWidth = 0
-        colorBoost.blendMode = .add
-        colorBoost.zPosition = 1.60
-        addChild(colorBoost)
-
         addClippedTexture(
-            GameCellTextureFactory.discoBacklight,
-            name: "cell-\(index)-disco-backlight",
+            GameCellTextureFactory.discoActiveGlaze,
+            name: "cell-\(index)-disco-active-glaze",
             in: rect,
             cornerRadius: cornerRadius,
             blendMode: .screen,
-            zPosition: 1.65
+            zPosition: GameCellLayerOrder.discoMaterial
+        )
+        addClippedTexture(
+            GameCellTextureFactory.discoActiveDepth,
+            name: "cell-\(index)-disco-active-depth",
+            in: rect,
+            cornerRadius: cornerRadius,
+            blendMode: .multiply,
+            zPosition: GameCellLayerOrder.discoMaterial + 0.01
         )
     }
 
-    private func addDiscoCornerUnderlay(in rect: CGRect, index: Int) {
-        let underlay = SKShapeNode(rect: rect)
-        underlay.name = "cell-\(index)-disco-corner-underlay"
-        underlay.fillColor = .black
-        underlay.strokeColor = .clear
-        underlay.lineWidth = 0
-        underlay.zPosition = GameCellLayerOrder.discoCornerUnderlay
-        addChild(underlay)
+    private func addDiscoBorder(
+        in rect: CGRect,
+        cornerRadius: CGFloat,
+        activeColor: UIColor?,
+        lineWidth: CGFloat,
+        index: Int
+    ) {
+        let border = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
+        border.name = "cell-\(index)-disco-border"
+        border.fillColor = .clear
+        border.strokeColor =
+            activeColor.map(DiscoThemeTokens.activeBorderColor(for:))
+            ?? UIColor(hexString: DiscoThemeTokens.cellBorderHex)
+        border.lineWidth = lineWidth
+        border.zPosition = GameCellLayerOrder.discoBorder
+        addChild(border)
     }
 
     private func addLightGlass(in rect: CGRect, cornerRadius: CGFloat, index: Int) {
@@ -419,7 +406,7 @@ final class GameScene: SKScene {
             node.strokeColor = .clear
             node.lineWidth = 0
             node.isAntialiased = style == .smooth
-            node.zPosition = 2
+            node.zPosition = GameCellLayerOrder.glyph
             addChild(node)
             return
         }
@@ -432,7 +419,7 @@ final class GameScene: SKScene {
         fallback.verticalAlignmentMode = .center
         fallback.horizontalAlignmentMode = .center
         fallback.position = CGPoint(x: rect.midX, y: rect.midY)
-        fallback.zPosition = 2
+        fallback.zPosition = GameCellLayerOrder.glyph
         addChild(fallback)
     }
 
@@ -465,7 +452,8 @@ final class GameScene: SKScene {
 
 @MainActor
 private enum GameCellTextureFactory {
-    static let discoBacklight = SKTexture(image: makeDiscoBacklightImage())
+    static let discoActiveGlaze = SKTexture(image: makeDiscoActiveGlazeImage())
+    static let discoActiveDepth = SKTexture(image: makeDiscoActiveDepthImage())
     static let lightGlass = SKTexture(image: makeLightGlassImage())
     private static var pixelNoiseTextures: [Int: SKTexture] = [:]
 
@@ -477,7 +465,12 @@ private enum GameCellTextureFactory {
         return texture
     }
 
-    private static func makeDiscoBacklightImage() -> UIImage {
+    static func prewarmDisco() {
+        discoActiveGlaze.filteringMode = .linear
+        discoActiveDepth.filteringMode = .linear
+    }
+
+    private static func makeDiscoActiveGlazeImage() -> UIImage {
         render { context, size in
             let colors =
                 [
@@ -489,7 +482,7 @@ private enum GameCellTextureFactory {
                     ).cgColor,
                     UIColor.clear.cgColor,
                 ] as CFArray
-            let locations: [CGFloat] = [0, 0.45, 1]
+            let locations: [CGFloat] = [0, 0.34, 0.64]
             guard
                 let gradient = CGGradient(
                     colorsSpace: CGColorSpaceCreateDeviceRGB(),
@@ -502,8 +495,53 @@ private enum GameCellTextureFactory {
                 startCenter: CGPoint(x: size.width / 2, y: size.height / 2),
                 startRadius: 0,
                 endCenter: CGPoint(x: size.width / 2, y: size.height / 2),
-                endRadius: size.width * 0.70,
+                endRadius: size.width * 0.64,
                 options: [.drawsAfterEndLocation]
+            )
+
+            let glazeColors =
+                [
+                    UIColor.white.withAlphaComponent(
+                        GameCellEffectTokens.discoGlazeWhiteOpacity
+                    ).cgColor,
+                    UIColor.clear.cgColor,
+                ] as CFArray
+            if let glaze = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: glazeColors,
+                locations: [0, 1]
+            ) {
+                context.drawLinearGradient(
+                    glaze,
+                    start: .zero,
+                    end: CGPoint(x: size.width, y: size.height),
+                    options: []
+                )
+            }
+        }
+    }
+
+    private static func makeDiscoActiveDepthImage() -> UIImage {
+        render { context, size in
+            let colors =
+                [
+                    UIColor.clear.cgColor,
+                    UIColor.black.withAlphaComponent(
+                        GameCellEffectTokens.discoDepthOpacity
+                    ).cgColor,
+                ] as CFArray
+            guard
+                let gradient = CGGradient(
+                    colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                    colors: colors,
+                    locations: [0.35, 1]
+                )
+            else { return }
+            context.drawLinearGradient(
+                gradient,
+                start: .zero,
+                end: CGPoint(x: size.width, y: size.height),
+                options: []
             )
         }
     }
