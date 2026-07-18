@@ -8,6 +8,7 @@ options:
 
 configs:
   Debug: debug
+  Staging: release
   Release: release
 
 packages:
@@ -30,7 +31,12 @@ targets:
       - package: PimPoPomCore
     configFiles:
       Debug: Config/Debug.xcconfig
+      Staging: Config/Staging.xcconfig
       Release: Config/Release.xcconfig
+    attributes:
+      SystemCapabilities:
+        com.apple.GameCenter:
+          enabled: 1
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -38,6 +44,7 @@ targets:
           - AppIconLight
           - AppIconPixel
         CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Config/PimPoPom.entitlements
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Config/Info.plist
@@ -90,3 +97,16 @@ schemes:
       config: Debug
     archive:
       config: Release
+
+  PimPoPom Staging:
+    build:
+      targets:
+        PimPoPom: all
+    run:
+      config: Staging
+    profile:
+      config: Staging
+    analyze:
+      config: Staging
+    archive:
+      config: Staging

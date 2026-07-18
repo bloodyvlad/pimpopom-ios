@@ -35,6 +35,8 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Live five-goal Achievements catalog and idempotent coin-claim flow backed by the existing Hostinger endpoints, with themed locked/ready/claimed cards, menu reward marker, authoritative balance refresh, stale-account protection, and deterministic API/UI coverage.
 - Three selectable native app icons: ImageGen Glow as the primary plus Light glass and Pixel alternates, with iOS-owned persistence/confirmation, retained masters/prompts, and asset-catalog registration checks.
 - A Home Screen `Change Icon` quick action backed by the `pimpopom://settings/icon` deep link, opening the icon selector directly from the app's context menu.
+- A release-optimized Staging scheme, App Store Connect export profile, Game Center capability/entitlement, and non-blocking `GKLocalPlayer` service with Profile status/retry and ephemeral identity-signature support.
+- Deterministic Game Center unit/UI coverage proving system authentication is suppressed in UI tests and that unavailable Game Center does not gate PimPoPom services.
 
 ### Changed
 
@@ -77,3 +79,5 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Formatted reaction stamps as `Good - 802ms` with transparent backgrounds; Great/Good fade at their border lane, Godlike/Perfect shrink into the measured Speed Bar while its fill advances, and every accepted hit keeps its grouped score flyout 15 points above the tap until absorption completes.
 - Replaced Zen's yin-yang emoji with a normal 40-point radial-rainbow Any cell, colored hearts and infinity red, renamed Speed streak to Speed Bar, lifted the pet/bar footer eight points, and reserved a standard 50-point disabled banner host without shrinking the near-full-width board.
 - Confirmed that the existing synthesized Swift `Codable` models ignore the new `achievementSnapshot` response field and retained `/api/leaderboard` for its full rank/context shape.
+- Accepted P-011's one-board server-fed mirror model: the iOS client never submits Game Center scores, while the future Hostinger path will bind Apple-signed identity and mirror only the authoritative protocol-verified Arcade all-time best.
+- Replaced the internal-alpha Game Center placeholder with truthful optional authentication state while leaving local play, Google/PimPoPom login, Hostinger ranking, achievements, shops, and purchase placeholders independent.

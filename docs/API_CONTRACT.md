@@ -1,6 +1,6 @@
 # Native API contract
 
-Status: two layers. The first section records the deployed compatibility surface used by the owner-only internal alpha under P-014. The later `mobile-v1` surface remains a proposal for external distribution.
+Status: two layers. The first section records the deployed compatibility surface used by the internal alpha under P-014 and the named first TestFlight cohort under P-027. The later `mobile-v1` surface remains the production direction for broader external distribution.
 
 ## Current internal-alpha compatibility surface
 
@@ -34,9 +34,15 @@ The achievement client validates unique nonempty catalog entries, positive rewar
 
 Google configuration uses a new iOS OAuth client whose bundle ID matches the app plus the existing Web OAuth client as Google `serverClientID`. The returned ID token therefore retains the audience the PHP verifier already accepts. OAuth client IDs are public configuration; no OAuth client secret ships in the app.
 
-Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-025 temporarily passes the currently deployed build ID. Arcade must first bootstrap the PHP session; a signed-in confirmed session must also obtain a ranked ticket before gameplay begins. A session or ticket failure is blocking and retryable rather than a silent downgrade. After `/api/runs/finish`, a `verified` result is accepted only when `submittedEntryId` equals that ticket's `runId`; `review` and `quarantined` confirm persistence but remain intentionally absent from public ranking. This owner-only exception must be removed before external TestFlight/App Store distribution or when the server changes its accepted build.
+Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-025 temporarily passes the currently deployed build ID. Arcade must first bootstrap the PHP session; a signed-in confirmed session must also obtain a ranked ticket before gameplay begins. A session or ticket failure is blocking and retryable rather than a silent downgrade. After `/api/runs/finish`, a `verified` result is accepted only when `submittedEntryId` equals that ticket's `runId`; `review` and `quarantined` confirm persistence but remain intentionally absent from public ranking. P-027 permits this production-compatible path only for the first direct-email TestFlight owner/QA cohort. It must still be replaced before public-link beta expansion or App Store distribution, and immediately if the server changes its accepted build.
 
 The compatibility backend has no Buy Coins or StoreKit transaction endpoint. The alpha's Buy Coins controls therefore open a shared explanatory placeholder and never grant value. Achievement state/rewards, pet/theme prices, ownership, selection, and balance are always taken from the server response; client fallback catalogs are display/offline continuity only.
+
+### Game Center boundary
+
+The iOS client initializes `GKLocalPlayer` independently of the PHP session. Successful Game Center authentication yields scoped `gamePlayerID` and `teamPlayerID` values for runtime connection state; it does not authenticate a PimPoPom player and never authorizes a PHP route. For this normal non-Apple-Arcade game, the identity-verification tuple—public-key URL, signature, salt, timestamp, bundle ID, and player field—authenticates `teamPlayerID`. The client retains that tuple only in memory. No current compatibility endpoint receives it.
+
+The selected board is one permanent future server-fed mirror of each player's protocol-verified Arcade all-time best. The iOS client has no Game Center score-submission call. Apple's server score API requires `gamePlayerID`, and the current `teamPlayerID` signature does not by itself prove a client-supplied mapping between those identifiers. Before enabling the mirror, the backend-owning repository must resolve that mapping with an Apple-supported trust path, then define and implement an authenticated one-to-one binding endpoint, Apple signature/timestamp/key verification, replay protection, explicit unlink/account-deletion behavior, and an idempotent outbox that submits the current accepted personal best with prerelease status when applicable. The App Store Connect API credential belongs only on the server and is not a Game Center client-authentication secret.
 
 ## Baseline gap
 

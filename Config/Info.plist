@@ -47,6 +47,8 @@
 	<string>$(PIMPOPOM_GOOGLE_IOS_CLIENT_ID)</string>
 	<key>GIDServerClientID</key>
 	<string>$(PIMPOPOM_GOOGLE_SERVER_CLIENT_ID)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIApplicationShortcutItems</key>
 	<array>
 		<dict>

@@ -10,6 +10,7 @@ struct PimPoPomApp: App {
     @StateObject private var audio: AudioController
     @StateObject private var appIcons: AppIconController
     @StateObject private var quickActions: HomeQuickActionController
+    @StateObject private var gameCenter: GameCenterService
     private let services = AlphaServices.localOnly
     private let googleIdentity = GoogleIdentityService()
 
@@ -25,6 +26,7 @@ struct PimPoPomApp: App {
         _audio = StateObject(wrappedValue: AudioController())
         _appIcons = StateObject(wrappedValue: AppIconController())
         _quickActions = StateObject(wrappedValue: HomeQuickActionController.shared)
+        _gameCenter = StateObject(wrappedValue: GameCenterService())
     }
 
     var body: some Scene {
@@ -37,6 +39,7 @@ struct PimPoPomApp: App {
                 .environmentObject(audio)
                 .environmentObject(appIcons)
                 .environmentObject(quickActions)
+                .environmentObject(gameCenter)
                 .onOpenURL {
                     if !quickActions.handle($0) {
                         _ = googleIdentity.handle($0)

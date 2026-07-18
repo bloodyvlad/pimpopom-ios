@@ -9,6 +9,7 @@ struct RootView: View {
     @EnvironmentObject private var achievements: AchievementsController
     @EnvironmentObject private var audio: AudioController
     @EnvironmentObject private var quickActions: HomeQuickActionController
+    @EnvironmentObject private var gameCenter: GameCenterService
 
     let services: AlphaServices
     let googleIdentity: GoogleIdentityService
@@ -84,6 +85,7 @@ struct RootView: View {
             )
             .environmentObject(backend)
             .environmentObject(cosmetics)
+            .environmentObject(gameCenter)
         }
         .sheet(
             isPresented: $showsAchievements,
@@ -122,6 +124,7 @@ struct RootView: View {
         .task {
             configureDebugLaunch()
             openPendingQuickAction()
+            gameCenter.startAuthentication()
             audio.setApplicationActive(scenePhase == .active)
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
@@ -849,4 +852,5 @@ struct RootView: View {
         .environmentObject(AudioController())
         .environmentObject(AppIconController())
         .environmentObject(HomeQuickActionController.shared)
+        .environmentObject(GameCenterService(arguments: ["--uitesting"]))
 }

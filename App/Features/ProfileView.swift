@@ -4,6 +4,7 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var backend: BackendClient
     @EnvironmentObject private var cosmetics: CosmeticsController
+    @EnvironmentObject private var gameCenter: GameCenterService
 
     let googleIdentity: GoogleIdentityService
     let onDismiss: () -> Void
@@ -14,7 +15,6 @@ struct ProfileView: View {
     @State private var status: String?
     @State private var busy = false
     @State private var loadGeneration = 0
-    @State private var showsGameCenterPlaceholder = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -56,13 +56,6 @@ struct ProfileView: View {
             .task(id: mode) {
                 guard backend.isAuthenticated else { return }
                 await loadProfile()
-            }
-            .alert("Game Center", isPresented: $showsGameCenterPlaceholder) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(
-                    "This internal-alpha placeholder does not connect an account yet. PimPoPom's live leaderboard and progress remain unchanged."
-                )
             }
         }
     }
@@ -245,17 +238,19 @@ struct ProfileView: View {
                 .foregroundStyle(Color(hex: palette.accent))
                 .frame(width: 34)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text("Game Center")
                     .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
-                Text("Not connected")
+                Text(gameCenterStatus)
                     .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
                     .foregroundStyle(Color(hex: palette.muted))
+                    .accessibilityIdentifier("profile-game-center-status")
             }
+            .accessibilityElement(children: .contain)
 
             Spacer(minLength: 8)
 
-            Button("Connect") { showsGameCenterPlaceholder = true }
+            Button(gameCenterButtonTitle) { gameCenter.retryAuthentication() }
                 .buttonStyle(
                     WebSecondaryButtonStyle(
                         theme: palette,
@@ -264,9 +259,41 @@ struct ProfileView: View {
                     )
                 )
                 .frame(width: 105)
+                .disabled(!canRetryGameCenter)
                 .accessibilityIdentifier("profile-game-center")
         }
         .webCardStyle(theme: palette, padding: 12)
+    }
+
+    private var gameCenterStatus: String {
+        switch gameCenter.state {
+        case .idle:
+            "Not started · PimPoPom play still works"
+        case .authenticating:
+            "Connecting… · PimPoPom play still works"
+        case .authenticated(let player):
+            "Connected as \(player.displayName)"
+        case .unavailable:
+            "Unavailable · PimPoPom play still works"
+        }
+    }
+
+    private var gameCenterButtonTitle: String {
+        switch gameCenter.state {
+        case .idle:
+            "Connect"
+        case .authenticating:
+            "Connecting…"
+        case .authenticated:
+            "Connected"
+        case .unavailable:
+            "Retry"
+        }
+    }
+
+    private var canRetryGameCenter: Bool {
+        if case .unavailable = gameCenter.state { return true }
+        return false
     }
 
     private func rankCard(_ rank: RankInfo) -> some View {

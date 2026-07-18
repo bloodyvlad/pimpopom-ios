@@ -77,7 +77,7 @@ Test on 60 Hz and 120 Hz hardware. `CADisplayLink`/SpriteKit callback time is st
 - **Identity:** AuthenticationServices plus Google Sign-In behind an identity-provider protocol; exchange short-lived provider proof for an app session.
 - **Purchases:** StoreKit 2 client plus server verification/notification path. The UI observes server-confirmed entitlement and balance.
 - **Ads:** provider SDK behind `AdServing`, with consent, test/live configuration separation, no-fill handling, and a zero-network implementation for tests/previews.
-- **Game Center:** optional social surface; a verified mirror uses server-bound Game Center identity and Apple's server API after PimPoPom acceptance. Client submission is auxiliary/unverified and never a prerequisite for local play.
+- **Game Center:** optional social surface. `GameCenterService` owns only non-blocking `GKLocalPlayer` authentication, Apple-controller presentation, scoped player identifiers, and ephemeral identity-verification material. The selected verified mirror is a future Hostinger-owned server outbox; the client never submits scores and Game Center is never a prerequisite for local play or another service.
 - **Integrity:** App Attest challenge/assertion around selected sensitive server requests, with explicit unsupported/recovery policy.
 
 ### Current internal-alpha implementations
@@ -88,11 +88,12 @@ Test on 60 Hz and 120 Hz hardware. `CADisplayLink`/SpriteKit callback time is st
 - `ThemePalette` and `PetPresentation` map stable backend IDs to native presentation only. The backend alone supplies the special-pet override. Pancake uses the retained native replacement sprite/floor while its price, ownership, selection, and visibility remain server-authoritative.
 - `AudioController` owns one `AVAudioEngine` with independent Sound FX/Music mixer buses. It lazy-decodes only enabled categories, keeps shared loss/sting buffers across enabled theme swaps, rejects stale loads, routes menu/gameplay/silent contexts, and stops immediately on background/interruption.
 - `AppPreferences` stores only nonsecret local audio values, the glyph toggle, and the signed-out free-theme choice in `UserDefaults`.
+- `GameCenterService` installs GameKit authentication independently of `BackendClient`, exposes truthful status/retry to Profile, and suppresses system UI under deterministic UI tests. It does not persist player identifiers or signature material and has no path to alter PimPoPom identity, results, achievements, coins, cosmetics, or StoreKit state.
 - StoreKit and ads remain no-network/no-value placeholders. Their UI cannot mutate the PHP coin ledger or an entitlement.
 
 ## Configuration and environments
 
-Use `Debug`, `Staging`, and `Release` configurations with committed `.xcconfig` examples. Inject only nonsecret identifiers into the app bundle. Private keys and server secrets never ship in the app.
+Use `Debug`, `Staging`, and `Release` configurations with committed `.xcconfig` examples. The first named-cohort Staging configuration is release-optimized but intentionally points to the same P-027 Hostinger compatibility service because no separate native staging backend exists; it must not be mistaken for data isolation. Inject only nonsecret identifiers into the app bundle. Private keys and server secrets never ship in the app.
 
 Each configuration has an unmistakable API base URL, ad mode, StoreKit environment expectation, logging policy, attestation environment, and display suffix/icon treatment where appropriate. A release build fails closed if placeholder or test identifiers remain.
 

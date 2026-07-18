@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+#include? "Local.xcconfig"
+
+// TestFlight QA uses release optimization and the existing Hostinger compatibility
+// service. It remains a narrow named-tester build, not a separate staging backend.
+SWIFT_COMPILATION_MODE = wholemodule
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) STAGING

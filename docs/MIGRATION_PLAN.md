@@ -2,9 +2,9 @@
 
 Status: Full production plan, based on migration source commit `675551adc715942ce2512c14d396d5d14e763f02` reviewed on 2026-07-14.
 
-The current execution track is the owner-only internal alpha in [`ALPHA_FAST_PATH.md`](ALPHA_FAST_PATH.md). It deliberately comes first and defers legal, ownership, accounting, a production-grade native identity/session contract, ads, and StoreKit work. Under accepted decision P-014, the alpha already reads and is prepared to write the existing Hostinger PHP service with shared production players and leaderboards; that exception is not an external-release architecture.
+The current execution track began as the owner-only internal alpha in [`ALPHA_FAST_PATH.md`](ALPHA_FAST_PATH.md). It deliberately defers legal, ownership, accounting, a production-grade native identity/session contract, ads, and StoreKit work. Under P-014 the app reads and is prepared to write the existing Hostinger PHP service with shared production players and leaderboards. P-027 permits only the first direct-email TestFlight owner/QA cohort to exercise that same compatibility path; neither decision makes it the external-release architecture.
 
-Do not begin paid purchases, live ads, backend deployment, or traffic outside P-014's narrow internal compatibility path while deterministic parity, identity, and accounting remain unresolved.
+Do not begin paid purchases, live ads, backend deployment, public-link beta traffic, or traffic outside P-027's named cohort while deterministic parity, identity, and accounting remain unresolved.
 
 ## Deferred production Phase 0 — Owner and commercial setup
 
@@ -215,10 +215,10 @@ Exit: StoreKit sandbox, server notification, refund, restore, duplicate, consent
 
 ## Phase 9 — Add native platform features selectively
 
-1. Add Game Center authentication only after local play is available without it.
-2. Configure stable leaderboard/achievement identifiers and localization before syncing them to App Store Connect.
-3. To call entries verified mirrors, bind Game Center player identity server-side and submit only server-accepted scores/eligible achievements through Apple's supported server APIs; retry mirror failures independently.
-4. If scores are submitted directly by the client instead, label the Game Center board auxiliary/unverified. Keep the cross-platform leaderboard/economy authoritative and label any iOS-only board clearly.
+1. **Implemented:** add non-blocking Game Center authentication after local play is already available without it; expose optional status/retry and keep every PimPoPom service independent.
+2. **Selected/configured in App Store Connect:** use one permanent board, `com.otcsoftware.pimpopom.arcade.verified` / **Arcade**, as a high-to-low integer personal-best leaderboard.
+3. **Backend work remaining:** bind Apple-signed runtime identity to an authenticated PimPoPom player, then submit only the current protocol-verified all-time best through an idempotent Hostinger outbox and Apple's server API. Retry mirror failures independently and coalesce older work so it cannot lower the board.
+4. Do not add client score submission. Keep the board empty until the server binding/outbox, prerelease flag, and correction policy pass integration tests.
 5. Add share sheets, deep links, notifications, widgets, or Live Activities only through separate product decisions; none are migration requirements.
 
 Exit: Game Center failure or sign-out cannot block gameplay, server ranking, purchases, or account access.
