@@ -13,7 +13,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Technical local-device fast path and SE 2022, iPhone 13 mini, and iPhone 13 Pro simulator setup.
 - Full deterministic Arcade/Zen state machine, proof-v1 event stream, input-timing helpers, and 29 Swift tests.
 - SpriteKit reaction board with one monotonic presentation/touch clock, SwiftUI gameplay/results, lifecycle abandonment, and deterministic UI-test launch mode.
-- Hostinger Season 1 session, profile/nickname, public leaderboard, ranked ticket/abandon/finish client paths, plus local-practice fallback.
+- Hostinger Season 1 session, profile/nickname, public leaderboard, ranked ticket/abandon/finish client paths, signed-out local practice, and blocking retry/menu handling for unavailable session or required ranked-ticket preparation.
 - Google Sign-In for iOS integration with ignored iOS OAuth configuration and the existing Web server audience.
 - Five SE simulator UI smoke paths plus compact-layout checks on the iPhone 13 mini and iPhone 13 Pro simulator profiles.
 - Original PimPoPom internal-alpha app-icon candidate with retained generation source, prompt, and hashes.
@@ -59,12 +59,16 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Stacked Leaderboard pets under rank, widened player details, made each theme tile its own select/buy action, forced a black Disco preview base, and optically centered native color glyphs.
 - Matched final companion placement and direction requests: Foka moves four points down in Pet Shop; Pancake moves twenty points down on every requested surface before the common ten-point gameplay lift; direction now depends only on the tap's horizontal distance from the pet.
 - Moved the enlarged slogan back to a 10% right shift, enlarged and left-aligned the Pet Shop/Theme icons, and hid the pale duplicate hit-rating copy below the board while retaining feedback stamps and accessibility state.
-- Darkened the inactive Disco tile by exactly 40% to `#908f8c`, brightened active tiles, added silver scratched-floor treatment, and retained the concrete/blurred-light surround using the reviewed in-repository textures.
+- Darkened inactive Disco tiles to near-black `#0d0f12`, strengthened same-color active glow, retained dark-silver scratch wear and opaque black rounded corners, and made the concrete/reflected-light surround visible behind the board and header.
 - Made every Theme Shop preview depend only on its candidate theme, kept selected tiles undimmed, and made the gameplay Your Color swatch share the same geometry, border, glyph, and Pixel styling as a real board cell.
-- Replaced the Preparing copy and tiny recovery feedback with centered backlit Get ready, Too early, and Too slow announcements; Get ready now delays a new run by exactly one second and is not replayed after a lost life.
+- Replaced the Preparing copy and tiny recovery feedback with centered backlit Get ready, Missed, and Too slow announcements; Get ready now delays a new run by exactly one second and is not replayed after a lost life.
 - Changed companion turns to advance from the current sprite pose through adjacent directional frames, so a half-right pet reaches full-right in one frame instead of restarting at center.
 - Resumed the Sound FX engine from the accepted tap before playing the bundled `oops` cue on life loss, while retaining the existing no-loss Zen and terminal-event rules.
 - Unified all six live and preview glyphs behind one exact-size vector/pixel geometry, added crystal Light cells and clipped faint Pixel grain, and raised active Disco cells to the vivid saturated backlit palette while retaining the darker uneven inactive floor.
 - Made coin/rank badge contents fully opaque above their button borders and kept their established lower-right/upper-right corner placement.
 - Reused the Pet Shop horizontal-facing resolver in menu and gameplay, forwarded board-gap touches for presentation-only facing, lowered Pancake fifteen points only on menu/Leaderboard surfaces, and mirrored its clean full-right frame for artifact-free full-left presentation.
 - Replaced the overlapping smooth cross paths with one solid outline, intensified Disco targets with highly saturated colors and opaque black rounded-corner surrounds, and made Pixel's clipped block grain visibly brighter and square while keeping live cells, Theme Shop previews, and Your Color consistent.
+- Updated native ranked compatibility to the deployed `20260716-1` PHP gate, require an exact saved-run UUID confirmation, retain retryable failed submissions, and show accepted/withheld status on Results.
+- Reserved a right-aligned Leaderboard score column, removed the obsolete Legacy chip, omitted the current wallet balance from Achievements, and increased the Your Color outline to three points.
+- Made the first three menu rules repeat once per cold launch, switching to the slogan rotation only after that launch's first completed Arcade or Zen game.
+- Adopted `com.otcsoftware.pimpopom` as the app bundle identifier with matching test identifiers and a build-time metadata assertion.

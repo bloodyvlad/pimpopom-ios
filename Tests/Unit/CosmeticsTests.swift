@@ -156,8 +156,8 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(ThemePalette.disco.board, "#07090d")
         XCTAssertEqual(ThemePalette.disco.idleCell, DiscoThemeTokens.idleCellHex)
         XCTAssertEqual(ThemePalette.disco.tileColors, DiscoThemeTokens.activeCellHexes)
-        XCTAssertEqual(DiscoThemeTokens.idleCellHex, "#908f8c")
-        XCTAssertEqual(DiscoThemeTokens.cellBorderHex, "#5f666b")
+        XCTAssertEqual(DiscoThemeTokens.idleCellHex, "#0d0f12")
+        XCTAssertEqual(DiscoThemeTokens.cellBorderHex, "#4a5056")
         XCTAssertEqual(DiscoThemeTokens.activeBorderHex, "#d9dde0")
         XCTAssertEqual(ThemePreviewStyle.discoBackgroundHex, "#080909")
         XCTAssertEqual(ThemePreviewStyle.aspectRatio, 1.45, accuracy: 0.001)
@@ -197,6 +197,7 @@ final class CosmeticsTests: XCTestCase {
         )
         XCTAssertEqual(GameCellVisualMetrics.targetBorderWidth, 3)
         XCTAssertEqual(GameCellVisualMetrics.activeBorderWidth, 2)
+        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 3)
     }
 
     func testPixelFontAndDiscoTexturesAreBundled() throws {
@@ -302,6 +303,10 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertLessThanOrEqual(GameCellEffectTokens.discoCenterWhiteOpacity, 0.10)
         XCTAssertLessThanOrEqual(GameCellEffectTokens.discoMidpointWhiteOpacity, 0.03)
         XCTAssertGreaterThanOrEqual(GameCellEffectTokens.discoColorBoostOpacity, 0.35)
+        XCTAssertEqual(GameCellEffectTokens.discoGlowFillOpacity, 0.34, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoPrimaryGlowOpacity, 1, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoSecondaryGlowOpacity, 0.28, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoGlowWidthScale, 0.22, accuracy: 0.001)
         XCTAssertGreaterThan(GameCellEffectTokens.lightInnerStrokeOpacity, 0.8)
     }
 
@@ -577,27 +582,27 @@ final class CosmeticsTests: XCTestCase {
     func testGameplayFeedbackUsesCenteredAnnouncementsAndHidesLegacyCopies() {
         XCTAssertEqual(GameplayAnnouncementPresentation.getReadyDuration, .seconds(1))
         for feedback in [
-            "Tap Pink ■", "Godlike · 201 ms", "Perfect · 301 ms", "Great · 401 ms",
-            "Good · 501 ms", "Hit · 250 ms", "Get ready", "Too early", "Too slow",
+            "Tap Pink ■", "Godlike · 201 ms", "Perfect · 301 ms", "Hit · 250 ms",
+            "Get ready", "Missed", "Too early", "Too slow", "Wrong cell",
         ] {
             XCTAssertTrue(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
-        for feedback in ["Wrong cell", "Decoy dodged"] {
+        for feedback in ["Great · 401 ms", "Good · 501 ms", "Decoy dodged"] {
             XCTAssertFalse(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
         XCTAssertEqual(
             GameplayAnnouncementPresentation.resolve(
                 showsGetReady: true,
-                feedback: "Too early"
+                feedback: "Missed"
             ),
             .getReady
         )
         XCTAssertEqual(
             GameplayAnnouncementPresentation.resolve(
                 showsGetReady: false,
-                feedback: "Too early"
+                feedback: "Missed"
             ),
-            .tooEarly
+            .missed
         )
         XCTAssertEqual(
             GameplayAnnouncementPresentation.resolve(
@@ -611,6 +616,14 @@ final class CosmeticsTests: XCTestCase {
                 showsGetReady: false,
                 feedback: "Wrong cell"
             )
+        )
+        XCTAssertGreaterThan(
+            GameplayOverlayLayer.ratingStamp,
+            GameplayOverlayLayer.announcement
+        )
+        XCTAssertGreaterThan(
+            GameplayOverlayLayer.announcement,
+            GameplayOverlayLayer.board
         )
     }
 

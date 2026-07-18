@@ -455,6 +455,7 @@ final class BackendClientTests: XCTestCase {
     }
 
     func testRankedRunStartAndFinishPreserveTicketProofContract() async throws {
+        XCTAssertEqual(BackendClient.deployedBuildID, "20260716-1")
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.signedInSession)
         let ticket = RunTicket(
@@ -467,7 +468,7 @@ final class BackendClientTests: XCTestCase {
         let finish = RunFinishResponse(
             rank: 8,
             submittedRank: 8,
-            submittedEntryId: "entry-native-1",
+            submittedEntryId: ticket.runId,
             improved: true,
             duplicate: false,
             verificationStatus: "verified",
@@ -490,7 +491,12 @@ final class BackendClientTests: XCTestCase {
         let backend = makeBackend()
         _ = try await backend.loadSession()
         let issued = try await backend.startRun()
-        let proof = [[0, 1, 2], [12, 3, 4, 5]]
+        let engine = GameEngine(random: { 0 })
+        _ = engine.start(now: 0, mode: .arcade)
+        _ = engine.tap(cellIndex: 0, now: 100, resolvedAt: 100)
+        _ = engine.tap(cellIndex: 0, now: 200, resolvedAt: 200)
+        _ = engine.tap(cellIndex: 0, now: 300, resolvedAt: 300)
+        let proof = engine.proofEvents()
         let accepted = try await backend.finishRun(ticket: issued, events: proof)
 
         XCTAssertEqual(issued, ticket)
@@ -519,6 +525,86 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(finishPayload["ruleset"] as? String, ticket.ruleset)
         XCTAssertEqual(finishPayload["proofVersion"] as? Int, ticket.proofVersion)
         XCTAssertEqual(finishPayload["events"] as? [[Int]], proof)
+    }
+
+    func testRunFinishResponseRequiresTheExactVerifiedPHPEntry() {
+        let accepted = RunFinishResponse(
+            rank: 3,
+            submittedRank: 3,
+            submittedEntryId: "run-1",
+            improved: true,
+            duplicate: false,
+            verificationStatus: "verified",
+            coinsEarned: 0,
+            coinBalance: 5,
+            totalPlayMs: 1_000
+        )
+        XCTAssertTrue(accepted.confirmsPersistence(of: "run-1"))
+
+        let mismatched = RunFinishResponse(
+            rank: 3,
+            submittedRank: 3,
+            submittedEntryId: "different-run",
+            improved: true,
+            duplicate: false,
+            verificationStatus: "verified",
+            coinsEarned: 0,
+            coinBalance: 5,
+            totalPlayMs: 1_000
+        )
+        XCTAssertFalse(mismatched.confirmsPersistence(of: "run-1"))
+
+        let review = RunFinishResponse(
+            rank: nil,
+            submittedRank: nil,
+            submittedEntryId: nil,
+            improved: false,
+            duplicate: false,
+            verificationStatus: "review",
+            coinsEarned: 0,
+            coinBalance: 5,
+            totalPlayMs: 1_000
+        )
+        XCTAssertTrue(review.confirmsPersistence(of: "run-1"))
+    }
+
+    func testFinishRunRejectsAMismatchedVerifiedPHPEntry() async throws {
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let ticket = RunTicket(
+            runId: "run-native-mismatch",
+            mode: GameMode.arcade.rawValue,
+            buildId: BackendClient.deployedBuildID,
+            ruleset: "reaction-proof-v2",
+            proofVersion: 1
+        )
+        let mismatched = RunFinishResponse(
+            rank: 4,
+            submittedRank: 4,
+            submittedEntryId: "another-run",
+            improved: true,
+            duplicate: false,
+            verificationStatus: "verified",
+            coinsEarned: 0,
+            coinBalance: 75,
+            totalPlayMs: 120_000
+        )
+        let mismatchData = try JSONEncoder().encode(mismatched)
+        StubURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/session": StubResponse(data: sessionData)
+            case "/api/runs/finish": StubResponse(data: mismatchData)
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        do {
+            _ = try await backend.finishRun(ticket: ticket, events: [[5, 1, 1]])
+            XCTFail("A verified response for another run must not clear the ticket.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "invalid-run-finish-response")
+        }
     }
 
     func testPetSelectHideAndShowUpdateVisiblePresentation() async throws {

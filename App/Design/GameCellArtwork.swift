@@ -213,9 +213,11 @@ struct GameCellSurfaceEffects: Equatable, Sendable {
 enum GameCellEffectTokens {
     static let discoCenterWhiteOpacity = 0.08
     static let discoMidpointWhiteOpacity = 0.02
-    static let discoColorBoostOpacity = 0.38
-    static let discoPrimaryGlowOpacity = 0.90
-    static let discoSecondaryGlowOpacity = 0.16
+    static let discoGlowFillOpacity = 0.34
+    static let discoColorBoostOpacity = 0.46
+    static let discoPrimaryGlowOpacity = 1.0
+    static let discoSecondaryGlowOpacity = 0.28
+    static let discoGlowWidthScale = 0.22
     static let lightTopHighlightOpacity = 0.55
     static let lightSpecularOpacity = 0.18
     static let lightLowerShadeOpacity = 0.10

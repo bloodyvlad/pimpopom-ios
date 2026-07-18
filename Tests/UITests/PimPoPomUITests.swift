@@ -96,9 +96,9 @@ final class PimPoPomUITests: XCTestCase {
         let progress = app.descendants(matching: .any)["achievements-progress"]
         XCTAssertTrue(progress.waitForExistence(timeout: 2))
         XCTAssertEqual(progress.value as? String, "1 of 5")
-        let coinBalance = app.descendants(matching: .any)["achievements-coin-balance"]
-        XCTAssertTrue(coinBalance.waitForExistence(timeout: 2))
-        XCTAssertEqual(coinBalance.label, "9 coins")
+        XCTAssertFalse(
+            app.descendants(matching: .any)["achievements-coin-balance"].exists
+        )
 
         for id in [
             "complete_arcade", "godlike_speed", "collect_5_coins", "score_over_100k",
@@ -115,8 +115,13 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(claimable.value as? String, "Ready to claim. Reward: 1 coin")
         claimable.tap()
         XCTAssertTrue(waitForValue("Claimed. Reward: 1 coin", on: claimable))
-        XCTAssertTrue(waitForLabel("10 coins", on: coinBalance))
         XCTAssertEqual(progress.value as? String, "2 of 5")
+        XCTAssertTrue(
+            waitForLabel(
+                "Complete Arcade mode claimed — 1 coin credited.",
+                on: app.staticTexts["achievements-status"]
+            )
+        )
 
         app.navigationBars["Achievements"].buttons["Done"].tap()
         XCTAssertTrue(menuButton.waitForExistence(timeout: 2))
@@ -463,6 +468,38 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertNotEqual(motivation.label, first)
     }
 
+    func testRulesReturnOnEveryLaunchAndYieldToSlogansAfterFirstGame() throws {
+        let app = launch()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["menu-intro-stamps"].waitForExistence(timeout: 3)
+        )
+        XCTAssertFalse(app.buttons["menu-motivation"].exists)
+
+        app.buttons["mode-zen"].tap()
+        let endRun = app.buttons["end-zen-run"]
+        XCTAssertTrue(endRun.waitForExistence(timeout: 8))
+        let feedback = app.staticTexts["game-feedback"]
+        let targetDeadline = Date().addingTimeInterval(8)
+        while Date() < targetDeadline, !feedback.label.hasPrefix("Tap ") {
+            usleep(20_000)
+        }
+        XCTAssertTrue(feedback.label.hasPrefix("Tap "))
+        endRun.tap()
+        let menu = app.buttons["results-menu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 3))
+        menu.tap()
+
+        XCTAssertTrue(app.buttons["menu-motivation"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["menu-intro-stamps"].exists)
+
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["menu-intro-stamps"].waitForExistence(timeout: 3)
+        )
+        XCTAssertFalse(app.buttons["menu-motivation"].exists)
+    }
+
     func testLeaderboardAndProfileExposeWebParityContext() throws {
         let app = launch(
             additionalArguments: ["--ui-test-pet-profile", "--ui-test-leaderboard-fixture"]
@@ -474,6 +511,11 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-mode-tabs"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-position"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-entry-ui-player"].exists)
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == 'LEGACY'")).count, 0)
+        let score = app.descendants(matching: .any)["leaderboard-entry-score-ui-player"]
+        XCTAssertTrue(score.waitForExistence(timeout: 2))
+        XCTAssertEqual(score.label.filter(\.isNumber), "8640")
+        XCTAssertGreaterThan(score.frame.minX, app.frame.midX)
         XCTAssertTrue(app.descendants(matching: .any)["speed-rating-distribution"].exists)
         XCTAssertEqual(
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'does not prove'")).count,
@@ -504,6 +546,22 @@ final class PimPoPomUITests: XCTestCase {
             XCTAssertEqual(dialog.value as? String, "Theme \(themeID)")
             app.terminate()
         }
+    }
+
+    func testDiscoGameplayShowsConcreteAndVividLiveCells() throws {
+        let app = launch(additionalArguments: ["--ui-test-theme", "disco"])
+        app.buttons["mode-normal"].tap()
+
+        let board = app.descendants(matching: .any)["reaction-board"]
+        XCTAssertTrue(board.waitForExistence(timeout: 8))
+        let feedback = app.staticTexts["game-feedback"]
+        let targetDeadline = Date().addingTimeInterval(8)
+        while Date() < targetDeadline, !feedback.label.hasPrefix("Tap ") {
+            usleep(20_000)
+        }
+        XCTAssertTrue(feedback.label.hasPrefix("Tap "))
+        XCTAssertTrue(app.descendants(matching: .any)["target-color"].exists)
+        attachScreenshot(of: app, name: "SE Disco gameplay polish")
     }
 
     func testThemeShopUsesTwoColumnCardsAndShowsSelectedFixture() throws {

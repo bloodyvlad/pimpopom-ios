@@ -13,7 +13,7 @@ struct BackendError: LocalizedError {
 @MainActor
 final class BackendClient: ObservableObject {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
-    static let deployedBuildID = "20260715-1"
+    static let deployedBuildID = "20260716-1"
 
     @Published private(set) var sessionState: SessionResponse?
     @Published private(set) var isLoadingSession = false
@@ -409,6 +409,16 @@ final class BackendClient: ObservableObject {
     }
 
     func startRun() async throws -> RunTicket {
+        if isUITestOffline {
+            guard canStartRankedRun else { throw Self.authenticationRequiredError }
+            return RunTicket(
+                runId: "00000000-0000-4000-8000-000000000001",
+                mode: GameMode.arcade.rawValue,
+                buildId: Self.deployedBuildID,
+                ruleset: "reaction-proof-v2",
+                proofVersion: 1
+            )
+        }
         let body = try encoder.encode([
             "mode": GameMode.arcade.rawValue,
             "buildId": Self.deployedBuildID,
@@ -426,6 +436,20 @@ final class BackendClient: ObservableObject {
     }
 
     func finishRun(ticket: RunTicket, events: [[Int]]) async throws -> RunFinishResponse {
+        if isUITestOffline {
+            guard !events.isEmpty else { throw Self.invalidRunFinishResponseError }
+            return RunFinishResponse(
+                rank: 6,
+                submittedRank: 6,
+                submittedEntryId: ticket.runId,
+                improved: true,
+                duplicate: false,
+                verificationStatus: "verified",
+                coinsEarned: 0,
+                coinBalance: profile?.coins,
+                totalPlayMs: profile?.totalPlayMs
+            )
+        }
         let payload = RunProofPayload(
             runId: ticket.runId,
             mode: ticket.mode,
@@ -434,11 +458,15 @@ final class BackendClient: ObservableObject {
             proofVersion: ticket.proofVersion,
             events: events
         )
-        return try await mutation(
+        let response: RunFinishResponse = try await mutation(
             path: "/api/runs/finish",
             method: "POST",
             body: try encoder.encode(payload)
         )
+        guard response.confirmsPersistence(of: ticket.runId) else {
+            throw Self.invalidRunFinishResponseError
+        }
+        return response
     }
 
     private struct StateMutationToken {
@@ -994,5 +1022,11 @@ final class BackendClient: ObservableObject {
         status: 0,
         message: "The achievement response could not be verified. Refresh and try again.",
         code: "invalid-response"
+    )
+
+    private static let invalidRunFinishResponseError = BackendError(
+        status: 0,
+        message: "The leaderboard did not confirm that this score was saved. Please retry.",
+        code: "invalid-run-finish-response"
     )
 }

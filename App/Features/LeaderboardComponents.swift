@@ -187,9 +187,6 @@ struct LeaderboardRowView: View {
                     if entry.isCurrentPlayer {
                         badge("YOU", color: theme.accent)
                     }
-                    if entry.verification.lowercased() == "legacy" {
-                        badge("LEGACY", color: theme.muted)
-                    }
                 }
 
                 SpeedRatingDistributionView(
@@ -221,15 +218,27 @@ struct LeaderboardRowView: View {
                 .minimumScaleFactor(0.72)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .layoutPriority(1)
+            .layoutPriority(0)
 
-            Text(entry.score.formatted())
-                .font(theme.appFont(size: 15, weight: .black, relativeTo: .headline))
-                .foregroundStyle(Color(hex: theme.accent))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.70)
-                .padding(.top, 1)
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("SCORE")
+                    .font(theme.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                    .tracking(theme.isPixel ? 0 : 0.45)
+                    .foregroundStyle(Color(hex: theme.muted))
+
+                Text(entry.score.formatted())
+                    .font(theme.appFont(size: 16, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(Color(hex: theme.accent))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(minWidth: 64, alignment: .trailing)
+            .layoutPriority(2)
+            .padding(.top, 1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Score \(entry.score)")
+            .accessibilityIdentifier("leaderboard-entry-score-\(entry.id)")
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 62)

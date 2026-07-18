@@ -30,6 +30,12 @@ enum GameplayMusicRouting {
     }
 }
 
+enum GameplayMissPresentation {
+    static func copy(for reason: String?) -> String {
+        reason == "late" ? "Too slow" : "Missed"
+    }
+}
+
 @MainActor
 final class GameCoordinator: ObservableObject {
     let mode: GameMode
@@ -197,12 +203,7 @@ final class GameCoordinator: ObservableObject {
             }
         case .miss:
             scene.setRoundPresentationExpired(false)
-            feedback =
-                switch transition.reason {
-                case "late": "Too slow"
-                case "wrong": "Wrong cell"
-                default: "Too early"
-                }
+            feedback = GameplayMissPresentation.copy(for: transition.reason)
         case .decoysDodged:
             feedback = transition.dodgesAwarded == 1 ? "Decoy dodged" : "\(transition.dodgesAwarded) decoys dodged"
         case .roundActive:

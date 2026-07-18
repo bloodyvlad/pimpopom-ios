@@ -259,17 +259,6 @@ struct AchievementsView: View {
                 }
 
                 Spacer(minLength: 8)
-
-                HStack(spacing: 5) {
-                    PixelCoinView(size: 18)
-                    Text("\(achievements.payload.coinBalance)")
-                        .monospacedDigit()
-                }
-                .font(palette.appFont(size: 17, weight: .black, relativeTo: .headline))
-                .foregroundStyle(Color(hex: "#ffc629"))
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(achievements.payload.coinBalance) coins")
-                .accessibilityIdentifier("achievements-coin-balance")
             }
 
             GeometryReader { proxy in

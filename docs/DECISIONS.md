@@ -182,7 +182,7 @@ Revisit when: The local gameplay device matrix passes and the next integrated se
 ## P-014 — Reuse the deployed PHP contract for the internal native alpha
 
 - Date: 2026-07-15
-- Status: Accepted
+- Status: Accepted; build-gate and silent-fallback details superseded by P-024
 
 Context: The owner explicitly accepted shared internal use of the current Hostinger backend, database, players, coins, and leaderboards to reach a playable iPhone build quickly. The deployed service already accepts Google ID tokens whose audience is the existing Web OAuth client, secure cookie sessions with CSRF, and proof-v1 Arcade submissions for build `20260715-1`.
 
@@ -221,7 +221,7 @@ Revisit when: A deliberately new PimPoPom brand system is accepted, the web desi
 ## P-017 — Use fixed native screens while preserving the current game presentation
 
 - Date: 2026-07-17
-- Status: Accepted; pet-facing detail superseded by P-019
+- Status: Accepted; pet-facing detail superseded by P-019 and intro lifecycle superseded by P-024
 
 Context: The scrollable floating web dialog was appropriate for a browser but made the native app feel like a restyled port. The owner requested a fixed main menu, closer gameplay chrome, repaired pet behavior, and specific Light/Pixel corrections while retaining the current rules and shared backend. Parent SpeedyTapper commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0` adds the current menu-slogan pool and rotation behavior.
 
@@ -274,7 +274,7 @@ Revisit when: Hostinger introduces a native session contract, Game Center is del
 ## P-020 — Stabilize native theme previews, feedback, and companion poses
 
 - Date: 2026-07-17
-- Status: Accepted; supersedes the selected-tile and staged-turn presentation details of P-018/P-019
+- Status: Accepted; supersedes the selected-tile and staged-turn presentation details of P-018/P-019; mistake copy and Disco contrast refined by P-024
 
 Context: The owner found that one theme's preview changed when another theme was selected, Pixel preview cells differed from the live board, selected cards became visually dim, recovery feedback was small and duplicated, Disco lacked the intended dance-floor contrast, and companion turns restarted from center instead of continuing from the visible pose. The utility badges, wordmark, Pixel type scale, and life-loss cue also required a final parity pass.
 
@@ -310,7 +310,7 @@ Revisit when: A theme deliberately adopts a non-canonical glyph language, new pe
 ## P-022 — Port server-authoritative achievements and refine canonical cells
 
 - Date: 2026-07-18
-- Status: Accepted; supersedes the Achievements-placeholder scope in P-016/P-017 and refines the cell presentation in P-021
+- Status: Accepted; supersedes the Achievements-placeholder scope in P-016/P-017 and refines the cell presentation in P-021; visible-balance detail superseded by P-024
 
 Context: The existing PHP service already exposes five achievement goals, unlock state, idempotent reward claims, and the authoritative earned-coin balance. PimPoPom still showed a placeholder, while the current canonical cell renderer left a hole where two smooth cross paths overlapped, muted active Disco colors, exposed nonblack corners around rounded Disco tiles, and made Pixel grain too faint to read as brighter squares.
 
@@ -338,3 +338,20 @@ Expose the same three whole-tile choices in Settings. Register one static Home S
 Consequences: XcodeGen declares only Light and Pixel as alternates, the compiled app metadata becomes a regression-checked contract, and a long press can reach icon selection without navigating the menu. Runtime/master equality, opacity, dimensions, catalogs, previews, prompts, and hashes are validated together. Physical Home Screen masks, actual icon switching, Spotlight/Settings/notification appearances, tinted icon behavior, localization, and accessibility remain device QA gates.
 
 Revisit when: final brand testing selects different artwork, Apple changes alternate-icon or quick-action behavior, localization requires dynamic shortcut registration, or a future theme earns its own icon.
+
+## P-024 — Keep ranked compatibility explicit and finish the current gameplay polish
+
+- Date: 2026-07-18
+- Status: Accepted; refines P-014, P-017, P-020, and P-022
+
+Context: The live Hostinger deployment advanced its proof build gate from `20260715-1` to `20260716-1`, while the native client still sent the retired value and swallowed the resulting ranked-ticket failure. Consequently a signed-in Arcade game could run without a ticket and never submit a result. The owner also found that the Leaderboard score column collapsed on the SE, asked to remove the Legacy badge and Achievements wallet display, consolidated early/wrong-cell copy, requested stronger Disco contrast and feedback layering, required the first three rules once per app launch, and selected `com.otcsoftware.pimpopom` as the app bundle identifier.
+
+Decision: Keep the owner-only PHP compatibility exception current at the live `20260716-1` build, `reaction-proof-v2` ruleset, and proof version 1. Arcade must bootstrap the PHP session before play; a Google-authenticated player with a confirmed nickname must also obtain a PHP run ticket. A session or ticket error presents a blocking retry/menu state and never silently becomes an unsaved practice run. Submit the native engine's chronological integer proof at Game Over. Accept a `verified` finish only when its `submittedEntryId` exactly equals the ticket `runId`; treat `review` and `quarantined` as persisted but withheld and say so. Keep public and Profile leaderboard reads on the existing `/api/leaderboard` and `/api/profile` routes. Reserve a fixed trailing score column in every Leaderboard row and remove the player-facing Legacy badge without changing stored verification data.
+
+Keep achievement catalog, claim response, and wallet reconciliation server-authoritative, but omit the current balance from the Achievements screen. Map both pre-target/empty and wrong-cell life losses to one centered **Missed** announcement; retain **Too slow** for late expiry and the existing loss cue. Render Perfect/Godlike stamps plus visible Great/Good feedback above SpriteKit and every board refresh. Give the Your Color panel a three-point outline. Make menu onboarding launch-local: show the three rule stamps after every cold app launch, then switch to the 10-second slogan pool after the first completed Arcade or Zen game of that process; never persist this switch across launches.
+
+For Disco, use near-black inactive cells, dark-silver inactive borders, stronger same-color additive target glow, retained scratch wear, and a visibly black concrete field with cyan/magenta/amber light reflections behind gameplay/header chrome. Preserve the opaque black square under each rounded cell from P-022 so its exposed corner areas remain black. Use `com.otcsoftware.pimpopom` for the app and matching test identifiers. Automatic signing may register this as a new app, and Google Sign-In requires an iOS OAuth client created for this exact bundle; the retired alpha OAuth client is not reusable as proof of matching configuration.
+
+Consequences: New verified native scores can again pass the deployed PHP build gate and obtain exact ranked context, while network/build mismatches are visible before play. The SE Leaderboard cannot compress away scores. Old verification records remain intact but no longer add a Legacy chip to the compact row. Onboarding repeats predictably per launch without altering persistent audio/theme/glyph preferences. The bundle change installs as a different app identity from earlier physical checkpoints and may reset app-local state; server players, coins, and ranks remain associated through the same successfully verified Google account. Focused unit/UI tests cover request metadata, genuine engine proof opcodes, finish confirmation, row score visibility, hidden Achievements balance, launch-local onboarding, feedback copy/layers, and Disco presentation. A real authenticated Hostinger finish and physical-device OAuth/signing validation remain required before claiming end-to-end write validation.
+
+Revisit when: Hostinger changes its accepted build/ruleset/proof contract, a versioned native API replaces the compatibility exception, a real device exposes an OAuth/signing migration issue, or accessibility/physical visual evidence requires another compact presentation adjustment.

@@ -24,6 +24,7 @@ struct RootView: View {
     @State private var showsRemoveAdsStore = false
     @State private var showsIconSettings = false
     @State private var motivationIndex: Int?
+    @State private var hasCompletedGameThisLaunch = false
     @State private var menuPetFacing = PetFacing.front
     @State private var menuPetSleeping = false
     @State private var menuPetActivity = 0
@@ -62,7 +63,13 @@ struct RootView: View {
             }
             .coordinateSpace(name: "menu-space")
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: GameMode.self) { GameView(mode: $0) }
+            .navigationDestination(for: GameMode.self) {
+                GameView(mode: $0) {
+                    guard !hasCompletedGameThisLaunch else { return }
+                    hasCompletedGameThisLaunch = true
+                    advanceMotivation()
+                }
+            }
         }
         .tint(Color(hex: palette.foreground))
         .sheet(
@@ -130,9 +137,6 @@ struct RootView: View {
         .onChange(of: preferences.soundEffectsVolume) { _, _ in configureAudio() }
         .onChange(of: preferences.musicEnabled) { _, _ in configureAudio() }
         .onChange(of: preferences.musicVolume) { _, _ in configureAudio() }
-        .onChange(of: preferences.menuMotivationUnlocked) { _, unlocked in
-            if unlocked { advanceMotivation() }
-        }
         .onChange(of: quickActions.hasPendingChangeIconRequest) { _, pending in
             if pending { openPendingQuickAction() }
         }
@@ -564,7 +568,7 @@ struct RootView: View {
     }
 
     private var motivationIsVisible: Bool {
-        if preferences.menuMotivationUnlocked { return true }
+        if hasCompletedGameThisLaunch { return true }
         #if DEBUG
             return ProcessInfo.processInfo.arguments.contains("--ui-test-menu-motivation")
         #else

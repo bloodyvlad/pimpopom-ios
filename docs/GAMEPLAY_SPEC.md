@@ -10,7 +10,7 @@ This specification captures the initial native migration baseline. It intentiona
 - Endless until exactly three mistakes; no hidden time limit.
 - Wrong color, decoy, inactive cell, empty board, and an expired correct target are mistakes.
 - Each mistake resets the speed multiplier. The first and second life losses begin a 1.5-second recovery before the next round; the third ends Arcade immediately and has no recovery round.
-- Authenticated ranked play requires a confirmed nickname and a server-issued attempt before the first target presentation. Otherwise the run is local practice and can never be promoted later.
+- Authenticated ranked play requires a confirmed nickname and a server-issued attempt before the first target presentation. A signed-out or nickname-unconfirmed session may play local practice that can never be promoted later; failure to bootstrap the PHP session or issue a required ranked ticket blocks Arcade with retry/menu actions.
 
 ### Zen
 

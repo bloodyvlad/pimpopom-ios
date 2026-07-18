@@ -183,7 +183,7 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertNil(ratingStamp(reactionMilliseconds: 375))
     }
 
-    func testTooEarlyRecoveryDoesNotReintroduceGetReadyOrRestartLifecycle() {
+    func testMissedRecoveryDoesNotReintroduceGetReadyOrRestartLifecycle() {
         let coordinator = GameCoordinator(mode: .arcade)
         var events: [GameplayLifecycleEvent] = []
         var soundEvents: [GameplaySoundEvent] = []
@@ -199,7 +199,7 @@ final class GameplayLifecycleTests: XCTestCase {
             inputAt: now,
             handledAt: now
         )
-        XCTAssertEqual(coordinator.feedback, "Too early")
+        XCTAssertEqual(coordinator.feedback, "Missed")
         XCTAssertEqual(soundEvents, [.lifeLoss])
         XCTAssertEqual(coordinator.snapshot.lives, 2)
 
@@ -207,6 +207,13 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertTrue(coordinator.feedback.hasPrefix("Tap "))
         XCTAssertEqual(events, [.started])
         coordinator.stop()
+    }
+
+    func testEmptyAndWrongTapsShareMissedCopyWhileLateKeepsTooSlow() {
+        XCTAssertEqual(GameplayMissPresentation.copy(for: nil), "Missed")
+        XCTAssertEqual(GameplayMissPresentation.copy(for: "empty"), "Missed")
+        XCTAssertEqual(GameplayMissPresentation.copy(for: "wrong"), "Missed")
+        XCTAssertEqual(GameplayMissPresentation.copy(for: "late"), "Too slow")
     }
 
     private func ratingStamp(reactionMilliseconds: Double) -> GameplayRatingStampEvent? {

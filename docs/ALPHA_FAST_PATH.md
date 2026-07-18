@@ -6,7 +6,7 @@ Status: Current internal technical execution track. Gameplay and the existing PH
 
 Install a playable native PimPoPom alpha on the owner's iPhone SE (3rd generation, 2022) by the shortest path. Reuse the deployed Hostinger PHP API, players, database, and leaderboards for internal testing, then validate compact layout on iPhone 13 mini and timing on iPhone 13 Pro at 120 Hz.
 
-Google is optional for local play and public leaderboard reads. Ranked play needs one new iOS OAuth client ID for bundle ID `com.otcsoft.pimpopom.alpha`; the existing Web client ID remains the backend audience. The device build also needs Xcode local signing, a trusted USB connection, and Developer Mode on the iPhone.
+Google is optional for local play and public leaderboard reads. Ranked play needs one new iOS OAuth client ID for bundle ID `com.otcsoftware.pimpopom`; the existing Web client ID remains the backend audience. An OAuth client created for the retired `com.otcsoft.pimpopom.alpha` identifier must be replaced. The device build also needs Xcode local signing, a trusted USB connection, and Developer Mode on the iPhone.
 
 ## What is deliberately deferred
 
@@ -28,7 +28,7 @@ The code keeps ads and purchases behind disabled local implementations. Do not a
 - Public achievement catalog reads plus authenticated, CSRF-protected claims for the existing five PHP goals. Locked/ready/claimed state, rewards, and balance remain server-authoritative.
 - Four native theme palettes, retained pet sprites/habitats, the backend-derived special pet, and an owner-approved native Pancake replacement with a glowing blue floor.
 - Independent default-on Music and Sound FX using the migrated per-theme suites, plus the shared loss cue and original Pim–Po–Pom activation-cue candidate.
-- Exact deployed compatibility constants: API base `https://speedytapper.otcsoft.com`, build `20260715-1`, ruleset `reaction-proof-v2`, proof version 1.
+- Exact deployed compatibility constants: API base `https://speedytapper.otcsoft.com`, build `20260716-1`, ruleset `reaction-proof-v2`, proof version 1.
 - Google Sign-In 9.2.0 resolved by Swift Package Manager. Ads and StoreKit have no vendor/product configuration.
 
 ## Ordered steps
@@ -81,7 +81,7 @@ Exit: the alpha contains the current Arcade and Zen rules. The next internal sli
 4. For Google, copy `Config/Local.example.xcconfig` to ignored `Config/Local.xcconfig`, add the new iOS client and reversed-client values, and keep the committed Web server client value unchanged.
 5. Send Google `idToken.tokenString` as `credential`; never send access token, email, Google display name, raw Google subject, or a client secret.
 6. Require the existing confirmed public nickname before ranked Arcade. Obtain the ticket before the first target, finish with proof tuples only, and abandon on restart/menu/background.
-7. Fall back to clearly labeled local practice when ranked preparation fails. Never upload that local result later.
+7. If PHP session bootstrap or ranked-ticket preparation fails, block Arcade with retry/menu actions. Never silently run an unsaved Arcade result or upload a locally produced result later.
 
 Exit: public data works immediately; authenticated shared-data/ranked paths work after local Google configuration. No PHP deployment is part of this track.
 

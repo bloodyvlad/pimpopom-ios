@@ -266,6 +266,23 @@ struct RunFinishResponse: Codable, Equatable {
     let coinsEarned: Int?
     let coinBalance: Int?
     let totalPlayMs: Int?
+
+    var normalizedVerificationStatus: String {
+        verificationStatus?.lowercased() ?? ""
+    }
+
+    func confirmsPersistence(of runID: String) -> Bool {
+        switch normalizedVerificationStatus {
+        case "verified":
+            return submittedEntryId == runID
+        case "review", "quarantined":
+            // The PHP service commits these results but intentionally withholds
+            // them from the public ranked list.
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 struct RunProofPayload: Encodable {

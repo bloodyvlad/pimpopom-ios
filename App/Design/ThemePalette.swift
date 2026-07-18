@@ -189,28 +189,9 @@ struct AppThemeBackground: View {
     @ViewBuilder
     private func backgroundBase(size: CGSize) -> some View {
         if theme.id == "disco" {
-            ZStack {
-                Image("disco-concrete", bundle: .main)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size.width, height: size.height)
-                    .clipped()
-                Image("disco-concrete-lights", bundle: .main)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size.width, height: size.height)
-                    .blendMode(.screen)
-                    .saturation(1.18)
-                    .opacity(0.72)
-                    .clipped()
-                LinearGradient(
-                    colors: [.black.opacity(0.08), .black.opacity(0.28)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-            .frame(width: size.width, height: size.height)
-            .clipped()
+            DiscoConcreteBackdrop(context: .screen)
+                .frame(width: size.width, height: size.height)
+                .clipped()
         } else if theme.id == "light" {
             LinearGradient(
                 stops: [
@@ -230,6 +211,125 @@ struct AppThemeBackground: View {
         }
     }
 
+}
+
+struct DiscoConcreteBackdrop: View {
+    enum Context {
+        case screen
+        case board
+        case preview
+    }
+
+    let context: Context
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                Color.black
+                Image("disco-concrete", bundle: .main)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .brightness(concreteBrightness)
+                    .contrast(1.12)
+                    .opacity(concreteOpacity)
+                    .clipped()
+                Image("disco-concrete-lights", bundle: .main)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .blendMode(.screen)
+                    .saturation(1.42)
+                    .contrast(1.08)
+                    .opacity(reflectionOpacity)
+                    .clipped()
+                reflectedLight(
+                    color: Color(hex: "#00d9ff"),
+                    center: UnitPoint(x: 0.08, y: 0.10)
+                )
+                reflectedLight(
+                    color: Color(hex: "#a65cff"),
+                    center: UnitPoint(x: 0.92, y: 0.18)
+                )
+                reflectedLight(
+                    color: Color(hex: "#ff537d"),
+                    center: UnitPoint(x: 0.18, y: 0.72)
+                )
+                Image("disco-concrete", bundle: .main)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .brightness(0.10)
+                    .contrast(1.35)
+                    .blendMode(.overlay)
+                    .opacity(textureOverlayOpacity)
+                    .clipped()
+                Color.black.opacity(blackVeilOpacity)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var concreteOpacity: Double {
+        switch context {
+        case .screen: 1.0
+        case .board: 0.96
+        case .preview: 0.92
+        }
+    }
+
+    private var concreteBrightness: Double {
+        switch context {
+        case .screen: 0.08
+        case .board: 0.06
+        case .preview: 0.05
+        }
+    }
+
+    private var fixedReflectionOpacity: Double {
+        switch context {
+        case .screen: 0.30
+        case .board: 0.22
+        case .preview: 0.24
+        }
+    }
+
+    private var textureOverlayOpacity: Double {
+        switch context {
+        case .screen: 0.58
+        case .board: 0.48
+        case .preview: 0.52
+        }
+    }
+
+    private func reflectedLight(color: Color, center: UnitPoint) -> some View {
+        RadialGradient(
+            colors: [color.opacity(fixedReflectionOpacity), .clear],
+            center: center,
+            startRadius: 0,
+            endRadius: context == .screen ? 260 : 150
+        )
+        .blendMode(.screen)
+    }
+
+    private var reflectionOpacity: Double {
+        switch context {
+        case .screen: 0.82
+        case .board: 0.76
+        case .preview: 0.70
+        }
+    }
+
+    private var blackVeilOpacity: Double {
+        switch context {
+        case .screen: 0.12
+        case .board: 0.20
+        case .preview: 0.18
+        }
+    }
 }
 
 struct PixelGrid: View {
@@ -254,13 +354,13 @@ struct PixelGrid: View {
 }
 
 enum DiscoThemeTokens {
-    static let idleCellHex = "#908f8c"
-    static let cellBorderHex = "#5f666b"
+    static let idleCellHex = "#0d0f12"
+    static let cellBorderHex = "#4a5056"
     static let activeBorderHex = "#d9dde0"
     static let activeCellHexes = [
         "#00ffff", "#ffe600", "#ff008c", "#61ff00", "#ff5a00", "#7b00ff",
     ]
-    static let idleScratchOpacity = 0.16
+    static let idleScratchOpacity = 0.10
     static let activeScratchOpacity = 0.26
 }
 
@@ -308,13 +408,22 @@ struct GameCellPreview: View {
                 seed: textureSeed ?? colorIndex ?? 0
             )
             let primaryGlowRadius =
-                effects.discoBacklight ? side * 0.09 : (isTarget ? 6 : 3)
-            let secondaryGlowRadius = effects.discoBacklight ? side * 0.18 : 0
+                effects.discoBacklight
+                ? side * GameCellEffectTokens.discoGlowWidthScale * 0.55
+                : (isTarget ? 6 : 3)
+            let secondaryGlowRadius =
+                effects.discoBacklight
+                ? side * GameCellEffectTokens.discoGlowWidthScale
+                : 0
 
             ZStack {
                 if effects.discoBacklight {
                     shape
-                        .fill(primaryGlowColor.opacity(0.24))
+                        .fill(
+                            primaryGlowColor.opacity(
+                                GameCellEffectTokens.discoGlowFillOpacity
+                            )
+                        )
                         .shadow(color: primaryGlowColor, radius: primaryGlowRadius)
                         .shadow(color: secondaryGlowColor, radius: secondaryGlowRadius)
                 }
@@ -326,12 +435,16 @@ struct GameCellPreview: View {
                 shape
                     .fill(fillColor)
                     .overlay {
-                        if theme.id == "disco", colorIndex != nil {
+                        if theme.id == "disco" {
                             Image("disco-tile-overlay", bundle: .main)
                                 .resizable()
                                 .scaledToFill()
                                 .blendMode(.screen)
-                                .opacity(DiscoThemeTokens.activeScratchOpacity)
+                                .opacity(
+                                    colorIndex == nil
+                                        ? DiscoThemeTokens.idleScratchOpacity
+                                        : DiscoThemeTokens.activeScratchOpacity
+                                )
                                 .clipShape(shape)
                         }
                     }
@@ -375,7 +488,7 @@ struct GameCellPreview: View {
 
     private var fillColor: Color {
         guard let colorIndex else {
-            return Color(hex: theme.foreground).opacity(0.12)
+            return Color(hex: theme.idleCell)
         }
         return theme.color(at: colorIndex)
     }
@@ -386,7 +499,11 @@ struct GameCellPreview: View {
     }
 
     private var strokeColor: Color {
-        guard colorIndex != nil else { return Color(hex: theme.foreground).opacity(0.18) }
+        guard colorIndex != nil else {
+            return theme.id == "disco"
+                ? Color(hex: DiscoThemeTokens.cellBorderHex)
+                : Color(hex: theme.foreground).opacity(0.18)
+        }
         if theme.id == "disco" { return Color(hex: DiscoThemeTokens.activeBorderHex) }
         return .white.opacity(isTarget ? 0.85 : 0.35)
     }
@@ -399,8 +516,10 @@ struct GameCellPreview: View {
     }
 
     private var secondaryGlowColor: Color {
-        guard colorIndex != nil, theme.id == "disco" else { return .clear }
-        return Color.white.opacity(GameCellEffectTokens.discoSecondaryGlowOpacity)
+        guard let colorIndex, theme.id == "disco" else { return .clear }
+        return theme.color(at: colorIndex).opacity(
+            GameCellEffectTokens.discoSecondaryGlowOpacity
+        )
     }
 }
 
@@ -545,16 +664,7 @@ private struct ThemePreviewBackground: View {
         GeometryReader { proxy in
             ZStack {
                 if theme.id == "disco" {
-                    Color(hex: ThemePreviewStyle.discoBackgroundHex)
-                    Image("disco-concrete-lights", bundle: .main)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: proxy.size.width, height: proxy.size.height)
-                        .blendMode(.screen)
-                        .saturation(1.18)
-                        .opacity(0.58)
-                        .clipped()
-                    Color.black.opacity(0.18)
+                    DiscoConcreteBackdrop(context: .preview)
                 } else if theme.id == "light" {
                     LinearGradient(
                         colors: [Color(hex: "#bdeaff"), Color(hex: "#f4fbff")],

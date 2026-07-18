@@ -8,7 +8,7 @@ These questions are intentionally unresolved. Recommended defaults guide discuss
 | --- | --- | --- |
 | Seller/team identity | OTC Software organization, if that is the legal enrolled entity | Storefront name, contracts, signing, tax, key ownership |
 | PimPoPom clearance | Search trademarks, App Store names, domains, and social handles in launch markets | Avoid expensive rebrand after art/IAP creation |
-| Bundle ID and SKU | Stable reverse-DNS ID owned by the seller | Cannot casually change identity, entitlements, purchases |
+| App Store SKU | Choose a stable seller-owned internal identifier distinct from the accepted `com.otcsoftware.pimpopom` bundle ID | The bundle identity is accepted; the App Store record still needs a durable SKU |
 | Minimum OS/devices | Provisional iOS 17+, iPhone portrait; decide iPad separately | API choices, test matrix, market reach, layout |
 | Backend ownership | Shared cross-platform backend with a versioned native bearer API | One profile/economy while avoiding copied server code |
 | Account model | Sign in with Apple + Google, explicit linking, separate nickname | App Review, existing players, duplicate-account safety |

@@ -249,7 +249,7 @@ final class GameScene: SKScene {
             isLit
             ? DiscoThemeTokens.activeScratchOpacity
             : DiscoThemeTokens.idleScratchOpacity
-        wear.blendMode = isLit ? .screen : .multiply
+        wear.blendMode = .screen
 
         let mask = SKShapeNode(rectOf: rect.size, cornerRadius: cornerRadius)
         mask.fillColor = .white
@@ -276,12 +276,14 @@ final class GameScene: SKScene {
             cornerRadius: cornerRadius + 1.5
         )
         backer.name = "cell-\(index)-disco-glow"
-        backer.fillColor = color.withAlphaComponent(0.24)
+        backer.fillColor = color.withAlphaComponent(
+            GameCellEffectTokens.discoGlowFillOpacity
+        )
         backer.strokeColor = color.withAlphaComponent(
             GameCellEffectTokens.discoPrimaryGlowOpacity
         )
         backer.lineWidth = 2
-        backer.glowWidth = rect.width * 0.14
+        backer.glowWidth = rect.width * GameCellEffectTokens.discoGlowWidthScale
         backer.blendMode = .add
         backer.zPosition = 0.7
         addChild(backer)

@@ -619,7 +619,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PimPoPom.app/PimPoPom";
@@ -637,7 +637,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PimPoPom.app/PimPoPom";
@@ -799,7 +799,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = PimPoPom;
@@ -842,7 +842,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom.uitests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = PimPoPom;

@@ -16,6 +16,8 @@ struct GameView: View {
     @State private var submissionStarted = false
     @State private var submissionFailed = false
     @State private var submissionError: String?
+    @State private var submissionConfirmation: String?
+    @State private var rankedRunStartError: String?
     @State private var preparationGeneration = 0
     @State private var frozenTheme = ThemePalette.classic
     @State private var frozenPetID: String?
@@ -26,11 +28,13 @@ struct GameView: View {
     @State private var didFreezePresentation = false
     @State private var ratingStampPresentation: RatingStampPresentation?
     @State private var ratingStampTask: Task<Void, Never>?
+    private let onRunFinished: () -> Void
 
     private var palette: ThemePalette { frozenTheme }
 
-    init(mode: GameMode) {
+    init(mode: GameMode, onRunFinished: @escaping () -> Void = {}) {
         _coordinator = StateObject(wrappedValue: GameCoordinator(mode: mode))
+        self.onRunFinished = onRunFinished
     }
 
     var body: some View {
@@ -56,6 +60,10 @@ struct GameView: View {
             if !preparing, coordinator.isFinished || coordinator.wasAbandoned {
                 resultOverlay
             }
+
+            if let rankedRunStartError {
+                rankedRunStartFailure(message: rankedRunStartError)
+            }
         }
         .coordinateSpace(name: "game-space")
         .onPreferenceChange(GameplayScreenWidthPreferenceKey.self) { width in
@@ -63,7 +71,10 @@ struct GameView: View {
             Task { @MainActor in gameplayScreenWidth = width }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !coordinator.isFinished, !coordinator.wasAbandoned {
+            if !coordinator.isFinished,
+                !coordinator.wasAbandoned,
+                rankedRunStartError == nil
+            {
                 adPlaceholder
                     .opacity(preparing ? 0 : 1)
                     .padding(.horizontal, 12)
@@ -85,9 +96,7 @@ struct GameView: View {
             coordinator.onLifecycleEvent = { event in
                 audio.setMusicContext(GameplayMusicRouting.context(for: event))
                 if event == .finished {
-                    if coordinator.mode == .arcade {
-                        preferences.menuMotivationUnlocked = true
-                    }
+                    onRunFinished()
                     submitRankedRunIfNeeded()
                 }
             }
@@ -261,7 +270,7 @@ struct GameView: View {
                         : coordinator.mode == .zen
                             ? Color(hex: palette.foreground).opacity(0.18)
                             : palette.color(at: colorIndex).opacity(palette.isLight ? 0.74 : 0.55),
-                    lineWidth: palette.isPixel ? 2 : 1
+                    lineWidth: GameHUDMetrics.colorHeroOutlineWidth
                 )
         }
         .overlay(alignment: .bottomLeading) {
@@ -344,6 +353,7 @@ struct GameView: View {
             )
             .allowsHitTesting(!preparing)
             .padding(8)
+            .zIndex(GameplayOverlayLayer.board)
 
             if let stamp = ratingStampPresentation {
                 GeometryReader { proxy in
@@ -361,6 +371,7 @@ struct GameView: View {
                 }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
+                .zIndex(GameplayOverlayLayer.ratingStamp)
             }
 
             if let announcement {
@@ -370,7 +381,7 @@ struct GameView: View {
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .transition(.scale(scale: 0.82).combined(with: .opacity))
-                .zIndex(5)
+                .zIndex(GameplayOverlayLayer.announcement)
                 .accessibilityIdentifier("game-feedback")
             } else {
                 Text(displayedFeedback)
@@ -383,6 +394,7 @@ struct GameView: View {
                     .allowsHitTesting(false)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
+                    .zIndex(GameplayOverlayLayer.ratingStamp)
                     .accessibilityHidden(displayedFeedback == "Get ready")
                     .accessibilityIdentifier("game-feedback")
             }
@@ -399,26 +411,7 @@ struct GameView: View {
         return ZStack {
             shape.fill(Color(hex: palette.board))
             if palette.id == "disco" {
-                GeometryReader { proxy in
-                    ZStack {
-                        Image("disco-concrete", bundle: .main)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .clipped()
-                        Image("disco-concrete-lights", bundle: .main)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .blendMode(.screen)
-                            .saturation(1.18)
-                            .opacity(0.58)
-                            .clipped()
-                        Color.black.opacity(0.36)
-                    }
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .clipped()
-                }
+                DiscoConcreteBackdrop(context: .board)
             }
         }
         .clipShape(shape)
@@ -668,12 +661,12 @@ struct GameView: View {
                     .webCardStyle(theme: palette, padding: 12)
                     .accessibilityIdentifier("result-speed-ratings")
 
-                    if submissionStarted || submissionFailed {
+                    if submissionStarted || submissionFailed || submissionConfirmation != nil {
                         VStack(spacing: 8) {
                             if submissionStarted {
                                 ProgressView("Saving score…")
                                     .tint(Color(hex: palette.accent))
-                            } else {
+                            } else if submissionFailed {
                                 Text(submissionError ?? "Score was not saved.")
                                     .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
                                     .foregroundStyle(.orange)
@@ -689,6 +682,17 @@ struct GameView: View {
                                             )
                                         )
                                 }
+                            } else if let submissionConfirmation {
+                                Label(submissionConfirmation, systemImage: "checkmark.seal.fill")
+                                    .font(
+                                        palette.appFont(
+                                            size: 11,
+                                            weight: .bold,
+                                            relativeTo: .caption
+                                        )
+                                    )
+                                    .foregroundStyle(Color(hex: palette.accent))
+                                    .multilineTextAlignment(.center)
                             }
                         }
                         .frame(maxWidth: .infinity, minHeight: 52)
@@ -794,6 +798,8 @@ struct GameView: View {
         submissionStarted = false
         submissionFailed = false
         submissionError = nil
+        submissionConfirmation = nil
+        rankedRunStartError = nil
         if let existingTicket = runTicket {
             await backend.abandonRun(existingTicket.runId)
         }
@@ -802,7 +808,15 @@ struct GameView: View {
 
         if coordinator.mode == .arcade {
             if backend.sessionState == nil {
-                _ = try? await backend.loadSession()
+                do {
+                    _ = try await backend.loadSession()
+                } catch {
+                    guard preparation == preparationGeneration, !Task.isCancelled else { return }
+                    rankedRunStartError =
+                        "Could not contact the leaderboard. Check the connection and retry."
+                    preparing = false
+                    return
+                }
                 guard preparation == preparationGeneration, !Task.isCancelled else { return }
             }
             if backend.canStartRankedRun {
@@ -815,6 +829,10 @@ struct GameView: View {
                     runTicket = ticket
                 } catch {
                     guard preparation == preparationGeneration, !Task.isCancelled else { return }
+                    rankedRunStartError =
+                        "Could not start a ranked run · \(error.localizedDescription)"
+                    preparing = false
+                    return
                 }
             }
         }
@@ -839,10 +857,12 @@ struct GameView: View {
         submissionStarted = true
         submissionFailed = false
         submissionError = nil
+        submissionConfirmation = nil
         let events = coordinator.proofEvents()
         Task {
             do {
-                _ = try await backend.finishRun(ticket: ticket, events: events)
+                let response = try await backend.finishRun(ticket: ticket, events: events)
+                submissionConfirmation = scoreSaveConfirmation(response)
                 _ = try? await backend.loadSession()
                 if runTicket?.runId == ticket.runId {
                     runTicket = nil
@@ -853,6 +873,67 @@ struct GameView: View {
             }
             submissionStarted = false
         }
+    }
+
+    private func scoreSaveConfirmation(_ response: RunFinishResponse) -> String {
+        switch response.normalizedVerificationStatus {
+        case "verified":
+            if let rank = response.submittedRank ?? response.rank {
+                return "Score saved to leaderboard · #\(rank)"
+            }
+            return "Score saved to leaderboard"
+        case "review":
+            return "Score saved for security review"
+        case "quarantined":
+            return "Score saved, but not ranked"
+        default:
+            return "Score saved"
+        }
+    }
+
+    private func rankedRunStartFailure(message: String) -> some View {
+        ZStack {
+            Color.black.opacity(0.62)
+                .ignoresSafeArea()
+
+            VStack(spacing: 14) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Color(hex: palette.accent))
+                Text("Ranked run unavailable")
+                    .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
+                Text(message)
+                    .font(palette.appFont(size: 12, weight: .semibold, relativeTo: .body))
+                    .foregroundStyle(Color(hex: palette.muted))
+                    .multilineTextAlignment(.center)
+
+                HStack(spacing: 10) {
+                    Button("Menu") { dismiss() }
+                        .buttonStyle(
+                            WebSecondaryButtonStyle(theme: palette, minimumHeight: 42)
+                        )
+                    Button("Retry") { Task { await prepareAndStart() } }
+                        .buttonStyle(
+                            WebSecondaryButtonStyle(
+                                theme: palette,
+                                accent: Color(hex: palette.accent),
+                                minimumHeight: 42
+                            )
+                        )
+                }
+            }
+            .foregroundStyle(Color(hex: palette.foreground))
+            .padding(18)
+            .frame(maxWidth: 330)
+            .background(
+                Color(hex: palette.surface).opacity(0.98),
+                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 20)
+            )
+            .padding(20)
+        }
+        .zIndex(300)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("ranked-run-start-error")
     }
 
     private func abandonTicketIfNeeded() {
@@ -969,24 +1050,36 @@ enum ResponseProgressPresentation {
     }
 }
 
+enum GameHUDMetrics {
+    static let colorHeroOutlineWidth = 3.0
+}
+
 enum GameplayFeedbackPresentation {
     static func isVisuallyHidden(_ feedback: String) -> Bool {
-        if ["Get ready", "Too early", "Too slow"].contains(feedback) { return true }
+        if ["Get ready", "Missed", "Too slow", "Too early", "Wrong cell"].contains(feedback) {
+            return true
+        }
         if feedback.hasPrefix("Tap ") { return true }
-        return ["Godlike ·", "Perfect ·", "Great ·", "Good ·", "Hit ·"]
+        return ["Godlike ·", "Perfect ·", "Hit ·"]
             .contains { feedback.hasPrefix($0) }
     }
 }
 
+enum GameplayOverlayLayer {
+    static let board = 0.0
+    static let announcement = 200.0
+    static let ratingStamp = 300.0
+}
+
 enum GameplayCenterAnnouncement: Equatable, Sendable {
     case getReady
-    case tooEarly
+    case missed
     case tooSlow
 
     var text: String {
         switch self {
         case .getReady: "Get ready"
-        case .tooEarly: "Too early"
+        case .missed: "Missed"
         case .tooSlow: "Too slow"
         }
     }
@@ -1000,7 +1093,7 @@ enum GameplayAnnouncementPresentation {
         feedback: String
     ) -> GameplayCenterAnnouncement? {
         if showsGetReady { return .getReady }
-        if feedback == "Too early" { return .tooEarly }
+        if feedback == "Missed" { return .missed }
         if feedback == "Too slow" { return .tooSlow }
         return nil
     }
@@ -1029,7 +1122,7 @@ private struct GameplayCenterAnnouncementView: View {
         switch announcement {
         case .getReady:
             Color(hex: theme.accent)
-        case .tooEarly:
+        case .missed:
             Color(hex: theme.isLight ? "#b94117" : "#ff9b5c")
         case .tooSlow:
             Color(hex: theme.isLight ? "#a52b50" : "#ff6f9f")

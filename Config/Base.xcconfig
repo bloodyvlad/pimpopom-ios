@@ -1,5 +1,5 @@
-// Local-development identifier only. Replace it before any external distribution.
-PRODUCT_BUNDLE_IDENTIFIER = com.otcsoft.pimpopom.alpha
+// Owner-selected PimPoPom app identifier. Keep OAuth, signing, and release records aligned.
+PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom
 
 IPHONEOS_DEPLOYMENT_TARGET = 17.0
 MARKETING_VERSION = 0.1.0
