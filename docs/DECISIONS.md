@@ -91,11 +91,11 @@ Revisit when: Native playtesting provides measured evidence for a balance change
 ## P-007 — Reserve the bottom ad placement without disturbing gameplay
 
 - Date: 2026-07-14
-- Status: Accepted
+- Status: Accepted; component naming and reserved-slot sizing refined by P-026
 
 Context: An asynchronously loaded banner can shift the board, intercept reaction taps, overlap safe areas, or create accidental clicks.
 
-Decision: Place the ad container at the absolute bottom of gameplay, below the **Speed streak meter** (the component referred to in the request as the speed rating bar) and above the bottom safe-area inset. The bottom order is pet if visible, Speed streak meter, separator, reserved ad host, then safe-area inset. Reserve its size before a run. Loading, no-fill, consent, offline state, and removal cannot resize an active board or move a target. Ads never overlay gameplay. The initial recommendation keeps this host empty during an active rapid-tapping run and fills ads only on non-active surfaces until the ad provider's policy and accidental-tap review approve otherwise.
+Decision: Place the ad container at the absolute bottom of gameplay, below the **Speed Bar** and above the bottom safe-area inset. The bottom order is pet if visible, Speed Bar, separator, reserved ad host, then safe-area inset. Reserve its size before a run. Loading, no-fill, consent, offline state, and removal cannot resize an active board or move a target. Ads never overlay gameplay. The initial recommendation keeps this host empty during an active rapid-tapping run and fills ads only on non-active surfaces until the ad provider's policy and accidental-tap review approve otherwise.
 
 Consequences: Compact-device layout must budget for the slot or suppress/collapse it only between runs when the accepted minimum board size cannot be met. Confirmed Remove Ads entitlement may also re-layout only between runs. Touch hit-testing and accessibility tests must prove that the banner cannot receive board touches.
 
@@ -238,7 +238,7 @@ Revisit when: Dynamic Type or localization cannot fit the fixed menu without an 
 ## P-018 — Complete the next native visual-parity and companion pass
 
 - Date: 2026-07-17
-- Status: Accepted; slogan, companion, Leaderboard, and result details superseded by P-019
+- Status: Accepted; slogan, companion, Leaderboard, and result details superseded by P-019; reaction-feedback scope superseded by P-026
 
 Context: After accepting the fixed-screen native composition, the owner requested a closer translation of the remaining PHP presentation at parent web `main` commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0`. The requested batch adds expressive hit feedback, surface-specific companion placement, a replacement Pancake, stable shop loading, and detailed Leaderboard/Profile/Game Over presentation. It deliberately advances the items that P-017 left for a later batch.
 
@@ -274,7 +274,7 @@ Revisit when: Hostinger introduces a native session contract, Game Center is del
 ## P-020 — Stabilize native theme previews, feedback, and companion poses
 
 - Date: 2026-07-17
-- Status: Accepted; supersedes the selected-tile and staged-turn presentation details of P-018/P-019; mistake copy and Disco contrast refined by P-024
+- Status: Accepted; supersedes the selected-tile and staged-turn presentation details of P-018/P-019; mistake copy and Disco contrast refined by P-024; feedback formatting/motion superseded by P-026
 
 Context: The owner found that one theme's preview changed when another theme was selected, Pixel preview cells differed from the live board, selected cards became visually dim, recovery feedback was small and duplicated, Disco lacked the intended dance-floor contrast, and companion turns restarted from center instead of continuing from the visible pose. The utility badges, wordmark, Pixel type scale, and life-loss cue also required a final parity pass.
 
@@ -293,7 +293,7 @@ Revisit when: A deliberately new theme art direction is accepted, accessibility 
 ## P-021 — Canonical cell artwork and shared companion tap following
 
 - Date: 2026-07-17
-- Status: Accepted; supersedes the cell-material, badge-compositing, and companion-input presentation details of P-020
+- Status: Accepted; supersedes the cell-material, badge-compositing, and companion-input presentation details of P-020; board-gap gameplay handling superseded by P-026
 
 Context: Final Simulator inspection found that Unicode glyph metrics produced unequal live-cell sizes, the candidate previews could still drift from SpriteKit material rendering, active Disco cells needed substantially more light, Light and Pixel lacked their requested surface character, a button border could show through the coin count, and menu/gameplay did not reliably receive the same companion-facing input as Pet Shop. Pancake also required a surface-specific vertical correction and a clean replacement for its artifacted full-left frame.
 
@@ -310,7 +310,7 @@ Revisit when: A theme deliberately adopts a non-canonical glyph language, new pe
 ## P-022 — Port server-authoritative achievements and refine canonical cells
 
 - Date: 2026-07-18
-- Status: Accepted; supersedes the Achievements-placeholder scope in P-016/P-017 and refines the cell presentation in P-021; visible-balance detail superseded by P-024
+- Status: Accepted; supersedes the Achievements-placeholder scope in P-016/P-017 and refines the cell presentation in P-021; visible-balance detail superseded by P-024; Disco underlay detail superseded by P-026
 
 Context: The existing PHP service already exposes five achievement goals, unlock state, idempotent reward claims, and the authoritative earned-coin balance. PimPoPom still showed a placeholder, while the current canonical cell renderer left a hole where two smooth cross paths overlapped, muted active Disco colors, exposed nonblack corners around rounded Disco tiles, and made Pixel grain too faint to read as brighter squares.
 
@@ -342,7 +342,7 @@ Revisit when: final brand testing selects different artwork, Apple changes alter
 ## P-024 — Keep ranked compatibility explicit and finish the current gameplay polish
 
 - Date: 2026-07-18
-- Status: Accepted; refines P-014, P-017, P-020, and P-022; build-gate, display-name, and Disco layer details refined by P-025
+- Status: Accepted; refines P-014, P-017, P-020, and P-022; build-gate and display-name details refined by P-025; feedback and Disco layers superseded by P-026
 
 Context: The live Hostinger deployment advanced its proof build gate from `20260715-1` to `20260716-1`, while the native client still sent the retired value and swallowed the resulting ranked-ticket failure. Consequently a signed-in Arcade game could run without a ticket and never submit a result. The owner also found that the Leaderboard score column collapsed on the SE, asked to remove the Legacy badge and Achievements wallet display, consolidated early/wrong-cell copy, requested stronger Disco contrast and feedback layering, required the first three rules once per app launch, and selected `com.otcsoftware.pimpopom` as the app bundle identifier.
 
@@ -359,7 +359,7 @@ Revisit when: Hostinger changes its accepted build/ruleset/proof contract, a ver
 ## P-025 — Follow the 20260718 proof gate and preserve rounded Disco compositing
 
 - Date: 2026-07-18
-- Status: Accepted; refines the current compatibility and presentation details in P-024
+- Status: Accepted; refines the current compatibility and presentation details in P-024; rounded Disco compositing superseded by P-026
 
 Context: The deployed PHP service advanced its exact ranked-run build gate to `20260718-1` and added an `achievementSnapshot` field to session and finish responses without changing cookies, CSRF, proof events, score submission, or finish semantics. The installed iOS build still advertised itself as **PimPoPom Alpha**. Owner-supplied 1×1 and 2×2 Disco screenshots also exposed a square colored frame around rounded active tiles: the opaque square corner base was composited above the expanded rounded glow and clipped that glow at the rectangular cell bounds.
 
@@ -370,3 +370,22 @@ Set `CFBundleDisplayName` to **PimPoPom** while retaining `CFBundleName`, produc
 Consequences: Ranked iOS starts match the currently deployed PHP gate, additive response fields remain forward-compatible, and existing Leaderboard context is preserved. Home Screen, Spotlight, and system UI receive the final product name on the next install. Disco's tile geometry remains unchanged for gameplay/hit testing, but its bounded corner lighting follows the rounded tile instead of the rectangular cell frame. Tests lock the exact build ID, unknown-key decoding, compiled bundle metadata, halo bound, and `corner base < rounded glow < cell` layer order. A real authenticated ranked write and final physical visual review remain explicit validation steps.
 
 Revisit when: Hostinger advances the accepted build/ruleset/proof contract, the native client adopts a versioned API or top-score-only surface, Apple identity metadata changes, or physical-device review requires a stricter no-spill Disco glow mask.
+
+## P-026 — Rebuild Disco feedback and finish gameplay-footer polish
+
+- Date: 2026-07-18
+- Status: Accepted; supersedes the Perfect-only feedback scope in P-018/P-020, the presentation-only board-gap rule in P-021, and the opaque-square/bounded-glow Disco compositing in P-022/P-024/P-025; refines P-007
+
+Context: The bounded Disco implementation still exposed mismatched radii and a rectangular ghost under the game-zone corner. It also treated inter-cell taps as dead input, refreshed the board over reaction labels, and lacked tap-local score feedback. The owner then requested compact lowercase millisecond copy, rating-specific Speed Bar motion, a semantic Zen Any preview, red life symbols, the final Speed Bar name, and a standard banner placeholder without sacrificing the established near-full-width SE board.
+
+Decision: Use one shared 12-point board inset for SpriteKit and SwiftUI. Smooth live-cell radii follow the parent-web clamp `max(11, min(22, 30 / gridDimension))`, yielding 22, 15, and 11 points for 1×1, 2×2, and 4×4; the smooth shell uses 22 points and Pixel remains square. Independently clip the SpriteKit scene and Disco halo to that same shell, then draw one final shell stroke. Never render an opaque square below a rounded cell. Preserve the retained web material palette, mixed active border, scratch/glaze/depth textures, and continuous concrete backing. Draw a cached, prewarmed, transparent-center Core Graphics halo with `.plusLighter` above active cells but below the shell border and every feedback layer; target and halo expire together.
+
+Every accepted hit publishes the displayed rounded milliseconds, authoritative multiplied `pointsAwarded`, rating, and tap location without changing proof or score rules. Format the stamp as `Rating - Nms`. Reaction stamps use transparent interiors with glowing text and borders; centered Get ready/Missed/Too slow announcements retain their readability backing. Draw the grouped score (for example `+2,343`) 15 points above the tap. All four stamps fade in and out. Great and Good stay on their randomized border lane. Godlike and Perfect shrink and travel to the actual measured Speed Bar track while its presented fill advances, then disappear there. Keep up to eight independent presentations so rapid accepted taps do not cancel one another.
+
+A touch inside the playable board frame but between cell paths maps to a valid cell. While a target is active, exclude that target from the mapping so the action becomes a proof-valid wrong-cell miss; while waiting, map to an empty-board miss. Arcade applies its normal life loss and `oops` cue, while Zen retains its no-life-loss invariant. The outer 12-point shell padding remains ignored.
+
+Replace Zen's yin-yang emoji with a normal 40-point, glyph-free radial-rainbow Any cell. Use `#ff5370` for Arcade hearts and Zen infinity. Rename the visible and accessibility component to **Speed Bar**. Lift the combined pet/bar footer by eight points, allow the pet to overlap above its fixed 50-point bar slot, and reserve a 50-point disabled banner host below it. This keeps the pet and meter higher while preserving the 351-point near-full-width SE board.
+
+Consequences: Disco has matching shell/cell curves, continuous concrete corners, and outward additive light without square ghosts. Gap taps can no longer vanish outside the proof stream. Feedback remains presentation-only but now explains both awarded points and multiplier progress. Zen and footer semantics are stable across themes, and the standard banner reservation does not resize the reaction board. Deterministic tests lock radius/layout geometry, halo alpha/cache/layers, expiry synchronization, proof-valid gap misses and loss audio, authoritative feedback payloads, format/placement/motion policy, Zen tokens, red HUD color, footer lift, banner height, and compact-device board width. Physical touch/audio, Reduce Motion, 60/120 Hz pacing, current 13 mini/13 Pro layout, and authenticated Hostinger writes remain later gates.
+
+Revisit when: A real ad SDK defines an adaptive size contract, Reduce Motion review requires a non-flying equivalent, physical frame pacing exposes feedback timing cost, the parent web material changes deliberately, or the proof protocol adds a first-class board-gap coordinate event.
