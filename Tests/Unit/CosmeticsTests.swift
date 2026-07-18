@@ -214,7 +214,7 @@ final class CosmeticsTests: XCTestCase {
         )
         XCTAssertEqual(GameCellVisualMetrics.targetBorderWidth, 3)
         XCTAssertEqual(GameCellVisualMetrics.activeBorderWidth, 2)
-        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 3)
+        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 5)
     }
 
     func testPixelFontAndDiscoTexturesAreBundled() throws {
@@ -791,7 +791,7 @@ final class CosmeticsTests: XCTestCase {
         )
     }
 
-    func testPancakeFullLeftUsesTheCleanMirroredRightFrameOnly() {
+    func testPerPetSpriteCorrectionsUseOnlyReviewedMirrors() {
         XCTAssertEqual(
             PetSpriteFramePolicy.resolve(petID: "pancake", semanticFrameIndex: 3),
             PetSpriteFrameVariant(sourceFrameIndex: 7, mirrorsHorizontally: true)
@@ -800,7 +800,37 @@ final class CosmeticsTests: XCTestCase {
             PetSpriteFramePolicy.resolve(petID: "pancake", semanticFrameIndex: 2),
             PetSpriteFrameVariant(sourceFrameIndex: 2, mirrorsHorizontally: false)
         )
-        for petID in ["foka", "kesha", "tauta", "misha", "mitsuri", "muse"] {
+        XCTAssertEqual(
+            PetSpriteFramePolicy.resolve(
+                petID: "foka",
+                semanticFrameIndex: PetFacing.halfRight.frameIndex
+            ),
+            PetSpriteFrameVariant(
+                sourceFrameIndex: PetFacing.halfLeft.frameIndex,
+                mirrorsHorizontally: true
+            )
+        )
+        XCTAssertEqual(
+            PetSpriteFramePolicy.resolve(
+                petID: "foka",
+                semanticFrameIndex: PetFacing.right.frameIndex
+            ),
+            PetSpriteFrameVariant(
+                sourceFrameIndex: PetFacing.left.frameIndex,
+                mirrorsHorizontally: true
+            )
+        )
+        XCTAssertEqual(
+            PetSpriteFramePolicy.resolve(
+                petID: "foka",
+                semanticFrameIndex: PetFacing.left.frameIndex
+            ),
+            PetSpriteFrameVariant(
+                sourceFrameIndex: PetFacing.left.frameIndex,
+                mirrorsHorizontally: false
+            )
+        )
+        for petID in ["kesha", "tauta", "misha", "mitsuri", "muse"] {
             XCTAssertEqual(
                 PetSpriteFramePolicy.resolve(petID: petID, semanticFrameIndex: 3),
                 PetSpriteFrameVariant(sourceFrameIndex: 3, mirrorsHorizontally: false)

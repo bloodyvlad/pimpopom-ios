@@ -153,6 +153,21 @@ final class PreferencesAndContractTests: XCTestCase {
         )
         let presentation = RatingStampPresentation.make(event: event, deterministic: true)
         let point = presentation.position(in: CGSize(width: 351, height: 351))
+        let boardFrame = CGRect(x: 10, y: 100, width: 351, height: 351)
+        let speedBarFrame = CGRect(x: 30, y: 500, width: 200, height: 36)
+        let pointsFrame = CGRect(x: 12, y: 52, width: 70, height: 42)
+        let speedBarDestination = try! XCTUnwrap(
+            FeedbackMotionPath.relativeDestination(
+                from: boardFrame,
+                to: speedBarFrame
+            )
+        )
+        let pointsDestination = try! XCTUnwrap(
+            FeedbackMotionPath.relativeDestination(
+                from: boardFrame,
+                to: pointsFrame
+            )
+        )
 
         XCTAssertEqual(presentation.event, event)
         XCTAssertEqual(presentation.edge, .right)
@@ -165,13 +180,15 @@ final class PreferencesAndContractTests: XCTestCase {
             event: event,
             stamp: presentation,
             stampPhase: .visible,
-            isScoreVisible: true
+            isScoreVisible: true,
+            speedBarDestination: speedBarDestination,
+            pointsDestination: pointsDestination
         )
         XCTAssertEqual(
             GameplayRatingFormatting.stamp(rating: .good, milliseconds: 802),
             "Good - 802ms"
         )
-        XCTAssertEqual(hit.scoreText, "+2,343")
+        XCTAssertEqual(hit.scoreText, "+2,343 points")
         XCTAssertEqual(
             hit.scorePosition(in: CGSize(width: 320, height: 320)),
             CGPoint(x: 80, y: 177)
@@ -180,13 +197,16 @@ final class PreferencesAndContractTests: XCTestCase {
         var absorbing = hit
         absorbing.stampPhase = .absorbing
         XCTAssertEqual(
-            absorbing.stampPosition(
-                in: CGSize(width: 351, height: 351),
-                boardFrame: CGRect(x: 10, y: 100, width: 351, height: 351),
-                speedBarTrackFrame: CGRect(x: 30, y: 500, width: 200, height: 36)
-            ),
+            absorbing.stampPosition(in: CGSize(width: 351, height: 351)),
             CGPoint(x: 120, y: 418)
         )
+        absorbing.isScoreVisible = false
+        absorbing.isScoreAbsorbing = true
+        XCTAssertEqual(
+            absorbing.scorePosition(in: CGSize(width: 320, height: 320)),
+            pointsDestination
+        )
+        XCTAssertEqual(absorbing.scoreScale, 0.58)
 
         XCTAssertTrue(RatingStampMotionPolicy.feedsSpeedBar(.godlike))
         XCTAssertTrue(RatingStampMotionPolicy.feedsSpeedBar(.perfect))
@@ -209,31 +229,60 @@ final class PreferencesAndContractTests: XCTestCase {
                 event: stationaryEvent,
                 stamp: stationaryStamp,
                 stampPhase: .absorbing,
-                isScoreVisible: false
+                isScoreVisible: false,
+                speedBarDestination: speedBarDestination,
+                pointsDestination: pointsDestination
             )
             XCTAssertEqual(
-                stationary.stampPosition(
-                    in: CGSize(width: 351, height: 351),
-                    boardFrame: CGRect(x: 10, y: 100, width: 351, height: 351),
-                    speedBarTrackFrame: CGRect(x: 30, y: 500, width: 200, height: 36)
-                ),
+                stationary.stampPosition(in: CGSize(width: 351, height: 351)),
                 stationaryStamp.position(in: CGSize(width: 351, height: 351))
             )
         }
     }
 
+    func testFeedbackMotionPathIsAClampedDirectSegmentWithoutReversal() {
+        let start = CGPoint(x: 280, y: 24)
+        let destination = CGPoint(x: 120, y: 418)
+        let progress: [CGFloat] = [0, 0.25, 0.5, 0.75, 1]
+        let points = progress.map {
+            FeedbackMotionPath.point(from: start, to: destination, progress: $0)
+        }
+
+        XCTAssertEqual(points.first, start)
+        XCTAssertEqual(points.last, destination)
+        for pair in zip(points, points.dropFirst()) {
+            XCTAssertLessThan(pair.1.x, pair.0.x)
+            XCTAssertGreaterThan(pair.1.y, pair.0.y)
+            XCTAssertLessThan(
+                hypot(pair.1.x - destination.x, pair.1.y - destination.y),
+                hypot(pair.0.x - destination.x, pair.0.y - destination.y)
+            )
+        }
+        XCTAssertEqual(
+            FeedbackMotionPath.point(from: start, to: destination, progress: -1),
+            start
+        )
+        XCTAssertEqual(
+            FeedbackMotionPath.point(from: start, to: destination, progress: 2),
+            destination
+        )
+    }
+
     func testGameplayHUDUsesRequestedZenAndFooterMetrics() {
         XCTAssertEqual(GameHUDMetrics.livesColorHex, "#ff5370")
+        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 5)
+        XCTAssertEqual(GameHUDMetrics.colorHeroGlowOpacity, 0.72)
+        XCTAssertEqual(GameHUDMetrics.colorHeroGlowRadius, 10)
         XCTAssertEqual(GameplayLayoutMetrics.footerLift, 8)
         XCTAssertEqual(GameplayLayoutMetrics.adBannerHeight, 50)
         XCTAssertEqual(GameplayLayoutMetrics.reservedHeight(hasPet: false), 226)
         XCTAssertEqual(GameplayLayoutMetrics.reservedHeight(hasPet: true), 226)
         XCTAssertEqual(ZenAnyCellTokens.previewSide, 40)
         XCTAssertEqual(
-            ZenAnyCellTokens.rainbowHexes,
+            ZenAnyCellTokens.horizontalLogoGradientHexes,
             [
-                "#ff4f85", "#ffcf4f", "#72ed76", "#35e6df", "#6c9cff", "#b76cff",
-                "#ff4f85",
+                "#16b887", "#39c85f", "#86bd3c", "#ffe659", "#ff9a56", "#ff6fc8",
+                "#a58aff", "#69d7ff",
             ]
         )
     }

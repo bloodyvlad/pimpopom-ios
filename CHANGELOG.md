@@ -81,3 +81,6 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Confirmed that the existing synthesized Swift `Codable` models ignore the new `achievementSnapshot` response field and retained `/api/leaderboard` for its full rank/context shape.
 - Accepted P-011's one-board server-fed mirror model: the iOS client never submits Game Center scores, while the future Hostinger path will bind Apple-signed identity and mirror only the authoritative protocol-verified Arcade all-time best.
 - Replaced the internal-alpha Game Center placeholder with truthful optional authentication state while leaving local play, Google/PimPoPom login, Hostinger ranking, achievements, shops, and purchase placeholders independent.
+- Corrected Foka's asymmetric right turn by mirroring its reviewed clean half-left/full-left cells into the semantic right poses; every other pet and the shared adjacent-pose animation plan remain unchanged.
+- Increased the Your Color panel outline from three to five points with stronger outward glow, and replaced Zen's radial rainbow with the horizontal PimPoPom logo color progression.
+- Changed score feedback to transparent `+N points` copy that flies and dissolves into the captured Points field, and locked Godlike/Perfect to a captured direct Speed Bar path so board refreshes cannot reverse either effect.

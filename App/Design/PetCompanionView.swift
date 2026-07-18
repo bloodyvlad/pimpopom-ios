@@ -266,6 +266,26 @@ enum PetSpriteFramePolicy {
                 mirrorsHorizontally: true
             )
         }
+        // Foka's authored right-facing cells do not form the same clean turn
+        // sequence as the reviewed left-facing cells. Keep the semantic pose
+        // indices used by the animation plan, but render the two right poses
+        // from exact mirrors of their clean left counterparts.
+        if petID == "foka" {
+            switch semanticFrameIndex {
+            case PetFacing.halfRight.frameIndex:
+                return PetSpriteFrameVariant(
+                    sourceFrameIndex: PetFacing.halfLeft.frameIndex,
+                    mirrorsHorizontally: true
+                )
+            case PetFacing.right.frameIndex:
+                return PetSpriteFrameVariant(
+                    sourceFrameIndex: PetFacing.left.frameIndex,
+                    mirrorsHorizontally: true
+                )
+            default:
+                break
+            }
+        }
         return PetSpriteFrameVariant(
             sourceFrameIndex: semanticFrameIndex,
             mirrorsHorizontally: false

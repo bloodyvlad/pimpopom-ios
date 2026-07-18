@@ -77,7 +77,7 @@ final class PimPoPomUITests: XCTestCase {
         let adPlaceholder = app.descendants(matching: .any)["ad-placeholder"]
         XCTAssertTrue(adPlaceholder.waitForExistence(timeout: 2))
         XCTAssertGreaterThanOrEqual(adPlaceholder.frame.height, 50)
-        attachScreenshot(of: app, name: "SE Zen rainbow target and standard banner")
+        attachScreenshot(of: app, name: "SE Zen horizontal logo gradient and standard banner")
 
         endButton.tap()
 

@@ -541,9 +541,9 @@ struct GameCellPreview: View {
 
 enum ZenAnyCellTokens {
     static let previewSide: CGFloat = 40
-    static let rainbowHexes = [
-        "#ff4f85", "#ffcf4f", "#72ed76", "#35e6df", "#6c9cff", "#b76cff",
-        "#ff4f85",
+    static let horizontalLogoGradientHexes = [
+        "#16b887", "#39c85f", "#86bd3c", "#ffe659", "#ff9a56", "#ff6fc8",
+        "#a58aff", "#69d7ff",
     ]
 }
 
@@ -558,11 +558,12 @@ struct ZenAnyCellPreview: View {
 
             shape
                 .fill(
-                    RadialGradient(
-                        colors: ZenAnyCellTokens.rainbowHexes.map { Color(hex: $0) },
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: side * 0.72
+                    LinearGradient(
+                        colors: ZenAnyCellTokens.horizontalLogoGradientHexes.map {
+                            Color(hex: $0)
+                        },
+                        startPoint: .leading,
+                        endPoint: .trailing
                     )
                 )
                 .overlay {

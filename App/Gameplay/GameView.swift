@@ -28,6 +28,8 @@ struct GameView: View {
     @State private var didFreezePresentation = false
     @State private var hitFeedbackPresentations: [GameplayHitPresentation] = []
     @State private var hitFeedbackTasks: [Int: Task<Void, Never>] = [:]
+    @State private var gameBoardFrame = CGRect.zero
+    @State private var pointsCounterFrame = CGRect.zero
     @State private var speedBarTrackFrame = CGRect.zero
     private let onRunFinished: () -> Void
 
@@ -76,6 +78,14 @@ struct GameView: View {
         .onPreferenceChange(SpeedBarTrackFramePreferenceKey.self) { frame in
             guard !frame.isEmpty, frame != speedBarTrackFrame else { return }
             Task { @MainActor in speedBarTrackFrame = frame }
+        }
+        .onPreferenceChange(GameBoardFramePreferenceKey.self) { frame in
+            guard !frame.isEmpty, frame != gameBoardFrame else { return }
+            Task { @MainActor in gameBoardFrame = frame }
+        }
+        .onPreferenceChange(PointsCounterFramePreferenceKey.self) { frame in
+            guard !frame.isEmpty, frame != pointsCounterFrame else { return }
+            Task { @MainActor in pointsCounterFrame = frame }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if !coordinator.isFinished,
@@ -205,6 +215,14 @@ struct GameView: View {
                         "\(coordinator.snapshot.points)",
                         identifier: "game-score"
                     )
+                    .background {
+                        GeometryReader { geometry in
+                            Color.clear.preference(
+                                key: PointsCounterFramePreferenceKey.self,
+                                value: geometry.frame(in: .named("game-space"))
+                            )
+                        }
+                    }
                     compactStat("Top score", "—", identifier: "game-top-score")
                 }
                 .frame(width: sideWidth)
@@ -239,6 +257,15 @@ struct GameView: View {
         )
         let colorIndex = coordinator.snapshot.playerColorIndex
         let name = coordinator.mode == .zen ? "Any" : coordinator.snapshot.playerColor.name
+        let outlineTone =
+            if palette.isLight {
+                Color(hex: "#477694")
+            } else if coordinator.mode == .zen {
+                Color(hex: palette.accent)
+            } else {
+                palette.color(at: colorIndex)
+            }
+        let outlineOpacity = palette.isLight ? 0.52 : 0.82
 
         return VStack(alignment: .leading, spacing: 5) {
             Text("YOUR COLOR")
@@ -282,15 +309,20 @@ struct GameView: View {
             Color(hex: palette.surface).opacity(palette.isLight ? 0.88 : 0.82),
             in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 11)
         )
+        .clipShape(RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 11))
         .overlay {
             RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 11)
                 .stroke(
-                    palette.isLight
-                        ? Color(hex: "#477694").opacity(0.18)
-                        : coordinator.mode == .zen
-                            ? Color(hex: palette.foreground).opacity(0.18)
-                            : palette.color(at: colorIndex).opacity(palette.isLight ? 0.74 : 0.55),
+                    outlineTone.opacity(outlineOpacity),
                     lineWidth: GameHUDMetrics.colorHeroOutlineWidth
+                )
+                .shadow(
+                    color: outlineTone.opacity(GameHUDMetrics.colorHeroGlowOpacity),
+                    radius: palette.isPixel ? 3 : GameHUDMetrics.colorHeroGlowRadius
+                )
+                .shadow(
+                    color: outlineTone.opacity(GameHUDMetrics.colorHeroGlowOpacity * 0.58),
+                    radius: palette.isPixel ? 1 : GameHUDMetrics.colorHeroGlowRadius * 1.65
                 )
         }
         .overlay(alignment: .bottomLeading) {
@@ -300,7 +332,6 @@ struct GameView: View {
                     .padding(.bottom, 3)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 11))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(targetAccessibilityLabel(name: name))
         .accessibilityIdentifier("target-color")
@@ -427,8 +458,6 @@ struct GameView: View {
 
             ForEach(hitFeedbackPresentations) { presentation in
                 GeometryReader { proxy in
-                    let boardFrame = proxy.frame(in: .named("game-space"))
-
                     GlowStampView(
                         text: GameplayRatingFormatting.stamp(
                             rating: presentation.event.rating,
@@ -444,11 +473,7 @@ struct GameView: View {
                         usesTransparentBackground: true
                     )
                     .position(
-                        presentation.stampPosition(
-                            in: proxy.size,
-                            boardFrame: boardFrame,
-                            speedBarTrackFrame: speedBarTrackFrame
-                        )
+                        presentation.stampPosition(in: proxy.size)
                     )
                     .opacity(presentation.stampOpacity)
                     .scaleEffect(presentation.stampScale)
@@ -470,17 +495,11 @@ struct GameView: View {
                         )
                         .monospacedDigit()
                         .foregroundStyle(presentation.stamp.tone)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(.black.opacity(0.52), in: Capsule())
-                        .overlay {
-                            Capsule()
-                                .stroke(presentation.stamp.tone.opacity(0.88), lineWidth: 1)
-                        }
-                        .shadow(color: presentation.stamp.tone.opacity(0.94), radius: 8)
+                        .shadow(color: presentation.stamp.tone.opacity(0.98), radius: 5)
+                        .shadow(color: presentation.stamp.tone.opacity(0.64), radius: 11)
                         .position(presentation.scorePosition(in: proxy.size))
                         .opacity(presentation.isScoreVisible ? 1 : 0)
-                        .scaleEffect(presentation.isScoreVisible ? 1 : 0.84)
+                        .scaleEffect(presentation.scoreScale)
                 }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -513,6 +532,14 @@ struct GameView: View {
             }
         }
         .frame(width: side, height: side)
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: GameBoardFramePreferenceKey.self,
+                    value: geometry.frame(in: .named("game-space"))
+                )
+            }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Reaction board")
         .accessibilityIdentifier("reaction-board")
@@ -1067,7 +1094,15 @@ struct GameView: View {
                     deterministic: deterministic
                 ),
                 stampPhase: .hidden,
-                isScoreVisible: false
+                isScoreVisible: false,
+                speedBarDestination: FeedbackMotionPath.relativeDestination(
+                    from: gameBoardFrame,
+                    to: speedBarTrackFrame
+                ),
+                pointsDestination: FeedbackMotionPath.relativeDestination(
+                    from: gameBoardFrame,
+                    to: pointsCounterFrame
+                )
             )
         )
         let task = Task { @MainActor in
@@ -1083,33 +1118,44 @@ struct GameView: View {
                 )
             }
 
+            // Keep the awarded copy readable at the tap before the Points
+            // counter starts pulling it away.
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.42)) {
+                updateHitFeedback(
+                    id: event.id,
+                    isScoreVisible: false,
+                    isScoreAbsorbing: true
+                )
+            }
+
             if RatingStampMotionPolicy.feedsSpeedBar(event.rating) {
-                try? await Task.sleep(for: .milliseconds(90))
-                guard !Task.isCancelled else { return }
-                withAnimation(.easeInOut(duration: 0.34)) {
+                // The destination is captured before motion begins. One
+                // accelerating segment cannot reverse when the next target
+                // refreshes the SpriteKit board underneath this overlay.
+                withAnimation(.easeIn(duration: 0.42)) {
                     updateHitFeedback(
                         id: event.id,
                         stampPhase: .absorbing
                     )
                 }
-                try? await Task.sleep(for: .milliseconds(340))
+                try? await Task.sleep(for: .milliseconds(420))
                 guard !Task.isCancelled else { return }
-                withAnimation(.easeIn(duration: 0.10)) {
+                withAnimation(.linear(duration: 0.08)) {
                     updateHitFeedback(
                         id: event.id,
-                        stampPhase: .absorbed,
-                        isScoreVisible: false
+                        stampPhase: .absorbed
                     )
                 }
-                try? await Task.sleep(for: .milliseconds(100))
+                try? await Task.sleep(for: .milliseconds(80))
             } else {
-                try? await Task.sleep(for: .milliseconds(420))
+                try? await Task.sleep(for: .milliseconds(310))
                 guard !Task.isCancelled else { return }
                 withAnimation(.easeIn(duration: 0.20)) {
                     updateHitFeedback(
                         id: event.id,
-                        stampPhase: .hidden,
-                        isScoreVisible: false
+                        stampPhase: .hidden
                     )
                 }
                 try? await Task.sleep(for: .milliseconds(200))
@@ -1123,15 +1169,21 @@ struct GameView: View {
 
     private func updateHitFeedback(
         id: Int,
-        stampPhase: GameplayHitAnimationPhase,
-        isScoreVisible: Bool? = nil
+        stampPhase: GameplayHitAnimationPhase? = nil,
+        isScoreVisible: Bool? = nil,
+        isScoreAbsorbing: Bool? = nil
     ) {
         guard let index = hitFeedbackPresentations.firstIndex(where: { $0.id == id }) else {
             return
         }
-        hitFeedbackPresentations[index].stampPhase = stampPhase
+        if let stampPhase {
+            hitFeedbackPresentations[index].stampPhase = stampPhase
+        }
         if let isScoreVisible {
             hitFeedbackPresentations[index].isScoreVisible = isScoreVisible
+        }
+        if let isScoreAbsorbing {
+            hitFeedbackPresentations[index].isScoreAbsorbing = isScoreAbsorbing
         }
     }
 
@@ -1220,15 +1272,22 @@ enum RatingStampMotionPolicy {
     static func feedsSpeedBar(_ rating: SpeedRating) -> Bool {
         rating == .godlike || rating == .perfect
     }
+}
 
-    static func speedBarDestination(
-        boardFrame: CGRect,
-        speedBarTrackFrame: CGRect
-    ) -> CGPoint? {
-        guard !boardFrame.isEmpty, !speedBarTrackFrame.isEmpty else { return nil }
+enum FeedbackMotionPath {
+    static func relativeDestination(from sourceFrame: CGRect, to targetFrame: CGRect) -> CGPoint? {
+        guard !sourceFrame.isEmpty, !targetFrame.isEmpty else { return nil }
         return CGPoint(
-            x: speedBarTrackFrame.midX - boardFrame.minX,
-            y: speedBarTrackFrame.midY - boardFrame.minY
+            x: targetFrame.midX - sourceFrame.minX,
+            y: targetFrame.midY - sourceFrame.minY
+        )
+    }
+
+    static func point(from start: CGPoint, to destination: CGPoint, progress: CGFloat) -> CGPoint {
+        let fraction = min(1, max(0, progress))
+        return CGPoint(
+            x: start.x + (destination.x - start.x) * fraction,
+            y: start.y + (destination.y - start.y) * fraction
         )
     }
 }
@@ -1238,6 +1297,9 @@ struct GameplayHitPresentation: Equatable, Identifiable {
     let stamp: RatingStampPresentation
     var stampPhase: GameplayHitAnimationPhase
     var isScoreVisible: Bool
+    var isScoreAbsorbing = false
+    var speedBarDestination: CGPoint?
+    var pointsDestination: CGPoint?
 
     var id: Int { event.id }
 
@@ -1258,26 +1320,33 @@ struct GameplayHitPresentation: Equatable, Identifiable {
         }
     }
 
-    func stampPosition(
-        in size: CGSize,
-        boardFrame: CGRect,
-        speedBarTrackFrame: CGRect
-    ) -> CGPoint {
+    var scoreScale: CGFloat {
+        if isScoreAbsorbing { return 0.58 }
+        return isScoreVisible ? 1 : 0.84
+    }
+
+    func stampPosition(in size: CGSize) -> CGPoint {
         let startingPosition = stamp.position(in: size)
         guard RatingStampMotionPolicy.feedsSpeedBar(event.rating),
-            stampPhase == .absorbing || stampPhase == .absorbed,
-            let destination = RatingStampMotionPolicy.speedBarDestination(
-                boardFrame: boardFrame,
-                speedBarTrackFrame: speedBarTrackFrame
-            )
+            let speedBarDestination
         else { return startingPosition }
-        return destination
+        return FeedbackMotionPath.point(
+            from: startingPosition,
+            to: speedBarDestination,
+            progress: stampPhase == .absorbing || stampPhase == .absorbed ? 1 : 0
+        )
     }
 
     func scorePosition(in size: CGSize) -> CGPoint {
-        CGPoint(
+        let startingPosition = CGPoint(
             x: event.normalizedLocation.x * size.width,
             y: event.normalizedLocation.y * size.height - 15
+        )
+        guard isScoreAbsorbing, let pointsDestination else { return startingPosition }
+        return FeedbackMotionPath.point(
+            from: startingPosition,
+            to: pointsDestination,
+            progress: 1
         )
     }
 }
@@ -1336,7 +1405,7 @@ enum GameplayScoreFormatting {
             }
             grouped.append(digit)
         }
-        return "+\(grouped)"
+        return "+\(grouped) points"
     }
 }
 
@@ -1348,7 +1417,9 @@ enum ResponseProgressPresentation {
 }
 
 enum GameHUDMetrics {
-    static let colorHeroOutlineWidth = 3.0
+    static let colorHeroOutlineWidth = 5.0
+    static let colorHeroGlowOpacity = 0.72
+    static let colorHeroGlowRadius: CGFloat = 10
     static let livesColorHex = "#ff5370"
 }
 
@@ -1473,6 +1544,24 @@ private struct GameplayScreenWidthPreferenceKey: PreferenceKey {
 }
 
 private struct SpeedBarTrackFramePreferenceKey: PreferenceKey {
+    static let defaultValue = CGRect.zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if !next.isEmpty { value = next }
+    }
+}
+
+private struct GameBoardFramePreferenceKey: PreferenceKey {
+    static let defaultValue = CGRect.zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if !next.isEmpty { value = next }
+    }
+}
+
+private struct PointsCounterFramePreferenceKey: PreferenceKey {
     static let defaultValue = CGRect.zero
 
     static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
