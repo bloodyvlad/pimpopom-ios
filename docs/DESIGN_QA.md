@@ -4,7 +4,18 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 ## Current evidence
 
-The playable Xcode alpha has current Leaderboard/ranked-contract/gameplay-polish evidence on the named iPhone SE 2022 Simulator at implementation commit `c0bcc69`. Glow/Light/Pixel app-icon and Home Screen quick-action evidence remains at `30503e3`, with the earlier outlined candidate retained historically at `c7b15d9`; Achievements/cell-refinement evidence is at `fd11703`, followed by earlier canonical-cell/material/companion-follow evidence at `a607adc`, theme/feedback evidence at `e2294de`, Leaderboard/theme/companion polish evidence at `cccdae2`, expanded visual-parity evidence at `bf73ecd`, and three-profile fixed-screen evidence at `ec71d21`. Follow-up implementation commit `d3ffd87`, still using retired bundle ID `com.otcsoft.pimpopom.alpha`, was development-signed, installed, and launched successfully on the owner's physical iPhone SE with iOS 26.3; per owner request, it was not retested. The selected `com.otcsoftware.pimpopom` identity and current gameplay batch were not installed on physical hardware, and the 13 mini/13 Pro profiles were not rerun. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+The playable Xcode alpha has current Leaderboard/ranked-contract/gameplay-polish evidence on the named iPhone SE 2022 Simulator at implementation commit `c0bcc69`. Source commit `64f07f0` was subsequently development-signed with the selected `com.otcsoftware.pimpopom` identity, installed, and launched on the owner's physical iPhone SE with iOS 26.3; this was not a structured device review. Glow/Light/Pixel app-icon and Home Screen quick-action evidence remains at `30503e3`, with the earlier outlined candidate retained historically at `c7b15d9`; Achievements/cell-refinement evidence is at `fd11703`, followed by earlier canonical-cell/material/companion-follow evidence at `a607adc`, theme/feedback evidence at `e2294de`, Leaderboard/theme/companion polish evidence at `cccdae2`, expanded visual-parity evidence at `bf73ecd`, and three-profile fixed-screen evidence at `ec71d21`. Earlier physical commit `d3ffd87` used retired bundle ID `com.otcsoft.pimpopom.alpha`. The 13 mini/13 Pro profiles were not rerun. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
+
+## Physical iPhone SE selected-bundle install-and-launch checkpoint — 2026-07-18
+
+- **Candidate/version/build:** PimPoPom 0.1.0 (1), internal alpha.
+- **Source commit:** `64f07f00e504f30388a7b78b429cd2b781708b52` (`docs: record leaderboard polish validation`), containing implementation commit `c0bcc69ae907cced24decc1cca140ab96888b640`.
+- **Device and OS:** owner's wired iPhone SE (3rd generation), iOS 26.3 (23D127); paired and Developer Mode enabled.
+- **Configuration:** Debug; automatic Apple development signing with team `APX2925X66`; bundle `com.otcsoftware.pimpopom`.
+- **Evidence:** the physical-device build succeeded, the signed bundle passed strict code-signature verification, CoreDevice reported successful installation of exact bundle `com.otcsoftware.pimpopom`, and CoreDevice then reported successful application launch.
+- **Scope:** confirms compilation, signing, packaging, installation, and process launch for the selected persistent bundle identity and current gameplay implementation.
+- **Not covered:** structured physical visual/gameplay/touch/listening review; Google sign-in for the new bundle; authenticated backend writes; 60/120 Hz timing; accessibility; audio routes; Game Center; StoreKit; ads; TestFlight; or App Store review.
+- **Evidence statement:** exact-source physical install-and-launch checkpoint only; not a structured physical-device or production validation.
 
 ## Leaderboard, ranked-contract, and gameplay-polish Simulator pass — 2026-07-18
 
