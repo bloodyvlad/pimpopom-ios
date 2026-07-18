@@ -27,6 +27,8 @@ wrapper_name=$(printf '%s\n' "$build_settings" | awk -F ' = ' '/ WRAPPER_NAME = 
 built_info_plist="$target_build_dir/$wrapper_name/Info.plist"
 bundle_identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$built_info_plist")
 test "$bundle_identifier" = "com.otcsoftware.pimpopom"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$built_info_plist")" = "PimPoPom"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$built_info_plist")" = "PimPoPom"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$built_info_plist")" = "AppIcon"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundleAlternateIcons:AppIconLight:CFBundleIconName' "$built_info_plist")" = "AppIconLight"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundleAlternateIcons:AppIconPixel:CFBundleIconName' "$built_info_plist")" = "AppIconPixel"

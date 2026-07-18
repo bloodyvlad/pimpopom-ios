@@ -28,7 +28,7 @@ The code keeps ads and purchases behind disabled local implementations. Do not a
 - Public achievement catalog reads plus authenticated, CSRF-protected claims for the existing five PHP goals. Locked/ready/claimed state, rewards, and balance remain server-authoritative.
 - Four native theme palettes, retained pet sprites/habitats, the backend-derived special pet, and an owner-approved native Pancake replacement with a glowing blue floor.
 - Independent default-on Music and Sound FX using the migrated per-theme suites, plus the shared loss cue and original Pim–Po–Pom activation-cue candidate.
-- Exact deployed compatibility constants: API base `https://speedytapper.otcsoft.com`, build `20260716-1`, ruleset `reaction-proof-v2`, proof version 1.
+- Exact deployed compatibility constants: API base `https://speedytapper.otcsoft.com`, build `20260718-1`, ruleset `reaction-proof-v2`, proof version 1.
 - Google Sign-In 9.2.0 resolved by Swift Package Manager. Ads and StoreKit have no vendor/product configuration.
 
 ## Ordered steps

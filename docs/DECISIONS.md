@@ -342,7 +342,7 @@ Revisit when: final brand testing selects different artwork, Apple changes alter
 ## P-024 — Keep ranked compatibility explicit and finish the current gameplay polish
 
 - Date: 2026-07-18
-- Status: Accepted; refines P-014, P-017, P-020, and P-022
+- Status: Accepted; refines P-014, P-017, P-020, and P-022; build-gate, display-name, and Disco layer details refined by P-025
 
 Context: The live Hostinger deployment advanced its proof build gate from `20260715-1` to `20260716-1`, while the native client still sent the retired value and swallowed the resulting ranked-ticket failure. Consequently a signed-in Arcade game could run without a ticket and never submit a result. The owner also found that the Leaderboard score column collapsed on the SE, asked to remove the Legacy badge and Achievements wallet display, consolidated early/wrong-cell copy, requested stronger Disco contrast and feedback layering, required the first three rules once per app launch, and selected `com.otcsoftware.pimpopom` as the app bundle identifier.
 
@@ -355,3 +355,18 @@ For Disco, use near-black inactive cells, dark-silver inactive borders, stronger
 Consequences: New verified native scores can again pass the deployed PHP build gate and obtain exact ranked context, while network/build mismatches are visible before play. The SE Leaderboard cannot compress away scores. Old verification records remain intact but no longer add a Legacy chip to the compact row. Onboarding repeats predictably per launch without altering persistent audio/theme/glyph preferences. The bundle change installs as a different app identity from earlier physical checkpoints and may reset app-local state; server players, coins, and ranks remain associated through the same successfully verified Google account. Focused unit/UI tests cover request metadata, genuine engine proof opcodes, finish confirmation, row score visibility, hidden Achievements balance, launch-local onboarding, feedback copy/layers, and Disco presentation. A real authenticated Hostinger finish and physical-device OAuth/signing validation remain required before claiming end-to-end write validation.
 
 Revisit when: Hostinger changes its accepted build/ruleset/proof contract, a versioned native API replaces the compatibility exception, a real device exposes an OAuth/signing migration issue, or accessibility/physical visual evidence requires another compact presentation adjustment.
+
+## P-025 — Follow the 20260718 proof gate and preserve rounded Disco compositing
+
+- Date: 2026-07-18
+- Status: Accepted; refines the current compatibility and presentation details in P-024
+
+Context: The deployed PHP service advanced its exact ranked-run build gate to `20260718-1` and added an `achievementSnapshot` field to session and finish responses without changing cookies, CSRF, proof events, score submission, or finish semantics. The installed iOS build still advertised itself as **PimPoPom Alpha**. Owner-supplied 1×1 and 2×2 Disco screenshots also exposed a square colored frame around rounded active tiles: the opaque square corner base was composited above the expanded rounded glow and clipped that glow at the rectangular cell bounds.
+
+Decision: Send `20260718-1` when requesting a ranked ticket, then echo that server-issued ticket's build ID in the finish payload while retaining `reaction-proof-v2`, proof version 1, the existing secure-cookie/CSRF lifecycle, and chronological integer events. Keep `/api/leaderboard` for native Leaderboard reads because it still works and includes the total/rank/context fields that the simpler `/api/top-scores` response omits. Continue using synthesized `Codable` models with the default `JSONDecoder`, which ignores unknown response keys; regression-decode both session and finish payloads containing `achievementSnapshot`.
+
+Set `CFBundleDisplayName` to **PimPoPom** while retaining `CFBundleName`, product name, and bundle identifier `com.otcsoftware.pimpopom`. For Disco cells, preserve an opaque black square as the base below every rounded cell, but composite the rounded active backlight above that base and below the cell. Clip the halo to a narrow 1.2-percent expanded rounded contour, leaving the true square corners on the opaque black base. Apply the same base → clipped glow → cell order to SpriteKit gameplay and SwiftUI previews. The rounded light can feather naturally without being cut into a square outline or filling the four corner wedges.
+
+Consequences: Ranked iOS starts match the currently deployed PHP gate, additive response fields remain forward-compatible, and existing Leaderboard context is preserved. Home Screen, Spotlight, and system UI receive the final product name on the next install. Disco's tile geometry remains unchanged for gameplay/hit testing, but its bounded corner lighting follows the rounded tile instead of the rectangular cell frame. Tests lock the exact build ID, unknown-key decoding, compiled bundle metadata, halo bound, and `corner base < rounded glow < cell` layer order. A real authenticated ranked write and final physical visual review remain explicit validation steps.
+
+Revisit when: Hostinger advances the accepted build/ruleset/proof contract, the native client adopts a versioned API or top-score-only surface, Apple identity metadata changes, or physical-device review requires a stricter no-spill Disco glow mask.

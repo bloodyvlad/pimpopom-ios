@@ -77,9 +77,29 @@ final class GameplayLifecycleTests: XCTestCase {
             scene.children.first { $0.name == "cell-0-disco-corner-underlay" }
                 as? SKShapeNode
         )
+        let discoGlow = try XCTUnwrap(
+            scene.children.first { $0.name == "cell-0-disco-glow" } as? SKCropNode
+        )
+        let discoGlowMask = try XCTUnwrap(discoGlow.maskNode as? SKShapeNode)
         assertColor(discoUnderlay.fillColor, equals: .black)
         XCTAssertEqual(discoUnderlay.fillColor.cgColor.alpha, 1, accuracy: 0.001)
-        XCTAssertLessThan(discoUnderlay.zPosition, discoCell.zPosition)
+        assertColor(discoGlowMask.fillColor, equals: .white)
+        XCTAssertLessThan(discoUnderlay.zPosition, discoGlow.zPosition)
+        XCTAssertLessThan(discoGlow.zPosition, discoCell.zPosition)
+        let discoCellBounds = try XCTUnwrap(discoCell.path?.boundingBoxOfPath)
+        let discoGlowMaskBounds = try XCTUnwrap(discoGlowMask.path?.boundingBoxOfPath)
+        let expectedHaloInset =
+            discoCellBounds.width * GameCellEffectTokens.discoHaloClipScale
+        XCTAssertEqual(
+            discoGlowMaskBounds.minX,
+            discoCellBounds.minX - expectedHaloInset,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(
+            discoGlowMaskBounds.maxX,
+            discoCellBounds.maxX + expectedHaloInset,
+            accuracy: 0.001
+        )
         XCTAssertEqual(discoCell.glowWidth, 0)
 
         let discoBoost = try XCTUnwrap(

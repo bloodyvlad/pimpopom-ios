@@ -415,8 +415,13 @@ struct GameCellPreview: View {
                 effects.discoBacklight
                 ? side * GameCellEffectTokens.discoGlowWidthScale
                 : 0
+            let discoHaloInset = side * GameCellEffectTokens.discoHaloClipScale
 
             ZStack {
+                if effects.requiresBlackCornerUnderlay {
+                    Rectangle().fill(Color.black)
+                }
+
                 if effects.discoBacklight {
                     shape
                         .fill(
@@ -426,10 +431,13 @@ struct GameCellPreview: View {
                         )
                         .shadow(color: primaryGlowColor, radius: primaryGlowRadius)
                         .shadow(color: secondaryGlowColor, radius: secondaryGlowRadius)
-                }
-
-                if effects.requiresBlackCornerUnderlay {
-                    Rectangle().fill(Color.black)
+                        .mask {
+                            RoundedRectangle(
+                                cornerRadius: cornerRadius + discoHaloInset,
+                                style: .continuous
+                            )
+                            .padding(-discoHaloInset)
+                        }
                 }
 
                 shape

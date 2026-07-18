@@ -455,7 +455,7 @@ final class BackendClientTests: XCTestCase {
     }
 
     func testRankedRunStartAndFinishPreserveTicketProofContract() async throws {
-        XCTAssertEqual(BackendClient.deployedBuildID, "20260716-1")
+        XCTAssertEqual(BackendClient.deployedBuildID, "20260718-1")
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.signedInSession)
         let ticket = RunTicket(
@@ -525,6 +525,47 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(finishPayload["ruleset"] as? String, ticket.ruleset)
         XCTAssertEqual(finishPayload["proofVersion"] as? Int, ticket.proofVersion)
         XCTAssertEqual(finishPayload["events"] as? [[Int]], proof)
+    }
+
+    func testSessionAndRunFinishIgnoreAchievementSnapshotFields() throws {
+        var sessionPayload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(Self.signedInSession))
+                as? [String: Any]
+        )
+        sessionPayload["achievementSnapshot"] = [
+            "claimableCount": 2,
+            "achievements": [["id": "complete_arcade", "state": "claimable"]],
+        ]
+        let decodedSession = try JSONDecoder().decode(
+            SessionResponse.self,
+            from: JSONSerialization.data(withJSONObject: sessionPayload)
+        )
+        XCTAssertEqual(decodedSession, Self.signedInSession)
+
+        let finish = RunFinishResponse(
+            rank: 8,
+            submittedRank: 8,
+            submittedEntryId: "run-native-1",
+            improved: true,
+            duplicate: false,
+            verificationStatus: "verified",
+            coinsEarned: 1,
+            coinBalance: 76,
+            totalPlayMs: 180_000
+        )
+        var finishPayload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(finish))
+                as? [String: Any]
+        )
+        finishPayload["achievementSnapshot"] = [
+            "claimableCount": 1,
+            "achievements": [],
+        ]
+        let decodedFinish = try JSONDecoder().decode(
+            RunFinishResponse.self,
+            from: JSONSerialization.data(withJSONObject: finishPayload)
+        )
+        XCTAssertEqual(decodedFinish, finish)
     }
 
     func testRunFinishResponseRequiresTheExactVerifiedPHPEntry() {

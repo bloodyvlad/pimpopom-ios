@@ -307,6 +307,7 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(GameCellEffectTokens.discoPrimaryGlowOpacity, 1, accuracy: 0.001)
         XCTAssertEqual(GameCellEffectTokens.discoSecondaryGlowOpacity, 0.28, accuracy: 0.001)
         XCTAssertEqual(GameCellEffectTokens.discoGlowWidthScale, 0.22, accuracy: 0.001)
+        XCTAssertEqual(GameCellEffectTokens.discoHaloClipScale, 0.012, accuracy: 0.001)
         XCTAssertGreaterThan(GameCellEffectTokens.lightInnerStrokeOpacity, 0.8)
     }
 

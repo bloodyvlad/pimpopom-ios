@@ -68,7 +68,10 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Made coin/rank badge contents fully opaque above their button borders and kept their established lower-right/upper-right corner placement.
 - Reused the Pet Shop horizontal-facing resolver in menu and gameplay, forwarded board-gap touches for presentation-only facing, lowered Pancake fifteen points only on menu/Leaderboard surfaces, and mirrored its clean full-right frame for artifact-free full-left presentation.
 - Replaced the overlapping smooth cross paths with one solid outline, intensified Disco targets with highly saturated colors and opaque black rounded-corner surrounds, and made Pixel's clipped block grain visibly brighter and square while keeping live cells, Theme Shop previews, and Your Color consistent.
-- Updated native ranked compatibility to the deployed `20260716-1` PHP gate, require an exact saved-run UUID confirmation, retain retryable failed submissions, and show accepted/withheld status on Results.
+- Updated native ranked compatibility to the deployed `20260718-1` PHP gate, require an exact saved-run UUID confirmation, retain retryable failed submissions, and show accepted/withheld status on Results.
 - Reserved a right-aligned Leaderboard score column, removed the obsolete Legacy chip, omitted the current wallet balance from Achievements, and increased the Your Color outline to three points.
 - Made the first three menu rules repeat once per cold launch, switching to the slogan rotation only after that launch's first completed Arcade or Zen game.
 - Adopted `com.otcsoftware.pimpopom` as the app bundle identifier with matching test identifiers and a build-time metadata assertion.
+- Changed the installed display name from **PimPoPom Alpha** to **PimPoPom** while retaining bundle identifier `com.otcsoftware.pimpopom`.
+- Corrected Disco cell compositing so the opaque black corner base sits below a bounded rounded active glow, eliminating the square colored frame while retaining black corner wedges in live gameplay and shared previews.
+- Confirmed that the existing synthesized Swift `Codable` models ignore the new `achievementSnapshot` response field and retained `/api/leaderboard` for its full rank/context shape.

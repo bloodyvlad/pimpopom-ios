@@ -218,12 +218,19 @@ enum GameCellEffectTokens {
     static let discoPrimaryGlowOpacity = 1.0
     static let discoSecondaryGlowOpacity = 0.28
     static let discoGlowWidthScale = 0.22
+    static let discoHaloClipScale = 0.012
     static let lightTopHighlightOpacity = 0.55
     static let lightSpecularOpacity = 0.18
     static let lightLowerShadeOpacity = 0.10
     static let lightInnerStrokeOpacity = 0.82
     static let pixelLightNoiseOpacity = 0.15
     static let pixelDarkNoiseOpacity = 0.03
+}
+
+enum GameCellLayerOrder {
+    static let discoCornerUnderlay: CGFloat = 0.6
+    static let discoBacklight: CGFloat = 0.7
+    static let cell: CGFloat = 1
 }
 
 struct PixelTileNoiseView: View {

@@ -13,7 +13,7 @@ struct BackendError: LocalizedError {
 @MainActor
 final class BackendClient: ObservableObject {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
-    static let deployedBuildID = "20260716-1"
+    static let deployedBuildID = "20260718-1"
 
     @Published private(set) var sessionState: SessionResponse?
     @Published private(set) var isLoadingSession = false

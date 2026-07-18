@@ -192,7 +192,7 @@ final class GameScene: SKScene {
             if theme.id == "disco" {
                 addDiscoCornerUnderlay(in: rect, index: index)
             }
-            node.zPosition = 1
+            node.zPosition = GameCellLayerOrder.cell
             addChild(node)
             if theme.id == "disco" {
                 if let activeColorIndex {
@@ -271,11 +271,25 @@ final class GameScene: SKScene {
         color: UIColor,
         index: Int
     ) {
+        let haloInset = rect.width * GameCellEffectTokens.discoHaloClipScale
+        let crop = SKCropNode()
+        crop.name = "cell-\(index)-disco-glow"
+        crop.zPosition = GameCellLayerOrder.discoBacklight
+
+        let glowMask = SKShapeNode(
+            rect: rect.insetBy(dx: -haloInset, dy: -haloInset),
+            cornerRadius: cornerRadius + haloInset
+        )
+        glowMask.fillColor = .white
+        glowMask.strokeColor = .clear
+        glowMask.lineWidth = 0
+        crop.maskNode = glowMask
+
         let backer = SKShapeNode(
             rect: rect.insetBy(dx: -1.5, dy: -1.5),
             cornerRadius: cornerRadius + 1.5
         )
-        backer.name = "cell-\(index)-disco-glow"
+        backer.name = "cell-\(index)-disco-glow-shape"
         backer.fillColor = color.withAlphaComponent(
             GameCellEffectTokens.discoGlowFillOpacity
         )
@@ -285,8 +299,8 @@ final class GameScene: SKScene {
         backer.lineWidth = 2
         backer.glowWidth = rect.width * GameCellEffectTokens.discoGlowWidthScale
         backer.blendMode = .add
-        backer.zPosition = 0.7
-        addChild(backer)
+        crop.addChild(backer)
+        addChild(crop)
 
         let colorBoost = SKShapeNode(rect: rect, cornerRadius: cornerRadius)
         colorBoost.name = "cell-\(index)-disco-color-boost"
@@ -315,7 +329,7 @@ final class GameScene: SKScene {
         underlay.fillColor = .black
         underlay.strokeColor = .clear
         underlay.lineWidth = 0
-        underlay.zPosition = 0.8
+        underlay.zPosition = GameCellLayerOrder.discoCornerUnderlay
         addChild(underlay)
     }
 

@@ -4,7 +4,7 @@ Status: two layers. The first section records the deployed compatibility surface
 
 ## Current internal-alpha compatibility surface
 
-Base URL: `https://speedytapper.otcsoft.com`. Live health/HTML probes on 2026-07-18 confirmed Season 1, public access, and deployed build ID `20260716-1`, matching retained annotated deployment tag `hostinger-20260716-1` at commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0`.
+Base URL: `https://speedytapper.otcsoft.com`. Live health, HTML, and JavaScript probes on 2026-07-18 confirmed Season 1, public access, and deployed build ID `20260718-1`, matching retained annotated deployment tag `hostinger-20260718-1` at commit `371d59815fa7c9e562e69d05962ac6063de0b40f`.
 
 | Method and path | Purpose | Native behavior |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ Base URL: `https://speedytapper.otcsoft.com`. Live health/HTML probes on 2026-07
 | `POST /api/logout` | End PHP session | CSRF mutation |
 | `GET`, `PATCH /api/profile?mode=normal` | Profile and nickname | PATCH body contains only `nickname` |
 | `GET /api/leaderboard?mode=normal\|zen` | Public/shared ranks | Available signed out |
-| `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260716-1"}` |
+| `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260718-1"}` |
 | `POST /api/runs/abandon` | Idempotent discard | Body contains `runId` |
 | `POST /api/runs/finish` | Replay proof and save result | Ticket metadata plus integer proof tuples only |
 | `GET /api/achievements` | Five-goal catalog, player state, and balance | Public; signed out returns the locked catalog, while authenticated reads return server-authoritative states/counts and `coinBalance` |
@@ -28,11 +28,13 @@ The native client uses one long-lived default `URLSession` with shared cookie st
 
 Concurrent session bootstrap is coalesced. Login, logout, nickname, achievement, theme, and pet mutations carry a client-side session/player generation; a superseded response is rejected instead of being attached to a newer account. Achievement claims are serialized with other account mutations, and an expired 401/403 triggers session reconciliation before the player may retry. Theme and pet mutations are also serialized across both shops. These client checks prevent stale presentation state but do not replace server authentication, transactions, or idempotency.
 
+`GET /api/session` and `POST /api/runs/finish` may include an additive `achievementSnapshot`. The current native models intentionally do not consume it; synthesized `Codable` decoding ignores this and other unknown response keys while retaining every required session/finish field.
+
 The achievement client validates unique nonempty catalog entries, positive rewards, consistent totals/states, the exact claimed item, duplicate marker, nominal `coinsEarned`, and nonnegative balance before changing presentation or profile coins. The five bundled definitions are signed-out/error fallback copy only; they never authorize unlocks or rewards. Server-side debt can absorb a credited reward, so `coinBalance` rather than arithmetic on `coinsEarned` is the local economy truth.
 
 Google configuration uses a new iOS OAuth client whose bundle ID matches the app plus the existing Web OAuth client as Google `serverClientID`. The returned ID token therefore retains the audience the PHP verifier already accepts. OAuth client IDs are public configuration; no OAuth client secret ships in the app.
 
-Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-024 temporarily passes the currently deployed build ID. Arcade must first bootstrap the PHP session; a signed-in confirmed session must also obtain a ranked ticket before gameplay begins. A session or ticket failure is blocking and retryable rather than a silent downgrade. After `/api/runs/finish`, a `verified` result is accepted only when `submittedEntryId` equals that ticket's `runId`; `review` and `quarantined` confirm persistence but remain intentionally absent from public ranking. This owner-only exception must be removed before external TestFlight/App Store distribution or when the server changes its accepted build.
+Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-025 temporarily passes the currently deployed build ID. Arcade must first bootstrap the PHP session; a signed-in confirmed session must also obtain a ranked ticket before gameplay begins. A session or ticket failure is blocking and retryable rather than a silent downgrade. After `/api/runs/finish`, a `verified` result is accepted only when `submittedEntryId` equals that ticket's `runId`; `review` and `quarantined` confirm persistence but remain intentionally absent from public ranking. This owner-only exception must be removed before external TestFlight/App Store distribution or when the server changes its accepted build.
 
 The compatibility backend has no Buy Coins or StoreKit transaction endpoint. The alpha's Buy Coins controls therefore open a shared explanatory placeholder and never grant value. Achievement state/rewards, pet/theme prices, ownership, selection, and balance are always taken from the server response; client fallback catalogs are display/offline continuity only.
 
@@ -44,7 +46,7 @@ The migration source service currently uses:
 - a CSRF token/header for mutations;
 - a Google **Web** client ID and browser credential flow;
 - one browser-session-bound ranked attempt per player;
-- an exact accepted web build (`20260716-1` on the live service at the current audit);
+- an exact accepted web build (`20260718-1` on the live service at the current audit);
 - ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 proof-event cap;
 - extensionless `/api/*` routes for session, profile, leaderboard, runs, achievements, pets, themes, and administration.
 
