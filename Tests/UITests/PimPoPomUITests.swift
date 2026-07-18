@@ -150,10 +150,41 @@ final class PimPoPomUITests: XCTestCase {
         openMenuControl("open-settings", in: app)
 
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        let glowIcon = app.buttons["app-icon-glow"]
+        let lightIcon = app.buttons["app-icon-light"]
+        let pixelIcon = app.buttons["app-icon-pixel"]
+        XCTAssertTrue(glowIcon.waitForExistence(timeout: 2))
+        XCTAssertTrue(lightIcon.waitForExistence(timeout: 2))
+        XCTAssertTrue(pixelIcon.waitForExistence(timeout: 2))
+        XCTAssertEqual(
+            [glowIcon, lightIcon, pixelIcon]
+                .filter { $0.value as? String == "Selected" }
+                .count,
+            1
+        )
+        attachScreenshot(of: app, name: "SE alternate app icons")
         XCTAssertTrue(app.switches["glyphs-toggle"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.switches["sound-effects-toggle"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.switches["music-toggle"].waitForExistence(timeout: 2))
         XCTAssertFalse(app.staticTexts["Current Theme"].exists)
+    }
+
+    func testChangeIconDeepLinkOpensIconSettings() throws {
+        let app = launch()
+        app.terminate()
+        app.open(URL(string: "pimpopom://settings/icon")!)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let openButton = springboard.alerts.buttons["Open"]
+        if openButton.waitForExistence(timeout: 2) {
+            openButton.tap()
+        }
+
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["app-icon-glow"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["app-icon-light"].exists)
+        XCTAssertTrue(app.buttons["app-icon-pixel"].exists)
+        XCTAssertTrue(app.navigationBars["Settings"].buttons["Done"].exists)
+        attachScreenshot(of: app, name: "SE Change Icon deep link")
     }
 
     func testGlyphsOffReachesTheGameplayHeader() throws {

@@ -33,12 +33,14 @@
 		56603C4049290197D71E7DE7 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C4870F00BE8DF3014F005A13 /* GoogleSignIn */; };
 		5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */; };
 		60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */; };
+		6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */; };
 		65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */; };
 		67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */; };
 		6E46ABD4087FBC9FAF4D9E0C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 491AE95125B0A41ABB5B5D44 /* Assets.xcassets */; };
 		7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54435E3370FE5F0E7640F4F /* PetShopView.swift */; };
 		754E8CD00718D0D507BB1414 /* audio-oops.wav in Resources */ = {isa = PBXBuildFile; fileRef = DEC51376F984CE9F83F10F80 /* audio-oops.wav */; };
 		76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */; };
+		772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */; };
 		79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF525ACA8A69F39145C25A62 /* AchievementsView.swift */; };
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
@@ -130,6 +132,7 @@
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
 		8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayLifecycleTests.swift; sourceTree = "<group>"; };
+		905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeQuickActionController.swift; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9648B3C4989B1B1FF9557057 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		A094CABC4F0AA44F4126624B /* kesha-perch.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-perch.png"; sourceTree = "<group>"; };
@@ -143,6 +146,7 @@
 		B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlphaServices.swift; sourceTree = "<group>"; };
 		B50F7D6276F80417F9888373 /* audio-classic-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-classic-tones.wav"; sourceTree = "<group>"; };
+		B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconController.swift; sourceTree = "<group>"; };
 		B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomUITests.swift; sourceTree = "<group>"; };
 		B807723F13D7024F84747F72 /* GameCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCoordinator.swift; sourceTree = "<group>"; };
 		BB501ACDA16D35FF02259969 /* disco-concrete-lights.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-concrete-lights.png"; sourceTree = "<group>"; };
@@ -354,11 +358,13 @@
 		E1F73E23574CABE39BBD1F87 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */,
 				ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */,
 				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
 				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
 				DA2E75B83D2198FB2E99E518 /* BackendModels.swift */,
 				CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */,
+				905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -550,6 +556,7 @@
 			files = (
 				79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */,
 				1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */,
+				6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */,
 				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
 				3E8B789C6846539EE101679E /* AudioController.swift in Sources */,
 				EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */,
@@ -561,6 +568,7 @@
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
 				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,
 				2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */,
+				772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */,
 				9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */,
 				76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */,
 				60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */,
@@ -759,6 +767,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = (
+					AppIconLight,
+					AppIconPixel,
+				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
@@ -798,6 +810,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FA9F840B4895429C17E7AA09 /* Debug.xcconfig */;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = (
+					AppIconLight,
+					AppIconPixel,
+				);
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;

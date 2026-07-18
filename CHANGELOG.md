@@ -33,10 +33,13 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Exact web coin art, black-bordered coin/rank utility badges, signed-in Arcade position on the menu trophy, and a non-connecting Game Center profile placeholder.
 - Ranked start/finish contract coverage proving that eligible native Arcade runs retain CSRF, ticket, build, ruleset, proof-version, and chronological event payloads.
 - Live five-goal Achievements catalog and idempotent coin-claim flow backed by the existing Hostinger endpoints, with themed locked/ready/claimed cards, menu reward marker, authoritative balance refresh, stale-account protection, and deterministic API/UI coverage.
+- Three selectable native app icons: ImageGen Glow as the primary plus Light glass and Pixel alternates, with iOS-owned persistence/confirmation, retained masters/prompts, and asset-catalog registration checks.
+- A Home Screen `Change Icon` quick action backed by the `pimpopom://settings/icon` deep link, opening the icon selector directly from the app's context menu.
 
 ### Changed
 
 - Replaced the disc-based internal app-icon candidate with a mask-safe stacked `Pim` / `Po` / `Pom` wordmark using the live logo gradients, a generated luminous backdrop, and a deterministic exact-text export path.
+- Promoted the glow treatment to the default app icon and removed the black-outline candidate from the bundled icon choices while retaining its source for provenance.
 - Internal alpha scope now reuses the existing deployed PHP backend and shared data under accepted decision P-014.
 - Restored pet presentation toward the web parity reference at parent commit `7582b2d`: removed the in-flow menu pet icon, positioned the active pet independently, aligned shop pets with their habitats, and limited shop animation to a one-shot tap preview.
 - Made selected, hidden, equipped, and server-derived special-pet state resolve consistently across the menu, shop, and active game. When a special companion overrides shop presentation, the shop now explains that the underlying selection still changes.

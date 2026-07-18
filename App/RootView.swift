@@ -8,6 +8,7 @@ struct RootView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
     @EnvironmentObject private var achievements: AchievementsController
     @EnvironmentObject private var audio: AudioController
+    @EnvironmentObject private var quickActions: HomeQuickActionController
 
     let services: AlphaServices
     let googleIdentity: GoogleIdentityService
@@ -21,6 +22,7 @@ struct RootView: View {
     @State private var opensProfileAfterAchievements = false
     @State private var showsCoinStore = false
     @State private var showsRemoveAdsStore = false
+    @State private var showsIconSettings = false
     @State private var motivationIndex: Int?
     @State private var menuPetFacing = PetFacing.front
     @State private var menuPetSleeping = false
@@ -100,8 +102,19 @@ struct RootView: View {
             CoinStorePlaceholderView(offer: .removeAds)
                 .environmentObject(cosmetics)
         }
+        .sheet(isPresented: $showsIconSettings) {
+            NavigationStack {
+                SettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showsIconSettings = false }
+                        }
+                    }
+            }
+        }
         .task {
             configureDebugLaunch()
+            openPendingQuickAction()
             audio.setApplicationActive(scenePhase == .active)
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
@@ -119,6 +132,9 @@ struct RootView: View {
         .onChange(of: preferences.musicVolume) { _, _ in configureAudio() }
         .onChange(of: preferences.menuMotivationUnlocked) { _, unlocked in
             if unlocked { advanceMotivation() }
+        }
+        .onChange(of: quickActions.hasPendingChangeIconRequest) { _, pending in
+            if pending { openPendingQuickAction() }
         }
         .onChange(of: scenePhase) { _, phase in
             audio.setApplicationActive(phase == .active)
@@ -805,6 +821,15 @@ struct RootView: View {
         audio.resumeAfterUserAction()
         audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
     }
+
+    private func openPendingQuickAction() {
+        guard quickActions.consumeChangeIconRequest() else { return }
+        showsProfile = false
+        showsAchievements = false
+        showsCoinStore = false
+        showsRemoveAdsStore = false
+        showsIconSettings = true
+    }
 }
 
 #Preview {
@@ -818,4 +843,6 @@ struct RootView: View {
         .environmentObject(cosmetics)
         .environmentObject(achievements)
         .environmentObject(AudioController())
+        .environmentObject(AppIconController())
+        .environmentObject(HomeQuickActionController.shared)
 }

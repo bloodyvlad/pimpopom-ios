@@ -323,3 +323,18 @@ Use one non-overlapping outline for the smooth cross so its center remains fille
 Consequences: PimPoPom can display and claim the same earned rewards as the PHP version without duplicating economy truth. Unit and UI tests cover the exact routes/body/CSRF, malformed and stale responses, session expiry, the five stable fallback IDs/rewards, an offline 9-to-10 coin claim, solid cross center, Disco color/corner layering, and Pixel sample geometry. Real authenticated Hostinger claim, physical-device visual/touch review, 13 mini/13 Pro reruns, and the accessibility matrix remain explicit validation gates.
 
 Revisit when: the versioned native API replaces the compatibility routes, the server catalog/schema changes, StoreKit or Game Center is deliberately connected, or physical/accessibility evidence requires another presentation treatment.
+
+## P-023 — Use native selectable icons with a direct Home Screen shortcut
+
+- Date: 2026-07-18
+- Status: Accepted; refines the app-icon system in P-009
+
+Context: The owner selected the glowing stacked `Pim` / `Po` / `Pom` artwork as the default, requested theme-specific Light and Pixel options, removed the black-outline candidate from the app, and asked for Telegram-style access to icon selection from the Home Screen context menu.
+
+Decision: Ship ImageGen Glow as the primary asset-catalog icon and Light glass plus Pixel as alternate icon sets. Treat `UIApplication.alternateIconName` as the current value and change it only through `setAlternateIconName`; `nil` always restores Glow, while iOS owns persistence and confirmation. Do not bundle the retired black-outline candidate, but retain its source, renderer, prompt, and hashes for provenance and rollback.
+
+Expose the same three whole-tile choices in Settings. Register one static Home Screen quick action titled **Change Icon**. Its stable internal route is `pimpopom://settings/icon`; both shortcut-item delivery and custom-URL delivery open the icon selector during cold or warm app activation. The shortcut grants no account, purchase, economy, or gameplay state.
+
+Consequences: XcodeGen declares only Light and Pixel as alternates, the compiled app metadata becomes a regression-checked contract, and a long press can reach icon selection without navigating the menu. Runtime/master equality, opacity, dimensions, catalogs, previews, prompts, and hashes are validated together. Physical Home Screen masks, actual icon switching, Spotlight/Settings/notification appearances, tinted icon behavior, localization, and accessibility remain device QA gates.
+
+Revisit when: final brand testing selects different artwork, Apple changes alternate-icon or quick-action behavior, localization requires dynamic shortcut registration, or a future theme earns its own icon.

@@ -1,9 +1,70 @@
+import UIKit
 import XCTest
 
 @testable import PimPoPom
 
 @MainActor
 final class PreferencesAndContractTests: XCTestCase {
+    func testAppIconChoiceResolvesSystemNames() {
+        XCTAssertEqual(AppIconChoice.resolve(alternateIconName: nil), .glow)
+        XCTAssertEqual(AppIconChoice.resolve(alternateIconName: "AppIconLight"), .light)
+        XCTAssertEqual(AppIconChoice.resolve(alternateIconName: "AppIconPixel"), .pixel)
+        XCTAssertEqual(AppIconChoice.resolve(alternateIconName: "UnknownIcon"), .glow)
+        XCTAssertNil(AppIconChoice.glow.alternateIconName)
+        XCTAssertEqual(AppIconChoice.light.alternateIconName, "AppIconLight")
+        XCTAssertEqual(AppIconChoice.pixel.alternateIconName, "AppIconPixel")
+    }
+
+    func testAppIconControllerUsesTheSystemSelectionAsTruth() async {
+        let application = TestAppIconApplication(alternateIconName: nil)
+        let controller = AppIconController(application: application)
+
+        XCTAssertEqual(controller.selectedChoice, .glow)
+        await controller.select(.light)
+
+        XCTAssertEqual(application.requestedIconNames, ["AppIconLight"])
+        XCTAssertEqual(controller.selectedChoice, .light)
+        XCTAssertFalse(controller.isChanging)
+        XCTAssertNil(controller.statusMessage)
+    }
+
+    func testAppIconControllerRejectsUnsupportedChanges() async {
+        let application = TestAppIconApplication(
+            supportsAlternateIcons: false,
+            alternateIconName: nil
+        )
+        let controller = AppIconController(application: application)
+
+        await controller.select(.pixel)
+
+        XCTAssertTrue(application.requestedIconNames.isEmpty)
+        XCTAssertEqual(controller.selectedChoice, .glow)
+        XCTAssertEqual(
+            controller.statusMessage,
+            "Alternate app icons are not supported on this device."
+        )
+    }
+
+    func testChangeIconDeepLinkAndShortcutQueueOneConsumableRequest() {
+        let controller = HomeQuickActionController()
+        XCTAssertFalse(controller.hasPendingChangeIconRequest)
+        XCTAssertTrue(controller.handle(HomeQuickAction.changeIconURL))
+        XCTAssertTrue(controller.hasPendingChangeIconRequest)
+        XCTAssertTrue(controller.consumeChangeIconRequest())
+        XCTAssertFalse(controller.consumeChangeIconRequest())
+
+        let shortcut = UIApplicationShortcutItem(
+            type: "com.otcsoft.pimpopom.alpha.change-icon",
+            localizedTitle: "Change Icon",
+            localizedSubtitle: nil,
+            icon: nil,
+            userInfo: ["url": HomeQuickAction.changeIconURL.absoluteString as NSString]
+        )
+        XCTAssertTrue(controller.handle(shortcut))
+        XCTAssertTrue(controller.consumeChangeIconRequest())
+        XCTAssertFalse(controller.handle(URL(string: "pimpopom://settings/audio")!))
+    }
+
     func testAudioPreferencesDefaultOnAndPersistIndependently() throws {
         let suiteName = "PimPoPomTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -141,5 +202,22 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(selection.theme.pricePaid, 50)
         XCTAssertEqual(selection.profile.selectedThemeId, "light")
         XCTAssertEqual(selection.coinBalance, 7)
+    }
+}
+
+@MainActor
+private final class TestAppIconApplication: AppIconApplication {
+    let supportsAlternateIcons: Bool
+    private(set) var alternateIconName: String?
+    private(set) var requestedIconNames: [String] = []
+
+    init(supportsAlternateIcons: Bool = true, alternateIconName: String?) {
+        self.supportsAlternateIcons = supportsAlternateIcons
+        self.alternateIconName = alternateIconName
+    }
+
+    func setAlternateIconName(_ alternateIconName: String?) async throws {
+        requestedIconNames.append(alternateIconName ?? "primary")
+        self.alternateIconName = alternateIconName
     }
 }

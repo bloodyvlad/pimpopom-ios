@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject private var audio: AudioController
     @EnvironmentObject private var cosmetics: CosmeticsController
     @EnvironmentObject private var preferences: AppPreferences
+    @EnvironmentObject private var appIcons: AppIconController
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -13,6 +14,42 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    settingCard(title: "App Icon", systemImage: "app.badge") {
+                        HStack(spacing: 12) {
+                            ForEach(AppIconChoice.allCases) { choice in
+                                iconChoiceButton(choice)
+                            }
+                        }
+
+                        Text("iOS shows a confirmation before changing the Home Screen icon.")
+                            .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+
+                        if !appIcons.supportsAlternateIcons {
+                            Text("Alternate app icons are unavailable on this device.")
+                                .font(
+                                    palette.appFont(
+                                        size: 12,
+                                        weight: .bold,
+                                        relativeTo: .caption
+                                    )
+                                )
+                                .foregroundStyle(.orange)
+                        }
+
+                        if let status = appIcons.statusMessage {
+                            Text(status)
+                                .font(
+                                    palette.appFont(
+                                        size: 12,
+                                        weight: .bold,
+                                        relativeTo: .caption
+                                    )
+                                )
+                                .foregroundStyle(.orange)
+                        }
+                    }
+
                     settingCard(title: "Glyphs", systemImage: "character.cursor.ibeam") {
                         Toggle("Color-blind glyphs", isOn: $preferences.glyphsEnabled)
                             .tint(Color(hex: palette.chromeAccent))
@@ -75,6 +112,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { appIcons.refresh() }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("Settings")
@@ -82,6 +120,56 @@ struct SettingsView: View {
                     .foregroundStyle(Color(hex: palette.foreground))
             }
         }
+    }
+
+    private func iconChoiceButton(_ choice: AppIconChoice) -> some View {
+        let isSelected = appIcons.selectedChoice == choice
+
+        return Button {
+            Task { await appIcons.select(choice) }
+        } label: {
+            VStack(spacing: 8) {
+                Image(choice.previewAssetName)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(Color.white.opacity(0.34), lineWidth: 1)
+                    }
+
+                HStack(spacing: 5) {
+                    Text(choice.title)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                }
+                .font(palette.appFont(size: 14, weight: .black, relativeTo: .subheadline))
+                .foregroundStyle(
+                    isSelected
+                        ? Color(hex: palette.chromeAccent)
+                        : Color(hex: palette.foreground)
+                )
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Color(hex: palette.surface).opacity(isSelected ? 0.96 : 0.62))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(
+                        isSelected
+                            ? Color(hex: palette.chromeAccent)
+                            : Color(hex: palette.foreground).opacity(0.22),
+                        lineWidth: isSelected ? 2 : 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(appIcons.isChanging || !appIcons.supportsAlternateIcons)
+        .accessibilityLabel("\(choice.title) app icon")
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityIdentifier("app-icon-\(choice.rawValue)")
     }
 
     private func settingCard<Content: View>(
