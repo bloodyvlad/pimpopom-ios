@@ -33,7 +33,7 @@ final class PimPoPomUITests: XCTestCase {
         usleep(140_000)
         attachScreenshot(of: app, name: "SE hit stamp and score flyout")
         usleep(100_000)
-        attachScreenshot(of: app, name: "SE fast stamp feeds Speed Bar")
+        attachScreenshot(of: app, name: "SE local feedback fading")
 
         let score = app.staticTexts["game-score"]
         XCTAssertEqual(

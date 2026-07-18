@@ -183,7 +183,7 @@ final class CosmeticsTests: XCTestCase {
         )
         XCTAssertEqual(
             GameCellVisualMetrics.glyphBoxSide(side: 100),
-            30,
+            12,
             accuracy: 0.001
         )
         XCTAssertEqual(
@@ -209,12 +209,12 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(GameBoardVisualMetrics.shellCornerRadius(theme: .disco), 22)
         XCTAssertEqual(
             GameCellVisualMetrics.glyphBoxSide(side: 40),
-            14,
+            5.6,
             accuracy: 0.001
         )
         XCTAssertEqual(GameCellVisualMetrics.targetBorderWidth, 3)
         XCTAssertEqual(GameCellVisualMetrics.activeBorderWidth, 2)
-        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 5)
+        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 4)
     }
 
     func testPixelFontAndDiscoTexturesAreBundled() throws {

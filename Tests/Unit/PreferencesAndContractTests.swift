@@ -143,7 +143,7 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(ResponseProgressPresentation.remainingFraction(-0.4, isActive: true), 0)
     }
 
-    func testRatingStampPlacementIsDeterministicInUITestsAndStaysOnTheBorderLanes() {
+    func testTapFeedbackUsesFixedLocalOffsetsAndNeverMovesToTheHUD() {
         let event = GameplayHitFeedbackEvent(
             id: 1,
             rating: .perfect,
@@ -151,38 +151,19 @@ final class PreferencesAndContractTests: XCTestCase {
             pointsAwarded: 2_343,
             normalizedLocation: CGPoint(x: 0.25, y: 0.60)
         )
-        let presentation = RatingStampPresentation.make(event: event, deterministic: true)
+        let presentation = RatingStampPresentation.make(event: event)
         let point = presentation.position(in: CGSize(width: 351, height: 351))
-        let boardFrame = CGRect(x: 10, y: 100, width: 351, height: 351)
-        let speedBarFrame = CGRect(x: 30, y: 500, width: 200, height: 36)
-        let pointsFrame = CGRect(x: 12, y: 52, width: 70, height: 42)
-        let speedBarDestination = try! XCTUnwrap(
-            FeedbackMotionPath.relativeDestination(
-                from: boardFrame,
-                to: speedBarFrame
-            )
-        )
-        let pointsDestination = try! XCTUnwrap(
-            FeedbackMotionPath.relativeDestination(
-                from: boardFrame,
-                to: pointsFrame
-            )
-        )
 
         XCTAssertEqual(presentation.event, event)
-        XCTAssertEqual(presentation.edge, .right)
-        XCTAssertEqual(presentation.laneFraction, 0.5)
-        XCTAssertEqual(presentation.tilt, -6)
-        XCTAssertEqual(point.x, 287.82, accuracy: 0.001)
-        XCTAssertEqual(point.y, 175.5, accuracy: 0.001)
+        XCTAssertEqual(presentation.tilt, 40)
+        XCTAssertEqual(point.x, 117.75, accuracy: 0.001)
+        XCTAssertEqual(point.y, 180.6, accuracy: 0.001)
 
         let hit = GameplayHitPresentation(
             event: event,
             stamp: presentation,
             stampPhase: .visible,
-            isScoreVisible: true,
-            speedBarDestination: speedBarDestination,
-            pointsDestination: pointsDestination
+            isScoreVisible: true
         )
         XCTAssertEqual(
             GameplayRatingFormatting.stamp(rating: .good, milliseconds: 802),
@@ -191,86 +172,20 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(hit.scoreText, "+2,343 points")
         XCTAssertEqual(
             hit.scorePosition(in: CGSize(width: 320, height: 320)),
-            CGPoint(x: 80, y: 177)
-        )
-
-        var absorbing = hit
-        absorbing.stampPhase = .absorbing
-        XCTAssertEqual(
-            absorbing.stampPosition(in: CGSize(width: 351, height: 351)),
-            CGPoint(x: 120, y: 418)
-        )
-        absorbing.isScoreVisible = false
-        absorbing.isScoreAbsorbing = true
-        XCTAssertEqual(
-            absorbing.scorePosition(in: CGSize(width: 320, height: 320)),
-            pointsDestination
-        )
-        XCTAssertEqual(absorbing.scoreScale, 0.58)
-
-        XCTAssertTrue(RatingStampMotionPolicy.feedsSpeedBar(.godlike))
-        XCTAssertTrue(RatingStampMotionPolicy.feedsSpeedBar(.perfect))
-        XCTAssertFalse(RatingStampMotionPolicy.feedsSpeedBar(.great))
-        XCTAssertFalse(RatingStampMotionPolicy.feedsSpeedBar(.good))
-
-        for rating in [SpeedRating.great, .good] {
-            let stationaryEvent = GameplayHitFeedbackEvent(
-                id: 2,
-                rating: rating,
-                milliseconds: 500,
-                pointsAwarded: 10,
-                normalizedLocation: CGPoint(x: 0.5, y: 0.5)
-            )
-            let stationaryStamp = RatingStampPresentation.make(
-                event: stationaryEvent,
-                deterministic: true
-            )
-            let stationary = GameplayHitPresentation(
-                event: stationaryEvent,
-                stamp: stationaryStamp,
-                stampPhase: .absorbing,
-                isScoreVisible: false,
-                speedBarDestination: speedBarDestination,
-                pointsDestination: pointsDestination
-            )
-            XCTAssertEqual(
-                stationary.stampPosition(in: CGSize(width: 351, height: 351)),
-                stationaryStamp.position(in: CGSize(width: 351, height: 351))
-            )
-        }
-    }
-
-    func testFeedbackMotionPathIsAClampedDirectSegmentWithoutReversal() {
-        let start = CGPoint(x: 280, y: 24)
-        let destination = CGPoint(x: 120, y: 418)
-        let progress: [CGFloat] = [0, 0.25, 0.5, 0.75, 1]
-        let points = progress.map {
-            FeedbackMotionPath.point(from: start, to: destination, progress: $0)
-        }
-
-        XCTAssertEqual(points.first, start)
-        XCTAssertEqual(points.last, destination)
-        for pair in zip(points, points.dropFirst()) {
-            XCTAssertLessThan(pair.1.x, pair.0.x)
-            XCTAssertGreaterThan(pair.1.y, pair.0.y)
-            XCTAssertLessThan(
-                hypot(pair.1.x - destination.x, pair.1.y - destination.y),
-                hypot(pair.0.x - destination.x, pair.0.y - destination.y)
-            )
-        }
-        XCTAssertEqual(
-            FeedbackMotionPath.point(from: start, to: destination, progress: -1),
-            start
+            CGPoint(x: 60, y: 172)
         )
         XCTAssertEqual(
-            FeedbackMotionPath.point(from: start, to: destination, progress: 2),
-            destination
+            hit.stampPosition(in: CGSize(width: 351, height: 351)),
+            point
         )
+        XCTAssertEqual(GameplayHitFeedbackMetrics.scoreRotationDegrees, -40)
+        XCTAssertEqual(GameplayHitFeedbackMetrics.stampRotationDegrees, 40)
+        XCTAssertEqual(GameplayHitFeedbackMetrics.lifetimeMilliseconds, 980)
     }
 
     func testGameplayHUDUsesRequestedZenAndFooterMetrics() {
         XCTAssertEqual(GameHUDMetrics.livesColorHex, "#ff5370")
-        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 5)
+        XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 4)
         XCTAssertEqual(GameHUDMetrics.colorHeroGlowOpacity, 0.72)
         XCTAssertEqual(GameHUDMetrics.colorHeroGlowRadius, 10)
         XCTAssertEqual(GameplayLayoutMetrics.footerLift, 8)

@@ -405,7 +405,7 @@ enum GameCellVisualMetrics {
         side: CGFloat,
         minimumBaseSide: CGFloat = 14
     ) -> CGFloat {
-        max(minimumBaseSide, side * 0.30)
+        max(minimumBaseSide, side * 0.30) / 2.5
     }
 }
 

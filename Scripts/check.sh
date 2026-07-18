@@ -48,8 +48,8 @@ staging_build_settings=$(xcodebuild \
   -showBuildSettings)
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CONFIGURATION = Staging'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom'
-printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.0'
-printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 1'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.01'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 2'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements'
 
 if ! xcrun simctl list devices available | rg -Fq 'PimPoPom iPhone SE 2022 ('; then

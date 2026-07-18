@@ -406,3 +406,18 @@ Enable the Game Center capability and Boolean entitlement for `com.otcsoftware.p
 Consequences: Internal and external TestFlight processing/review can begin while engineering continues, but this cohort touches the live compatibility service and must avoid destructive economy/profile experiments. Apple Beta App Review is asynchronous and is not complete merely because a build was submitted. The existing Google OAuth configuration must still match the final bundle identifier on a real TestFlight install. Game Center failure has no effect outside the optional Profile status. Public beta expansion, App Store submission, live ads, StoreKit value, and the server-fed leaderboard mirror remain blocked on their dedicated contracts and review gates.
 
 Revisit when: the named QA cohort expands, a separate staging backend becomes available, Apple rejects the compatibility/login design, the server identity-binding/outbox path is implemented, or an App Store production candidate is prepared.
+
+## P-028 — Keep reaction feedback local and reduce glyph prominence
+
+- Date: 2026-07-18
+- Status: Accepted; supersedes P-026 only for feedback placement/motion, Your Color outline width, and glyph scale; advances the named TestFlight candidate in P-027
+
+Context: Capturing the Points and Speed Bar frames made correct-hit feedback travel away from the physical tap, while the canonical glyph box remained visually dominant inside the tiles. The owner requested one simpler local gesture language and a smaller target-panel frame for the next cable and TestFlight build.
+
+Decision: Keep authoritative score, rating, and rounded reaction timing unchanged. Show grouped `+N points` copy 20 points left and 20 points above the accepted tap, rotated 40 degrees counterclockwise. Show every Godlike, Perfect, Great, and Good stamp 30 points right and 30 points above that tap, rotated 40 degrees clockwise. Keep both interiors transparent, allow up to eight independent tap presentations, hold them in place, and fade both completely within 980 milliseconds. Do not measure or capture HUD destinations, move score copy into the Points field, or feed Godlike/Perfect stamps into the Speed Bar.
+
+Reduce the shared canonical glyph box by dividing its existing resolved size—including the preview and live-cell minimum—by 2.5. This applies identically to smooth and Pixel paths in live cells, Your Color, and theme previews without changing glyph shape or color-blind semantics. Reduce the glowing Your Color outline from five to four points while retaining both outward glow passes. Advance the staging/TestFlight identity to marketing version `1.01`, build `2`; this remains a TestFlight update, not an App Store release.
+
+Consequences: Tap feedback stays spatially tied to the player's action and cannot collide with or animate toward the HUD/footer. Every theme continues to share one equal-bounds glyph contract at the smaller scale. Tests lock the exact offsets, rotations, 980-millisecond lifetime, no-destination presentation model, glyph divisor, outline width, and staging version/build. Physical review must confirm that the reduced Pixel glyphs remain readable and that edge-adjacent feedback is acceptably visible.
+
+Revisit when: physical-device legibility requires a less aggressive minimum glyph size, Reduce Motion needs a separate transition, or the feedback offsets collide with a future board layout.
