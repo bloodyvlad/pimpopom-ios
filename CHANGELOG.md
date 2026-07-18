@@ -36,6 +36,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Changed
 
+- Replaced the disc-based internal app-icon candidate with a mask-safe stacked `Pim` / `Po` / `Pom` wordmark using the live logo gradients, a generated luminous backdrop, and a deterministic exact-text export path.
 - Internal alpha scope now reuses the existing deployed PHP backend and shared data under accepted decision P-014.
 - Restored pet presentation toward the web parity reference at parent commit `7582b2d`: removed the in-flow menu pet icon, positioned the active pet independently, aligned shop pets with their habitats, and limited shop animation to a one-shot tap preview.
 - Made selected, hidden, equipped, and server-derived special-pet state resolve consistently across the menu, shop, and active game. When a special companion overrides shop presentation, the shop now explains that the underlying selection still changes.

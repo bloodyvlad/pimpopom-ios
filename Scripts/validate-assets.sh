@@ -21,6 +21,20 @@ dimensions() {
   test "$height" = "$expected_height"
 }
 
+opaque() {
+  file=$1
+  has_alpha=$(sips -g hasAlpha "$file" | awk '/hasAlpha/ { print $2 }')
+  test "$has_alpha" = "no"
+}
+
+app_icon=App/Assets.xcassets/AppIcon.appiconset/PimPoPom-AppIcon.png
+app_icon_master=assets/branding/sources/PimPoPom-AppIcon-stacked-master.png
+dimensions "$app_icon" 1024 1024
+dimensions "$app_icon_master" 1024 1024
+opaque "$app_icon"
+opaque "$app_icon_master"
+cmp -s "$app_icon_master" "$app_icon"
+
 for file in App/Resources/Pets/*-sprite.png; do
   dimensions "$file" 640 64
 done
@@ -46,4 +60,4 @@ done
 cmp -s assets/fonts/sources/jersey-10-regular.ttf App/Resources/Fonts/jersey-10-regular.ttf
 test "$(/usr/libexec/PlistBuddy -c 'Print :UIAppFonts:0' Config/Info.plist)" = "jersey-10-regular.ttf"
 
-printf '%s\n' 'Asset hashes, counts, retained sources, font registration, and image geometry verified.'
+printf '%s\n' 'Asset hashes, counts, retained sources, font registration, app-icon opacity, and image geometry verified.'
