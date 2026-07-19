@@ -12,21 +12,44 @@ struct PimPoPomApp: App {
     @StateObject private var quickActions: HomeQuickActionController
     @StateObject private var gameCenter: GameCenterService
     @StateObject private var purchases: PurchaseController
-    private let services = AlphaServices.localOnly
+    @StateObject private var ads: AdsController
     private let googleIdentity = GoogleIdentityService()
 
     init() {
         let backend = BackendClient()
         let preferences = AppPreferences()
         let storeKit: any StoreKitServing
+        let adsController: AdsController
         #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("--uitesting") {
                 storeKit = UITestStoreKitService()
+                let privacyRequirement: PrivacyOptionsRequirement =
+                    arguments.contains("--ui-test-privacy-required") ? .required : .notRequired
+                let consent = FakeConsentService(
+                    snapshot: ConsentSnapshot(
+                        canRequestAds: !arguments.contains("--ui-test-consent-blocked"),
+                        privacyOptionsRequirement: privacyRequirement
+                    )
+                )
+                let fakeAds = FakeAdsService()
+                fakeAds.interstitialAvailable =
+                    !arguments.contains("--ui-test-interstitial-unavailable")
+                adsController = AdsController(
+                    configuration: .uiTesting(
+                        adsEnabled: arguments.contains("--ui-test-ads-enabled")
+                    ),
+                    consentService: consent,
+                    adsService: fakeAds,
+                    progressStore: MemoryInterstitialProgressStore()
+                )
             } else {
                 storeKit = StoreKitService()
+                adsController = AdsController()
             }
         #else
             storeKit = StoreKitService()
+            adsController = AdsController()
         #endif
         _backend = StateObject(wrappedValue: backend)
         _preferences = StateObject(wrappedValue: preferences)
@@ -41,11 +64,12 @@ struct PimPoPomApp: App {
         _purchases = StateObject(
             wrappedValue: PurchaseController(storeKit: storeKit, creditService: backend)
         )
+        _ads = StateObject(wrappedValue: adsController)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(services: services, googleIdentity: googleIdentity)
+            RootView(googleIdentity: googleIdentity)
                 .environmentObject(backend)
                 .environmentObject(preferences)
                 .environmentObject(cosmetics)
@@ -55,6 +79,7 @@ struct PimPoPomApp: App {
                 .environmentObject(quickActions)
                 .environmentObject(gameCenter)
                 .environmentObject(purchases)
+                .environmentObject(ads)
                 .onOpenURL {
                     if !quickActions.handle($0) {
                         _ = googleIdentity.handle($0)

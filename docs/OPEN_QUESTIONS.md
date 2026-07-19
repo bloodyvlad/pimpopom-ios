@@ -20,10 +20,6 @@ These questions are intentionally unresolved. Recommended defaults guide discuss
 | --- | --- | --- |
 | Sandbox/Production backend routing | Separate staging runtime, or an explicitly reviewed dual-environment verifier | TestFlight emits Sandbox transactions while App Store customers use Production |
 | Deleted-account purchase recovery | Do not silently attach retained paid evidence to a new profile under P-031 | Apple ownership may outlive a deliberately deleted PimPoPom profile |
-| Ad vendor | AdMob + UMP is the initial technical recommendation | SDK/privacy/policy/test integration |
-| Active gameplay ads | Reserve requested host, but fill only outside active runs initially | Ad guidance discourages banners beside continuous interaction |
-| Compact ad-host policy | Define the minimum playable board size; suppress/collapse only between runs below it | Prevent a banner from shrinking or moving reaction targets |
-| Tracking/ATT | Contextual/nontracking first; no ATT unless truly needed | Privacy, conversion, review, consent complexity |
 | Ad age/content settings | Derived from accepted audience/region policy | Legal and platform compliance |
 
 ## P0 — Resolve before external TestFlight

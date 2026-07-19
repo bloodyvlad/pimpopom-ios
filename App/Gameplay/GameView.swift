@@ -9,6 +9,7 @@ struct GameView: View {
     @EnvironmentObject private var preferences: AppPreferences
     @EnvironmentObject private var cosmetics: CosmeticsController
     @EnvironmentObject private var audio: AudioController
+    @EnvironmentObject private var ads: AdsController
     @StateObject private var coordinator: GameCoordinator
     @State private var runTicket: RunTicket?
     @State private var preparing = true
@@ -28,11 +29,11 @@ struct GameView: View {
     @State private var didFreezePresentation = false
     @State private var hitFeedbackPresentations: [GameplayHitPresentation] = []
     @State private var hitFeedbackTasks: [Int: Task<Void, Never>] = [:]
-    private let onRunFinished: () -> Void
+    private let onRunFinished: (UUID) -> Void
 
     private var palette: ThemePalette { frozenTheme }
 
-    init(mode: GameMode, onRunFinished: @escaping () -> Void = {}) {
+    init(mode: GameMode, onRunFinished: @escaping (UUID) -> Void = { _ in }) {
         _coordinator = StateObject(wrappedValue: GameCoordinator(mode: mode))
         self.onRunFinished = onRunFinished
     }
@@ -73,15 +74,16 @@ struct GameView: View {
             Task { @MainActor in gameplayScreenWidth = width }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !coordinator.isFinished,
-                !coordinator.wasAbandoned,
-                rankedRunStartError == nil
-            {
-                adPlaceholder
-                    .opacity(preparing ? 0 : 1)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color(hex: palette.backgroundBottom).opacity(0.96))
+            if rankedRunStartError == nil {
+                AdBannerSlot(
+                    placement: coordinator.isFinished || coordinator.wasAbandoned
+                        ? .results
+                        : .activeGameplay
+                )
+                .opacity(preparing ? 0 : 1)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(Color(hex: palette.backgroundBottom).opacity(0.96))
             }
         }
         .toolbar(.hidden, for: .navigationBar)
@@ -98,7 +100,7 @@ struct GameView: View {
             coordinator.onLifecycleEvent = { event in
                 audio.setMusicContext(GameplayMusicRouting.context(for: event))
                 if event == .finished {
-                    onRunFinished()
+                    onRunFinished(coordinator.gameplaySessionID)
                     submitRankedRunIfNeeded()
                 }
             }
@@ -137,6 +139,11 @@ struct GameView: View {
         .onChange(of: coordinator.hitFeedbackEvent) { _, event in
             guard let event else { return }
             showHitFeedback(event)
+        }
+        .onChange(of: submissionStarted) { _, isSubmitting in
+            if !isSubmitting {
+                presentInterstitialOpportunityIfReady()
+            }
         }
     }
 
@@ -611,21 +618,6 @@ struct GameView: View {
         }
     }
 
-    private var adPlaceholder: some View {
-        Text("Ads disabled · internal alpha")
-            .font(palette.appFont(size: 10, weight: .semibold, relativeTo: .caption2))
-            .foregroundStyle(Color(hex: palette.muted).opacity(0.78))
-            .frame(
-                maxWidth: .infinity,
-                minHeight: GameplayLayoutMetrics.adBannerHeight
-            )
-            .background(
-                Color(hex: palette.surface).opacity(0.78),
-                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 8)
-            )
-            .accessibilityIdentifier("ad-placeholder")
-    }
-
     private var resultOverlay: some View {
         ZStack {
             Color.black.opacity(palette.isLight ? 0.44 : 0.80).ignoresSafeArea()
@@ -787,6 +779,15 @@ struct GameView: View {
             }
             .frame(maxWidth: 460)
         }
+        .onAppear { presentInterstitialOpportunityIfReady() }
+    }
+
+    private func presentInterstitialOpportunityIfReady() {
+        guard coordinator.isFinished,
+            !coordinator.wasAbandoned,
+            !submissionStarted
+        else { return }
+        ads.presentInterstitialIfDue(for: coordinator.gameplaySessionID)
     }
 
     private var resultTitle: String {

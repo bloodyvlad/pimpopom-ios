@@ -1,4 +1,12 @@
 #include "Base.xcconfig"
 #include? "Local.xcconfig"
 
+// Checked-in Release stays fail-closed until a separately controlled archive
+// supplies live ad units through ignored Config/ReleaseAds.private.xcconfig.
+PIMPOPOM_ADS_MODE = disabled
+PIMPOPOM_ADMOB_BANNER_UNIT_ID =
+PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID =
+PIMPOPOM_ADMOB_TEST_DEVICE_IDS =
+#include? "ReleaseAds.private.xcconfig"
+
 SWIFT_COMPILATION_MODE = wholemodule

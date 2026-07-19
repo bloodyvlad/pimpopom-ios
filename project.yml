@@ -9,12 +9,19 @@ options:
 configs:
   Debug: debug
   Staging: release
+  OwnerAdsQA: release
   Release: release
 
 packages:
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
+    exactVersion: 13.6.0
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 9.0.0
+  GoogleUserMessagingPlatform:
+    url: https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git
+    exactVersion: 3.1.0
   PimPoPomCore:
     path: Packages/PimPoPomCore
 
@@ -29,13 +36,22 @@ targets:
     sources:
       - path: App
     dependencies:
+      - package: GoogleMobileAds
+        product: GoogleMobileAds
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: GoogleUserMessagingPlatform
+        product: GoogleUserMessagingPlatform
       - package: PimPoPomCore
     configFiles:
       Debug: Config/Debug.xcconfig
       Staging: Config/Staging.xcconfig
+      OwnerAdsQA: Config/OwnerAdsQA.xcconfig
       Release: Config/Release.xcconfig
+    preBuildScripts:
+      - path: Scripts/validate-ad-configuration.sh
+        name: Validate ad configuration
+        basedOnDependencyAnalysis: false
     settings:
       base:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -109,6 +125,19 @@ schemes:
       config: Staging
     archive:
       config: Staging
+
+  PimPoPom Owner Ads QA:
+    build:
+      targets:
+        PimPoPom: all
+    run:
+      config: OwnerAdsQA
+    profile:
+      config: OwnerAdsQA
+    analyze:
+      config: OwnerAdsQA
+    archive:
+      config: OwnerAdsQA
 
   PimPoPom StoreKit Local:
     build:

@@ -6,6 +6,8 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Added
 
+- App-owned Google Mobile Ads 13.6.0 and UMP 3.1.0 adapters with authoritative server ad-free gating, required Privacy choices, fixed 320×50 menu/results banners, an empty stable active-game host, and a persistent deduplicated ten-completion Arcade/Zen interstitial cadence.
+- Test-safe Debug/Staging/Owner Ads QA/Release configuration guards, current Google SKAdNetwork registration, required-reason privacy declarations, zero-network ad fakes, and deterministic consent/banner/interstitial coverage.
 - Separate native iOS repository under the PimPoPom product name.
 - Initial migration, architecture, gameplay, API, monetization/privacy, testing, release, and asset-provenance documentation.
 - Reproducible Swift 6/Xcode project, local-only Bootstrap Alpha UI, disabled ad/purchase adapters, and privacy manifest.

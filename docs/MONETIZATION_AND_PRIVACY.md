@@ -1,6 +1,6 @@
 # Monetization and privacy design
 
-Status: product, price, entitlement-source, paid-value, refund, and initial US/Canada rules are accepted in P-031. The five App Store products and US/Canada availability are configured, and the source-aware PHP backend is deployed. App Store review metadata/screenshots, the age questionnaire, ad vendor configuration, and real Sandbox/TestFlight purchase/refund/restore validation remain release gates.
+Status: product, price, entitlement-source, paid-value, refund, and initial US/Canada rules are accepted in P-031. The five App Store products and US/Canada availability are configured, the source-aware PHP backend is deployed, and P-033 accepts the test-safe AdMob/UMP client architecture. App Store review metadata/screenshots, the age questionnaire, UMP dashboard messages, `app-ads.txt`, archive privacy review, and real Sandbox/TestFlight purchase/ad validation remain release gates.
 
 ## Product principles
 
@@ -30,12 +30,12 @@ Status: product, price, entitlement-source, paid-value, refund, and initial US/C
 
 ## Ad host and lifecycle
 
-The requested host sits at the absolute bottom of gameplay, below the **Speed streak meter** (the requested “speed rating bar”) and above the bottom safe-area inset. It is distinct from the target response/deadline bar inside the color field. The bottom order is pet if visible, Speed streak meter, separator, reserved ad host, safe-area inset.
+The requested host sits at the absolute bottom of gameplay, below the **Speed Bar** (the requested “speed rating bar”) and above the bottom safe-area inset. It is distinct from the target response/deadline bar inside the color field. The bottom order is pet if visible, Speed Bar, separator, reserved ad host, safe-area inset.
 
 Requirements:
 
 - Reserve the maximum accepted banner height before gameplay starts.
-- Use an anchored adaptive size computed from the safe available width.
+- Center an official 320×50 banner within the safe available width. Google Mobile Ads 13's supported large anchored-adaptive replacement can be 50–150 points tall, so it cannot satisfy this accepted strict 50-point host without clipping. Revisit the reservation before adopting that format.
 - Add visual separation; never place gameplay controls inside or behind the ad host.
 - Ad fill, refresh, no-fill, consent, network failure, rotation, and Remove Ads cannot change the board frame during an active run.
 - Hit-test instrumentation proves a board tap cannot reach the ad view and an ad tap cannot count as gameplay.
@@ -44,7 +44,18 @@ Requirements:
 - Use only official test IDs outside production and make Release fail if test/live configuration is wrong.
 - Provide a route to report inappropriate ads as required by the release policy.
 
-Important policy/UX gate: common mobile-ad guidance discourages clickable banners beside continuously interactive gameplay. The recommended first release reserves this exact bottom host but fills it only on non-active menu/result/shop states. A live banner during Arcade or Zen requires explicit product and ad-policy approval, plus device evidence that it cannot encourage accidental taps.
+Important policy/UX gate: common mobile-ad guidance discourages clickable banners beside continuously interactive gameplay. The accepted first release reserves this exact bottom host but fills it only on the main menu and terminal results. A live banner during Arcade or Zen requires a new explicit product and ad-policy decision, plus device evidence that it cannot encourage accidental taps.
+
+Current implementation fills only main-menu and terminal-results hosts. Active Arcade/Zen always keeps the same empty 50-point slot. Loading, no-fill, consent failure, offline state, and ad-free teardown leave that frame stable. There is no app-owned refresh timer; GMA owns supported banner refresh behavior.
+
+## Interstitial cadence
+
+- Treat Arcade Game Over and deliberate **End run** into Zen Results as terminal sessions. Restarts, menu exits, background abandonment, crashes, targets, and duplicate result rendering do not count.
+- Keep one combined, versioned, persistent completion counter and recent app-local completion UUIDs. The tenth completion makes an interstitial due; later completions saturate at ten while it remains due.
+- Offer the due interstitial only from that completion's results surface after any ranked finish request reaches success or failure. Never present on launch, foreground, login, consent dismissal, purchase dismissal, or active gameplay.
+- No-fill, offline, unloaded, expired, and presentation-failure paths continue immediately and retain the due state for a later qualifying result.
+- Reset only from GMA's successful presentation-began callback. Dismissal discards the used ad and starts the next preload.
+- A server-confirmed ad-free state clears the operational cadence and suppresses future increments/presentation.
 
 ## Consent and tracking
 
@@ -58,6 +69,10 @@ If Google Mobile Ads is selected:
 6. For GMA ad requests, configure `ageRestrictedTreatment`/TFAT and max content rating before SDK initialization; its legacy TFCD/TFUA request properties are deprecated. Separately set UMP `RequestParameters.isTaggedForUnderAgeOfConsent` before the consent-information update when the accepted policy requires it—UMP still uses that property and does not forward the signal to GMA.
 
 ATT is separate from UMP/GDPR consent. Request ATT only if the final configuration performs cross-app/site tracking or uses IDFA. Contextual/nontracking advertising is the recommended starting point. No feature, reward, or purchase may depend on accepting ATT.
+
+The current adapter sets maximum content rating to General, leaves age treatment unspecified pending the accepted audience policy, disables GMA publisher personalization and publisher first-party ID, never requests ATT, and adds no tracking purpose string. This runtime choice does not erase the pinned Google SDK privacy-manifest declarations: GMA 13.6.0 declares linked advertising/product/coarse-location data and a linked Device ID marked for tracking; UMP 3.1.0 declares unlinked coarse location, performance, and product interaction. App Store privacy answers and the archive aggregate privacy report must reflect the resolved SDKs rather than infer “no tracking” merely from the absence of ATT.
+
+The real AdMob App ID is present in every configuration so UMP can resolve PimPoPom's dashboard message. Debug and named Staging use Google demo units. Owner Ads QA uses ignored production units plus the hashed test-device identifier printed by GMA, and every owner creative must visibly say **Test mode** before any interaction. Checked-in Release is disabled; live units are an explicit controlled-archive input and cannot coexist with a test hash. The committed 50-entry `SKAdNetworkItems` snapshot was reviewed against Google's official iOS setup list on 2026-07-19 and must be refreshed whenever the pinned GMA version or Google's list changes.
 
 ## StoreKit product model
 

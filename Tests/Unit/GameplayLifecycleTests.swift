@@ -44,6 +44,21 @@ final class GameplayLifecycleTests: XCTestCase {
         coordinator.stop()
     }
 
+    func testEveryStartedRunReceivesADistinctCompletionIdentity() {
+        let coordinator = GameCoordinator(mode: .zen)
+
+        coordinator.startNewRun()
+        let first = coordinator.gameplaySessionID
+        coordinator.endZenRun()
+
+        coordinator.startNewRun()
+        let second = coordinator.gameplaySessionID
+        coordinator.endZenRun()
+
+        XCTAssertNotEqual(first, second)
+        coordinator.stop()
+    }
+
     func testGameSceneRemovesGlyphNodesWhenGlyphsAreDisabled() {
         let engine = GameEngine(random: { 0 })
         _ = engine.start(now: 0, mode: .arcade)

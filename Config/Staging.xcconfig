@@ -3,5 +3,10 @@
 
 // TestFlight QA uses release optimization and the existing Hostinger compatibility
 // service. It remains a narrow named-tester build, not a separate staging backend.
+PIMPOPOM_ADS_MODE = demo
+PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716
+PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910
+PIMPOPOM_ADMOB_TEST_DEVICE_IDS =
+
 SWIFT_COMPILATION_MODE = wholemodule
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) STAGING

@@ -1,0 +1,13 @@
+#include "Base.xcconfig"
+#include? "Local.xcconfig"
+
+// This configuration deliberately refuses to build until the production
+// units and the owner's GMA test-device hash are supplied by the ignored file.
+PIMPOPOM_ADS_MODE = owner-real-test
+PIMPOPOM_ADMOB_BANNER_UNIT_ID =
+PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID =
+PIMPOPOM_ADMOB_TEST_DEVICE_IDS =
+#include? "OwnerAdsQA.private.xcconfig"
+
+SWIFT_COMPILATION_MODE = wholemodule
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) OWNER_ADS_QA

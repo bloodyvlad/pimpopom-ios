@@ -77,13 +77,16 @@ Use a committed StoreKit configuration for local deterministic tests and StoreKi
 
 ### Ad and consent tests
 
-- Test IDs only in Debug, CI, screenshots, and QA builds.
-- UMP update/form/privacy-options/no-consent/error paths and no ad request before permission to request.
-- Contextual versus ATT-authorized configuration according to the accepted design.
-- Child/teen/region treatment and max creative rating.
-- Anchored adaptive sizes, compact/large safe areas, rotation policy, no-fill, refresh, offline, inappropriate-ad report, and Remove Ads transition.
-- A filled ad cannot overlap the board or receive a synthetic board tap; board targets do not move.
+- Debug and Staging are locked to Google's demo units. Owner Ads QA accepts production units only with an ignored hashed GMA test-device identifier. Checked-in Release is disabled; controlled live Release rejects demo units and every test-device identifier.
+- UMP update/form/privacy-options/not-required/rejected/error/previously-stored paths and no GMA initialization or ad request before `canRequestAds`.
+- Authoritative account tri-state: unresolved and server-confirmed ad-free make zero UMP/GMA requests; account switching and entitlement changes restart consent or tear down inventory safely.
+- Maximum content rating General, disabled publisher personalization/first-party ID, no ATT/IDFA path, no tracking purpose string, and explicit unresolved child/teen treatment as a release gate.
+- Fixed 320×50 menu/results banner loading, fill/no-fill/failure/background/teardown with the active Arcade/Zen slot empty and stable. A current large anchored-adaptive banner is intentionally excluded because its 50–150-point contract cannot fit the accepted 50-point reservation without clipping.
+- One persistent deduplicated Arcade/Zen counter at 9/10/11, no count for abandonment, no duplicate terminal count, retained due state after no-fill/presentation failure, reset only when presentation begins, and no presentation on active play or unrelated lifecycle events.
+- UI automation injects `FakeConsentService` and `FakeAdsService`; it never contacts Google. It verifies a fake banner on menu/results, the empty active slot, and the accessible required Privacy choices action.
 - If active-run banners are ever approved, add accidental-click/policy QA and a long-run refresh soak before release.
+
+Physical/TestFlight ad acceptance must record each phone model, OS, build, commit, configuration, account/ad-free state, consent geography/debug setting, and observed creative label. For every selected phone, cover first-install consent, Privacy choices/revocation, menu/results geometry, active-board isolation, Arcade/Zen combined cadence through exactly the tenth result, no-fill/offline, background/foreground, purchase-driven removal, coin spending, relaunch/reinstall/account switch/restore/refund/revocation, VoiceOver, Dynamic Type, and Reduce Motion. On the owner's phone, first capture GMA's hashed test-device identifier into ignored Owner Ads QA configuration, then verify every real-unit creative visibly says **Test mode** before any touch; never click it. This evidence does not yet exist.
 
 ### Audio and haptic tests
 

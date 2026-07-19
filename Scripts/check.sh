@@ -7,6 +7,8 @@ cd "$ROOT"
 xcodegen -s project.yml
 xcrun swift-format lint --strict --recursive App Packages Tests
 Scripts/validate-assets.sh
+Scripts/test-ad-configuration.sh
+plutil -lint Config/Info.plist App/Resources/PrivacyInfo.xcprivacy
 swift test --package-path Packages/PimPoPomCore
 xcodebuild \
   -project PimPoPom.xcodeproj \
@@ -30,6 +32,20 @@ test "$bundle_identifier" = "com.otcsoftware.pimpopom"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$built_info_plist")" = "PimPoPom"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$built_info_plist")" = "PimPoPom"
 test "$(/usr/libexec/PlistBuddy -c 'Print :ITSAppUsesNonExemptEncryption' "$built_info_plist")" = "false"
+test "$(/usr/libexec/PlistBuddy -c 'Print :GADApplicationIdentifier' "$built_info_plist")" = "ca-app-pub-6428992187280935~3622035442"
+test "$(/usr/libexec/PlistBuddy -c 'Print :PimPoPomAdsMode' "$built_info_plist")" = "demo"
+test "$(/usr/libexec/PlistBuddy -c 'Print :PimPoPomAdMobBannerUnitID' "$built_info_plist")" = "ca-app-pub-3940256099942544/2934735716"
+test "$(/usr/libexec/PlistBuddy -c 'Print :PimPoPomAdMobInterstitialUnitID' "$built_info_plist")" = "ca-app-pub-3940256099942544/4411468910"
+ad_test_ids=$(/usr/libexec/PlistBuddy -c 'Print :PimPoPomAdMobTestDeviceIDs' "$built_info_plist" 2>/dev/null || true)
+test -z "$ad_test_ids"
+if /usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$built_info_plist" >/dev/null 2>&1; then
+  printf '%s\n' 'NSUserTrackingUsageDescription must not be present.' >&2
+  exit 1
+fi
+skad_json=$(plutil -extract SKAdNetworkItems json -o - "$built_info_plist")
+test "$(printf '%s\n' "$skad_json" | rg -o '[a-z0-9]+\.skadnetwork' | wc -l | tr -d ' ')" = "50"
+test "$(printf '%s\n' "$skad_json" | rg -o '[a-z0-9]+\.skadnetwork' | sort -u | wc -l | tr -d ' ')" = "50"
+test -f "$target_build_dir/$wrapper_name/PrivacyInfo.xcprivacy"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName' "$built_info_plist")" = "AppIcon"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundleAlternateIcons:AppIconLight:CFBundleIconName' "$built_info_plist")" = "AppIconLight"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIcons:CFBundleAlternateIcons:AppIconPixel:CFBundleIconName' "$built_info_plist")" = "AppIconPixel"
@@ -51,6 +67,30 @@ printf '%s\n' "$staging_build_settings" | rg -Fq 'PRODUCT_BUNDLE_IDENTIFIER = co
 printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.01'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 3'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADS_MODE = demo'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910'
+
+release_build_settings=$(xcodebuild \
+  -project PimPoPom.xcodeproj \
+  -scheme PimPoPom \
+  -configuration Release \
+  -destination 'generic/platform=iOS Simulator' \
+  -showBuildSettings)
+printf '%s\n' "$release_build_settings" | rg -Fq 'CONFIGURATION = Release'
+printf '%s\n' "$release_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_APP_ID = ca-app-pub-6428992187280935~3622035442'
+printf '%s\n' "$release_build_settings" | rg -Fq 'PIMPOPOM_ADS_MODE = disabled'
+if printf '%s\n' "$release_build_settings" | rg -q 'PIMPOPOM_ADMOB_(BANNER_UNIT_ID|INTERSTITIAL_UNIT_ID|TEST_DEVICE_IDS) ='; then
+  printf '%s\n' 'Checked-in Release must not contain ad units or test-device identifiers.' >&2
+  exit 1
+fi
+
+rg -Fq '"identity" : "swift-package-manager-google-mobile-ads"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+rg -Fq '"version" : "13.6.0"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+rg -Fq '"revision" : "7651abff585dc8dacd1744222d5f03bdd2a8532a"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+rg -Fq '"identity" : "swift-package-manager-google-user-messaging-platform"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+rg -Fq '"version" : "3.1.0"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+rg -Fq '"revision" : "13b248eaa73b7826f0efb1bcf455e251d65ecb1b"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
 if ! xcrun simctl list devices available | rg -Fq 'PimPoPom iPhone SE 2022 ('; then
   printf '%s\n' 'Missing PimPoPom iPhone SE 2022 simulator. Run Scripts/create-alpha-simulators.sh first.' >&2

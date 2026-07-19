@@ -11,8 +11,8 @@ struct RootView: View {
     @EnvironmentObject private var quickActions: HomeQuickActionController
     @EnvironmentObject private var gameCenter: GameCenterService
     @EnvironmentObject private var purchases: PurchaseController
+    @EnvironmentObject private var ads: AdsController
 
-    let services: AlphaServices
     let googleIdentity: GoogleIdentityService
 
     @State private var accountStatus: String?
@@ -65,8 +65,9 @@ struct RootView: View {
             }
             .coordinateSpace(name: "menu-space")
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: GameMode.self) {
-                GameView(mode: $0) {
+            .navigationDestination(for: GameMode.self) { mode in
+                GameView(mode: mode) { completionID in
+                    ads.recordCompletedSession(id: completionID, mode: mode)
                     guard !hasCompletedGameThisLaunch else { return }
                     hasCompletedGameThisLaunch = true
                     advanceMotivation()
@@ -125,10 +126,12 @@ struct RootView: View {
             openPendingQuickAction()
             gameCenter.startAuthentication()
             audio.setApplicationActive(scenePhase == .active)
+            ads.setApplicationActive(scenePhase == .active)
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
             audio.playLaunchSting()
             await restoreSession()
+            await ads.bootstrap(session: backend.sessionState)
             await purchases.loadProducts()
             await purchases.reconcileOutstandingTransactions()
             await cosmetics.refresh()
@@ -146,6 +149,7 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             audio.setApplicationActive(phase == .active)
+            ads.setApplicationActive(phase == .active)
             if phase == .active, navigationPath.isEmpty {
                 audio.setMusicContext(.menu)
             }
@@ -154,7 +158,10 @@ struct RootView: View {
             }
         }
         .onChange(of: backend.sessionState) { _, _ in
-            Task { await purchases.reconcileOutstandingTransactions() }
+            Task {
+                await ads.updateSession(backend.sessionState)
+                await purchases.reconcileOutstandingTransactions()
+            }
         }
         .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
             guard isEmpty, !wasEmpty else { return }
@@ -519,6 +526,11 @@ struct RootView: View {
                 .font(palette.appFont(size: 10, weight: .regular, relativeTo: .caption2))
                 .foregroundStyle(Color(hex: palette.muted).opacity(0.64))
                 .frame(maxWidth: .infinity)
+
+            AdBannerSlot(
+                placement: .menu,
+                isSurfaceVisible: navigationPath.isEmpty
+            )
         }
         .padding(.top, 8)
     }
@@ -857,7 +869,19 @@ struct RootView: View {
     let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
     let achievements = AchievementsController(backend: backend)
     let purchases = PurchaseController(creditService: backend, startListeners: false)
-    RootView(services: .localOnly, googleIdentity: GoogleIdentityService())
+    let ads = AdsController(
+        configuration: AdsConfiguration(
+            mode: .disabled,
+            appID: AdsConfiguration.realAppID,
+            bannerUnitID: "",
+            interstitialUnitID: "",
+            testDeviceIdentifiers: []
+        ),
+        consentService: FakeConsentService(),
+        adsService: FakeAdsService(),
+        progressStore: MemoryInterstitialProgressStore()
+    )
+    RootView(googleIdentity: GoogleIdentityService())
         .environmentObject(backend)
         .environmentObject(preferences)
         .environmentObject(cosmetics)
@@ -867,4 +891,5 @@ struct RootView: View {
         .environmentObject(HomeQuickActionController.shared)
         .environmentObject(GameCenterService(arguments: ["--uitesting"]))
         .environmentObject(purchases)
+        .environmentObject(ads)
 }

@@ -16,7 +16,7 @@
 		0AD2A3C5E816E83335A715E9 /* misha-climber.png in Resources */ = {isa = PBXBuildFile; fileRef = 343C3D60DEB6783CB739995F /* misha-climber.png */; };
 		11BEA7BA6EFF98C47DF75DCB /* kesha-perch.png in Resources */ = {isa = PBXBuildFile; fileRef = A094CABC4F0AA44F4126624B /* kesha-perch.png */; };
 		18D7F6E90248D32DD8371432 /* audio-light-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 7A7AAB5003782A88EC74437A /* audio-light-tones.wav */; };
-		1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */; };
+		18FA0F8FA27D0B4CD6BD7451 /* PimPoPomCore in Frameworks */ = {isa = PBXBuildFile; productRef = B99BB11775542C9E63F45B2A /* PimPoPomCore */; };
 		1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */; };
 		21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */; };
 		228758F9D283D50E443CD560 /* audio-pixel-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */; };
@@ -32,9 +32,11 @@
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
-		56603C4049290197D71E7DE7 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C4870F00BE8DF3014F005A13 /* GoogleSignIn */; };
+		54263429058B1AB2B2B01286 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 5BB5AC1A8B78187882559EA7 /* GoogleUserMessagingPlatform */; };
+		56603C4049290197D71E7DE7 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 8A3904134513421E1F894756 /* GoogleMobileAds */; };
 		5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */; };
 		5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */; };
+		5F6277B4B9A7E0BBC3DDD44F /* AdBannerSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */; };
 		60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */; };
 		6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */; };
 		65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */; };
@@ -45,7 +47,9 @@
 		76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */; };
 		772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */; };
 		79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF525ACA8A69F39145C25A62 /* AchievementsView.swift */; };
+		8396C151E5FF08EA7940428D /* AdsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0666D60D3D9DC1385FFD0B8C /* AdsController.swift */; };
 		865CDEB8D47E9E99AF4CD2BF /* GameCenterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */; };
+		88C71DF6DB15C66DC889A60E /* GoogleAdsServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 255214BC89EC4CEFF34C4C55 /* GoogleAdsServices.swift */; };
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
@@ -61,10 +65,12 @@
 		A8C18C383224F6F97F475FB5 /* StoreKitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9CC5EE844D22FB3BF197B67 /* StoreKitModels.swift */; };
 		AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */; };
 		B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */; };
+		B356FCCA35545B44F4D3A1AC /* AdsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */; };
 		B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9648B3C4989B1B1FF9557057 /* GameScene.swift */; };
+		B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */; };
 		B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */; };
 		BA189338D2A4A66BF5D5C18D /* disco-concrete-lights.png in Resources */ = {isa = PBXBuildFile; fileRef = BB501ACDA16D35FF02259969 /* disco-concrete-lights.png */; };
-		BA919DD6B28AE526B4C39B05 /* PimPoPomCore in Frameworks */ = {isa = PBXBuildFile; productRef = B99BB11775542C9E63F45B2A /* PimPoPomCore */; };
+		BA919DD6B28AE526B4C39B05 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C4870F00BE8DF3014F005A13 /* GoogleSignIn */; };
 		BAAA8B086F97BE06F9456CA5 /* audio-pixel-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 5E5B8A0B92FABA6CEC0AEBE9 /* audio-pixel-run.m4a */; };
 		BBCC077B701858F45928B177 /* audio-light-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = C6AB62B941B5843C8BE01C86 /* audio-light-run.m4a */; };
 		BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 1FD1D8CB83628904EBD471FB /* tauta-sprite.png */; };
@@ -104,7 +110,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0666D60D3D9DC1385FFD0B8C /* AdsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsController.swift; sourceTree = "<group>"; };
 		06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetCompanionView.swift; sourceTree = "<group>"; };
+		08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdBannerSlot.swift; sourceTree = "<group>"; };
 		0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
 		101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-sprite.png"; sourceTree = "<group>"; };
 		11F37B0D75969458F56254C5 /* StoreKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitService.swift; sourceTree = "<group>"; };
@@ -115,6 +123,7 @@
 		1EAF0D8DD171854555FDD1CF /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
 		1EDDAAA3EB14D6E430476DAB /* PimPoPomCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PimPoPomCore; path = Packages/PimPoPomCore; sourceTree = SOURCE_ROOT; };
 		1FD1D8CB83628904EBD471FB /* tauta-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-sprite.png"; sourceTree = "<group>"; };
+		255214BC89EC4CEFF34C4C55 /* GoogleAdsServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAdsServices.swift; sourceTree = "<group>"; };
 		29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesAndContractTests.swift; sourceTree = "<group>"; };
 		29E26897A668D55114A2D880 /* AudioResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioResourceTests.swift; sourceTree = "<group>"; };
 		2A0CD8335C4D1E08E4401607 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
@@ -124,6 +133,7 @@
 		343C3D60DEB6783CB739995F /* misha-climber.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-climber.png"; sourceTree = "<group>"; };
 		36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pimpopom-sting.wav"; sourceTree = "<group>"; };
 		3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-sprite.png"; sourceTree = "<group>"; };
+		4234BF10F969BD645083E373 /* OwnerAdsQA.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = OwnerAdsQA.xcconfig; sourceTree = "<group>"; };
 		449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebParityComponents.swift; sourceTree = "<group>"; };
 		491AE95125B0A41ABB5B5D44 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -135,6 +145,7 @@
 		5E7E287D8050BCF1504A5002 /* pancake-floor.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pancake-floor.png"; sourceTree = "<group>"; };
 		6038C3199A866EB364429ECE /* audio-disco-run.m4a */ = {isa = PBXFileReference; path = "audio-disco-run.m4a"; sourceTree = "<group>"; };
 		65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeShopView.swift; sourceTree = "<group>"; };
+		6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsModels.swift; sourceTree = "<group>"; };
 		6D8B77DB0BBFFF1688760C67 /* pancake-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pancake-sprite.png"; sourceTree = "<group>"; };
 		6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseControllerTests.swift; sourceTree = "<group>"; };
 		6FF762CE49FF020FD9A3F626 /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
@@ -160,7 +171,6 @@
 		AE0A4CFFE2AEF83863978D0D /* muse-floor.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "muse-floor.png"; sourceTree = "<group>"; };
 		B194C5E2A0BBB6D9E67B30A2 /* kesha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-sprite.png"; sourceTree = "<group>"; };
 		B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlphaServices.swift; sourceTree = "<group>"; };
 		B50F7D6276F80417F9888373 /* audio-classic-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-classic-tones.wav"; sourceTree = "<group>"; };
 		B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIconController.swift; sourceTree = "<group>"; };
 		B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PimPoPomUITests.swift; sourceTree = "<group>"; };
@@ -173,6 +183,7 @@
 		CA0B3667E36EAC21E084AD82 /* disco-concrete.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-concrete.png"; sourceTree = "<group>"; };
 		CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-sprite.png"; sourceTree = "<group>"; };
 		CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleIdentityService.swift; sourceTree = "<group>"; };
+		D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsControllerTests.swift; sourceTree = "<group>"; };
 		D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		DA2E75B83D2198FB2E99E518 /* BackendModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendModels.swift; sourceTree = "<group>"; };
 		DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */ = {isa = PBXFileReference; path = "audio-classic-menu.m4a"; sourceTree = "<group>"; };
@@ -194,8 +205,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				56603C4049290197D71E7DE7 /* GoogleSignIn in Frameworks */,
-				BA919DD6B28AE526B4C39B05 /* PimPoPomCore in Frameworks */,
+				56603C4049290197D71E7DE7 /* GoogleMobileAds in Frameworks */,
+				BA919DD6B28AE526B4C39B05 /* GoogleSignIn in Frameworks */,
+				54263429058B1AB2B2B01286 /* GoogleUserMessagingPlatform in Frameworks */,
+				18FA0F8FA27D0B4CD6BD7451 /* PimPoPomCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -213,7 +226,6 @@
 		2AE968C2BAE5CA5981412BB5 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				B50481CEE01A7FF7A5F2439F /* AlphaServices.swift */,
 				491AE95125B0A41ABB5B5D44 /* Assets.xcassets */,
 				A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */,
 				2A0CD8335C4D1E08E4401607 /* RootView.swift */,
@@ -269,6 +281,7 @@
 		445F7E700DC0D7AE3A16E35D /* Design */ = {
 			isa = PBXGroup;
 			children = (
+				08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */,
 				E7C97DB7185189A114B58620 /* GameCellArtwork.swift */,
 				500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */,
 				06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */,
@@ -345,6 +358,7 @@
 		B2C490FAA687884E2214FE4F /* Unit */ = {
 			isa = PBXGroup;
 			children = (
+				D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */,
 				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
 				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
 				14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */,
@@ -372,6 +386,7 @@
 			isa = PBXGroup;
 			children = (
 				FA9F840B4895429C17E7AA09 /* Debug.xcconfig */,
+				4234BF10F969BD645083E373 /* OwnerAdsQA.xcconfig */,
 				86EABB78532A8A66E0E421C5 /* PimPoPom.storekit */,
 				449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */,
 				6FF762CE49FF020FD9A3F626 /* Staging.xcconfig */,
@@ -382,12 +397,15 @@
 		E1F73E23574CABE39BBD1F87 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				0666D60D3D9DC1385FFD0B8C /* AdsController.swift */,
+				6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */,
 				B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */,
 				ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */,
 				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
 				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
 				DA2E75B83D2198FB2E99E518 /* BackendModels.swift */,
 				1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */,
+				255214BC89EC4CEFF34C4C55 /* GoogleAdsServices.swift */,
 				CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */,
 				905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */,
 				1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */,
@@ -426,6 +444,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9A09BF5086431841B173A992 /* Build configuration list for PBXNativeTarget "PimPoPom" */;
 			buildPhases = (
+				17351941AD838DA6AB71385B /* Validate ad configuration */,
 				2414FB905358B2A20AB75577 /* Sources */,
 				95ED53470D18B02171397D56 /* Resources */,
 				F9D9517392BD2126E4EB420D /* Frameworks */,
@@ -436,7 +455,9 @@
 			);
 			name = PimPoPom;
 			packageProductDependencies = (
+				8A3904134513421E1F894756 /* GoogleMobileAds */,
 				C4870F00BE8DF3014F005A13 /* GoogleSignIn */,
+				5BB5AC1A8B78187882559EA7 /* GoogleUserMessagingPlatform */,
 				B99BB11775542C9E63F45B2A /* PimPoPomCore */,
 			);
 			productName = PimPoPom;
@@ -506,7 +527,9 @@
 			mainGroup = C636B9FB9800F1010DC9A731;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				9FB87EB5EEE00461D6C2532E /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
 				469DEE5C00923AD86A105EA1 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				AC52597F8C405088E196DDAD /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */,
 				55A92665BC935329EDF14206 /* XCLocalSwiftPackageReference "Packages/PimPoPomCore" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -565,11 +588,34 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		17351941AD838DA6AB71385B /* Validate ad configuration */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Validate ad configuration";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/sh\nset -eu\n\nmode=${PIMPOPOM_ADS_MODE:-}\napp_id=${PIMPOPOM_ADMOB_APP_ID:-}\nbanner_id=${PIMPOPOM_ADMOB_BANNER_UNIT_ID:-}\ninterstitial_id=${PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID:-}\ntest_ids=${PIMPOPOM_ADMOB_TEST_DEVICE_IDS:-}\nconfiguration=${CONFIGURATION:-}\n\ndemo_banner='ca-app-pub-3940256099942544/2934735716'\ndemo_interstitial='ca-app-pub-3940256099942544/4411468910'\nreal_app_id='ca-app-pub-6428992187280935~3622035442'\n\nfail() {\n    printf '%s\\n' \"Ad configuration error: $1\" >&2\n    exit 1\n}\n\nrequire_production_unit() {\n    printf '%s\\n' \"$1\" | rg -q '^ca-app-pub-6428992187280935/[0-9]+$' \\\n        || fail \"$2 must be a PimPoPom production-format ad unit\"\n}\n\ntest \"$app_id\" = \"$real_app_id\" || fail 'the real PimPoPom AdMob App ID is required'\n\ncase \"$mode\" in\n    disabled)\n        test -z \"$banner_id\" || fail 'disabled mode must not contain a banner unit'\n        test -z \"$interstitial_id\" || fail 'disabled mode must not contain an interstitial unit'\n        test -z \"$test_ids\" || fail 'disabled mode must not contain test-device identifiers'\n        ;;\n    demo)\n        test \"$configuration\" != 'Release' || fail 'Release cannot use demo ads'\n        test \"$configuration\" != 'OwnerAdsQA' || fail 'Owner Ads QA cannot use demo ads'\n        test \"$banner_id\" = \"$demo_banner\" || fail 'demo mode requires the reviewed fixed banner demo unit'\n        test \"$interstitial_id\" = \"$demo_interstitial\" || fail 'demo mode requires the reviewed interstitial demo unit'\n        test -z \"$test_ids\" || fail 'demo mode does not accept private test-device identifiers'\n        ;;\n    owner-real-test)\n        test \"$configuration\" = 'OwnerAdsQA' || fail 'owner-real-test is restricted to OwnerAdsQA'\n        require_production_unit \"$banner_id\" 'Owner Ads QA banner'\n        require_production_unit \"$interstitial_id\" 'Owner Ads QA interstitial'\n        test \"$banner_id\" != \"$demo_banner\" || fail 'Owner Ads QA cannot use the demo banner unit'\n        test \"$interstitial_id\" != \"$demo_interstitial\" || fail 'Owner Ads QA cannot use the demo interstitial unit'\n        test -n \"$test_ids\" || fail 'Owner Ads QA requires an ignored GMA test-device hash'\n        ;;\n    live)\n        test \"$configuration\" = 'Release' || fail 'live ads are restricted to Release'\n        require_production_unit \"$banner_id\" 'Release banner'\n        require_production_unit \"$interstitial_id\" 'Release interstitial'\n        test \"$banner_id\" != \"$demo_banner\" || fail 'Release cannot use the demo banner unit'\n        test \"$interstitial_id\" != \"$demo_interstitial\" || fail 'Release cannot use the demo interstitial unit'\n        test -z \"$test_ids\" || fail 'Release cannot contain test-device identifiers'\n        ;;\n    *)\n        fail 'mode must be disabled, demo, owner-real-test, or live'\n        ;;\nesac\n\nif test \"$configuration\" = 'Staging'; then\n    test \"$mode\" = 'demo' || fail 'Staging is restricted to Google demo inventory'\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		153A4C92B675372A15597D6A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */,
 				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
 				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
 				EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */,
@@ -586,7 +632,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */,
-				1F02862C0A6B80FF87B359AA /* AlphaServices.swift in Sources */,
+				5F6277B4B9A7E0BBC3DDD44F /* AdBannerSlot.swift in Sources */,
+				8396C151E5FF08EA7940428D /* AdsController.swift in Sources */,
+				B356FCCA35545B44F4D3A1AC /* AdsModels.swift in Sources */,
 				6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */,
 				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
 				3E8B789C6846539EE101679E /* AudioController.swift in Sources */,
@@ -599,6 +647,7 @@
 				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
 				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,
+				88C71DF6DB15C66DC889A60E /* GoogleAdsServices.swift in Sources */,
 				2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */,
 				772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */,
 				9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */,
@@ -869,6 +918,32 @@
 			};
 			name = Release;
 		};
+		927C840BDEBB3ABC7E33D5D6 /* OwnerAdsQA */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4234BF10F969BD645083E373 /* OwnerAdsQA.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = (
+					AppIconLight,
+					AppIconPixel,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_NAME = PimPoPom;
+				SDKROOT = iphoneos;
+				SUPPORTS_MACCATALYST = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = OwnerAdsQA;
+		};
 		9365BB071926F3AC1F4A9ACE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -987,6 +1062,80 @@
 			};
 			name = Staging;
 		};
+		DE51641BB1C905E01EBFB468 /* OwnerAdsQA */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = OwnerAdsQA;
+		};
+		E77F9B01B82ED73CE59EDAF6 /* OwnerAdsQA */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PimPoPom.app/PimPoPom";
+			};
+			name = OwnerAdsQA;
+		};
 		F6B63FFCFE80195F24DB47B8 /* Staging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1005,6 +1154,24 @@
 			};
 			name = Staging;
 		};
+		FE84BA7353540D42F42D7DD3 /* OwnerAdsQA */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = PimPoPom;
+			};
+			name = OwnerAdsQA;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1012,6 +1179,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9365BB071926F3AC1F4A9ACE /* Debug */,
+				FE84BA7353540D42F42D7DD3 /* OwnerAdsQA */,
 				B3660DCAAD9D449478CBCC4D /* Release */,
 				69586BB94E0EE348151EFA5F /* Staging */,
 			);
@@ -1022,6 +1190,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6BF0CE206DD6A822EAF73DC1 /* Debug */,
+				DE51641BB1C905E01EBFB468 /* OwnerAdsQA */,
 				5A8B31A2F7EA0AA3011013B1 /* Release */,
 				B38A1DAFD5687F297E929161 /* Staging */,
 			);
@@ -1032,6 +1201,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				28FE4F50BAB8BF1485DDB47F /* Debug */,
+				E77F9B01B82ED73CE59EDAF6 /* OwnerAdsQA */,
 				52A687F72F18969A399E0D18 /* Release */,
 				F6B63FFCFE80195F24DB47B8 /* Staging */,
 			);
@@ -1042,6 +1212,7 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9E1FC7DD902BF8A2E340F62C /* Debug */,
+				927C840BDEBB3ABC7E33D5D6 /* OwnerAdsQA */,
 				79A7301A4535CC2DF50CC17F /* Release */,
 				062193F1EB0048C7233261E0 /* Staging */,
 			);
@@ -1066,9 +1237,35 @@
 				minimumVersion = 9.0.0;
 			};
 		};
+		9FB87EB5EEE00461D6C2532E /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
+			requirement = {
+				kind = exactVersion;
+				version = 13.6.0;
+			};
+		};
+		AC52597F8C405088E196DDAD /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		5BB5AC1A8B78187882559EA7 /* GoogleUserMessagingPlatform */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AC52597F8C405088E196DDAD /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */;
+			productName = GoogleUserMessagingPlatform;
+		};
+		8A3904134513421E1F894756 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9FB87EB5EEE00461D6C2532E /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
 		B99BB11775542C9E63F45B2A /* PimPoPomCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PimPoPomCore;

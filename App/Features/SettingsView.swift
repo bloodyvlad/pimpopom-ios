@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
     @EnvironmentObject private var preferences: AppPreferences
     @EnvironmentObject private var appIcons: AppIconController
+    @EnvironmentObject private var ads: AdsController
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -95,6 +96,48 @@ struct SettingsView: View {
                         Text("Menu and gameplay loops are independent from Sound Effects.")
                             .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
                             .foregroundStyle(Color(hex: palette.muted))
+                    }
+
+                    if ads.isPrivacyChoicesVisible {
+                        settingCard(title: "Privacy", systemImage: "hand.raised.fill") {
+                            Button {
+                                Task { await ads.presentPrivacyChoices() }
+                            } label: {
+                                HStack {
+                                    Text("Privacy choices")
+                                    Spacer()
+                                    if ads.isPresentingPrivacyOptions {
+                                        ProgressView()
+                                    } else {
+                                        Image(systemName: "chevron.right")
+                                    }
+                                }
+                            }
+                            .buttonStyle(
+                                WebSecondaryButtonStyle(
+                                    theme: palette,
+                                    accent: Color(hex: palette.chromeAccent),
+                                    minimumHeight: 44
+                                )
+                            )
+                            .disabled(ads.isPresentingPrivacyOptions)
+                            .accessibilityLabel("Privacy choices")
+                            .accessibilityHint("Opens Google's privacy choices form")
+                            .accessibilityIdentifier("privacy-choices")
+
+                            if let status = ads.statusMessage {
+                                Text(status)
+                                    .font(
+                                        palette.appFont(
+                                            size: 12,
+                                            weight: .semibold,
+                                            relativeTo: .caption
+                                        )
+                                    )
+                                    .foregroundStyle(.orange)
+                                    .accessibilityIdentifier("privacy-choices-status")
+                            }
+                        }
                     }
 
                     if let status = audio.statusMessage {

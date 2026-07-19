@@ -76,9 +76,10 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(speedBar.waitForExistence(timeout: 2))
         XCTAssertEqual(speedBar.label, "Speed bar")
 
-        let adPlaceholder = app.descendants(matching: .any)["ad-placeholder"]
+        let adPlaceholder = app.descendants(matching: .any)["ad-slot-activeGameplay"]
         XCTAssertTrue(adPlaceholder.waitForExistence(timeout: 2))
-        XCTAssertGreaterThanOrEqual(adPlaceholder.frame.height, 50)
+        XCTAssertEqual(adPlaceholder.frame.height, 50, accuracy: 1)
+        XCTAssertEqual(adPlaceholder.value as? String, "Empty during active gameplay")
         attachScreenshot(of: app, name: "SE Zen horizontal logo gradient and standard banner")
 
         endButton.tap()
@@ -89,6 +90,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["result-score-card"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["result-stats"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["result-speed-ratings"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["ad-slot-results"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["result-save-panel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["result-save-status"].exists)
         attachScreenshot(of: app, name: "SE Zen results")
@@ -232,6 +234,46 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.switches["sound-effects-toggle"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.switches["music-toggle"].waitForExistence(timeout: 2))
         XCTAssertFalse(app.staticTexts["Current Theme"].exists)
+    }
+
+    func testFakeAdsAppearOnlyOnMenuAndResults() throws {
+        let app = launch(additionalArguments: ["--ui-test-ads-enabled"])
+        let menuSlot = app.descendants(matching: .any)["ad-slot-menu"]
+        XCTAssertTrue(menuSlot.waitForExistence(timeout: 3))
+        XCTAssertEqual(menuSlot.frame.height, 50, accuracy: 1)
+        XCTAssertEqual(menuSlot.value as? String, "Loaded")
+        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].exists)
+
+        app.buttons["mode-zen"].tap()
+        let activeSlot = app.descendants(matching: .any)["ad-slot-activeGameplay"]
+        XCTAssertTrue(activeSlot.waitForExistence(timeout: 8))
+        XCTAssertEqual(activeSlot.value as? String, "Empty during active gameplay")
+        XCTAssertFalse(app.descendants(matching: .any)["fake-ad-banner"].exists)
+
+        app.buttons["end-zen-run"].tap()
+        XCTAssertTrue(app.staticTexts["results-title"].waitForExistence(timeout: 3))
+        let resultsSlot = app.descendants(matching: .any)["ad-slot-results"]
+        XCTAssertTrue(resultsSlot.waitForExistence(timeout: 3))
+        XCTAssertEqual(resultsSlot.frame.height, 50, accuracy: 1)
+        XCTAssertEqual(resultsSlot.value as? String, "Loaded")
+        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].exists)
+    }
+
+    func testRequiredPrivacyChoicesAreAccessibleThroughSettings() throws {
+        let app = launch(
+            additionalArguments: ["--ui-test-ads-enabled", "--ui-test-privacy-required"]
+        )
+        openMenuControl("open-settings", in: app)
+
+        let privacyChoices = app.buttons["privacy-choices"]
+        for _ in 0..<10 where !privacyChoices.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(privacyChoices.exists)
+        XCTAssertEqual(privacyChoices.label, "Privacy choices")
+        XCTAssertTrue(privacyChoices.isHittable)
+        privacyChoices.tap()
+        XCTAssertTrue(privacyChoices.waitForExistence(timeout: 2))
     }
 
     func testChangeIconDeepLinkOpensIconSettings() throws {

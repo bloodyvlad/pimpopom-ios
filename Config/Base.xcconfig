@@ -14,3 +14,12 @@ CODE_SIGN_STYLE = Automatic
 PIMPOPOM_GOOGLE_IOS_CLIENT_ID = placeholder.apps.googleusercontent.com
 PIMPOPOM_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.placeholder
 PIMPOPOM_GOOGLE_SERVER_CLIENT_ID = 121091636571-4551g9k0uh39rqit36kkli74u0rnuens.apps.googleusercontent.com
+
+// The public AdMob App ID is present in every build so UMP resolves the
+// PimPoPom privacy message. Ad units stay disabled unless a named
+// configuration below deliberately enables them.
+PIMPOPOM_ADMOB_APP_ID = ca-app-pub-6428992187280935~3622035442
+PIMPOPOM_ADS_MODE = disabled
+PIMPOPOM_ADMOB_BANNER_UNIT_ID =
+PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID =
+PIMPOPOM_ADMOB_TEST_DEVICE_IDS =

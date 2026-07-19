@@ -26,6 +26,17 @@ Use semantic marketing versions once public. CI should own build-number allocati
 7. Verify backend deployment supports this API/ruleset/proof/build before archive distribution and remains compatible with the prior live app.
 8. Run the physical-device release matrix and document gaps explicitly.
 
+### Advertising configuration gate
+
+| Candidate | Required ad configuration |
+| --- | --- |
+| Debug/local automation | Real PimPoPom AdMob App ID, Google demo banner/interstitial units, no private test hash |
+| Named Staging/TestFlight QA | Real App ID, Google demo units, no private test hash |
+| Owner Ads QA | Ignored production units plus the owner's ignored hashed GMA test-device identifier; every creative must visibly say **Test mode** |
+| Public Release | Ignored production units, `live` mode, no test-device identifier; only after separate owner authorization |
+
+Before any ad-enabled archive, run the configuration validator and inspect the built `Info.plist`. Before public live activation, also verify the current aggregate archive privacy report and App Store privacy answers, UMP consent/privacy-options messages, accepted age treatment, `https://otcsoft.com/app-ads.txt` using the exact personalized AdMob line, AdMob app linkage/readiness, banner/interstitial physical evidence, and server-authoritative Remove Ads behavior. Do not infer or construct the `app-ads.txt` publisher line from memory. No owner test hash belongs in logs, Git, App Store metadata, or a public archive.
+
 ## Archive and upload
 
 1. Archive from the exact clean commit with Release configuration and automatic/manual signing according to team policy.
@@ -42,7 +53,7 @@ Use semantic marketing versions once public. CI should own build-number allocati
 - Do not export as **TestFlight Internal Only** because the same processed build serves the named internal and external groups.
 - Confirm the exported App Store payload is distribution-signed, has `com.apple.developer.game-center = true`, has no `get-task-allow`, contains no private key, and reports version/build `1.01 (3)` before upload.
 - Use direct email groups only: one internal owner group and one external QA group. Do not enable a public link. An internal tester must already be an App Store Connect user with app access; external tester access is limited to TestFlight.
-- The already-uploaded placeholder build's Beta App Review notes must continue to describe its disabled non-granting Ads/StoreKit UI. For any later StoreKit-enabled build, disclose that it uses the live compatibility service and real shared player/ranking/purchase data, optional Game Center authentication, no live ads, five Sandbox products, server acknowledgement before credit, and in-app deletion. Do not describe the empty Game Center leaderboard as a verified mirror until the Hostinger outbox exists.
+- The already-uploaded placeholder build's Beta App Review notes must continue to describe its disabled non-granting Ads/StoreKit UI. For any later StoreKit/ad-enabled Staging build, disclose that it uses the live compatibility service and real shared player/ranking/purchase data, optional Game Center authentication, Google demo-labelled ads behind UMP consent, five Sandbox products, server acknowledgement before credit, and in-app deletion. Do not describe the empty Game Center leaderboard as a verified mirror until the Hostinger outbox exists.
 - Submission to TestFlight Beta App Review is not approval. Record processing, review, and invitation states independently.
 
 ### Internal

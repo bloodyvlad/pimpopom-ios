@@ -55,6 +55,7 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var wasAbandoned = false
     @Published private(set) var isRoundPresentationExpired = false
     @Published private(set) var hitFeedbackEvent: GameplayHitFeedbackEvent?
+    @Published private(set) var gameplaySessionID = UUID()
     var onSoundEvent: ((GameplaySoundEvent) -> Void)?
     var onLifecycleEvent: ((GameplayLifecycleEvent) -> Void)?
     var onBoardTap: ((CGPoint) -> Void)?
@@ -112,6 +113,7 @@ final class GameCoordinator: ObservableObject {
     func startNewRun() {
         cancelScheduling()
         generation += 1
+        gameplaySessionID = UUID()
         started = true
         isFinished = false
         wasAbandoned = false
