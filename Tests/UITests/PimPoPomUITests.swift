@@ -424,7 +424,8 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(board.frame.width, app.frame.width - 24, accuracy: 4)
         XCTAssertEqual(gameplayPet.frame.midX, app.frame.width * 0.40, accuracy: 4)
         XCTAssertTrue(app.buttons["game-menu"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["speed-streak"].exists)
+        let speedBar = app.descendants(matching: .any)["speed-streak"]
+        XCTAssertTrue(speedBar.exists)
 
         let feedback = app.staticTexts["game-feedback"]
         let targetDeadline = Date().addingTimeInterval(5)
@@ -434,8 +435,18 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(feedback.label.hasPrefix("Tap "))
         board.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.50)).tap()
         XCTAssertTrue(waitForValue("right", on: gameplayPet))
+        gameplayPet.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.50)).tap()
+        XCTAssertTrue(waitForValue("front", on: gameplayPet))
         board.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.50)).tap()
         XCTAssertTrue(waitForValue("left", on: gameplayPet))
+        let petCenterInSpeedBar = min(
+            1,
+            max(0, (gameplayPet.frame.midX - speedBar.frame.minX) / speedBar.frame.width)
+        )
+        speedBar.coordinate(
+            withNormalizedOffset: CGVector(dx: petCenterInSpeedBar, dy: 0.75)
+        ).tap()
+        XCTAssertTrue(waitForValue("front", on: gameplayPet))
     }
 
     func testMenuPetSleepsAfterInactivityAndWakesOnTap() throws {
@@ -484,6 +495,9 @@ final class PimPoPomUITests: XCTestCase {
 
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.25)).tap()
         XCTAssertTrue(waitForValue("left", on: pet))
+
+        pet.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.50)).tap()
+        XCTAssertTrue(waitForValue("front", on: pet))
 
     }
 

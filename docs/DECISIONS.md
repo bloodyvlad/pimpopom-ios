@@ -513,3 +513,31 @@ When ads are disabled or authoritative ad-free before a run starts, construct no
 Consequences: The smallest accepted menu fits a standard-sized banner without scrolling, taller menus preserve the reviewed full purchase entry point, and an authoritative ad-free player sees neither purchase control nor ad footprint. Run geometry remains deterministic without representing an invisible spacer as an ad. UI automation covers both placement branches, exact centered 320×50 bounds, compact/tall copyright clearance, startup disabled/ad-free absence, and pushed-screen lifecycle; direct mid-run entitlement-transition automation remains required before live acceptance.
 
 Revisit when: The supported-device floor changes, localized copy no longer fits the 112-point control, PimPoPom accepts an adaptive/taller banner, or physical accessibility and accidental-tap review requires a different separation rule.
+
+## P-035 — Make the companion's front-facing pose reachable
+
+- Date: 2026-07-19
+- Status: Accepted; supersedes P-021 only for the front-facing tolerance and gameplay interaction surface
+
+Context: The shared companion resolver recognized front only within one physical point of the exact horizontal axis. Store previews could begin centered, but ordinary menu and gameplay taps almost always resolved to a directional pose and could not reliably return the pet to front. Gameplay also reconstructed board coordinates through an inset that did not exist in the rendered SpriteView, and its visible pet/footer region did not forward taps.
+
+Decision: Reserve a front-facing corridor extending 5% of active interaction width to each side of the rendered pet center, clamped to a 4-point minimum and 20-point maximum. Keep the existing half-turn boundary at 15%; the corridor remainder through that boundary is half-left/right and farther taps are full-left/right. Vertical distance remains irrelevant, so a tap directly on, above, or below the pet returns it to front. Resolve gameplay board coordinates across the complete rendered board width, and let a simultaneous gameplay-screen tap update pet facing without converting non-board UI taps into engine input. Preserve incremental adjacent-frame animation from the current pose and the menu's separate five-second sleep lifecycle.
+
+Consequences: Front is intentionally hittable on the 80-point shop preview and full-screen menu/gameplay surfaces while the half/full directional zones remain distinct. Direct pet and Speed Bar-aligned taps can restore front in gameplay, header/footer taps may orient the companion without affecting score, and board scoring/proof semantics remain unchanged. Unit tests lock the tolerance clamps and board mapping; UI tests lock side-to-front transitions on the menu and gameplay screen.
+
+Revisit when: physical review finds the 5% corridor too narrow or broad, a future pet has materially different visible width, or VoiceOver needs an explicit pose-control action.
+
+## P-036 — Isolate owner production-ad QA from TestFlight demo inventory
+
+- Date: 2026-07-19
+- Status: Accepted; advances P-032/P-033 to TestFlight build 4 without authorizing live public ads
+
+Context: Google Mobile Ads test-device identifiers mark production-unit requests as test traffic but do not choose different unit IDs per phone. One TestFlight binary therefore cannot use production units only for the owner's device and official demo units for every other tester. Build 3 is already awaiting its first external Beta App Review, and its app-wide review metadata accurately describes that older disabled-ad candidate.
+
+Decision: Advance the named Staging candidate to version `1.01` build `4`. Keep Staging locked to Google's official fixed demo banner and interstitial units for every internal and external TestFlight tester. Separately cable-install **Owner Ads QA** only on the owner's iPhone SE, with PimPoPom production unit IDs and that physical phone's GMA-generated hashed test-device identifier supplied by ignored `0600` configuration. Never substitute the CoreDevice identifier, tester email, or a UMP debug hash, and never click a creative; every owner-real-unit creative must visibly say **Test mode** before it counts as evidence.
+
+Set build 4's per-build **What to Test** after processing and add it to Internal QA. Do not overwrite the app-wide Beta Description or Review Notes while build 3 remains in review because doing so would make build 3's active review record inaccurate. After build 3 leaves review, update those global fields to describe the demo-labelled AdMob candidate, assign build 4 to External QA, enable automatic tester notification, and submit build 4 only if App Store Connect reports it ready for a new review. Do not withdraw build 3 implicitly.
+
+Consequences: Other testers cannot receive live production inventory, the owner's production-unit verification remains physically isolated, and the external review remains truthful at every stage. Upload and internal testing can proceed while build 3 is pending, but external build-4 access and its two global metadata updates may wait on Apple's one-build-per-version review constraint. Public Release still requires production units without a test identifier, `app-ads.txt`, privacy/UMP review, physical evidence, and separate authorization.
+
+Revisit when: build 3 leaves review, Google changes its per-request/test-device model, a dedicated internal-only bundle is accepted, or public live-ad release gates are complete.

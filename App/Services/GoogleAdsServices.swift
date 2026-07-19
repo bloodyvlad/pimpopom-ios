@@ -1,4 +1,5 @@
 import GoogleMobileAds
+import OSLog
 import UIKit
 import UserMessagingPlatform
 
@@ -62,6 +63,10 @@ final class GoogleAdsService: NSObject, AdsServing {
     private var interstitialLoadedAt: Date?
     private var interstitialLoadTask: Task<Void, Never>?
     private var isPresentingInterstitial = false
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.otcsoftware.pimpopom",
+        category: "Ads"
+    )
 
     func configure(_ configuration: AdsConfiguration) {
         self.configuration = configuration
@@ -113,6 +118,7 @@ final class GoogleAdsService: NSObject, AdsServing {
         bannerView = banner
         install(banner, in: container)
         onBannerStateChange?(.loading)
+        logger.debug("Requesting a fixed banner")
         banner.load(Request())
     }
 
@@ -144,6 +150,9 @@ final class GoogleAdsService: NSObject, AdsServing {
                 interstitialAd = ad
                 interstitialLoadedAt = Date()
             } catch {
+                logger.error(
+                    "Interstitial preload failed: \(error.localizedDescription, privacy: .public)"
+                )
                 interstitialAd = nil
                 interstitialLoadedAt = nil
             }
@@ -229,11 +238,13 @@ final class GoogleAdsService: NSObject, AdsServing {
 extension GoogleAdsService: BannerViewDelegate {
     func bannerViewDidReceiveAd(_ bannerView: BannerView) {
         guard bannerView === self.bannerView else { return }
+        logger.info("Banner loaded")
         onBannerStateChange?(.loaded)
     }
 
-    func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError _: Error) {
+    func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError error: Error) {
         guard bannerView === self.bannerView else { return }
+        logger.error("Banner load failed: \(error.localizedDescription, privacy: .public)")
         onBannerStateChange?(.failed)
     }
 }

@@ -576,12 +576,20 @@ final class CosmeticsTests: XCTestCase {
             .front
         )
         XCTAssertEqual(
-            PetFacing.resolve(pointerX: center + 0.5, petCenterX: center, interactionWidth: width),
+            PetFacing.resolve(pointerX: center + 10, petCenterX: center, interactionWidth: width),
             .front
         )
         XCTAssertEqual(
-            PetFacing.resolve(pointerX: center + 0.51, petCenterX: center, interactionWidth: width),
+            PetFacing.resolve(pointerX: center - 10, petCenterX: center, interactionWidth: width),
+            .front
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: center + 10.01, petCenterX: center, interactionWidth: width),
             .halfRight
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: center - 10.01, petCenterX: center, interactionWidth: width),
+            .halfLeft
         )
         XCTAssertEqual(
             PetFacing.resolve(pointerX: center + 30, petCenterX: center, interactionWidth: width),
@@ -616,9 +624,32 @@ final class CosmeticsTests: XCTestCase {
             ),
             .halfLeft
         )
+
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: 44, petCenterX: 40, interactionWidth: 80),
+            .front
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: 44.01, petCenterX: 40, interactionWidth: 80),
+            .halfRight
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: 220, petCenterX: 200, interactionWidth: 1_000),
+            .front
+        )
+        XCTAssertEqual(
+            PetFacing.resolve(pointerX: 220.01, petCenterX: 200, interactionWidth: 1_000),
+            .halfRight
+        )
     }
 
     func testSharedTapFollowUsesKnownGameplayLayoutWithoutMeasuredFrames() {
+        let screenWidth: CGFloat = 375
+        let boardWidth = screenWidth - PetTapFollow.gameplayOuterHorizontalInset * 2
+        let boardMinX = (screenWidth - boardWidth) / 2
+        let petCenterX = screenWidth * 0.40
+        let petCenterNormalizedX = (petCenterX - boardMinX) / boardWidth
+
         XCTAssertEqual(
             PetTapFollow.resolveGameplay(
                 normalizedPointerX: 0.05,
@@ -642,6 +673,32 @@ final class CosmeticsTests: XCTestCase {
                 current: .halfRight
             ),
             .right
+        )
+        XCTAssertEqual(
+            PetTapFollow.resolveGameplay(
+                normalizedPointerX: petCenterNormalizedX,
+                screenWidth: screenWidth,
+                current: .right
+            ),
+            .front
+        )
+        XCTAssertEqual(
+            PetTapFollow.resolveGameplay(
+                normalizedPointerX: (petCenterX + screenWidth * PetFacing.frontInteractionFraction - boardMinX)
+                    / boardWidth,
+                screenWidth: screenWidth,
+                current: .left
+            ),
+            .front
+        )
+        XCTAssertEqual(
+            PetTapFollow.resolveGameplay(
+                normalizedPointerX: (petCenterX + screenWidth * PetFacing.frontInteractionFraction + 0.01
+                    - boardMinX) / boardWidth,
+                screenWidth: screenWidth,
+                current: .front
+            ),
+            .halfRight
         )
         XCTAssertEqual(
             PetTapFollow.resolveGameplay(

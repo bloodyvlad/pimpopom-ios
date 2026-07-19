@@ -256,12 +256,10 @@ struct RootView: View {
                     showsRemoveAdsStore = true
                 } label: {
                     ZStack {
-                        Text("AD")
-                            .font(.system(size: 9, weight: .black, design: .rounded))
-                            .offset(x: -3, y: 3)
+                        Text("Ad")
+                            .font(.system(size: 14, weight: .black, design: .rounded))
                         Image(systemName: "nosign")
-                            .font(.system(size: 18, weight: .bold))
-                            .offset(x: 5, y: -5)
+                            .font(.system(size: 27.5, weight: .bold))
                     }
                     .frame(
                         width: WebMenuMetrics.utilityTarget,

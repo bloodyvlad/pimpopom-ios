@@ -75,6 +75,12 @@ struct GameView: View {
             }
         }
         .coordinateSpace(name: "game-space")
+        .simultaneousGesture(
+            SpatialTapGesture(coordinateSpace: .named("game-space"))
+                .onEnded { value in
+                    handleGameplayScreenTap(atX: value.location.x)
+                }
+        )
         .onPreferenceChange(GameplayScreenWidthPreferenceKey.self) { width in
             guard width > 0, width != gameplayScreenWidth else { return }
             Task { @MainActor in gameplayScreenWidth = width }
@@ -100,9 +106,6 @@ struct GameView: View {
                     submitRankedRunIfNeeded()
                 }
             }
-            coordinator.onBoardTap = { location in
-                handleGameplayTap(at: location)
-            }
             await cosmetics.refresh()
             guard !Task.isCancelled else { return }
             freezePresentationIfNeeded()
@@ -115,7 +118,6 @@ struct GameView: View {
             coordinator.stop()
             coordinator.onSoundEvent = nil
             coordinator.onLifecycleEvent = nil
-            coordinator.onBoardTap = nil
             clearHitFeedback()
             abandonTicketIfNeeded()
             audio.setMusicContext(.menu)
@@ -1043,11 +1045,12 @@ struct GameView: View {
         Task { await backend.abandonRun(ticket.runId) }
     }
 
-    private func handleGameplayTap(at normalizedLocation: CGPoint) {
+    private func handleGameplayScreenTap(atX pointerX: CGFloat) {
         guard frozenPetID != nil, gameplayScreenWidth > 0 else { return }
-        gameplayPetFacing = PetTapFollow.resolveGameplay(
-            normalizedPointerX: normalizedLocation.x,
-            screenWidth: gameplayScreenWidth,
+        gameplayPetFacing = PetTapFollow.resolve(
+            pointerX: pointerX,
+            petCenterX: gameplayScreenWidth * 0.40,
+            interactionWidth: gameplayScreenWidth,
             current: gameplayPetFacing
         )
         gameplayPetActivity += 1

@@ -18,7 +18,7 @@ fail() {
 }
 
 require_production_unit() {
-    printf '%s\n' "$1" | rg -q '^ca-app-pub-6428992187280935/[0-9]+$' \
+    printf '%s\n' "$1" | grep -Eq '^ca-app-pub-6428992187280935/[0-9]+$' \
         || fail "$2 must be a PimPoPom production-format ad unit"
 }
 

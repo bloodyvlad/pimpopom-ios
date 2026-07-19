@@ -164,9 +164,9 @@ enum PetFacing: String, Equatable, Sendable {
     case right
 
     static let halfTurnInteractionFraction: CGFloat = 0.15
-    // One physical pixel on the 2x SE profile keeps vertical-axis taps centered
-    // without turning the exact-center rule into a broad dead zone.
-    static let frontAlignmentTolerance: CGFloat = 0.5
+    static let frontInteractionFraction: CGFloat = 0.05
+    static let minimumFrontInteractionTolerance: CGFloat = 4
+    static let maximumFrontInteractionTolerance: CGFloat = 20
 
     var frameIndex: Int {
         switch self {
@@ -189,7 +189,14 @@ enum PetFacing: String, Equatable, Sendable {
         else { return fallback }
 
         let deltaX = pointerX - petCenterX
-        if abs(deltaX) <= frontAlignmentTolerance { return .front }
+        let frontTolerance = min(
+            maximumFrontInteractionTolerance,
+            max(
+                minimumFrontInteractionTolerance,
+                interactionWidth * frontInteractionFraction
+            )
+        )
+        if abs(deltaX) <= frontTolerance { return .front }
         let isHalfTurn = abs(deltaX) <= interactionWidth * halfTurnInteractionFraction
         if deltaX < 0 {
             return isHalfTurn ? .halfLeft : .left
@@ -201,7 +208,6 @@ enum PetFacing: String, Equatable, Sendable {
 enum PetTapFollow {
     static let maximumGameplayBoardWidth: CGFloat = 680
     static let gameplayOuterHorizontalInset: CGFloat = 12
-    static let gameplaySceneInset: CGFloat = 8
 
     static func resolve(
         pointerX: CGFloat,
@@ -241,8 +247,8 @@ enum PetTapFollow {
             max(0, screenWidth - gameplayOuterHorizontalInset * 2),
             maximumGameplayBoardWidth
         )
-        let sceneWidth = max(1, outerBoardWidth - gameplaySceneInset * 2)
-        let sceneMinX = (screenWidth - outerBoardWidth) / 2 + gameplaySceneInset
+        let sceneWidth = max(1, outerBoardWidth)
+        let sceneMinX = (screenWidth - outerBoardWidth) / 2
         let clampedX = min(1, max(0, normalizedPointerX))
         return resolve(
             pointerX: sceneMinX + clampedX * sceneWidth,
