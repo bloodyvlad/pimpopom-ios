@@ -29,12 +29,18 @@ struct GameView: View {
     @State private var didFreezePresentation = false
     @State private var hitFeedbackPresentations: [GameplayHitPresentation] = []
     @State private var hitFeedbackTasks: [Int: Task<Void, Never>] = [:]
+    @State private var reservesAdSpacingForRun: Bool
     private let onRunFinished: (UUID) -> Void
 
     private var palette: ThemePalette { frozenTheme }
 
-    init(mode: GameMode, onRunFinished: @escaping (UUID) -> Void = { _ in }) {
+    init(
+        mode: GameMode,
+        reservesAdSpacingForRun: Bool = false,
+        onRunFinished: @escaping (UUID) -> Void = { _ in }
+    ) {
         _coordinator = StateObject(wrappedValue: GameCoordinator(mode: mode))
+        _reservesAdSpacingForRun = State(initialValue: reservesAdSpacingForRun)
         self.onRunFinished = onRunFinished
     }
 
@@ -74,17 +80,7 @@ struct GameView: View {
             Task { @MainActor in gameplayScreenWidth = width }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if rankedRunStartError == nil {
-                AdBannerSlot(
-                    placement: coordinator.isFinished || coordinator.wasAbandoned
-                        ? .results
-                        : .activeGameplay
-                )
-                .opacity(preparing ? 0 : 1)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(Color(hex: palette.backgroundBottom).opacity(0.96))
-            }
+            bottomAdSurface
         }
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden(submissionStarted)
@@ -145,6 +141,35 @@ struct GameView: View {
                 presentInterstitialOpportunityIfReady()
             }
         }
+    }
+
+    @ViewBuilder
+    private var bottomAdSurface: some View {
+        if rankedRunStartError == nil {
+            if coordinator.isFinished || coordinator.wasAbandoned {
+                if ads.reservesBannerSlot {
+                    adSurface(placement: .results)
+                }
+            } else if reservesAdSpacingForRun {
+                if ads.reservesBannerSlot {
+                    adSurface(placement: .activeGameplay)
+                } else {
+                    Color.clear
+                        .frame(height: GameplayLayoutMetrics.adBannerHeight)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .accessibilityHidden(true)
+                }
+            }
+        }
+    }
+
+    private func adSurface(placement: AdBannerPlacement) -> some View {
+        AdBannerSlot(placement: placement)
+            .opacity(preparing ? 0 : 1)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(Color(hex: palette.backgroundBottom).opacity(0.96))
     }
 
     private var gameUtilityHeader: some View {
@@ -874,6 +899,7 @@ struct GameView: View {
         submissionError = nil
         submissionConfirmation = nil
         rankedRunStartError = nil
+        reservesAdSpacingForRun = ads.reservesBannerSlot
         if let existingTicket = runTicket {
             await backend.abandonRun(existingTicket.runId)
         }
@@ -911,6 +937,7 @@ struct GameView: View {
             }
         }
         guard preparation == preparationGeneration, !Task.isCancelled else { return }
+        reservesAdSpacingForRun = ads.reservesBannerSlot
         showsGetReady = true
         do {
             try await Task.sleep(for: GameplayAnnouncementPresentation.getReadyDuration)

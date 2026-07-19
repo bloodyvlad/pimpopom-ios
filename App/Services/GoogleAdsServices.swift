@@ -341,9 +341,14 @@ final class FakeAdsService: AdsServing {
         guard started else { return }
         if bannerOutcome == .loaded {
             label.removeFromSuperview()
-            label.frame = container.bounds
-            label.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+            label.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(label)
+            NSLayoutConstraint.activate([
+                label.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+                label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+                label.widthAnchor.constraint(equalToConstant: 320),
+                label.heightAnchor.constraint(equalToConstant: 50),
+            ])
         }
         guard !hasResolvedBanner else { return }
         hasResolvedBanner = true

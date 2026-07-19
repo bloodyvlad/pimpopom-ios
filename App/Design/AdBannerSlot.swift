@@ -14,8 +14,7 @@ struct AdBannerSlot: View {
     var isSurfaceVisible = true
 
     private var reservesHeight: Bool {
-        if placement == .activeGameplay { return true }
-        return isSurfaceVisible && ads.reservesNonActiveBannerSlot
+        isSurfaceVisible && ads.reservesBannerSlot
     }
 
     private var canHostAd: Bool {
@@ -44,7 +43,7 @@ struct AdBannerSlot: View {
         .allowsHitTesting(canHostAd && ads.canAttachBanner)
         .accessibilityHidden(!reservesHeight)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(canHostAd ? "Advertisement" : "Reserved advertisement space")
+        .accessibilityLabel(canHostAd ? "Advertisement" : "Reserved gameplay spacing")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("ad-slot-\(placement.rawValue)")
     }

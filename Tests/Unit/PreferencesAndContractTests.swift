@@ -198,6 +198,24 @@ final class PreferencesAndContractTests: XCTestCase {
         )
     }
 
+    func testRemoveAdsPlacementUsesCompactHeaderOnlyOnSixThroughSEScreenSizes() {
+        XCTAssertTrue(
+            MenuRemoveAdsPlacement.usesCompactHeader(screenSize: CGSize(width: 375, height: 667))
+        )
+        XCTAssertTrue(
+            MenuRemoveAdsPlacement.usesCompactHeader(screenSize: CGSize(width: 320, height: 568))
+        )
+        XCTAssertFalse(
+            MenuRemoveAdsPlacement.usesCompactHeader(screenSize: CGSize(width: 414, height: 736))
+        )
+        XCTAssertFalse(
+            MenuRemoveAdsPlacement.usesCompactHeader(screenSize: CGSize(width: 375, height: 812))
+        )
+        XCTAssertFalse(
+            MenuRemoveAdsPlacement.usesCompactHeader(screenSize: CGSize(width: 390, height: 844))
+        )
+    }
+
     func testCatalogAndMutationResponsesDecodeCurrentBackendKeys() throws {
         let catalogJSON = Data(
             """

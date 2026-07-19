@@ -1062,7 +1062,9 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
 
     private static var selectedUITestSession: SessionResponse {
         #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--ui-test-storekit-profile") {
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-ad-free") {
+                return uiTestAdFreeSession
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-test-storekit-profile") {
                 return uiTestStoreKitSession
             }
         #endif
@@ -1127,6 +1129,20 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
             ]
         )
+
+        private static var uiTestAdFreeSession: SessionResponse {
+            SessionResponse(
+                authenticated: uiTestStoreKitSession.authenticated,
+                csrfToken: uiTestStoreKitSession.csrfToken,
+                googleClientId: uiTestStoreKitSession.googleClientId,
+                season: uiTestStoreKitSession.season,
+                profile: uiTestStoreKitSession.profile,
+                wallet: uiTestStoreKitSession.wallet,
+                adFree: true,
+                storeKit: uiTestStoreKitSession.storeKit,
+                ranks: uiTestStoreKitSession.ranks
+            )
+        }
     #endif
 
     private static let uiTestPetSession = SessionResponse(

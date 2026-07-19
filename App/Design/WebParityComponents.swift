@@ -23,6 +23,14 @@ enum WebMenuMetrics {
     static let introRulesHorizontalOffset: CGFloat = 10
 }
 
+enum MenuRemoveAdsPlacement {
+    private static let tallestCompactHeaderPhoneSide: CGFloat = 667
+
+    static func usesCompactHeader(screenSize: CGSize) -> Bool {
+        max(screenSize.width, screenSize.height) <= tallestCompactHeaderPhoneSide
+    }
+}
+
 enum PimPoPomBrandColors {
     static let pimGradient = ["#16b887", "#39c85f", "#86bd3c"]
 }

@@ -162,7 +162,7 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertFalse(fixture.controller.progress.isDue)
         XCTAssertGreaterThan(fixture.ads.destroyCount, destroyCountBefore)
         XCTAssertFalse(fixture.controller.canAttachBanner)
-        XCTAssertFalse(fixture.controller.reservesNonActiveBannerSlot)
+        XCTAssertFalse(fixture.controller.reservesBannerSlot)
     }
 
     func testAccountSwitchFromAdFreeRestartsConsentBeforeAds() async {

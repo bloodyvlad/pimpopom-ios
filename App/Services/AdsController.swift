@@ -33,7 +33,7 @@ final class AdsController: ObservableObject {
         lifecycleState == .ready && accountResolution == .adsAllowed
     }
 
-    var reservesNonActiveBannerSlot: Bool {
+    var reservesBannerSlot: Bool {
         configuration.isEnabled && lifecycleState != .disabled
     }
 

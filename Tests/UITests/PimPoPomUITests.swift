@@ -76,11 +76,12 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(speedBar.waitForExistence(timeout: 2))
         XCTAssertEqual(speedBar.label, "Speed bar")
 
-        let adPlaceholder = app.descendants(matching: .any)["ad-slot-activeGameplay"]
-        XCTAssertTrue(adPlaceholder.waitForExistence(timeout: 2))
-        XCTAssertEqual(adPlaceholder.frame.height, 50, accuracy: 1)
-        XCTAssertEqual(adPlaceholder.value as? String, "Empty during active gameplay")
-        attachScreenshot(of: app, name: "SE Zen horizontal logo gradient and standard banner")
+        XCTAssertFalse(app.descendants(matching: .any)["ad-slot-activeGameplay"].exists)
+        XCTAssertFalse(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] 'ad' OR label CONTAINS[c] 'advertisement'")
+            ).firstMatch.exists)
+        attachScreenshot(of: app, name: "SE Zen horizontal logo gradient without disabled ad UI")
 
         endButton.tap()
 
@@ -90,7 +91,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["result-score-card"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["result-stats"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["result-speed-ratings"].exists)
-        XCTAssertTrue(app.descendants(matching: .any)["ad-slot-results"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["ad-slot-results"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["result-save-panel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["result-save-status"].exists)
         attachScreenshot(of: app, name: "SE Zen results")
@@ -242,7 +243,31 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(menuSlot.waitForExistence(timeout: 3))
         XCTAssertEqual(menuSlot.frame.height, 50, accuracy: 1)
         XCTAssertEqual(menuSlot.value as? String, "Loaded")
-        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].exists)
+        let menuBanner = app.descendants(matching: .any)["fake-ad-banner"]
+        XCTAssertTrue(menuBanner.waitForExistence(timeout: 2))
+        XCTAssertEqual(menuBanner.frame.width, 320, accuracy: 1)
+        XCTAssertEqual(menuBanner.frame.height, 50, accuracy: 1)
+        XCTAssertEqual(menuBanner.frame.midX, menuSlot.frame.midX, accuracy: 1)
+        XCTAssertLessThanOrEqual(menuBanner.frame.maxY, app.frame.maxY + 0.5)
+
+        let removeAds = app.descendants(matching: .any)["remove-ads"]
+        let copyright = app.descendants(matching: .any)["menu-copyright"]
+        let coinStore = app.descendants(matching: .any)["open-coin-store"]
+        let wordmark = app.descendants(matching: .any)["menu-wordmark"]
+        XCTAssertTrue(removeAds.exists)
+        XCTAssertTrue(copyright.exists)
+        let usesCompactRemoveAds = app.frame.height <= 667
+        XCTAssertEqual(removeAds.frame.width, usesCompactRemoveAds ? 44 : 112, accuracy: 1)
+        XCTAssertEqual(removeAds.frame.height, 44, accuracy: 1)
+        if usesCompactRemoveAds {
+            XCTAssertLessThan(wordmark.frame.maxX, removeAds.frame.minX)
+            XCTAssertLessThan(removeAds.frame.maxX, coinStore.frame.minX)
+            XCTAssertEqual(removeAds.frame.midY, coinStore.frame.midY, accuracy: 1)
+        } else {
+            XCTAssertLessThan(removeAds.frame.maxY, copyright.frame.minY)
+        }
+        XCTAssertLessThan(copyright.frame.maxY, menuSlot.frame.minY)
+        XCTAssertLessThanOrEqual(menuSlot.frame.minY - copyright.frame.maxY, 16)
 
         app.buttons["mode-zen"].tap()
         let activeSlot = app.descendants(matching: .any)["ad-slot-activeGameplay"]
@@ -256,7 +281,44 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(resultsSlot.waitForExistence(timeout: 3))
         XCTAssertEqual(resultsSlot.frame.height, 50, accuracy: 1)
         XCTAssertEqual(resultsSlot.value as? String, "Loaded")
-        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].exists)
+        let resultsBanner = app.descendants(matching: .any)["fake-ad-banner"]
+        XCTAssertTrue(resultsBanner.waitForExistence(timeout: 2))
+        XCTAssertEqual(resultsBanner.frame.width, 320, accuracy: 1)
+        XCTAssertEqual(resultsBanner.frame.midX, resultsSlot.frame.midX, accuracy: 1)
+    }
+
+    func testAdFreePlayerSeesNoRemoveAdsControlOrBannerArea() throws {
+        let app = launch(
+            additionalArguments: ["--ui-test-ads-enabled", "--ui-test-ad-free"]
+        )
+        let profile = app.descendants(matching: .any)["open-profile"]
+        XCTAssertTrue(profile.waitForExistence(timeout: 3))
+        XCTAssertTrue(waitForLabel("Profile. Signed in", on: profile))
+
+        let removeAds = app.descendants(matching: .any)["remove-ads"]
+        let menuSlot = app.descendants(matching: .any)["ad-slot-menu"]
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "exists == false"),
+                        object: menuSlot
+                    )
+                ],
+                timeout: 2
+            ),
+            .completed
+        )
+        XCTAssertFalse(removeAds.exists)
+        XCTAssertTrue(app.descendants(matching: .any)["menu-copyright"].exists)
+
+        app.buttons["mode-zen"].tap()
+        let endButton = app.buttons["end-zen-run"]
+        XCTAssertTrue(endButton.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.descendants(matching: .any)["ad-slot-activeGameplay"].exists)
+        endButton.tap()
+        XCTAssertTrue(app.staticTexts["results-title"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["ad-slot-results"].exists)
     }
 
     func testRequiredPrivacyChoicesAreAccessibleThroughSettings() throws {
@@ -272,6 +334,8 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(privacyChoices.exists)
         XCTAssertEqual(privacyChoices.label, "Privacy choices")
         XCTAssertTrue(privacyChoices.isHittable)
+        XCTAssertFalse(app.descendants(matching: .any)["ad-slot-menu"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["fake-ad-banner"].exists)
         privacyChoices.tap()
         XCTAssertTrue(privacyChoices.waitForExistence(timeout: 2))
     }

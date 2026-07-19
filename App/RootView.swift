@@ -1,5 +1,6 @@
 import PimPoPomCore
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -27,6 +28,7 @@ struct RootView: View {
     @State private var showsIconSettings = false
     @State private var motivationIndex: Int?
     @State private var hasCompletedGameThisLaunch = false
+    @State private var isMenuSurfaceVisible = true
     @State private var menuPetFacing = PetFacing.front
     @State private var menuPetSleeping = false
     @State private var menuPetActivity = 0
@@ -42,31 +44,52 @@ struct RootView: View {
                 AppThemeBackground(theme: palette)
 
                 GeometryReader { proxy in
-                    menuPanel(screenWidth: proxy.size.width)
-                        .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .frame(
-                            width: proxy.size.width,
-                            height: proxy.size.height,
-                            alignment: .top
+                    menuPanel(
+                        screenWidth: proxy.size.width,
+                        usesCompactRemoveAds: MenuRemoveAdsPlacement.usesCompactHeader(
+                            screenSize: UIScreen.main.bounds.size
                         )
-                        .contentShape(Rectangle())
-                        .simultaneousGesture(
-                            SpatialTapGesture(coordinateSpace: .named("menu-space"))
-                                .onEnded {
-                                    handleMenuTap(
-                                        at: $0.location,
-                                        screenWidth: proxy.size.width
-                                    )
-                                }
-                        )
+                    )
+                    .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(
+                        width: proxy.size.width,
+                        height: proxy.size.height,
+                        alignment: .top
+                    )
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        SpatialTapGesture(coordinateSpace: .named("menu-space"))
+                            .onEnded {
+                                handleMenuTap(
+                                    at: $0.location,
+                                    screenWidth: proxy.size.width
+                                )
+                            }
+                    )
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isMenuSurfaceVisible, ads.reservesBannerSlot {
+                    AdBannerSlot(
+                        placement: .menu,
+                        isSurfaceVisible: isMenuSurfaceVisible
+                    )
+                    .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
+                    .padding(.horizontal, 12)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .onAppear { isMenuSurfaceVisible = true }
+            .onDisappear { isMenuSurfaceVisible = false }
             .coordinateSpace(name: "menu-space")
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: GameMode.self) { mode in
-                GameView(mode: mode) { completionID in
+                GameView(
+                    mode: mode,
+                    reservesAdSpacingForRun: ads.reservesBannerSlot
+                ) { completionID in
                     ads.recordCompletedSession(id: completionID, mode: mode)
                     guard !hasCompletedGameThisLaunch else { return }
                     hasCompletedGameThisLaunch = true
@@ -173,7 +196,10 @@ struct RootView: View {
         }
     }
 
-    private func menuPanel(screenWidth: CGFloat) -> some View {
+    private func menuPanel(
+        screenWidth: CGFloat,
+        usesCompactRemoveAds: Bool
+    ) -> some View {
         ZStack(alignment: .topTrailing) {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -184,11 +210,11 @@ struct RootView: View {
                 .allowsHitTesting(false)
 
             VStack(spacing: 0) {
-                utilityHeader
+                utilityHeader(usesCompactRemoveAds: usesCompactRemoveAds)
                 hintStage(screenWidth: screenWidth)
                 actionStack
                 Spacer(minLength: 6)
-                menuFooter
+                menuFooter(usesCompactRemoveAds: usesCompactRemoveAds)
             }
 
             if let petID = cosmetics.displayedPetID {
@@ -220,10 +246,40 @@ struct RootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    private var utilityHeader: some View {
+    private func utilityHeader(usesCompactRemoveAds: Bool) -> some View {
         HStack(spacing: 8) {
             PimPoPomWordmark(theme: palette)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            if usesCompactRemoveAds, shouldShowRemoveAds {
+                Button {
+                    showsRemoveAdsStore = true
+                } label: {
+                    ZStack {
+                        Text("AD")
+                            .font(.system(size: 9, weight: .black, design: .rounded))
+                            .offset(x: -3, y: 3)
+                        Image(systemName: "nosign")
+                            .font(.system(size: 18, weight: .bold))
+                            .offset(x: 5, y: -5)
+                    }
+                    .frame(
+                        width: WebMenuMetrics.utilityTarget,
+                        height: WebMenuMetrics.utilityTarget
+                    )
+                }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.petsAccent),
+                        minimumHeight: WebMenuMetrics.utilityTarget
+                    )
+                )
+                .frame(width: WebMenuMetrics.utilityTarget)
+                .accessibilityLabel("Remove Ads")
+                .accessibilityHint("Opens the App Store purchase and restore options")
+                .accessibilityIdentifier("remove-ads")
+            }
 
             Button {
                 showsCoinStore = true
@@ -505,34 +561,37 @@ struct RootView: View {
         }
     }
 
-    private var menuFooter: some View {
+    private func menuFooter(usesCompactRemoveAds: Bool) -> some View {
         VStack(spacing: 7) {
-            HStack {
-                Spacer(minLength: 0)
-                Button("Remove Ads") { showsRemoveAdsStore = true }
-                    .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
-                    .buttonStyle(
-                        WebSecondaryButtonStyle(
-                            theme: palette,
-                            minimumHeight: WebMenuMetrics.utilityTarget
+            if !usesCompactRemoveAds, shouldShowRemoveAds {
+                HStack {
+                    Spacer(minLength: 0)
+                    Button("Remove Ads") { showsRemoveAdsStore = true }
+                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                        .buttonStyle(
+                            WebSecondaryButtonStyle(
+                                theme: palette,
+                                minimumHeight: WebMenuMetrics.utilityTarget
+                            )
                         )
-                    )
-                    .frame(width: 112)
-                    .accessibilityHint("Opens the App Store purchase and restore options")
-                    .accessibilityIdentifier("remove-ads")
+                        .frame(width: 112)
+                        .accessibilityHint("Opens the App Store purchase and restore options")
+                        .accessibilityIdentifier("remove-ads")
+                }
             }
 
             Text("© 2026 OTC Software. All rights reserved.")
                 .font(palette.appFont(size: 10, weight: .regular, relativeTo: .caption2))
                 .foregroundStyle(Color(hex: palette.muted).opacity(0.64))
                 .frame(maxWidth: .infinity)
-
-            AdBannerSlot(
-                placement: .menu,
-                isSurfaceVisible: navigationPath.isEmpty
-            )
+                .accessibilityIdentifier("menu-copyright")
         }
         .padding(.top, 8)
+    }
+
+    private var shouldShowRemoveAds: Bool {
+        guard let session = backend.sessionState else { return false }
+        return session.adFree != true
     }
 
     private func modeLink(_ mode: GameMode) -> some View {
