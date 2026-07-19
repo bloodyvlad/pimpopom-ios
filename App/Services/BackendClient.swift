@@ -11,11 +11,18 @@ struct BackendError: LocalizedError {
 }
 
 @MainActor
-final class BackendClient: ObservableObject {
+final class BackendClient: ObservableObject, StoreKitCreditServing {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
-    static let deployedBuildID = "20260718-1"
+    static let deployedBuildID = "20260719-1"
     static let accountDeletionConfirmation = "DELETE MY ACCOUNT"
     static let accountDeletionAccountMismatchCode = "account-reauthentication-mismatch"
+    static var localStoreKitFixtureRequested: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("--local-storekit-credit")
+        #else
+            false
+        #endif
+    }
     #if DEBUG
         static let uiTestAccountDeletionCredential = "pimpopom-ui-test-account-reauthentication"
     #endif
@@ -27,6 +34,9 @@ final class BackendClient: ObservableObject {
     private let baseURL: URL
     private let urlSession: URLSession
     private let isUITestOffline: Bool
+    #if DEBUG
+        private let localStoreKitCreditService: LocalStoreKitCreditService?
+    #endif
     private var uiTestSession: SessionResponse?
     private var uiTestAchievements: AchievementsResponse?
     private let decoder = JSONDecoder()
@@ -41,25 +51,34 @@ final class BackendClient: ObservableObject {
     init(
         baseURL: URL = BackendClient.productionBaseURL,
         isUITestOffline: Bool = ProcessInfo.processInfo.arguments.contains("--uitesting"),
+        useLocalStoreKitFixture: Bool = BackendClient.localStoreKitFixtureRequested,
         urlSession: URLSession? = nil
     ) {
+        #if DEBUG
+            let localStoreKitFixtureEnabled = useLocalStoreKitFixture
+            localStoreKitCreditService =
+                localStoreKitFixtureEnabled
+                ? LocalStoreKitCreditService()
+                : nil
+        #else
+            let localStoreKitFixtureEnabled = false
+        #endif
+        let offline = isUITestOffline || localStoreKitFixtureEnabled
         self.baseURL = baseURL
-        self.isUITestOffline = isUITestOffline
-        uiTestSession =
-            if isUITestOffline {
-                if ProcessInfo.processInfo.arguments.contains("--ui-test-achievements-profile") {
-                    Self.uiTestAchievementSession
-                } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile") {
-                    Self.uiTestPancakeSession
-                } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pet-profile") {
-                    Self.uiTestPetSession
+        self.isUITestOffline = offline
+        #if DEBUG
+            uiTestSession =
+                if localStoreKitFixtureEnabled {
+                    Self.uiTestStoreKitSession
+                } else if offline {
+                    Self.selectedUITestSession
                 } else {
-                    Self.uiTestSignedOutSession
+                    nil
                 }
-            } else {
-                nil
-            }
-        if isUITestOffline {
+        #else
+            uiTestSession = offline ? Self.selectedUITestSession : nil
+        #endif
+        if offline {
             uiTestAchievements = Self.uiTestAchievementResponse(
                 session: uiTestSession,
                 exposesClaimableFixture: ProcessInfo.processInfo.arguments.contains(
@@ -70,22 +89,92 @@ final class BackendClient: ObservableObject {
         if let urlSession {
             self.urlSession = urlSession
         } else {
-            let configuration = isUITestOffline ? URLSessionConfiguration.ephemeral : .default
+            let configuration = offline ? URLSessionConfiguration.ephemeral : .default
             configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
             configuration.urlCache = nil
-            configuration.httpShouldSetCookies = !isUITestOffline
-            configuration.httpCookieAcceptPolicy = isUITestOffline ? .never : .always
-            configuration.httpCookieStorage = isUITestOffline ? nil : .shared
+            configuration.httpShouldSetCookies = !offline
+            configuration.httpCookieAcceptPolicy = offline ? .never : .always
+            configuration.httpCookieStorage = offline ? nil : .shared
             configuration.timeoutIntervalForRequest = 20
             self.urlSession = URLSession(configuration: configuration)
         }
-        if let uiTestSession { sessionState = uiTestSession }
+        if let uiTestSession {
+            sessionState = uiTestSession
+            csrfToken = uiTestSession.csrfToken
+        }
     }
 
     var profile: PlayerProfile? { sessionState?.profile }
     var isAuthenticated: Bool { sessionState?.authenticated == true }
     var canStartRankedRun: Bool {
         isAuthenticated && profile?.nicknameConfirmed == true
+    }
+
+    func currentStoreAccount() async -> StoreAccountBinding? {
+        guard let sessionState,
+            sessionState.authenticated,
+            let profile = sessionState.profile,
+            UUID(uuidString: profile.id) != nil,
+            let token = sessionState.storeKit?.boundToken
+        else { return nil }
+        return StoreAccountBinding(profileID: profile.id, appAccountToken: token)
+    }
+
+    func currentStorefrontState() async -> StorefrontAccountState {
+        let binding = await currentStoreAccount()
+        let wallet = sessionState?.wallet.flatMap { Self.isValidWallet($0) ? $0 : nil }
+        return StorefrontAccountState(
+            binding: binding,
+            wallet: binding == nil ? nil : wallet,
+            adFree: binding == nil ? nil : sessionState?.adFree
+        )
+    }
+
+    func credit(_ request: StoreCreditRequest) async throws -> StoreCreditResponse {
+        guard Self.isValidStoreCreditRequest(request) else {
+            throw Self.invalidStoreKitRequestError
+        }
+
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            guard let account = await currentStoreAccount(),
+                account.profileID == token.playerID,
+                account.appAccountToken == request.appAccountToken
+            else {
+                throw Self.storeKitAccountUnavailableError
+            }
+
+            let response: StoreCreditResponse
+            #if DEBUG
+                if let localStoreKitCreditService {
+                    response = try await localStoreKitCreditService.credit(request)
+                } else {
+                    response = try await submitStoreKitCredit(request)
+                }
+            #else
+                response = try await submitStoreKitCredit(request)
+            #endif
+
+            guard isCurrent(token),
+                token.playerID == sessionState?.profile?.id,
+                await currentStoreAccount() == account,
+                response.transactionID == request.transactionID,
+                Self.isValidWallet(response.wallet)
+            else {
+                throw Self.invalidStoreKitResponseError
+            }
+            applyStoreKitCredit(response)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            if let backendError = error as? BackendError,
+                backendError.status == 401 || backendError.status == 403
+            {
+                _ = try? await loadSession()
+            }
+            throw error
+        }
     }
 
     @discardableResult
@@ -571,6 +660,11 @@ final class BackendClient: ObservableObject {
         let playerID: String?
     }
 
+    private struct StoreKitCreditBody: Encodable {
+        let signedTransaction: String
+        let appAccountToken: String
+    }
+
     private func awaitSessionLoad(
         _ task: Task<SessionResponse, Error>,
         id: Int
@@ -682,6 +776,55 @@ final class BackendClient: ObservableObject {
         return try await request(path: path, method: method, body: body, csrf: csrfToken)
     }
 
+    private func submitStoreKitCredit(
+        _ creditRequest: StoreCreditRequest
+    ) async throws -> StoreCreditResponse {
+        let body = StoreKitCreditBody(
+            signedTransaction: creditRequest.signedTransaction,
+            appAccountToken: creditRequest.appAccountToken.uuidString.lowercased()
+        )
+        let response: StoreKitCreditAPIResponse = try await request(
+            path: "/api/mobile/v1/storekit/transactions",
+            method: "POST",
+            body: try encoder.encode(body),
+            csrf: csrfToken
+        )
+        guard response.transactionId == creditRequest.transactionID,
+            let wallet = response.wallet,
+            Self.isValidWallet(wallet)
+        else {
+            throw Self.invalidStoreKitResponseError
+        }
+
+        let disposition: StoreCreditDisposition
+        if response.duplicate {
+            disposition = .duplicate
+        } else {
+            switch response.status {
+            case "active":
+                disposition = .credited
+            case "reinstated":
+                disposition = .reconciled
+            case "refunded", "revoked":
+                disposition = .reversed
+            default:
+                throw Self.invalidStoreKitResponseError
+            }
+        }
+        guard ["active", "reinstated", "refunded", "revoked"].contains(response.status),
+            !["active", "reinstated"].contains(response.status) || response.adFree
+        else {
+            throw Self.invalidStoreKitResponseError
+        }
+
+        return StoreCreditResponse(
+            transactionID: response.transactionId,
+            disposition: disposition,
+            wallet: wallet,
+            adFree: response.adFree
+        )
+    }
+
     private func request<Response: Decodable>(
         path: String,
         method: String = "GET",
@@ -733,15 +876,42 @@ final class BackendClient: ObservableObject {
     ) {
         guard let sessionState else { return }
         lastError = nil
+        let wallet = sessionState.wallet.flatMap { existing in
+            existing.total == profile.coins ? existing : nil
+        }
         let updatedSession = SessionResponse(
             authenticated: true,
             csrfToken: sessionState.csrfToken,
             googleClientId: sessionState.googleClientId,
             season: sessionState.season,
             profile: profile,
+            wallet: wallet,
+            adFree: sessionState.adFree,
+            storeKit: sessionState.storeKit,
             ranks: ranks ?? sessionState.ranks
         )
         self.sessionState = updatedSession
+        if isUITestOffline { uiTestSession = updatedSession }
+    }
+
+    private func applyStoreKitCredit(_ response: StoreCreditResponse) {
+        guard let sessionState,
+            sessionState.authenticated,
+            let profile = sessionState.profile
+        else { return }
+        let updatedSession = SessionResponse(
+            authenticated: true,
+            csrfToken: sessionState.csrfToken,
+            googleClientId: sessionState.googleClientId,
+            season: sessionState.season,
+            profile: replacingCoins(in: profile, with: response.wallet.total),
+            wallet: response.wallet,
+            adFree: response.adFree,
+            storeKit: sessionState.storeKit,
+            ranks: sessionState.ranks
+        )
+        self.sessionState = updatedSession
+        lastError = nil
         if isUITestOffline { uiTestSession = updatedSession }
     }
 
@@ -890,6 +1060,18 @@ final class BackendClient: ObservableObject {
         return response
     }
 
+    private static var selectedUITestSession: SessionResponse {
+        if ProcessInfo.processInfo.arguments.contains("--ui-test-achievements-profile") {
+            uiTestAchievementSession
+        } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile") {
+            uiTestPancakeSession
+        } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pet-profile") {
+            uiTestPetSession
+        } else {
+            uiTestSignedOutSession
+        }
+    }
+
     private static let uiTestSignedOutSession = SessionResponse(
         authenticated: false,
         csrfToken: "ui-test-offline",
@@ -898,6 +1080,49 @@ final class BackendClient: ObservableObject {
         profile: nil,
         ranks: nil
     )
+
+    #if DEBUG
+        private static let uiTestStoreKitSession = SessionResponse(
+            authenticated: true,
+            csrfToken: "local-storekit-offline",
+            googleClientId: "placeholder.apps.googleusercontent.com",
+            season: Season(id: "local-storekit", name: "Local StoreKit"),
+            profile: PlayerProfile(
+                id: LocalStoreKitCreditService.account.profileID,
+                nickname: "StoreKit Tester",
+                nicknameConfirmed: true,
+                coins: 75,
+                totalPlayMs: 120_000,
+                ownedPetIds: ["foka"],
+                selectedPetId: "foka",
+                petVisible: true,
+                equippedPetId: "foka",
+                specialPetId: nil,
+                ownedThemeIds: ["classic", "disco", "light", "pixel"],
+                selectedThemeId: "classic",
+                isAdmin: false,
+                createdAt: "2026-07-19T00:00:00Z",
+                updatedAt: "2026-07-19T00:00:00Z"
+            ),
+            wallet: StoreWalletSummary(
+                earned: 75,
+                purchased: 0,
+                earnedDebt: 0,
+                refundDebt: 0,
+                total: 75
+            ),
+            adFree: false,
+            storeKit: StoreKitBindingResponse(
+                appAccountToken: LocalStoreKitCreditService.account.appAccountToken.uuidString
+                    .lowercased(),
+                bindingStatus: "bound"
+            ),
+            ranks: [
+                GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
+                GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
+            ]
+        )
+    #endif
 
     private static let uiTestPetSession = SessionResponse(
         authenticated: true,
@@ -1173,4 +1398,37 @@ final class BackendClient: ObservableObject {
         message: "The leaderboard did not confirm that this score was saved. Please retry.",
         code: "invalid-run-finish-response"
     )
+
+    private static let invalidStoreKitRequestError = BackendError(
+        status: 400,
+        message: "The App Store transaction is incomplete.",
+        code: "invalid-storekit-request"
+    )
+
+    private static let storeKitAccountUnavailableError = BackendError(
+        status: 409,
+        message: "Refresh your PimPoPom profile before continuing with this purchase.",
+        code: "storekit-account-unavailable"
+    )
+
+    private static let invalidStoreKitResponseError = BackendError(
+        status: 0,
+        message: "The purchase response could not be verified. Please try again.",
+        code: "invalid-storekit-response"
+    )
+
+    private static func isValidStoreCreditRequest(_ request: StoreCreditRequest) -> Bool {
+        UInt64(request.transactionID).map { $0 > 0 } == true
+            && !request.signedTransaction.isEmpty
+            && request.signedTransaction.utf8.count <= 262_144
+    }
+
+    private static func isValidWallet(_ wallet: StoreWalletSummary) -> Bool {
+        wallet.earned >= 0
+            && wallet.purchased >= 0
+            && wallet.earnedDebt >= 0
+            && wallet.refundDebt >= 0
+            && wallet.total >= 0
+            && wallet.total == wallet.earned + wallet.purchased
+    }
 }

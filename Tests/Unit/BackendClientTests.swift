@@ -32,6 +32,241 @@ final class BackendClientTests: XCTestCase {
         XCTAssertFalse(backend.isAuthenticated)
     }
 
+    func testSessionModelsDecodeLegacyAndAdditiveStoreKitState() throws {
+        let legacy = try JSONDecoder().decode(
+            SessionResponse.self,
+            from: JSONEncoder().encode(Self.signedInSession)
+        )
+        XCTAssertNil(legacy.wallet)
+        XCTAssertNil(legacy.adFree)
+        XCTAssertNil(legacy.storeKit)
+
+        let current = try JSONDecoder().decode(
+            SessionResponse.self,
+            from: JSONEncoder().encode(Self.storeKitSession)
+        )
+        XCTAssertEqual(current.wallet, Self.initialStoreWallet)
+        XCTAssertEqual(current.adFree, false)
+        XCTAssertEqual(current.storeKit?.boundToken, Self.storeAccountToken)
+    }
+
+    func testStoreKitCreditUsesExactNativeContractAndUpdatesAuthoritativeSession() async throws {
+        let recorder = RequestRecorder()
+        let sessionData = try JSONEncoder().encode(Self.storeKitSession)
+        let response = StoreKitCreditAPIResponse(
+            transactionId: "9001",
+            status: "active",
+            duplicate: false,
+            wallet: StoreWalletSummary(
+                earned: 75,
+                purchased: 100,
+                earnedDebt: 0,
+                refundDebt: 0,
+                total: 175
+            ),
+            adFree: true
+        )
+        let responseData = try JSONEncoder().encode(response)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): return StubResponse(data: sessionData)
+            case ("/api/mobile/v1/storekit/transactions", "POST"):
+                return StubResponse(data: responseData)
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        let maybeBinding = await backend.currentStoreAccount()
+        let binding = try XCTUnwrap(maybeBinding)
+        XCTAssertEqual(binding.profileID, Self.storeKitSession.profile?.id)
+        let credited = try await backend.credit(
+            StoreCreditRequest(
+                transactionID: "9001",
+                productID: .coins100,
+                signedTransaction: "header.payload.signature",
+                appAccountToken: binding.appAccountToken
+            )
+        )
+
+        XCTAssertEqual(credited.disposition, .credited)
+        XCTAssertEqual(backend.profile?.coins, 175)
+        XCTAssertEqual(backend.sessionState?.wallet, response.wallet)
+        XCTAssertEqual(backend.sessionState?.adFree, true)
+        XCTAssertEqual(backend.sessionState?.storeKit, Self.storeKitSession.storeKit)
+        let storefront = await backend.currentStorefrontState()
+        XCTAssertEqual(storefront.binding, binding)
+        XCTAssertEqual(storefront.wallet, response.wallet)
+        XCTAssertEqual(storefront.adFree, true)
+
+        let request = try XCTUnwrap(
+            recorder.requests(forPath: "/api/mobile/v1/storekit/transactions").first
+        )
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.header(named: "X-SpeedyTapper-CSRF"), "csrf-storekit")
+        let body = try XCTUnwrap(request.body)
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: body) as? [String: String]
+        )
+        XCTAssertEqual(
+            payload,
+            [
+                "signedTransaction": "header.payload.signature",
+                "appAccountToken": Self.storeAccountToken.uuidString.lowercased(),
+            ]
+        )
+    }
+
+    func testStoreKitCreditRejectsUnknownStatusAndInvalidWalletWithoutMutatingCoins() async throws {
+        for (status, wallet) in [
+            (
+                "unexpected",
+                StoreWalletSummary(
+                    earned: 75,
+                    purchased: 50,
+                    earnedDebt: 0,
+                    refundDebt: 0,
+                    total: 125
+                )
+            ),
+            (
+                "active",
+                StoreWalletSummary(
+                    earned: 75,
+                    purchased: 50,
+                    earnedDebt: 0,
+                    refundDebt: 0,
+                    total: 124
+                )
+            ),
+        ] {
+            let sessionData = try JSONEncoder().encode(Self.storeKitSession)
+            let responseData = try JSONEncoder().encode(
+                StoreKitCreditAPIResponse(
+                    transactionId: "9002",
+                    status: status,
+                    duplicate: false,
+                    wallet: wallet,
+                    adFree: true
+                )
+            )
+            StubURLProtocol.handler = { request in
+                switch request.url?.path {
+                case "/api/session": StubResponse(data: sessionData)
+                case "/api/mobile/v1/storekit/transactions": StubResponse(data: responseData)
+                default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+                }
+            }
+            let backend = makeBackend()
+            _ = try await backend.loadSession()
+
+            do {
+                _ = try await backend.credit(
+                    StoreCreditRequest(
+                        transactionID: "9002",
+                        productID: .coins50,
+                        signedTransaction: "header.payload.signature",
+                        appAccountToken: Self.storeAccountToken
+                    )
+                )
+                XCTFail("The malformed StoreKit response must be rejected.")
+            } catch let error as BackendError {
+                XCTAssertEqual(error.code, "invalid-storekit-response")
+            }
+            XCTAssertEqual(backend.profile?.coins, 75)
+            XCTAssertEqual(backend.sessionState?.wallet, Self.initialStoreWallet)
+            XCTAssertEqual(backend.sessionState?.adFree, false)
+        }
+    }
+
+    func testStoreKitBindingMustBeBoundAndUseValidUUIDsBeforeSendingCredit() async throws {
+        let recorder = RequestRecorder()
+        let invalidSession = SessionResponse(
+            authenticated: Self.storeKitSession.authenticated,
+            csrfToken: Self.storeKitSession.csrfToken,
+            googleClientId: Self.storeKitSession.googleClientId,
+            season: Self.storeKitSession.season,
+            profile: Self.storeKitSession.profile,
+            wallet: Self.storeKitSession.wallet,
+            adFree: Self.storeKitSession.adFree,
+            storeKit: StoreKitBindingResponse(
+                appAccountToken: Self.storeAccountToken.uuidString.lowercased(),
+                bindingStatus: "pending"
+            ),
+            ranks: Self.storeKitSession.ranks
+        )
+        let invalidJSON = try JSONEncoder().encode(invalidSession)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(data: invalidJSON)
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        let invalidBinding = await backend.currentStoreAccount()
+        XCTAssertNil(invalidBinding)
+        do {
+            _ = try await backend.credit(
+                StoreCreditRequest(
+                    transactionID: "9003",
+                    productID: .coins50,
+                    signedTransaction: "header.payload.signature",
+                    appAccountToken: Self.storeAccountToken
+                )
+            )
+            XCTFail("An unbound StoreKit account must not submit a transaction.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "storekit-account-unavailable")
+        }
+        XCTAssertTrue(
+            recorder.requests(forPath: "/api/mobile/v1/storekit/transactions").isEmpty
+        )
+    }
+
+    #if DEBUG
+        func testLocalStoreKitFixtureIsSignedInOfflineAndCreditsIdempotently() async throws {
+            let recorder = RequestRecorder()
+            StubURLProtocol.handler = { request in
+                recorder.append(request)
+                return StubResponse(data: Data("{}".utf8), statusCode: 500)
+            }
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.protocolClasses = [StubURLProtocol.self]
+            let backend = BackendClient(
+                baseURL: URL(string: "https://must-not-be-used.invalid")!,
+                isUITestOffline: false,
+                useLocalStoreKitFixture: true,
+                urlSession: URLSession(configuration: configuration)
+            )
+            let session = try await backend.loadSession()
+            let maybeAccount = await backend.currentStoreAccount()
+            let account = try XCTUnwrap(maybeAccount)
+            let request = StoreCreditRequest(
+                transactionID: "9100",
+                productID: .coins50,
+                signedTransaction: "local.signed.transaction",
+                appAccountToken: account.appAccountToken
+            )
+
+            let first = try await backend.credit(request)
+            let duplicate = try await backend.credit(request)
+
+            XCTAssertTrue(session.authenticated)
+            XCTAssertEqual(first.disposition, .credited)
+            XCTAssertEqual(first.wallet.total, 125)
+            XCTAssertEqual(duplicate.disposition, .duplicate)
+            XCTAssertEqual(duplicate.wallet.total, 125)
+            XCTAssertEqual(backend.profile?.coins, 125)
+            XCTAssertEqual(backend.sessionState?.adFree, true)
+            XCTAssertTrue(recorder.requests(forPath: "/api/session").isEmpty)
+            XCTAssertTrue(
+                recorder.requests(forPath: "/api/mobile/v1/storekit/transactions").isEmpty
+            )
+        }
+    #endif
+
     func testLoginUsesCSRFAndLateSessionCannotReplaceNewAccount() async throws {
         let recorder = RequestRecorder()
         let sessionRequestCounter = LockedCounter()
@@ -635,7 +870,7 @@ final class BackendClientTests: XCTestCase {
     }
 
     func testRankedRunStartAndFinishPreserveTicketProofContract() async throws {
-        XCTAssertEqual(BackendClient.deployedBuildID, "20260718-1")
+        XCTAssertEqual(BackendClient.deployedBuildID, "20260719-1")
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.signedInSession)
         let ticket = RunTicket(
@@ -966,6 +1201,49 @@ final class BackendClientTests: XCTestCase {
             isAdmin: false,
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
+        ),
+        ranks: nil
+    )
+
+    private static let storeAccountToken = UUID(
+        uuidString: "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE"
+    )!
+
+    private static let initialStoreWallet = StoreWalletSummary(
+        earned: 75,
+        purchased: 0,
+        earnedDebt: 0,
+        refundDebt: 0,
+        total: 75
+    )
+
+    private static let storeKitSession = SessionResponse(
+        authenticated: true,
+        csrfToken: "csrf-storekit",
+        googleClientId: "server-client.apps.googleusercontent.com",
+        season: Season(id: "season-1", name: "Season 1"),
+        profile: PlayerProfile(
+            id: "BBBBBBBB-CCCC-4DDD-8EEE-FFFFFFFFFFFF",
+            nickname: "Buyer",
+            nicknameConfirmed: true,
+            coins: 75,
+            totalPlayMs: 120_000,
+            ownedPetIds: ["foka"],
+            selectedPetId: "foka",
+            petVisible: true,
+            equippedPetId: "foka",
+            specialPetId: nil,
+            ownedThemeIds: ["classic", "disco", "light"],
+            selectedThemeId: "light",
+            isAdmin: false,
+            createdAt: "2026-07-19T00:00:00Z",
+            updatedAt: "2026-07-19T00:00:00Z"
+        ),
+        wallet: initialStoreWallet,
+        adFree: false,
+        storeKit: StoreKitBindingResponse(
+            appAccountToken: storeAccountToken.uuidString.lowercased(),
+            bindingStatus: "bound"
         ),
         ranks: nil
     )

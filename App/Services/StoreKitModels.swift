@@ -119,12 +119,24 @@ struct StoreCreditRequest: Equatable, Sendable {
     let appAccountToken: UUID
 }
 
-struct StoreWalletSummary: Equatable, Sendable {
+struct StoreWalletSummary: Codable, Equatable, Sendable {
     let earned: Int
     let purchased: Int
     let earnedDebt: Int
     let refundDebt: Int
     let total: Int
+}
+
+struct StorefrontAccountState: Equatable, Sendable {
+    let binding: StoreAccountBinding?
+    let wallet: StoreWalletSummary?
+    let adFree: Bool?
+
+    static let unavailable = StorefrontAccountState(
+        binding: nil,
+        wallet: nil,
+        adFree: nil
+    )
 }
 
 enum StoreCreditDisposition: Equatable, Sendable {
@@ -143,5 +155,16 @@ struct StoreCreditResponse: Equatable, Sendable {
 
 protocol StoreKitCreditServing: Sendable {
     func currentStoreAccount() async -> StoreAccountBinding?
+    func currentStorefrontState() async -> StorefrontAccountState
     func credit(_ request: StoreCreditRequest) async throws -> StoreCreditResponse
+}
+
+extension StoreKitCreditServing {
+    func currentStorefrontState() async -> StorefrontAccountState {
+        StorefrontAccountState(
+            binding: await currentStoreAccount(),
+            wallet: nil,
+            adFree: nil
+        )
+    }
 }

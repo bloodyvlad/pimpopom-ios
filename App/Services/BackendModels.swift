@@ -29,13 +29,48 @@ struct RankInfo: Codable, Equatable {
     let topPercent: Int?
 }
 
+struct StoreKitBindingResponse: Codable, Equatable, Sendable {
+    let appAccountToken: String
+    let bindingStatus: String
+
+    var boundToken: UUID? {
+        guard bindingStatus == "bound" else { return nil }
+        return UUID(uuidString: appAccountToken)
+    }
+}
+
 struct SessionResponse: Codable, Equatable {
     let authenticated: Bool
     let csrfToken: String
     let googleClientId: String
     let season: Season
     let profile: PlayerProfile?
+    let wallet: StoreWalletSummary?
+    let adFree: Bool?
+    let storeKit: StoreKitBindingResponse?
     let ranks: [String: RankInfo]?
+
+    init(
+        authenticated: Bool,
+        csrfToken: String,
+        googleClientId: String,
+        season: Season,
+        profile: PlayerProfile?,
+        wallet: StoreWalletSummary? = nil,
+        adFree: Bool? = nil,
+        storeKit: StoreKitBindingResponse? = nil,
+        ranks: [String: RankInfo]?
+    ) {
+        self.authenticated = authenticated
+        self.csrfToken = csrfToken
+        self.googleClientId = googleClientId
+        self.season = season
+        self.profile = profile
+        self.wallet = wallet
+        self.adFree = adFree
+        self.storeKit = storeKit
+        self.ranks = ranks
+    }
 }
 
 struct SpeedRatingCounts: Codable, Equatable {
@@ -78,8 +113,35 @@ struct LeaderboardResponse: Codable, Equatable {
 
 struct ProfileResponse: Codable, Equatable {
     let profile: PlayerProfile
+    let wallet: StoreWalletSummary?
+    let adFree: Bool?
+    let storeKit: StoreKitBindingResponse?
     let ranks: [String: RankInfo]
     let leaderboard: LeaderboardResponse
+
+    init(
+        profile: PlayerProfile,
+        wallet: StoreWalletSummary? = nil,
+        adFree: Bool? = nil,
+        storeKit: StoreKitBindingResponse? = nil,
+        ranks: [String: RankInfo],
+        leaderboard: LeaderboardResponse
+    ) {
+        self.profile = profile
+        self.wallet = wallet
+        self.adFree = adFree
+        self.storeKit = storeKit
+        self.ranks = ranks
+        self.leaderboard = leaderboard
+    }
+}
+
+struct StoreKitCreditAPIResponse: Codable, Equatable, Sendable {
+    let transactionId: String
+    let status: String
+    let duplicate: Bool
+    let wallet: StoreWalletSummary?
+    let adFree: Bool
 }
 
 struct AccountDeletionResponse: Codable, Equatable {
