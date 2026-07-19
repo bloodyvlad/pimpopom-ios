@@ -1,6 +1,6 @@
 # Monetization and privacy design
 
-Status: product, price, entitlement-source, paid-value, refund, and initial US/Canada rules are accepted in P-031. The five App Store products and US/Canada availability are configured, the source-aware PHP backend is deployed, and P-033 accepts the test-safe AdMob/UMP client architecture. App Store review metadata/screenshots, the age questionnaire, UMP dashboard messages, `app-ads.txt`, archive privacy review, and real Sandbox/TestFlight purchase/ad validation remain release gates.
+Status: product, price, entitlement-source, paid-value, refund, and initial US/Canada rules are accepted in P-031. The five App Store products and US/Canada availability are configured, the source-aware PHP backend is deployed, P-033 accepts the test-safe AdMob/UMP client architecture, and P-034 fixes the responsive Remove Ads/banner behavior. App Store review metadata/screenshots, the age questionnaire, UMP dashboard messages, `app-ads.txt`, archive privacy review, and real Sandbox/TestFlight purchase/ad validation remain release gates.
 
 ## Product principles
 
@@ -14,8 +14,9 @@ Status: product, price, entitlement-source, paid-value, refund, and initial US/C
 
 ### Remove Ads
 
-- Location: lower-right safe layout of the Main Menu.
+- Location: a compact 44-point crossed-AD control in the Main Menu header immediately left of Coins on standard-height iPhone 6/7/8/SE screens (667 points or shorter); the full text button remains at the bottom above the banner on taller screens.
 - Minimum interactive target: 44×44 points, with localized text and VoiceOver description.
+- Visibility: do not show either control until an authoritative session exists, and remove it when `sessionState.adFree` is true.
 - States: available with localized StoreKit price, purchasing, pending, owned, unavailable, failed, and restored.
 - A visible **Restore Purchases** action belongs in the purchase sheet and Settings/Profile support surface.
 - Product: `com.otcsoftware.pimpopom.removeads.lifetime`, one $1.99 non-consumable. It is the only Apple-restorable and Family-Shareable product; the current backend requires a signed-in PimPoPom profile for reconciliation.
@@ -34,19 +35,19 @@ The requested host sits at the absolute bottom of gameplay, below the **Speed Ba
 
 Requirements:
 
-- Reserve the maximum accepted banner height before gameplay starts.
+- Reserve the accepted banner height only for a run that starts ad-supported.
 - Center an official 320×50 banner within the safe available width. Google Mobile Ads 13's supported large anchored-adaptive replacement can be 50–150 points tall, so it cannot satisfy this accepted strict 50-point host without clipping. Revisit the reservation before adopting that format.
 - Add visual separation; never place gameplay controls inside or behind the ad host.
 - Ad fill, refresh, no-fill, consent, network failure, rotation, and Remove Ads cannot change the board frame during an active run.
 - Hit-test instrumentation proves a board tap cannot reach the ad view and an ad tap cannot count as gameplay.
-- Hide and stop requests immediately after Remove Ads becomes confirmed.
-- Collapse or resize the host only between runs. On compact devices, suppress it for the run if the accepted minimum board size cannot coexist with the reserved host.
+- Hide and stop requests immediately after Remove Ads becomes confirmed. Remove the actual ad container at once; if this happens during an already eligible active run, retain only an invisible, accessibility-hidden spacer until that run ends, restarts, or leaves gameplay.
+- When ads are disabled or authoritative ad-free before a run begins, construct no gameplay ad host, placeholder, spacer, or note. Menu and results likewise omit their banner containers completely.
 - Use only official test IDs outside production and make Release fail if test/live configuration is wrong.
 - Provide a route to report inappropriate ads as required by the release policy.
 
 Important policy/UX gate: common mobile-ad guidance discourages clickable banners beside continuously interactive gameplay. The accepted first release reserves this exact bottom host but fills it only on the main menu and terminal results. A live banner during Arcade or Zen requires a new explicit product and ad-policy decision, plus device evidence that it cannot encourage accidental taps.
 
-Current implementation fills only main-menu and terminal-results hosts. Active Arcade/Zen always keeps the same empty 50-point slot. Loading, no-fill, consent failure, offline state, and ad-free teardown leave that frame stable. There is no app-owned refresh timer; GMA owns supported banner refresh behavior.
+Current implementation fills only eligible main-menu and terminal-results hosts with one centered fixed 320×50 creative. An ad-supported Arcade/Zen run captures one empty, noninteractive 50-point reservation for its lifetime; loading, no-fill, consent failure, and offline state cannot move the board. Disabled or authoritative ad-free state at run start creates no slot, placeholder, or note. A mid-run transition to ad-free removes the ad container and its accessibility surface immediately but retains invisible spacing only until that run ends, restarts, or leaves gameplay. Pushed destinations detach the menu host so one banner cannot leak into Settings, shops, Leaderboard, or gameplay. There is no app-owned refresh timer; GMA owns supported banner refresh behavior. Direct deterministic coverage of the mid-run transition remains a live-acceptance prerequisite.
 
 ## Interstitial cadence
 
