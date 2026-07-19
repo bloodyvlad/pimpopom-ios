@@ -40,7 +40,7 @@ Use semantic marketing versions once public. CI should own build-number allocati
 
 - Archive the clean `PimPoPom Staging` scheme. This configuration is release-optimized but still uses the existing Hostinger compatibility service and shared Season 1 data; it is not a separate data environment.
 - Do not export as **TestFlight Internal Only** because the same processed build serves the named internal and external groups.
-- Confirm the exported App Store payload is distribution-signed, has `com.apple.developer.game-center = true`, has no `get-task-allow`, contains no private key, and reports version/build `1.01 (2)` before upload.
+- Confirm the exported App Store payload is distribution-signed, has `com.apple.developer.game-center = true`, has no `get-task-allow`, contains no private key, and reports version/build `1.01 (3)` before upload.
 - Use direct email groups only: one internal owner group and one external QA group. Do not enable a public link. An internal tester must already be an App Store Connect user with app access; external tester access is limited to TestFlight.
 - The already-uploaded placeholder build's Beta App Review notes must continue to describe its disabled non-granting Ads/StoreKit UI. For any later StoreKit-enabled build, disclose that it uses the live compatibility service and real shared player/ranking/purchase data, optional Game Center authentication, no live ads, five Sandbox products, server acknowledgement before credit, and in-app deletion. Do not describe the empty Game Center leaderboard as a verified mirror until the Hostinger outbox exists.
 - Submission to TestFlight Beta App Review is not approval. Record processing, review, and invitation states independently.

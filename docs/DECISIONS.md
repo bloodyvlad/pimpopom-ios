@@ -466,3 +466,18 @@ Coin purchases require an authenticated PimPoPom profile and the server-issued `
 Consequences: The native app must submit only the locally verified transaction JWS plus the current server binding, require server acknowledgement before finishing a transaction, and recover unfinished transactions from launch. Remove Ads exposes Restore Purchases; consumables recover only through unfinished transactions and the server ledger. Session state, not a local Boolean or the ad SDK, owns `adFree`, wallet composition, and `refundDebt`. Real purchase validation requires configured App Store products, Sandbox/TestFlight, Notifications V2, a deployed backend, and an explicit Sandbox/Production environment rollout. The dedicated IAP private key remains server-only and is never bundled or committed.
 
 Revisit when: Apple changes Family Sharing/refund behavior, a separate native staging backend is available, launch territories expand beyond the United States and Canada, or support policy deliberately permits recovery onto a replacement PimPoPom profile after deletion.
+
+## P-032 — Begin named StoreKit TestFlight validation
+
+- Date: 2026-07-19
+- Status: Accepted; advances P-027 only for the existing direct-email cohort after P-031 and the paid-value backend became available
+
+Context: The owner accepted the five-product paid-value model, configured the products for the United States and Canada, confirmed the server-owned App Apple ID and IAP key deployment, and authorized a clean StoreKit-enabled TestFlight candidate. The named cohort still uses the live shared Hostinger profile, wallet, and ranking service; no separate native staging backend exists.
+
+Decision: Advance PimPoPom to staging version `1.01` build `3`, keep the App Store app price Free, and distribute the same non-internal-only build only through the existing direct-email internal and external QA groups with public links disabled. The candidate may load and exercise the five real StoreKit products through TestFlight Sandbox, but it must require a server-bound profile, locally verified Apple transaction, and authoritative PHP acknowledgement before finishing or granting value. Coin-store review media may show the wallet because it materially explains paid-coin provenance; the dedicated Remove Ads surface must omit unrelated coin-balance presentation. Upload in-app review screenshots for all five products, but do not submit the production App Store version without a separate owner instruction.
+
+TestFlight notes must disclose the live shared data service, five Sandbox products, optional non-blocking Game Center authentication, disabled live ads, server acknowledgement before value, Restore Purchases behavior, and in-app account deletion. Internal Sandbox purchase/restore and server-notification evidence remain gates before expanding beyond the named cohort or submitting a production release.
+
+Consequences: App Store Connect pricing and product review metadata can be prepared, and build `3` can enter processing and Beta App Review without claiming production availability. A successful upload is not a successful purchase test; a successful Beta App Review is not an App Store release. The dedicated IAP key remains server-only and must never be used for Xcode signing, build upload, or inclusion in the app archive.
+
+Revisit when: the named cohort expands, Apple review requests a different test account or disclosure, Sandbox reveals a transaction/notification mismatch, a separate staging backend is introduced, or the owner authorizes a production App Store submission.

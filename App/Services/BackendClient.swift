@@ -1061,14 +1061,19 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
     }
 
     private static var selectedUITestSession: SessionResponse {
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-storekit-profile") {
+                return uiTestStoreKitSession
+            }
+        #endif
         if ProcessInfo.processInfo.arguments.contains("--ui-test-achievements-profile") {
-            uiTestAchievementSession
+            return uiTestAchievementSession
         } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile") {
-            uiTestPancakeSession
+            return uiTestPancakeSession
         } else if ProcessInfo.processInfo.arguments.contains("--ui-test-pet-profile") {
-            uiTestPetSession
+            return uiTestPetSession
         } else {
-            uiTestSignedOutSession
+            return uiTestSignedOutSession
         }
     }
 

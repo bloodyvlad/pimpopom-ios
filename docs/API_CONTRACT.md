@@ -4,7 +4,7 @@ Status: two layers. The first section records the deployed compatibility surface
 
 ## Current internal-alpha compatibility surface
 
-Base URL: `https://speedytapper.otcsoft.com`. Live health, HTML, JavaScript, and signed-out session probes on 2026-07-19 confirmed Season 1, public access, deployed build ID `20260719-1`, and the additive wallet/ad-free/StoreKit session shape. The recorded backend release is annotated tag `hostinger-20260719-1` at commit `0330524be797066369f0cac14e2b13cee219b44f`.
+Base URL: `https://speedytapper.otcsoft.com`. Live health, HTML, and signed-out session probes on 2026-07-19 confirmed Season 1, public access, deployed build ID `20260719-2`, and the additive wallet/ad-free/StoreKit session shape. The recorded backend release is annotated tag `hostinger-20260719-2` at commit `2173263dc57cdedb50b2c3f2c560744979a74809`; its compatibility allowlist retains the native client's `20260719-1` ranked-proof build.
 
 | Method and path | Purpose | Native behavior |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ The migration source service currently uses:
 - a CSRF token/header for mutations;
 - a Google **Web** client ID and browser credential flow;
 - one browser-session-bound ranked attempt per player;
-- an exact accepted web build (`20260719-1` on the live service at the current audit);
+- an exact accepted build (`20260719-1` for this native client on deployed service `20260719-2` at the current audit);
 - ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 proof-event cap;
 - extensionless `/api/*` routes for session, profile, leaderboard, runs, achievements, pets, themes, and administration.
 

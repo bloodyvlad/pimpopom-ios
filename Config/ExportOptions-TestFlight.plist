@@ -12,6 +12,8 @@
     <string>automatic</string>
     <key>teamID</key>
     <string>APX2925X66</string>
+    <key>testFlightInternalTestingOnly</key>
+    <false/>
     <key>uploadSymbols</key>
     <true/>
 </dict>

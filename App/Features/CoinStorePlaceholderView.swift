@@ -153,7 +153,7 @@ struct CoinStoreView: View {
                     + "No App Store charge can start until the server supplies an account binding.",
                 symbol: "link.badge.plus"
             )
-        } else {
+        } else if offer == .coinPacks {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     PixelCoinView(size: 24)
@@ -385,9 +385,17 @@ struct CoinStoreView: View {
     private func successMessage(_ success: StorePurchaseSuccess) -> String {
         switch success.disposition {
         case .credited:
-            "Purchase complete. Your server-confirmed balance is \(success.wallet.total) coins."
+            if offer == .removeAds {
+                "Purchase complete. Ad-free is active on your PimPoPom account."
+            } else {
+                "Purchase complete. Your server-confirmed balance is \(success.wallet.total) coins."
+            }
         case .duplicate:
-            "This purchase was already secured. Your balance is \(success.wallet.total) coins."
+            if offer == .removeAds {
+                "This Remove Ads purchase was already secured on your PimPoPom account."
+            } else {
+                "This purchase was already secured. Your balance is \(success.wallet.total) coins."
+            }
         case .reconciled:
             "Purchase restored and reconciled with your PimPoPom account."
         case .reversed:

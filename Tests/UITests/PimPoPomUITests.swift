@@ -113,6 +113,38 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
+    func testCoinStoreReviewPresentation() throws {
+        let app = launch(additionalArguments: ["--ui-test-storekit-profile"])
+        openMenuControl("open-theme-shop", in: app)
+
+        XCTAssertTrue(app.navigationBars["Theme Shop"].waitForExistence(timeout: 3))
+        let buyCoins = app.buttons["theme-buy-coins"]
+        XCTAssertTrue(buyCoins.waitForExistence(timeout: 3))
+        buyCoins.tap()
+
+        XCTAssertTrue(app.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
+        let firstPack = app.buttons[
+            "store-product-com.otcsoftware.pimpopom.coins.50.v1"
+        ]
+        XCTAssertTrue(firstPack.waitForExistence(timeout: 2))
+        XCTAssertTrue(firstPack.isEnabled)
+        XCTAssertTrue(app.descendants(matching: .any)["store-wallet"].exists)
+        XCTAssertTrue(scrollToElement(firstPack, in: app))
+        attachScreenshot(of: app, name: "IAP review 50 coins")
+
+        for (productID, name) in [
+            ("com.otcsoftware.pimpopom.coins.100.v1", "IAP review 100 coins"),
+            ("com.otcsoftware.pimpopom.coins.500.v1", "IAP review 500 coins"),
+            ("com.otcsoftware.pimpopom.coins.1000.v1", "IAP review 1000 coins"),
+        ] {
+            let product = app.buttons["store-product-\(productID)"]
+            XCTAssertTrue(product.waitForExistence(timeout: 2))
+            XCTAssertTrue(product.isEnabled)
+            XCTAssertTrue(scrollToElement(product, in: app))
+            attachScreenshot(of: app, name: name)
+        }
+    }
+
     func testAchievementsClaimUsesTheAuthoritativeRewardFixture() throws {
         let app = launch(additionalArguments: ["--ui-test-achievements-profile"])
         let menuButton = app.buttons["open-achievements"]
@@ -491,6 +523,26 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertFalse(app.buttons["store-restore-purchases"].isEnabled)
     }
 
+    func testRemoveAdsReviewPresentation() throws {
+        let app = launch(additionalArguments: ["--ui-test-storekit-profile"])
+        let removeAds = app.buttons["remove-ads"]
+        XCTAssertTrue(removeAds.waitForExistence(timeout: 3))
+        removeAds.tap()
+
+        XCTAssertTrue(app.navigationBars["Remove Ads"].waitForExistence(timeout: 3))
+        let product = app.buttons[
+            "store-product-com.otcsoftware.pimpopom.removeads.lifetime"
+        ]
+        XCTAssertTrue(product.waitForExistence(timeout: 2))
+        XCTAssertTrue(product.isEnabled)
+        XCTAssertTrue(app.staticTexts["Restorable · Family Sharing"].exists)
+        XCTAssertTrue(app.buttons["store-restore-purchases"].isEnabled)
+        XCTAssertFalse(app.descendants(matching: .any)["store-wallet"].exists)
+        XCTAssertFalse(app.staticTexts["Current balance"].exists)
+        XCTAssertTrue(scrollToElement(product, in: app))
+        attachScreenshot(of: app, name: "IAP review remove ads")
+    }
+
     func testMotivationAdvancesOnTap() throws {
         let app = launch(additionalArguments: ["--ui-test-menu-motivation"])
         let motivation = app.buttons["menu-motivation"]
@@ -736,6 +788,13 @@ final class PimPoPomUITests: XCTestCase {
             app.swipeUp()
         }
         return text.exists
+    }
+
+    private func scrollToElement(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        for _ in 0..<10 where !element.isHittable {
+            app.swipeUp()
+        }
+        return element.isHittable
     }
 
     private func attachScreenshot(of app: XCUIApplication, name: String) {
