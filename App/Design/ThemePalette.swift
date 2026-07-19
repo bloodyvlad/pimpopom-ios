@@ -382,7 +382,7 @@ enum ThemePreviewStyle {
 enum GameCellVisualMetrics {
     static let targetBorderWidth: CGFloat = 3
     static let activeBorderWidth: CGFloat = 2
-    static let previewGlyphScale: CGFloat = 3
+    static let previewGlyphScale: CGFloat = 2
 
     static func cornerRadius(
         theme: ThemePalette,
@@ -413,7 +413,7 @@ enum GameCellVisualMetrics {
     static func liveGlyphScale(gridDimension: Int) -> CGFloat {
         switch gridDimension {
         case 2: 2
-        case 4: 3
+        case 4: 2
         default: 1
         }
     }

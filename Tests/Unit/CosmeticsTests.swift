@@ -189,13 +189,13 @@ final class CosmeticsTests: XCTestCase {
             12,
             accuracy: 0.001
         )
-        XCTAssertEqual(GameCellVisualMetrics.previewGlyphScale, 3)
+        XCTAssertEqual(GameCellVisualMetrics.previewGlyphScale, 2)
         XCTAssertEqual(
             GameCellVisualMetrics.glyphBoxSide(
                 side: 100,
                 scale: GameCellVisualMetrics.previewGlyphScale
             ),
-            36,
+            24,
             accuracy: 0.001
         )
         XCTAssertEqual(
@@ -229,12 +229,12 @@ final class CosmeticsTests: XCTestCase {
                 side: 40,
                 scale: GameCellVisualMetrics.previewGlyphScale
             ),
-            16.8,
+            11.2,
             accuracy: 0.001
         )
         XCTAssertEqual(GameCellVisualMetrics.liveGlyphScale(gridDimension: 1), 1)
         XCTAssertEqual(GameCellVisualMetrics.liveGlyphScale(gridDimension: 2), 2)
-        XCTAssertEqual(GameCellVisualMetrics.liveGlyphScale(gridDimension: 4), 3)
+        XCTAssertEqual(GameCellVisualMetrics.liveGlyphScale(gridDimension: 4), 2)
         XCTAssertEqual(GameCellVisualMetrics.targetBorderWidth, 3)
         XCTAssertEqual(GameCellVisualMetrics.activeBorderWidth, 2)
         XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 4)

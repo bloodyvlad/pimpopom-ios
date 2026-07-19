@@ -592,7 +592,9 @@ final class PimPoPomUITests: XCTestCase {
     }
 
     func testThemeShopUsesTwoColumnCardsAndShowsSelectedFixture() throws {
-        let app = launch(additionalArguments: ["--ui-test-theme", "pixel"])
+        let app = launch(
+            additionalArguments: ["--ui-test-theme", "pixel", "--ui-test-glyphs-on"]
+        )
         openMenuControl("open-theme-shop", in: app)
 
         let classic = app.buttons["theme-action-classic"]
@@ -614,6 +616,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(pixel.label, "Pixel")
         XCTAssertEqual(pixel.value as? String, "Selected")
         XCTAssertTrue(pixel.isEnabled)
+        attachScreenshot(of: app, name: "SE Theme Shop two-times preview glyphs")
 
         classic.tap()
         XCTAssertEqual(

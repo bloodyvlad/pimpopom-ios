@@ -436,3 +436,16 @@ For each accepted tap, show one borderless, unrotated two-line presentation at t
 Consequences: Glyph visibility now grows with board density without disturbing the already accepted one-cell composition, and preview surfaces remain representative of the most demanding live stage. A correct tap has one stable visual anchor and one fade lifecycle rather than two decorated stamps. Light's target panel cannot advertise a color different from its actual cell. Deterministic tests lock all scale factors, exact tap/rating positions, copy, timing, yellow Missed mapping, menu offsets, and the menu pet input/render alignment. This batch is merged without a build-number change or TestFlight/App Store upload. A later owner instruction authorizes a direct development-signed cable install; install/launch alone is not visual acceptance, so structured physical review remains required.
 
 Revisit when: physical-device review shows edge clipping, the 4×4 glyphs crowd their cell material, Dynamic Type requires a separate feedback layout, or a future board dimension needs an explicit scale contract.
+
+## P-030 — Reduce preview and dense-board glyphs
+
+- Date: 2026-07-19
+- Status: Accepted; supersedes P-029 for the Arcade Your Color, Theme Shop preview, and 4×4 live-board multipliers
+
+Context: Physical review first found the 3× glyph treatment too prominent in compact preview surfaces, then found the same treatment too prominent on the 4×4/16-cell live board. The one-cell and 2×2 treatments remain appropriate.
+
+Decision: Divide the preview and 4×4 multipliers by 1.5, from 3× to 2×. Apply 2× to the Arcade Your Color swatch, every Theme Shop game screenshot, and the 4×4/16-cell live board. Keep the live SpriteKit contract at 1× for 1×1 and 2× for 2×2. Do not change geometry, glyph shapes, hit regions, difficulty, Zen's glyph-free gradient swatch, or any other grid presentation.
+
+Consequences: Both preview surfaces and the densest live board become one-third smaller than P-029. Deterministic tests lock the 2× preview token, its resolved sizes, and the live 1×/2×/2× mapping. Per the owner's explicit instruction, this final 4×4 adjustment proceeds directly to merge and cable installation without another Simulator regression pass.
+
+Revisit when: physical review shows the previews are still dominant or no longer legible, or a new preview surface needs an independently named scale.
