@@ -6,6 +6,16 @@ This file is historical evidence, not proof of the current TestFlight or App Sto
 
 The playable Xcode alpha has current density-aware glyph, unified local feedback, menu-offset, Light-outline, and yellow-Missed evidence on the named iPhone SE 2022 Simulator at exact implementation commit `bfbc351`. The latest previously recorded physical checkpoint remains implementation commit `bab0709`, which was development-signed with the selected `com.otcsoftware.pimpopom` identity, installed, and launched as **PimPoPom** on the owner's iPhone SE with iOS 26.3; it was not a structured device review. Prior Disco/footer evidence remains at `6743fc2`, Leaderboard/gameplay evidence at `c0bcc69`, and icon/quick-action evidence at `30503e3`. Earlier physical commit `d3ffd87` used retired bundle ID `com.otcsoft.pimpopom.alpha`. The 13 mini/13 Pro profiles were not rerun. No physical 13 mini/13 Pro, TestFlight, or App Store QA has been performed; no Simulator result validates 60/120 Hz touch timing.
 
+## StoreKit review presentation pass — 2026-07-19
+
+- **Candidate/version/build:** PimPoPom 1.01 (3), Staging/TestFlight preparation candidate.
+- **Implementation commit:** `eb1cd09` (`Prepare StoreKit TestFlight build 3`).
+- **Simulator and configuration:** named iPhone SE (3rd generation, 2022) Simulator on iOS 26.5 (23F77), Debug, deterministic signed-in StoreKit product fixture with production mutations and real purchases disabled.
+- **Automated checks:** `Scripts/check.sh` passed 29 pure core tests, 113 native unit tests, all 25 SE XCUITest paths, strict formatting, asset/provenance checks, generated-project checks, generic Simulator build, Staging metadata checks, and `git diff --check`. Xcode reported 138 passed native/UI tests with zero failures or skips, for 167 checks including the core package.
+- **Review-media findings:** four named coin-product captures and one Remove Ads capture render at Apple's supported 750×1334 iPhone size. The coin flow shows the authoritative earned/purchased wallet context. Remove Ads shows its $1.99 restorable Family Sharing offer and enabled restore path without displaying an unrelated coin balance. No local-test watermark is present.
+- **Retained capture paths:** `/Users/vlad/Documents/PimPoPom-release-media/1.01-3/iap-coins-50.png`, `/Users/vlad/Documents/PimPoPom-release-media/1.01-3/iap-coins-100.png`, `/Users/vlad/Documents/PimPoPom-release-media/1.01-3/iap-coins-500.png`, `/Users/vlad/Documents/PimPoPom-release-media/1.01-3/iap-coins-1000.png`, and `/Users/vlad/Documents/PimPoPom-release-media/1.01-3/iap-remove-ads.png`.
+- **Production/device scope:** no App Store Connect upload, Beta App Review submission, real Sandbox purchase, authenticated Hostinger write, or physical-device action had occurred at this checkpoint.
+
 ## Density-aware glyph and unified tap-feedback Simulator pass — 2026-07-19
 
 - **Candidate/version/build:** PimPoPom 1.01 (2), development/debug candidate.
