@@ -240,10 +240,10 @@ extension Transaction.OwnershipType {
 
         private func displayName(for productID: StoreProductID) -> String {
             switch productID {
-            case .coins50: "50 Coins + Ad-free"
-            case .coins100: "100 Coins + Ad-free"
-            case .coins500: "500 Coins + Ad-free"
-            case .coins1000: "1,000 Coins + Ad-free"
+            case .coins50: "50 Coins and Ad-free"
+            case .coins100: "100 Coins and Ad-free"
+            case .coins500: "500 Coins and Ad-free"
+            case .coins1000: "1,000 Coins and Ad-free"
             case .removeAdsLifetime: "Remove Ads"
             }
         }

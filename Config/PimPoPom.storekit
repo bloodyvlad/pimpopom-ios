@@ -1,0 +1,152 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "PIMPOPOM",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "F15E0050",
+      "localizations" : [
+        {
+          "description" : "50 coins for pets and themes, plus ad-free play.",
+          "displayName" : "50 Coins and Ad-free",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.otcsoftware.pimpopom.coins.50.v1",
+      "referenceName" : "50 Coins and Ad-free",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "F15E0100",
+      "localizations" : [
+        {
+          "description" : "100 coins for pets and themes, plus ad-free play.",
+          "displayName" : "100 Coins and Ad-free",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.otcsoftware.pimpopom.coins.100.v1",
+      "referenceName" : "100 Coins and Ad-free",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "F15E0500",
+      "localizations" : [
+        {
+          "description" : "500 coins for pets and themes, plus ad-free play.",
+          "displayName" : "500 Coins and Ad-free",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.otcsoftware.pimpopom.coins.500.v1",
+      "referenceName" : "500 Coins and Ad-free",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "14.99",
+      "familyShareable" : false,
+      "internalID" : "F15E1000",
+      "localizations" : [
+        {
+          "description" : "1,000 coins for pets and themes, plus ad-free play.",
+          "displayName" : "1,000 Coins and Ad-free",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.otcsoftware.pimpopom.coins.1000.v1",
+      "referenceName" : "1,000 Coins and Ad-free",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : true,
+      "internalID" : "AD5F0001",
+      "localizations" : [
+        {
+          "description" : "Ad-free PimPoPom. Restorable with Family Sharing.",
+          "displayName" : "Remove Ads",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.otcsoftware.pimpopom.removeads.lifetime",
+      "referenceName" : "Remove Ads",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

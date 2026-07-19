@@ -106,7 +106,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Sign in to purchase"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.descendants(matching: .any)["store-account-gate"].exists)
-        XCTAssertTrue(app.staticTexts["50 Coins + Ad-free"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["50 Coins and Ad-free"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["$2.99"].exists)
         XCTAssertFalse(
             app.buttons["store-product-com.otcsoftware.pimpopom.coins.50.v1"].isEnabled

@@ -4,7 +4,7 @@ Status: two layers. The first section records the deployed compatibility surface
 
 ## Current internal-alpha compatibility surface
 
-Base URL: `https://speedytapper.otcsoft.com`. Live health, HTML, and JavaScript probes on 2026-07-18 confirmed Season 1, public access, and deployed build ID `20260718-1`, matching retained annotated deployment tag `hostinger-20260718-1` at commit `371d59815fa7c9e562e69d05962ac6063de0b40f`.
+Base URL: `https://speedytapper.otcsoft.com`. Live health, HTML, JavaScript, and signed-out session probes on 2026-07-19 confirmed Season 1, public access, deployed build ID `20260719-1`, and the additive wallet/ad-free/StoreKit session shape. The recorded backend release is annotated tag `hostinger-20260719-1` at commit `0330524be797066369f0cac14e2b13cee219b44f`.
 
 | Method and path | Purpose | Native behavior |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ Base URL: `https://speedytapper.otcsoft.com`. Live health, HTML, and JavaScript 
 | `POST /api/logout` | End PHP session | CSRF mutation |
 | `GET`, `PATCH /api/profile?mode=normal` | Profile and nickname | PATCH body contains only `nickname` |
 | `GET /api/leaderboard?mode=normal\|zen` | Public/shared ranks | Available signed out |
-| `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260718-1"}` |
+| `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260719-1"}` |
 | `POST /api/runs/abandon` | Idempotent discard | Body contains `runId` |
 | `POST /api/runs/finish` | Replay proof and save result | Ticket metadata plus integer proof tuples only |
 | `GET /api/achievements` | Five-goal catalog, player state, and balance | Public; signed out returns the locked catalog, while authenticated reads return server-authoritative states/counts and `coinBalance` |
@@ -28,7 +28,7 @@ The native client uses one long-lived default `URLSession` with shared cookie st
 
 Concurrent session bootstrap is coalesced. Login, logout, nickname, achievement, theme, and pet mutations carry a client-side session/player generation; a superseded response is rejected instead of being attached to a newer account. Achievement claims are serialized with other account mutations, and an expired 401/403 triggers session reconciliation before the player may retry. Theme and pet mutations are also serialized across both shops. These client checks prevent stale presentation state but do not replace server authentication, transactions, or idempotency.
 
-`GET /api/session` and `POST /api/runs/finish` may include an additive `achievementSnapshot`. The current native models intentionally do not consume it; synthesized `Codable` decoding ignores this and other unknown response keys while retaining every required session/finish field.
+`GET /api/session` and `POST /api/runs/finish` may include an additive `achievementSnapshot`. The current native models intentionally do not consume it. Session decoding does consume the optional `wallet`, `adFree`, and `storeKit` fields while remaining compatible with older responses; synthesized `Codable` decoding ignores all other unknown response keys while retaining every required session/finish field.
 
 The achievement client validates unique nonempty catalog entries, positive rewards, consistent totals/states, the exact claimed item, duplicate marker, nominal `coinsEarned`, and nonnegative balance before changing presentation or profile coins. The five bundled definitions are signed-out/error fallback copy only; they never authorize unlocks or rewards. Server-side debt can absorb a credited reward, so `coinBalance` rather than arithmetic on `coinsEarned` is the local economy truth.
 
@@ -36,7 +36,7 @@ Google configuration uses a new iOS OAuth client whose bundle ID matches the app
 
 Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-025 temporarily passes the currently deployed build ID. Arcade must first bootstrap the PHP session; a signed-in confirmed session must also obtain a ranked ticket before gameplay begins. A session or ticket failure is blocking and retryable rather than a silent downgrade. After `/api/runs/finish`, a `verified` result is accepted only when `submittedEntryId` equals that ticket's `runId`; `review` and `quarantined` confirm persistence but remain intentionally absent from public ranking. P-027 permits this production-compatible path only for the first direct-email TestFlight owner/QA cohort. It must still be replaced before public-link beta expansion or App Store distribution, and immediately if the server changes its accepted build.
 
-The compatibility backend has no Buy Coins or StoreKit transaction endpoint. The alpha's Buy Coins controls therefore open a shared explanatory placeholder and never grant value. Achievement state/rewards, pet/theme prices, ownership, selection, and balance are always taken from the server response; client fallback catalogs are display/offline continuity only.
+The deployed compatibility backend now exposes StoreKit credit and account-deletion routes described below. The native StoreKit client uses them only for an authenticated, bound profile and never grants local value before a validated server acknowledgement. Achievement state/rewards, StoreKit wallet and entitlement state, pet/theme prices, ownership, selection, and balance are always taken from the server response; client fallback catalogs are display/offline continuity only.
 
 ### Game Center boundary
 
@@ -52,7 +52,7 @@ The migration source service currently uses:
 - a CSRF token/header for mutations;
 - a Google **Web** client ID and browser credential flow;
 - one browser-session-bound ranked attempt per player;
-- an exact accepted web build (`20260718-1` on the live service at the current audit);
+- an exact accepted web build (`20260719-1` on the live service at the current audit);
 - ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 proof-event cap;
 - extensionless `/api/*` routes for session, profile, leaderboard, runs, achievements, pets, themes, and administration.
 
@@ -219,22 +219,24 @@ The native equivalents of profile, leaderboard, achievements, pets, and themes r
 
 ## StoreKit transaction credit
 
-Proposed endpoint: `POST /api/mobile/v1/storekit/transactions`.
+Deployed endpoints: `POST /api/storekit/transactions` and the versioned alias `POST /api/mobile/v1/storekit/transactions`. They are owned by the PHP release recorded above. Both require the existing authenticated cookie and CSRF header.
 
 The app sends:
 
-- App Store-signed JWS representation from a locally verified StoreKit transaction;
-- product identifier;
-- expected authenticated `appAccountToken` binding;
-- environment and app transaction context available in the signed payload;
-- operation idempotency key;
-- integrity assertion if required.
+- `signedTransaction`: the App Store-signed JWS representation from a locally verified StoreKit transaction;
+- `appAccountToken`: the current authenticated server-issued UUID binding.
 
-The server verifies Apple signature/chain and bundle/product/environment/account binding, checks immutable transaction ID and refund/revocation state, credits the matching catalog pack once, appends ledger provenance, and returns server balance. It never accepts a submitted coin quantity or localized price.
+The request contains no client product identifier, coin quantity, price, balance, environment, or separate idempotency key. Those values and the globally unique transaction identity come only from Apple's signed payload; the server rejects unknown request fields.
+
+The server verifies Apple signature/chain and bundle/product/environment/account binding, checks immutable transaction ID and refund/revocation state, credits the matching catalog pack once, appends ledger provenance, and returns `transactionId`, `status`, `duplicate`, `wallet`, and `adFree`. It never accepts a submitted coin quantity or localized price.
 
 Only after server acknowledgement does the client finish the consumable transaction. Unacknowledged verified transactions remain recoverable through `Transaction.updates`/unfinished transaction reconciliation.
 
 Remove Ads uses current StoreKit entitlement state plus server reconciliation if cross-platform/profile visibility is desired. The ad SDK never decides entitlement.
+
+## Account deletion
+
+Deployed route: `DELETE /api/profile`, with aliases `/api/account` and `/api/mobile/v1/account`. It uses the existing authenticated cookie and CSRF header and accepts only `{"confirmation":"DELETE MY ACCOUNT"}`. The server additionally requires Google authentication within the previous 15 minutes. A valid response confirms `deleted: true` and `authenticated: false`, destroys the PHP session, and may include additive paid-evidence retention counts. The native client ignores unknown fields, clears its session only after validating those two flags, signs Google out, and never disconnects the independent Game Center identity.
 
 ## App Attest
 

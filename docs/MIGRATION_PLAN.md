@@ -2,9 +2,9 @@
 
 Status: Full production plan, based on migration source commit `675551adc715942ce2512c14d396d5d14e763f02` reviewed on 2026-07-14.
 
-The current execution track began as the owner-only internal alpha in [`ALPHA_FAST_PATH.md`](ALPHA_FAST_PATH.md). It deliberately defers legal, ownership, accounting, a production-grade native identity/session contract, ads, and StoreKit work. Under P-014 the app reads and is prepared to write the existing Hostinger PHP service with shared production players and leaderboards. P-027 permits only the first direct-email TestFlight owner/QA cohort to exercise that same compatibility path; neither decision makes it the external-release architecture.
+The current execution track began as the owner-only internal alpha in [`ALPHA_FAST_PATH.md`](ALPHA_FAST_PATH.md). That fast path originally deferred legal, ownership, accounting, a production-grade native identity/session contract, ads, and StoreKit work. P-031 has now accepted the paid-value rules and resumed native StoreKit after the source-aware PHP backend deployment; ads and the broader external-release architecture remain gated. Under P-014 the app reads and writes the existing Hostinger PHP service with shared production players and leaderboards. P-027 permits only the first direct-email TestFlight owner/QA cohort to exercise that compatibility path; neither decision makes it the final public architecture.
 
-Do not begin paid purchases, live ads, backend deployment, public-link beta traffic, or traffic outside P-027's named cohort while deterministic parity, identity, and accounting remain unresolved.
+Do not accept real paid purchases, request live ads, open a public-link beta, or expand beyond P-027's named cohort until Sandbox/TestFlight validation, identity, release metadata, and the remaining external-release gates are closed.
 
 ## Deferred production Phase 0 — Owner and commercial setup
 

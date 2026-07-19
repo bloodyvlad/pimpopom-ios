@@ -11,19 +11,15 @@ These questions are intentionally unresolved. Recommended defaults guide discuss
 | Minimum OS/devices | Provisional iOS 17+, iPhone portrait; decide iPad separately | API choices, test matrix, market reach, layout |
 | Backend ownership | Shared cross-platform backend with a versioned native bearer API | One profile/economy while avoiding copied server code |
 | Account model | Sign in with Apple + Google, explicit linking, separate nickname | App Review, existing players, duplicate-account safety |
-| Launch regions/languages | Small explicit first set with full legal/support coverage | Consent, localization, tax, support, age rules |
+| Launch regions/languages | US and Canada accepted initially; decide support copy beyond English before release | Consent, localization, tax, support, age rules |
 | Children/teen audience | Do not claim Kids Category without a dedicated compliant design | Ads, consent, SDK/data limits, creative and review rules |
 
 ## P0 — Resolve before StoreKit or live ads
 
 | Decision | Recommended starting point | Why it matters |
 | --- | --- | --- |
-| Paid coin model | Separate earned/purchased provenance; earned-first spend | Prevent moderation from erasing paid value |
-| Coin packs/prices | Decide after economy modeling; no placeholder products in release | Balance, App Review, tax, refunds, player trust |
-| Refund shortfall | Explicit debt/cosmetic policy with legal review | A refunded spent consumable cannot be handled silently |
-| Remove Ads price | One non-consumable, restore supported | Product metadata and player expectation |
-| Family Sharing | Decide explicitly before product configuration | Entitlement behavior across family devices |
-| Anonymous purchases | Allow Remove Ads by App Store account; require game profile for coins | Recoverability and server binding |
+| Sandbox/Production backend routing | Separate staging runtime, or an explicitly reviewed dual-environment verifier | TestFlight emits Sandbox transactions while App Store customers use Production |
+| Deleted-account purchase recovery | Do not silently attach retained paid evidence to a new profile under P-031 | Apple ownership may outlive a deliberately deleted PimPoPom profile |
 | Ad vendor | AdMob + UMP is the initial technical recommendation | SDK/privacy/policy/test integration |
 | Active gameplay ads | Reserve requested host, but fill only outside active runs initially | Ad guidance discourages banners beside continuous interaction |
 | Compact ad-host policy | Define the minimum playable board size; suppress/collapse only between runs below it | Prevent a banner from shrinking or moving reaction targets |
@@ -56,4 +52,4 @@ These questions are intentionally unresolved. Recommended defaults guide discuss
 
 ## Decision process
 
-For each item, record owner, alternatives, evidence, selected option, date, rollout implications, and a new decision-log entry. Product IDs, prices, secrets, real account identifiers, and private keys do not belong in this public Markdown file.
+For each item, record owner, alternatives, evidence, selected option, date, rollout implications, and a new decision-log entry. Secrets, private account identifiers, private keys, and operational credentials do not belong in this public Markdown file; public StoreKit product identifiers and accepted price points may be recorded.

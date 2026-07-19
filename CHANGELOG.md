@@ -37,6 +37,9 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - A Home Screen `Change Icon` quick action backed by the `pimpopom://settings/icon` deep link, opening the icon selector directly from the app's context menu.
 - A release-optimized Staging scheme, App Store Connect export profile, Game Center capability/entitlement, and non-blocking `GKLocalPlayer` service with Profile status/retry and ephemeral identity-signature support.
 - Deterministic Game Center unit/UI coverage proving system authentication is suppressed in UI tests and that unavailable Game Center does not gate PimPoPom services.
+- A five-product StoreKit 2 catalog, app-owned StoreKit actor/protocol, launch-time transaction listeners, acknowledgement-before-finish purchase controller, account-bound PHP credit bridge, and Debug-only offline StoreKit scheme.
+- One shared localized Coin Store across the main menu, Theme Shop, and Pet Shop, with signed-in/binding gates, pending/cancelled/unverified/error states, authoritative wallet/refund-debt/ad-free presentation, unfinished-transaction retry, and standalone Remove Ads restore.
+- Secure in-app account deletion requiring recent Google authentication and the exact confirmation phrase, with strict response validation before local session removal.
 
 ### Changed
 
@@ -84,3 +87,6 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Corrected Foka's asymmetric right turn by mirroring its reviewed clean half-left/full-left cells into the semantic right poses; every other pet and the shared adjacent-pose animation plan remain unchanged.
 - Increased the Your Color panel outline from three to five points with stronger outward glow, and replaced Zen's radial rainbow with the horizontal PimPoPom logo color progression.
 - Changed score feedback to transparent `+N points` copy that flies and dissolves into the captured Points field, and locked Godlike/Perfect to a captured direct Speed Bar path so board refreshes cannot reverse either effect.
+- Updated ranked compatibility to deployed build `20260719-1` and added backward-compatible session decoding for source-aware wallet, ad-free entitlement, and server-issued StoreKit binding state.
+- Moved Game Center above rank/personal-best content in Profile and isolated Delete Account at the very bottom.
+- Accepted the P-031 product/refund/account-deletion model and configured the five App Store Connect products for the United States and Canada, with Family Sharing only on standalone Remove Ads.

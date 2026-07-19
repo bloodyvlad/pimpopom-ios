@@ -1,6 +1,6 @@
 # Monetization and privacy design
 
-Status: requested entry points and placement are accepted; vendor, prices, age strategy, and paid-value accounting require owner decisions before release.
+Status: product, price, entitlement-source, paid-value, refund, and initial US/Canada rules are accepted in P-031. The five App Store products and US/Canada availability are configured, and the source-aware PHP backend is deployed. App Store review metadata/screenshots, the age questionnaire, ad vendor configuration, and real Sandbox/TestFlight purchase/refund/restore validation remain release gates.
 
 ## Product principles
 
@@ -18,7 +18,7 @@ Status: requested entry points and placement are accepted; vendor, prices, age s
 - Minimum interactive target: 44×44 points, with localized text and VoiceOver description.
 - States: available with localized StoreKit price, purchasing, pending, owned, unavailable, failed, and restored.
 - A visible **Restore Purchases** action belongs in the purchase sheet and Settings/Profile support surface.
-- Proposed product type: one non-consumable. Family Sharing and profile mapping remain decisions.
+- Product: `com.otcsoftware.pimpopom.removeads.lifetime`, one $1.99 non-consumable. It is the only Apple-restorable and Family-Shareable product; the current backend requires a signed-in PimPoPom profile for reconciliation.
 
 ### Buy Coins
 
@@ -69,7 +69,17 @@ Authority boundary: Apple's signed StoreKit transaction/current-entitlement stat
 | Coin pack | Consumable | App Store-signed transaction verified and credited once by server |
 | Pet/theme | In-game coin spend, not separate IAP | Server catalog, ownership transaction, and ledger |
 
-Product identifiers, pack sizes, price points, availability, family sharing, and introductory promotions are intentionally absent until owner approval.
+The accepted products are:
+
+| Product ID | Type | US price point | Verified result |
+| --- | --- | ---: | --- |
+| `com.otcsoftware.pimpopom.coins.50.v1` | Consumable | $2.99 | 50 purchased coins plus account-bound ad-free |
+| `com.otcsoftware.pimpopom.coins.100.v1` | Consumable | $4.99 | 100 purchased coins plus account-bound ad-free |
+| `com.otcsoftware.pimpopom.coins.500.v1` | Consumable | $9.99 | 500 purchased coins plus account-bound ad-free |
+| `com.otcsoftware.pimpopom.coins.1000.v1` | Consumable | $14.99 | 1,000 purchased coins plus account-bound ad-free |
+| `com.otcsoftware.pimpopom.removeads.lifetime` | Non-consumable | $1.99 | Apple-restorable, Family-Shareable ad-free; no coins |
+
+Every valid direct coin purchase contributes an account-bound ad-free entitlement source. Only the standalone non-consumable participates in Apple's Restore Purchases and Family Sharing; family members receive no coins. “Forever” means non-expiring while at least one verified, unrefunded source remains, not an irreversible profile flag. StoreKit remains authoritative for localized storefront names and `displayPrice`, including localized Canadian pricing.
 
 ## Recommended paid-value ledger
 
@@ -84,7 +94,7 @@ Selling coins invalidates the old assumption that every coin came from verified 
 - do not let an administrative reward reset erase StoreKit transaction history or paid entitlement;
 - reconcile server notifications idempotently and retain support/audit evidence under the privacy retention policy.
 
-This is a recommendation, not an accepted economy rule. Refund shortfall, cosmetic revocation, account deletion, cross-platform display, and reset behavior require legal/product review.
+P-031 accepts this as the technical economy rule. On an Apple refund, remove the exact transaction's unspent purchased value, revoke only cosmetics whose recorded debit was actually funded by that transaction, restore unrelated earned allocations, and expose any remaining shortfall as `refundDebt`. Future credits clear refund debt before becoming spendable. `REFUND_REVERSED` restores credit and refund-revoked cosmetics idempotently. Remove ad-free only when no other valid source remains. Administrative moderation never erases purchased balances, IAP history, or paid entitlements.
 
 ## Purchase flow
 
@@ -97,6 +107,8 @@ This is a recommendation, not an accepted economy rule. Refund shortfall, cosmet
 7. Process App Store Server Notifications V2 for refunds, reversals, and lifecycle changes.
 
 The server accepts product and signed transaction identity, never a client-submitted coin quantity, balance, or price.
+
+The initial storefront scope is the United States and Canada. Restrict the app and each IAP separately in App Store Connect. Complete the age-rating questionnaire from actual public-nickname, leaderboard, advertising, and purchase behavior; PimPoPom is not a Kids Category app.
 
 ## Data inventory
 

@@ -1,6 +1,6 @@
 # Local iPhone alpha fast path
 
-Status: Current internal technical execution track. Gameplay and the existing PHP backend are integrated; commercial, legal, accounting, ads, and StoreKit work remains deferred.
+Status: Historical owner-only fast path. It remains useful for the original installation/gameplay sequence, but its disabled-StoreKit assumptions were superseded on 2026-07-19 by accepted decision P-031, the deployed paid-value backend, and the native StoreKit implementation recorded in `README.md`. Ads and broader commercial-release work remain deferred.
 
 ## Goal
 

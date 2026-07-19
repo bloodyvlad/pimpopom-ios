@@ -89,7 +89,7 @@ Test on 60 Hz and 120 Hz hardware. `CADisplayLink`/SpriteKit callback time is st
 - `AudioController` owns one `AVAudioEngine` with independent Sound FX/Music mixer buses. It lazy-decodes only enabled categories, keeps shared loss/sting buffers across enabled theme swaps, rejects stale loads, routes menu/gameplay/silent contexts, and stops immediately on background/interruption.
 - `AppPreferences` stores only nonsecret local audio values, the glyph toggle, and the signed-out free-theme choice in `UserDefaults`.
 - `GameCenterService` installs GameKit authentication independently of `BackendClient`, exposes truthful status/retry to Profile, and suppresses system UI under deterministic UI tests. It does not persist player identifiers or signature material and has no path to alter PimPoPom identity, results, achievements, coins, cosmetics, or StoreKit state.
-- StoreKit and ads remain no-network/no-value placeholders. Their UI cannot mutate the PHP coin ledger or an entitlement.
+- StoreKit 2 is implemented behind an app-owned actor/protocol and one app-wide purchase controller. Production submits only a locally verified transaction JWS plus the current server-issued `appAccountToken`, accepts only a strictly validated authoritative wallet/entitlement response, and finishes the transaction afterward. A Debug-only local scheme combines real local StoreKit transactions with an offline fake credit service; it cannot call Hostinger. Ads remain a no-network/no-value placeholder and cannot decide the ad-free entitlement.
 
 ## Configuration and environments
 
