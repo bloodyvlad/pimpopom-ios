@@ -11,12 +11,23 @@ struct PimPoPomApp: App {
     @StateObject private var appIcons: AppIconController
     @StateObject private var quickActions: HomeQuickActionController
     @StateObject private var gameCenter: GameCenterService
+    @StateObject private var purchases: PurchaseController
     private let services = AlphaServices.localOnly
     private let googleIdentity = GoogleIdentityService()
 
     init() {
         let backend = BackendClient()
         let preferences = AppPreferences()
+        let storeKit: any StoreKitServing
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+                storeKit = UITestStoreKitService()
+            } else {
+                storeKit = StoreKitService()
+            }
+        #else
+            storeKit = StoreKitService()
+        #endif
         _backend = StateObject(wrappedValue: backend)
         _preferences = StateObject(wrappedValue: preferences)
         _cosmetics = StateObject(
@@ -27,6 +38,9 @@ struct PimPoPomApp: App {
         _appIcons = StateObject(wrappedValue: AppIconController())
         _quickActions = StateObject(wrappedValue: HomeQuickActionController.shared)
         _gameCenter = StateObject(wrappedValue: GameCenterService())
+        _purchases = StateObject(
+            wrappedValue: PurchaseController(storeKit: storeKit, creditService: backend)
+        )
     }
 
     var body: some Scene {
@@ -40,6 +54,7 @@ struct PimPoPomApp: App {
                 .environmentObject(appIcons)
                 .environmentObject(quickActions)
                 .environmentObject(gameCenter)
+                .environmentObject(purchases)
                 .onOpenURL {
                     if !quickActions.handle($0) {
                         _ = googleIdentity.handle($0)

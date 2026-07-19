@@ -94,7 +94,7 @@ final class PimPoPomUITests: XCTestCase {
         attachScreenshot(of: app, name: "SE Zen results")
     }
 
-    func testThemeShopExposesCoinStorePlaceholder() throws {
+    func testThemeShopExposesAccountBoundCoinStore() throws {
         let app = launch()
         openMenuControl("open-theme-shop", in: app)
 
@@ -104,9 +104,12 @@ final class PimPoPomUITests: XCTestCase {
         buyCoins.tap()
 
         XCTAssertTrue(app.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
-        XCTAssertTrue(
-            app.staticTexts["StoreKit coin packs are disabled in this internal alpha."]
-                .waitForExistence(timeout: 2)
+        XCTAssertTrue(app.staticTexts["Sign in to purchase"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.descendants(matching: .any)["store-account-gate"].exists)
+        XCTAssertTrue(app.staticTexts["50 Coins + Ad-free"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["$2.99"].exists)
+        XCTAssertFalse(
+            app.buttons["store-product-com.otcsoftware.pimpopom.coins.50.v1"].isEnabled
         )
     }
 
@@ -471,7 +474,7 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
-    func testRemoveAdsOpensAStoreKitPlaceholder() throws {
+    func testRemoveAdsOpensRestorableStore() throws {
         let app = launch()
         let removeAds = app.buttons["remove-ads"]
         XCTAssertTrue(removeAds.waitForExistence(timeout: 3))
@@ -479,9 +482,13 @@ final class PimPoPomUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["Remove Ads"].waitForExistence(timeout: 3))
         XCTAssertTrue(
-            app.descendants(matching: .any)["remove-ads-store-placeholder"]
+            app.descendants(matching: .any)["remove-ads-store"]
                 .waitForExistence(timeout: 2)
         )
+        XCTAssertTrue(app.staticTexts["Remove Ads"].exists)
+        XCTAssertTrue(app.staticTexts["$1.99"].exists)
+        XCTAssertTrue(app.buttons["store-restore-purchases"].exists)
+        XCTAssertFalse(app.buttons["store-restore-purchases"].isEnabled)
     }
 
     func testMotivationAdvancesOnTap() throws {

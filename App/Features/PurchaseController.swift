@@ -74,6 +74,7 @@ enum PurchaseControllerState: Equatable, Sendable {
 final class PurchaseController: ObservableObject {
     @Published private(set) var state = PurchaseControllerState.idle
     @Published private(set) var products: [StoreProduct] = []
+    @Published private(set) var storefront = StorefrontAccountState.unavailable
 
     private let storeKit: any StoreKitServing
     private let creditService: any StoreKitCreditServing
@@ -81,8 +82,15 @@ final class PurchaseController: ObservableObject {
     private var recoveryTask: Task<Void, Never>?
     private var hasStartedListeners = false
     private var hasActiveUserOperation = false
-    private var transactionsInFlight: Set<UInt64> = []
-    private var completedTransactions: [UInt64: StorePurchaseSuccess] = [:]
+    private var transactionsInFlight: Set<CompletedTransactionKey> = []
+    private var completedTransactions: [CompletedTransactionKey: StorePurchaseSuccess] = [:]
+    private var productLoadGeneration = 0
+
+    private struct CompletedTransactionKey: Hashable {
+        let transactionID: UInt64
+        let profileID: String
+        let appAccountToken: UUID
+    }
 
     init(
         storeKit: any StoreKitServing = StoreKitService(),
@@ -120,15 +128,29 @@ final class PurchaseController: ObservableObject {
     }
 
     func loadProducts() async {
+        productLoadGeneration += 1
+        let generation = productLoadGeneration
         state = .loading
         do {
             let loaded = try await storeKit.loadProducts()
+            guard generation == productLoadGeneration else { return }
             let byID = Dictionary(loaded.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
             products = StoreProductID.catalogOrder.compactMap { byID[$0] }
-            state = .ready
+            if case .loading = state { state = .ready }
         } catch {
-            state = .failure(.storeKit(error.localizedDescription))
+            guard generation == productLoadGeneration else { return }
+            if case .loading = state {
+                state = .failure(.storeKit(error.localizedDescription))
+            }
         }
+    }
+
+    func refreshStorefront() async {
+        let refreshed = await creditService.currentStorefrontState()
+        if storefront.binding != refreshed.binding {
+            state = products.isEmpty ? .idle : .ready
+        }
+        storefront = refreshed
     }
 
     func purchase(_ productID: StoreProductID) async {
@@ -212,6 +234,7 @@ final class PurchaseController: ObservableObject {
     /// Call again after PimPoPom login changes so unfinished transactions can be
     /// bound and acknowledged without waiting for another StoreKit update.
     func reconcileOutstandingTransactions() async {
+        await refreshStorefront()
         let unfinished = await storeKit.unfinishedTransactions()
         for observation in unfinished {
             await handle(observation, expectedProduct: nil, account: nil)
@@ -269,12 +292,6 @@ final class PurchaseController: ObservableObject {
             return
         }
 
-        if let completed = completedTransactions[transaction.id] {
-            state = .success(completed)
-            return
-        }
-        guard !transactionsInFlight.contains(transaction.id) else { return }
-
         let currentAccount: StoreAccountBinding?
         if let suppliedAccount {
             currentAccount = suppliedAccount
@@ -289,8 +306,24 @@ final class PurchaseController: ObservableObject {
         }
         guard validateOwnership(transaction, account: account) else { return }
 
-        transactionsInFlight.insert(transaction.id)
-        defer { transactionsInFlight.remove(transaction.id) }
+        let completedKey = CompletedTransactionKey(
+            transactionID: transaction.id,
+            profileID: account.profileID,
+            appAccountToken: account.appAccountToken
+        )
+        if let completed = completedTransactions[completedKey] {
+            state = .success(completed)
+            storefront = StorefrontAccountState(
+                binding: account,
+                wallet: completed.wallet,
+                adFree: completed.adFree
+            )
+            return
+        }
+        guard !transactionsInFlight.contains(completedKey) else { return }
+
+        transactionsInFlight.insert(completedKey)
+        defer { transactionsInFlight.remove(completedKey) }
 
         let transactionID = String(transaction.id)
         state = .serverCrediting(transaction.productID, transactionID: transactionID)
@@ -328,7 +361,12 @@ final class PurchaseController: ObservableObject {
                 wallet: response.wallet,
                 adFree: response.adFree
             )
-            completedTransactions[transaction.id] = success
+            completedTransactions[completedKey] = success
+            storefront = StorefrontAccountState(
+                binding: account,
+                wallet: response.wallet,
+                adFree: response.adFree
+            )
             state = .success(success)
         } catch {
             state = .failure(.server(error.localizedDescription))

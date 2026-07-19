@@ -10,6 +10,7 @@ struct RootView: View {
     @EnvironmentObject private var audio: AudioController
     @EnvironmentObject private var quickActions: HomeQuickActionController
     @EnvironmentObject private var gameCenter: GameCenterService
+    @EnvironmentObject private var purchases: PurchaseController
 
     let services: AlphaServices
     let googleIdentity: GoogleIdentityService
@@ -104,12 +105,10 @@ struct RootView: View {
             )
         }
         .sheet(isPresented: $showsCoinStore) {
-            CoinStorePlaceholderView()
-                .environmentObject(cosmetics)
+            CoinStoreView()
         }
         .sheet(isPresented: $showsRemoveAdsStore) {
-            CoinStorePlaceholderView(offer: .removeAds)
-                .environmentObject(cosmetics)
+            CoinStoreView(offer: .removeAds)
         }
         .sheet(isPresented: $showsIconSettings) {
             NavigationStack {
@@ -130,6 +129,8 @@ struct RootView: View {
             audio.setMusicContext(.menu)
             audio.playLaunchSting()
             await restoreSession()
+            await purchases.loadProducts()
+            await purchases.reconcileOutstandingTransactions()
             await cosmetics.refresh()
             await achievements.refresh(showLoading: false)
         }
@@ -148,6 +149,12 @@ struct RootView: View {
             if phase == .active, navigationPath.isEmpty {
                 audio.setMusicContext(.menu)
             }
+            if phase == .active {
+                Task { await purchases.reconcileOutstandingTransactions() }
+            }
+        }
+        .onChange(of: backend.sessionState) { _, _ in
+            Task { await purchases.reconcileOutstandingTransactions() }
         }
         .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
             guard isEmpty, !wasEmpty else { return }
@@ -504,7 +511,7 @@ struct RootView: View {
                         )
                     )
                     .frame(width: 112)
-                    .accessibilityHint("Opens the StoreKit placeholder")
+                    .accessibilityHint("Opens the App Store purchase and restore options")
                     .accessibilityIdentifier("remove-ads")
             }
 
@@ -849,6 +856,7 @@ struct RootView: View {
     let preferences = AppPreferences()
     let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
     let achievements = AchievementsController(backend: backend)
+    let purchases = PurchaseController(creditService: backend, startListeners: false)
     RootView(services: .localOnly, googleIdentity: GoogleIdentityService())
         .environmentObject(backend)
         .environmentObject(preferences)
@@ -858,4 +866,5 @@ struct RootView: View {
         .environmentObject(AppIconController())
         .environmentObject(HomeQuickActionController.shared)
         .environmentObject(GameCenterService(arguments: ["--uitesting"]))
+        .environmentObject(purchases)
 }

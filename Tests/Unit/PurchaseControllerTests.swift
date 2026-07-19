@@ -40,6 +40,71 @@ final class PurchaseControllerTests: XCTestCase {
         XCTAssertEqual(controller.state, .ready)
     }
 
+    func testStorefrontOffersFilterTheSharedCatalog() {
+        let products = StoreProductID.catalogOrder.map(storeProduct)
+
+        XCTAssertEqual(
+            products.filter(StorefrontOffer.coinPacks.includes).map(\.id),
+            [.coins50, .coins100, .coins500, .coins1000]
+        )
+        XCTAssertEqual(
+            products.filter(StorefrontOffer.removeAds.includes).map(\.id),
+            [.removeAdsLifetime]
+        )
+    }
+
+    func testRefreshStorefrontPublishesAuthoritativeWalletAndAdFreeState() async {
+        let wallet = StoreWalletSummary(
+            earned: 8,
+            purchased: 42,
+            earnedDebt: 0,
+            refundDebt: 3,
+            total: 47
+        )
+        let credit = FakeStoreKitCreditService(
+            account: account,
+            storefrontWallet: wallet,
+            storefrontAdFree: true
+        )
+        let controller = PurchaseController(
+            storeKit: FakeStoreKitService(),
+            creditService: credit,
+            startListeners: false
+        )
+
+        await controller.refreshStorefront()
+
+        XCTAssertEqual(controller.storefront.binding, account)
+        XCTAssertEqual(controller.storefront.wallet, wallet)
+        XCTAssertEqual(controller.storefront.adFree, true)
+    }
+
+    func testProductLoadDoesNotOverwriteRecoveredPurchaseState() async {
+        let gate = ProductLoadGate()
+        let transaction = storeTransaction(id: 40, productID: .coins50)
+        let store = FakeStoreKitService(
+            unfinished: [.verified(transaction)],
+            productLoadGate: gate
+        )
+        let controller = PurchaseController(
+            storeKit: store,
+            creditService: FakeStoreKitCreditService(account: account),
+            startListeners: false
+        )
+
+        let loadTask = Task { await controller.loadProducts() }
+        while !(await gate.hasStarted) { await Task.yield() }
+        await controller.reconcileOutstandingTransactions()
+        await gate.open()
+        await loadTask.value
+
+        guard case .success(let success) = controller.state else {
+            return XCTFail("Product loading overwrote recovered state: \(controller.state)")
+        }
+        XCTAssertEqual(success.transactionID, "40")
+        XCTAssertEqual(controller.products.map(\.id), StoreProductID.catalogOrder)
+    }
+
     func testVerifiedPurchaseIsServerCreditedBeforeItIsFinished() async {
         let recorder = StoreTestRecorder()
         let transaction = storeTransaction(id: 41, productID: .coins100)
@@ -72,6 +137,48 @@ final class PurchaseControllerTests: XCTestCase {
         XCTAssertEqual(result.transactionID, "41")
         XCTAssertEqual(result.wallet.total, 100)
         XCTAssertTrue(result.adFree)
+    }
+
+    func testSignedOutPurchaseNeverInvokesStoreKit() async {
+        let recorder = StoreTestRecorder()
+        let controller = PurchaseController(
+            storeKit: FakeStoreKitService(recorder: recorder),
+            creditService: FakeStoreKitCreditService(account: nil, recorder: recorder),
+            startListeners: false
+        )
+
+        await controller.purchase(.coins50)
+
+        XCTAssertEqual(controller.state, .failure(.authenticationRequired))
+        let events = await recorder.values()
+        XCTAssertTrue(events.isEmpty)
+    }
+
+    func testReversedAcknowledgementIsFinishedAndPublished() async {
+        let recorder = StoreTestRecorder()
+        let store = FakeStoreKitService(
+            purchaseResult: .success(storeTransaction(id: 411, productID: .coins100)),
+            recorder: recorder
+        )
+        let credit = FakeStoreKitCreditService(
+            account: account,
+            recorder: recorder,
+            disposition: .reversed
+        )
+        let controller = PurchaseController(
+            storeKit: store,
+            creditService: credit,
+            startListeners: false
+        )
+
+        await controller.purchase(.coins100)
+
+        guard case .success(let result) = controller.state else {
+            return XCTFail("Expected reversed reconciliation to complete")
+        }
+        XCTAssertEqual(result.disposition, .reversed)
+        let events = await recorder.values()
+        XCTAssertEqual(events.last, .finish(411))
     }
 
     func testServerFailureLeavesTheVerifiedTransactionUnfinished() async {
@@ -365,11 +472,71 @@ final class PurchaseControllerTests: XCTestCase {
         let events = await recorder.values()
         XCTAssertTrue(events.isEmpty)
     }
+
+    func testCompletedFamilySharedEntitlementIsScopedToTheCurrentProfile() async {
+        let recorder = StoreTestRecorder()
+        let transaction = storeTransaction(
+            id: 50,
+            productID: .removeAdsLifetime,
+            appAccountToken: nil,
+            ownership: .familyShared,
+            requiresFinish: false
+        )
+        let store = FakeStoreKitService(
+            unfinished: [.verified(transaction)],
+            recorder: recorder
+        )
+        let credit = FakeStoreKitCreditService(account: account, recorder: recorder)
+        let controller = PurchaseController(
+            storeKit: store,
+            creditService: credit,
+            startListeners: false
+        )
+
+        await controller.reconcileOutstandingTransactions()
+        await credit.setAccount(otherAccount)
+        await controller.reconcileOutstandingTransactions()
+
+        let credits = await recorder.values().filter {
+            if case .credit = $0 { true } else { false }
+        }
+        XCTAssertEqual(credits.count, 2)
+    }
+
+    func testCompletedCacheCannotBypassOwnershipValidationAfterAccountChange() async {
+        let recorder = StoreTestRecorder()
+        let transaction = storeTransaction(id: 51, productID: .coins100, requiresFinish: false)
+        let store = FakeStoreKitService(
+            unfinished: [.verified(transaction)],
+            recorder: recorder
+        )
+        let credit = FakeStoreKitCreditService(account: account, recorder: recorder)
+        let controller = PurchaseController(
+            storeKit: store,
+            creditService: credit,
+            startListeners: false
+        )
+
+        await controller.reconcileOutstandingTransactions()
+        await credit.setAccount(otherAccount)
+        await controller.reconcileOutstandingTransactions()
+
+        XCTAssertEqual(controller.state, .failure(.accountTokenMismatch))
+        let credits = await recorder.values().filter {
+            if case .credit("51", .coins100) = $0 { true } else { false }
+        }
+        XCTAssertEqual(credits.count, 1)
+    }
 }
 
 private let account = StoreAccountBinding(
     profileID: "profile-1",
     appAccountToken: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
+)
+
+private let otherAccount = StoreAccountBinding(
+    profileID: "profile-2",
+    appAccountToken: UUID(uuidString: "99999999-8888-4777-8666-555555555555")!
 )
 
 private func storeProduct(_ productID: StoreProductID) -> StoreProduct {
@@ -425,6 +592,7 @@ private actor FakeStoreKitService: StoreKitServing {
     private let unfinished: [StoreTransactionObservation]
     private let currentEntitlements: [StoreTransactionObservation]
     private let recorder: StoreTestRecorder?
+    private let productLoadGate: ProductLoadGate?
     private let updates: AsyncStream<StoreTransactionObservation>
     private let updatesContinuation: AsyncStream<StoreTransactionObservation>.Continuation
 
@@ -433,13 +601,15 @@ private actor FakeStoreKitService: StoreKitServing {
         purchaseResult: StorePurchaseResult = .cancelled,
         unfinished: [StoreTransactionObservation] = [],
         currentEntitlements: [StoreTransactionObservation] = [],
-        recorder: StoreTestRecorder? = nil
+        recorder: StoreTestRecorder? = nil,
+        productLoadGate: ProductLoadGate? = nil
     ) {
         self.products = products
         self.purchaseResult = purchaseResult
         self.unfinished = unfinished
         self.currentEntitlements = currentEntitlements
         self.recorder = recorder
+        self.productLoadGate = productLoadGate
         let stream = AsyncStream<StoreTransactionObservation>.makeStream()
         updates = stream.stream
         updatesContinuation = stream.continuation
@@ -457,8 +627,9 @@ private actor FakeStoreKitService: StoreKitServing {
         updatesContinuation.yield(observation)
     }
 
-    func loadProducts() -> [StoreProduct] {
-        products
+    func loadProducts() async -> [StoreProduct] {
+        await productLoadGate?.wait()
+        return products
     }
 
     func purchase(
@@ -490,6 +661,22 @@ private actor FakeStoreKitService: StoreKitServing {
     }
 }
 
+private actor ProductLoadGate {
+    private(set) var hasStarted = false
+    private var isOpen = false
+
+    func wait() async {
+        hasStarted = true
+        while !isOpen {
+            await Task.yield()
+        }
+    }
+
+    func open() {
+        isOpen = true
+    }
+}
+
 private enum FakeStoreCreditError: LocalizedError, Sendable {
     case failed
 
@@ -502,19 +689,28 @@ private actor FakeStoreKitCreditService: StoreKitCreditServing {
     private let accountAfterCredit: StoreAccountBinding?
     private let shouldFail: Bool
     private let recorder: StoreTestRecorder?
+    private let storefrontWallet: StoreWalletSummary?
+    private let storefrontAdFree: Bool?
+    private let disposition: StoreCreditDisposition
 
     init(
         account: StoreAccountBinding?,
         responseTransactionID: String? = nil,
         accountAfterCredit: StoreAccountBinding? = nil,
         shouldFail: Bool = false,
-        recorder: StoreTestRecorder? = nil
+        recorder: StoreTestRecorder? = nil,
+        storefrontWallet: StoreWalletSummary? = nil,
+        storefrontAdFree: Bool? = nil,
+        disposition: StoreCreditDisposition = .credited
     ) {
         self.account = account
         self.responseTransactionID = responseTransactionID
         self.accountAfterCredit = accountAfterCredit
         self.shouldFail = shouldFail
         self.recorder = recorder
+        self.storefrontWallet = storefrontWallet
+        self.storefrontAdFree = storefrontAdFree
+        self.disposition = disposition
     }
 
     func setAccount(_ account: StoreAccountBinding?) {
@@ -523,6 +719,14 @@ private actor FakeStoreKitCreditService: StoreKitCreditServing {
 
     func currentStoreAccount() -> StoreAccountBinding? {
         account
+    }
+
+    func currentStorefrontState() -> StorefrontAccountState {
+        StorefrontAccountState(
+            binding: account,
+            wallet: storefrontWallet,
+            adFree: storefrontAdFree
+        )
     }
 
     func credit(_ request: StoreCreditRequest) async throws -> StoreCreditResponse {
@@ -535,7 +739,7 @@ private actor FakeStoreKitCreditService: StoreKitCreditServing {
         }
         return StoreCreditResponse(
             transactionID: responseTransactionID ?? request.transactionID,
-            disposition: .credited,
+            disposition: disposition,
             wallet: StoreWalletSummary(
                 earned: 0,
                 purchased: request.productID.coinQuantity,

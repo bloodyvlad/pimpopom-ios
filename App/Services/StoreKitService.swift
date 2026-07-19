@@ -204,3 +204,67 @@ extension Transaction.OwnershipType {
         }
     }
 }
+
+#if DEBUG
+    actor UITestStoreKitService: StoreKitServing {
+        func loadProducts() -> [StoreProduct] {
+            StoreProductID.catalogOrder.map { productID in
+                StoreProduct(
+                    id: productID,
+                    displayName: displayName(for: productID),
+                    description: description(for: productID),
+                    displayPrice: displayPrice(for: productID),
+                    isFamilyShareable: productID == .removeAdsLifetime
+                )
+            }
+        }
+
+        func purchase(
+            _ productID: StoreProductID,
+            appAccountToken: UUID
+        ) -> StorePurchaseResult {
+            .cancelled
+        }
+
+        func transactionUpdates() -> AsyncStream<StoreTransactionObservation> {
+            AsyncStream { $0.finish() }
+        }
+
+        func unfinishedTransactions() -> [StoreTransactionObservation] { [] }
+
+        func currentNonConsumableEntitlements() -> [StoreTransactionObservation] { [] }
+
+        func finish(transactionID: UInt64) {}
+
+        func sync() {}
+
+        private func displayName(for productID: StoreProductID) -> String {
+            switch productID {
+            case .coins50: "50 Coins + Ad-free"
+            case .coins100: "100 Coins + Ad-free"
+            case .coins500: "500 Coins + Ad-free"
+            case .coins1000: "1,000 Coins + Ad-free"
+            case .removeAdsLifetime: "Remove Ads"
+            }
+        }
+
+        private func description(for productID: StoreProductID) -> String {
+            switch productID {
+            case .coins50, .coins100, .coins500, .coins1000:
+                "Coins for pets and themes, plus ad-free play."
+            case .removeAdsLifetime:
+                "Ad-free PimPoPom. Restorable with Family Sharing."
+            }
+        }
+
+        private func displayPrice(for productID: StoreProductID) -> String {
+            switch productID {
+            case .coins50: "$2.99"
+            case .coins100: "$4.99"
+            case .coins500: "$9.99"
+            case .coins1000: "$14.99"
+            case .removeAdsLifetime: "$1.99"
+            }
+        }
+    }
+#endif

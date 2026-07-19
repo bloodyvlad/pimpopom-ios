@@ -55,8 +55,7 @@ struct ThemeShopView: View {
         }
         .task { await cosmetics.refresh() }
         .sheet(isPresented: $showsCoinStore) {
-            CoinStorePlaceholderView()
-                .environmentObject(cosmetics)
+            CoinStoreView()
         }
     }
 
