@@ -82,6 +82,11 @@ struct ProfileResponse: Codable, Equatable {
     let leaderboard: LeaderboardResponse
 }
 
+struct AccountDeletionResponse: Codable, Equatable {
+    let deleted: Bool
+    let authenticated: Bool
+}
+
 struct CosmeticCatalogItem: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let name: String

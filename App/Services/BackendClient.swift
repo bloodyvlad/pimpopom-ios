@@ -14,6 +14,11 @@ struct BackendError: LocalizedError {
 final class BackendClient: ObservableObject {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
     static let deployedBuildID = "20260718-1"
+    static let accountDeletionConfirmation = "DELETE MY ACCOUNT"
+    static let accountDeletionAccountMismatchCode = "account-reauthentication-mismatch"
+    #if DEBUG
+        static let uiTestAccountDeletionCredential = "pimpopom-ui-test-account-reauthentication"
+    #endif
 
     @Published private(set) var sessionState: SessionResponse?
     @Published private(set) var isLoadingSession = false
@@ -259,6 +264,21 @@ final class BackendClient: ObservableObject {
 
     @discardableResult
     func login(googleIDToken: String) async throws -> SessionResponse {
+        if isUITestOffline {
+            #if DEBUG
+                guard
+                    isAccountDeletionUITestFixtureEnabled,
+                    googleIDToken == Self.uiTestAccountDeletionCredential,
+                    let uiTestSession,
+                    uiTestSession.authenticated,
+                    uiTestSession.profile != nil
+                else { throw Self.uiTestOfflineError }
+                return uiTestSession
+            #else
+                throw Self.uiTestOfflineError
+            #endif
+        }
+
         let body = try encoder.encode(["credential": googleIDToken])
         let token = try await beginStateMutation(requiresAuthenticatedProfile: false)
         do {
@@ -279,6 +299,26 @@ final class BackendClient: ObservableObject {
     }
 
     @discardableResult
+    func reauthenticateForAccountDeletion(
+        googleIDToken: String,
+        expectedPlayerID: String
+    ) async throws -> SessionResponse {
+        let response = try await login(googleIDToken: googleIDToken)
+        guard response.authenticated, response.profile?.id == expectedPlayerID else {
+            do {
+                let loggedOut = try await logout()
+                if loggedOut.authenticated || loggedOut.profile != nil {
+                    discardLocalAuthentication()
+                }
+            } catch {
+                discardLocalAuthentication()
+            }
+            throw Self.accountDeletionAccountMismatchError
+        }
+        return response
+    }
+
+    @discardableResult
     func logout() async throws -> SessionResponse {
         let token = try await beginStateMutation(requiresAuthenticatedProfile: false)
         do {
@@ -290,6 +330,63 @@ final class BackendClient: ObservableObject {
             )
             guard isCurrent(token) else { throw Self.staleSessionError }
             applySessionResponse(response)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func deleteAccount(
+        confirmation: String,
+        expectedPlayerID: String
+    ) async throws -> AccountDeletionResponse {
+        guard confirmation == Self.accountDeletionConfirmation else {
+            throw Self.invalidAccountDeletionConfirmationError
+        }
+
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            guard token.playerID == expectedPlayerID else {
+                discardLocalAuthentication()
+                throw Self.accountDeletionAccountMismatchError
+            }
+            let response: AccountDeletionResponse
+            if isUITestOffline {
+                #if DEBUG
+                    guard isAccountDeletionUITestFixtureEnabled else {
+                        throw Self.uiTestOfflineError
+                    }
+                    response = AccountDeletionResponse(deleted: true, authenticated: false)
+                #else
+                    throw Self.uiTestOfflineError
+                #endif
+            } else {
+                response = try await request(
+                    path: "/api/profile",
+                    method: "DELETE",
+                    body: try encoder.encode(["confirmation": confirmation]),
+                    csrf: csrfToken
+                )
+            }
+
+            guard isCurrent(token), token.playerID == sessionState?.profile?.id else {
+                throw Self.staleSessionError
+            }
+            guard response.deleted, !response.authenticated else {
+                throw Self.invalidAccountDeletionResponseError
+            }
+
+            csrfToken = nil
+            lastError = nil
+            if isUITestOffline {
+                uiTestSession = Self.uiTestSignedOutSession
+                sessionState = Self.uiTestSignedOutSession
+            } else {
+                sessionState = nil
+            }
             finishStateMutation(token)
             return response
         } catch {
@@ -545,6 +642,35 @@ final class BackendClient: ObservableObject {
         sessionState = response
         lastError = nil
     }
+
+    private func discardLocalAuthentication() {
+        sessionStateEpoch += 1
+        sessionLoadTask?.cancel()
+        sessionLoadTask = nil
+        activeSessionLoadID = nil
+        activeStateMutationEpoch = nil
+        isLoadingSession = false
+        csrfToken = nil
+        sessionState = nil
+        lastError = nil
+
+        guard let host = baseURL.host,
+            let cookieStorage = urlSession.configuration.httpCookieStorage
+        else { return }
+        for cookie in cookieStorage.cookies ?? []
+        where cookie.domain == host || cookie.domain == ".\(host)" {
+            cookieStorage.deleteCookie(cookie)
+        }
+    }
+
+    #if DEBUG
+        private var isAccountDeletionUITestFixtureEnabled: Bool {
+            let arguments = ProcessInfo.processInfo.arguments
+            return isUITestOffline
+                && arguments.contains("--uitesting")
+                && arguments.contains("--ui-test-account-deletion")
+        }
+    #endif
 
     private func mutation<Response: Decodable>(
         path: String,
@@ -1016,6 +1142,24 @@ final class BackendClient: ObservableObject {
         status: 400,
         message: "An achievement ID is required.",
         code: "invalid-achievement"
+    )
+
+    private static let invalidAccountDeletionConfirmationError = BackendError(
+        status: 400,
+        message: "Type DELETE MY ACCOUNT exactly to confirm account deletion.",
+        code: "invalid-account-deletion-confirmation"
+    )
+
+    private static let invalidAccountDeletionResponseError = BackendError(
+        status: 0,
+        message: "The service did not confirm that the account was deleted. Please try again.",
+        code: "invalid-account-deletion-response"
+    )
+
+    private static let accountDeletionAccountMismatchError = BackendError(
+        status: 409,
+        message: "A different Google account was selected. No account was deleted.",
+        code: accountDeletionAccountMismatchCode
     )
 
     private static let invalidAchievementResponseError = BackendError(

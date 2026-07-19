@@ -121,6 +121,186 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(recorder.requests(forPath: "/api/logout").count, 0)
     }
 
+    func testAccountDeletionUsesExactCSRFContractAndClearsSessionOnlyAfterConfirmation() async throws {
+        let recorder = RequestRecorder()
+        let sessionRequestCounter = LockedCounter()
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        let signedOutData = try JSONEncoder().encode(Self.signedOutSession)
+        let reauthenticatedSession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-reauthenticated",
+            googleClientId: Self.signedInSession.googleClientId,
+            season: Self.signedInSession.season,
+            profile: Self.signedInSession.profile,
+            ranks: Self.signedInSession.ranks
+        )
+        let reauthenticatedData = try JSONEncoder().encode(reauthenticatedSession)
+        let deletionData = Data(
+            #"{"deleted":true,"authenticated":false,"retainedStoreKitTransactions":2,"retainedPurchasedCoinLots":1}"#
+                .utf8
+        )
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _):
+                return StubResponse(
+                    data: sessionRequestCounter.increment() == 1 ? signedInData : signedOutData
+                )
+            case ("/api/auth/google", "POST"):
+                return StubResponse(data: reauthenticatedData)
+            case ("/api/profile", "DELETE"):
+                return StubResponse(data: deletionData)
+            default:
+                return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        do {
+            _ = try await backend.deleteAccount(
+                confirmation: "delete my account",
+                expectedPlayerID: "player-new"
+            )
+            XCTFail("An inexact confirmation phrase must be rejected.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "invalid-account-deletion-confirmation")
+        }
+        XCTAssertTrue(recorder.requests(forPath: "/api/profile").isEmpty)
+        XCTAssertEqual(backend.profile?.id, "player-new")
+
+        _ = try await backend.reauthenticateForAccountDeletion(
+            googleIDToken: "fresh-google-id-token",
+            expectedPlayerID: "player-new"
+        )
+        let response = try await backend.deleteAccount(
+            confirmation: BackendClient.accountDeletionConfirmation,
+            expectedPlayerID: "player-new"
+        )
+
+        XCTAssertEqual(response, AccountDeletionResponse(deleted: true, authenticated: false))
+        XCTAssertNil(backend.sessionState)
+        XCTAssertNil(backend.profile)
+        XCTAssertFalse(backend.isAuthenticated)
+        let request = try XCTUnwrap(recorder.requests(forPath: "/api/profile").first)
+        XCTAssertEqual(request.method, "DELETE")
+        XCTAssertEqual(
+            request.header(named: "X-SpeedyTapper-CSRF"),
+            "csrf-reauthenticated"
+        )
+        let body = try XCTUnwrap(request.body)
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: body) as? [String: String]
+        )
+        XCTAssertEqual(payload, ["confirmation": BackendClient.accountDeletionConfirmation])
+        let loginRequest = try XCTUnwrap(recorder.requests(forPath: "/api/auth/google").first)
+        XCTAssertEqual(loginRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+
+        let freshSession = try await backend.loadSession()
+        XCTAssertFalse(freshSession.authenticated)
+        XCTAssertEqual(freshSession.csrfToken, "csrf-1")
+        XCTAssertEqual(sessionRequestCounter.currentValue, 2)
+    }
+
+    func testUnconfirmedAccountDeletionResponsePreservesTheSignedInSession() async throws {
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        let invalidDeletionData = Data(#"{"deleted":false,"authenticated":false}"#.utf8)
+        StubURLProtocol.handler = { request in
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): StubResponse(data: signedInData)
+            case ("/api/profile", "DELETE"): StubResponse(data: invalidDeletionData)
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        do {
+            _ = try await backend.deleteAccount(
+                confirmation: BackendClient.accountDeletionConfirmation,
+                expectedPlayerID: "player-new"
+            )
+            XCTFail("The client must reject a response that does not confirm deletion.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "invalid-account-deletion-response")
+        }
+
+        XCTAssertTrue(backend.isAuthenticated)
+        XCTAssertEqual(backend.profile?.id, "player-new")
+    }
+
+    func testAccountDeletionReauthenticationRejectsDifferentPlayerAndClearsFailedLogout()
+        async throws
+    {
+        let recorder = RequestRecorder()
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        let otherProfile = PlayerProfile(
+            id: "player-other",
+            nickname: "Other",
+            nicknameConfirmed: true,
+            coins: 0,
+            totalPlayMs: 0,
+            ownedPetIds: [],
+            selectedPetId: nil,
+            petVisible: false,
+            equippedPetId: nil,
+            specialPetId: nil,
+            ownedThemeIds: ["classic", "disco"],
+            selectedThemeId: "classic",
+            isAdmin: false,
+            createdAt: "2026-07-19T00:00:00Z",
+            updatedAt: "2026-07-19T00:00:00Z"
+        )
+        let otherSession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-other",
+            googleClientId: Self.signedInSession.googleClientId,
+            season: Self.signedInSession.season,
+            profile: otherProfile,
+            ranks: nil
+        )
+        let otherData = try JSONEncoder().encode(otherSession)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _):
+                return StubResponse(data: signedInData)
+            case ("/api/auth/google", "POST"):
+                return StubResponse(data: otherData)
+            case ("/api/logout", "POST"):
+                return StubResponse(
+                    data: Data(#"{"error":"Logout unavailable"}"#.utf8),
+                    statusCode: 503
+                )
+            case ("/api/profile", "DELETE"):
+                return StubResponse(
+                    data: Data(#"{"deleted":true,"authenticated":false}"#.utf8)
+                )
+            default:
+                return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        do {
+            _ = try await backend.reauthenticateForAccountDeletion(
+                googleIDToken: "different-google-id-token",
+                expectedPlayerID: "player-new"
+            )
+            XCTFail("A different Google player must never authorize account deletion.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, BackendClient.accountDeletionAccountMismatchCode)
+        }
+
+        XCTAssertEqual(recorder.requests(forPath: "/api/auth/google").count, 1)
+        XCTAssertEqual(recorder.requests(forPath: "/api/logout").count, 1)
+        XCTAssertTrue(recorder.requests(forPath: "/api/profile").isEmpty)
+        XCTAssertNil(backend.sessionState)
+        XCTAssertNil(backend.profile)
+        XCTAssertFalse(backend.isAuthenticated)
+    }
+
     func testAchievementLoadAndClaimUseAuthoritativeCSRFContractAndUpdateCoins() async throws {
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.signedInSession)

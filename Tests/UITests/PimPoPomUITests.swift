@@ -553,9 +553,16 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(profileButton.waitForExistence(timeout: 3))
         profileButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         XCTAssertTrue(app.navigationBars["My Profile"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.descendants(matching: .any)["profile-rank-card"].waitForExistence(timeout: 3))
+        let rankCard = app.descendants(matching: .any)["profile-rank-card"]
+        XCTAssertTrue(rankCard.waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-entry-ui-player"].exists)
+        let gameCenterCard = app.staticTexts["profile-game-center-card"]
+        XCTAssertTrue(gameCenterCard.waitForExistence(timeout: 3))
+        XCTAssertLessThan(gameCenterCard.frame.minY, rankCard.frame.minY)
         let gameCenter = app.buttons["profile-game-center"]
+        for _ in 0..<3 where !gameCenter.exists {
+            app.swipeUp()
+        }
         XCTAssertTrue(gameCenter.waitForExistence(timeout: 3))
         XCTAssertEqual(gameCenter.label, "Retry")
         let gameCenterStatus = app.descendants(matching: .any)["profile-game-center-status"]
@@ -563,6 +570,70 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(gameCenterStatus.label.hasPrefix("Unavailable"))
         XCTAssertFalse(app.alerts["Game Center"].exists)
         attachScreenshot(of: app, name: "SE profile parity")
+    }
+
+    func testProfileAccountDeletionIsLastExactPhraseGatedAndPreservesGameCenter() throws {
+        let app = launch(
+            additionalArguments: [
+                "--ui-test-pet-profile",
+                "--ui-test-leaderboard-fixture",
+                "--ui-test-account-deletion",
+            ]
+        )
+
+        openMenuControl("open-profile", in: app)
+        XCTAssertTrue(app.navigationBars["My Profile"].waitForExistence(timeout: 3))
+
+        let gameCenterCard = app.staticTexts["profile-game-center-card"]
+        let rankCard = app.descendants(matching: .any)["profile-rank-card"]
+        XCTAssertTrue(gameCenterCard.waitForExistence(timeout: 3))
+        XCTAssertTrue(rankCard.waitForExistence(timeout: 3))
+        XCTAssertLessThan(gameCenterCard.frame.minY, rankCard.frame.minY)
+        let finalLeaderboardEntry = app.descendants(matching: .any)[
+            "leaderboard-entry-ui-neighbor"
+        ]
+        XCTAssertTrue(finalLeaderboardEntry.waitForExistence(timeout: 3))
+
+        let deleteAccount = app.buttons["profile-delete-account"]
+        for _ in 0..<8 where !deleteAccount.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(deleteAccount.isHittable)
+        XCTAssertGreaterThan(deleteAccount.frame.minY, finalLeaderboardEntry.frame.minY)
+        deleteAccount.tap()
+
+        let confirmation = app.textFields["profile-delete-confirmation"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 2))
+        let permanentlyDelete = app.buttons["profile-delete-confirm"]
+        XCTAssertTrue(permanentlyDelete.waitForExistence(timeout: 2))
+        XCTAssertFalse(permanentlyDelete.isEnabled)
+
+        confirmation.tap()
+        confirmation.typeText("DELETE MY ACCOUNT")
+        XCTAssertTrue(permanentlyDelete.isEnabled)
+        if app.keyboards.buttons["Done"].exists {
+            app.keyboards.buttons["Done"].tap()
+        }
+        for _ in 0..<4 where !permanentlyDelete.isHittable {
+            app.swipeUp()
+        }
+        permanentlyDelete.tap()
+
+        let profileButton = app.buttons["open-profile"]
+        XCTAssertTrue(profileButton.waitForExistence(timeout: 3))
+        XCTAssertEqual(profileButton.label, "Profile. Signed out")
+        let dismissalDeadline = Date().addingTimeInterval(3)
+        while Date() < dismissalDeadline, !profileButton.isHittable {
+            usleep(50_000)
+        }
+        XCTAssertTrue(profileButton.isHittable)
+
+        profileButton.tap()
+        XCTAssertTrue(app.buttons["profile-google-sign-in"].waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            app.staticTexts["profile-game-center-card"].waitForExistence(timeout: 3)
+        )
+        XCTAssertFalse(app.otherElements["profile-danger-zone"].exists)
     }
 
     func testEveryThemeHasADeterministicVisualFixture() throws {

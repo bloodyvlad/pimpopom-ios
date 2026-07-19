@@ -1,6 +1,17 @@
 import PimPoPomCore
 import SwiftUI
 
+private enum ProfileAccountDeletionError: LocalizedError {
+    case accountChanged
+
+    var errorDescription: String? {
+        switch self {
+        case .accountChanged:
+            "A different Google account was selected. No account was deleted, and PimPoPom signed out."
+        }
+    }
+}
+
 struct ProfileView: View {
     @EnvironmentObject private var backend: BackendClient
     @EnvironmentObject private var cosmetics: CosmeticsController
@@ -15,6 +26,9 @@ struct ProfileView: View {
     @State private var status: String?
     @State private var busy = false
     @State private var loadGeneration = 0
+    @State private var showsAccountDeletionConfirmation = false
+    @State private var accountDeletionConfirmation = ""
+    @State private var accountDeletionStatus: String?
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -30,8 +44,8 @@ struct ProfileView: View {
                             signedInContent(profile)
                         } else {
                             signedOutContent
+                            gameCenterCard
                         }
-                        gameCenterCard
                     }
                     .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
                     .padding(16)
@@ -56,6 +70,9 @@ struct ProfileView: View {
             .task(id: mode) {
                 guard backend.isAuthenticated else { return }
                 await loadProfile()
+            }
+            .onChange(of: backend.profile?.id) { oldPlayerID, newPlayerID in
+                if oldPlayerID != newPlayerID { resetAccountDeletionForm() }
             }
         }
     }
@@ -204,6 +221,8 @@ struct ProfileView: View {
             }
             .webCardStyle(theme: palette, padding: 14)
 
+            gameCenterCard
+
             WebModeTabs(mode: $mode, theme: palette)
 
             if let rank = response?.ranks[mode.rawValue] {
@@ -228,6 +247,8 @@ struct ProfileView: View {
             }
 
             statusMessage
+
+            accountDeletionDangerZone(profile)
         }
     }
 
@@ -241,6 +262,7 @@ struct ProfileView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Game Center")
                     .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
+                    .accessibilityIdentifier("profile-game-center-card")
                 Text(gameCenterStatus)
                     .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
                     .foregroundStyle(Color(hex: palette.muted))
@@ -263,6 +285,101 @@ struct ProfileView: View {
                 .accessibilityIdentifier("profile-game-center")
         }
         .webCardStyle(theme: palette, padding: 12)
+    }
+
+    private func accountDeletionDangerZone(_ profile: PlayerProfile) -> some View {
+        let danger = Color(hex: "#ff647b")
+        return VStack(alignment: .leading, spacing: 11) {
+            if showsAccountDeletionConfirmation {
+                Text("Delete account permanently?")
+                    .font(palette.appFont(size: 17, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(danger)
+
+                Text(
+                    "This removes your PimPoPom identity, nickname, public results, coins, pets, themes, achievements, and active sessions. Detached Apple purchase and refund records may be retained where required for reconciliation. This cannot be undone."
+                )
+                .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                .foregroundStyle(Color(hex: palette.muted))
+
+                (Text("Type ")
+                    + Text(BackendClient.accountDeletionConfirmation).bold()
+                    + Text(" to continue."))
+                    .font(palette.appFont(size: 11, weight: .medium, relativeTo: .caption))
+
+                TextField("DELETE MY ACCOUNT", text: $accountDeletionConfirmation)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .font(palette.appFont(size: 14, weight: .bold, relativeTo: .body))
+                    .padding(.horizontal, 12)
+                    .frame(height: 44)
+                    .background(
+                        Color.black.opacity(palette.isLight ? 0.05 : 0.24),
+                        in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
+                            .stroke(danger.opacity(0.52), lineWidth: palette.isPixel ? 2 : 1)
+                    }
+                    .submitLabel(.done)
+                    .accessibilityIdentifier("profile-delete-confirmation")
+
+                HStack(spacing: 8) {
+                    Button("Cancel") { resetAccountDeletionForm() }
+                        .buttonStyle(
+                            WebSecondaryButtonStyle(
+                                theme: palette,
+                                accent: Color(hex: palette.muted),
+                                minimumHeight: 44
+                            )
+                        )
+                        .accessibilityIdentifier("profile-delete-cancel")
+
+                    Button("Permanently delete", role: .destructive) {
+                        Task { await deleteAccount(profile) }
+                    }
+                    .buttonStyle(
+                        WebSecondaryButtonStyle(
+                            theme: palette,
+                            accent: danger,
+                            minimumHeight: 44
+                        )
+                    )
+                    .disabled(
+                        busy
+                            || accountDeletionConfirmation
+                                != BackendClient.accountDeletionConfirmation
+                    )
+                    .accessibilityIdentifier("profile-delete-confirm")
+                }
+
+                if let accountDeletionStatus {
+                    Text(accountDeletionStatus)
+                        .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("profile-delete-status")
+                }
+            } else {
+                Button("Delete Account", role: .destructive) {
+                    showsAccountDeletionConfirmation = true
+                    accountDeletionConfirmation = ""
+                    accountDeletionStatus = nil
+                }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: danger,
+                        minimumHeight: 44
+                    )
+                )
+                .disabled(busy)
+                .accessibilityIdentifier("profile-delete-account")
+            }
+        }
+        .webCardStyle(theme: palette, selectedAccent: danger, padding: 14)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("profile-danger-zone")
     }
 
     private var gameCenterStatus: String {
@@ -378,6 +495,7 @@ struct ProfileView: View {
             response = nil
             nickname = ""
             status = nil
+            resetAccountDeletionForm()
             await cosmetics.refresh()
         } catch {
             status = error.localizedDescription
@@ -394,5 +512,62 @@ struct ProfileView: View {
         } catch {
             status = error.localizedDescription
         }
+    }
+
+    private func deleteAccount(_ profile: PlayerProfile) async {
+        guard accountDeletionConfirmation == BackendClient.accountDeletionConfirmation else {
+            accountDeletionStatus = "Type DELETE MY ACCOUNT exactly to continue."
+            return
+        }
+
+        busy = true
+        accountDeletionStatus = nil
+        defer { busy = false }
+        do {
+            let credential = try await accountDeletionCredential()
+            _ = try await backend.reauthenticateForAccountDeletion(
+                googleIDToken: credential,
+                expectedPlayerID: profile.id
+            )
+
+            _ = try await backend.deleteAccount(
+                confirmation: accountDeletionConfirmation,
+                expectedPlayerID: profile.id
+            )
+            googleIdentity.signOut()
+            response = nil
+            nickname = ""
+            status = nil
+            resetAccountDeletionForm()
+            onDismiss()
+        } catch let error as BackendError
+            where error.code == BackendClient.accountDeletionAccountMismatchCode
+        {
+            googleIdentity.signOut()
+            response = nil
+            nickname = ""
+            status = ProfileAccountDeletionError.accountChanged.localizedDescription
+            resetAccountDeletionForm()
+        } catch {
+            accountDeletionStatus = error.localizedDescription
+        }
+    }
+
+    private func accountDeletionCredential() async throws -> String {
+        #if DEBUG
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("--uitesting"),
+                arguments.contains("--ui-test-account-deletion")
+            {
+                return BackendClient.uiTestAccountDeletionCredential
+            }
+        #endif
+        return try await googleIdentity.signIn()
+    }
+
+    private func resetAccountDeletionForm() {
+        showsAccountDeletionConfirmation = false
+        accountDeletionConfirmation = ""
+        accountDeletionStatus = nil
     }
 }
