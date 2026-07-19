@@ -8,6 +8,7 @@ demo_banner='ca-app-pub-3940256099942544/2934735716'
 demo_interstitial='ca-app-pub-3940256099942544/4411468910'
 production_banner='ca-app-pub-6428992187280935/111'
 production_interstitial='ca-app-pub-6428992187280935/222'
+test_device_hash='0123456789abcdef0123456789abcdef'
 
 run_validator() {
     env \
@@ -31,7 +32,7 @@ run_validator Debug demo "$app_id" "$demo_banner" "$demo_interstitial" ''
 run_validator Staging demo "$app_id" "$demo_banner" "$demo_interstitial" ''
 run_validator Release disabled "$app_id" '' '' ''
 run_validator OwnerAdsQA owner-real-test "$app_id" \
-    "$production_banner" "$production_interstitial" 'synthetic-test-hash'
+    "$production_banner" "$production_interstitial" "$test_device_hash"
 run_validator Release live "$app_id" "$production_banner" "$production_interstitial" ''
 
 expect_failure run_validator Release demo "$app_id" \
@@ -39,10 +40,12 @@ expect_failure run_validator Release demo "$app_id" \
 expect_failure run_validator OwnerAdsQA owner-real-test "$app_id" \
     "$production_banner" "$production_interstitial" ''
 expect_failure run_validator Staging owner-real-test "$app_id" \
-    "$production_banner" "$production_interstitial" 'synthetic-test-hash'
+    "$production_banner" "$production_interstitial" "$test_device_hash"
 expect_failure run_validator OwnerAdsQA owner-real-test "$app_id" \
-    'ca-app-pub-1111111111111111/333' "$production_interstitial" 'synthetic-test-hash'
+    'ca-app-pub-1111111111111111/333' "$production_interstitial" "$test_device_hash"
 expect_failure run_validator Release live "$app_id" \
-    "$production_banner" "$production_interstitial" 'synthetic-test-hash'
+    "$production_banner" "$production_interstitial" "$test_device_hash"
+expect_failure run_validator OwnerAdsQA owner-real-test "$app_id" \
+    "$production_banner" "$production_interstitial" 'bootstrap-hash-capture'
 expect_failure run_validator Debug demo 'placeholder' \
     "$demo_banner" "$demo_interstitial" ''

@@ -43,7 +43,8 @@ case "$mode" in
         require_production_unit "$interstitial_id" 'Owner Ads QA interstitial'
         test "$banner_id" != "$demo_banner" || fail 'Owner Ads QA cannot use the demo banner unit'
         test "$interstitial_id" != "$demo_interstitial" || fail 'Owner Ads QA cannot use the demo interstitial unit'
-        test -n "$test_ids" || fail 'Owner Ads QA requires an ignored GMA test-device hash'
+        printf '%s\n' "$test_ids" | grep -Eq '^[[:xdigit:]]{32}$' \
+            || fail 'Owner Ads QA requires one ignored GMA 32-character hexadecimal test-device hash'
         ;;
     live)
         test "$configuration" = 'Release' || fail 'live ads are restricted to Release'
