@@ -140,8 +140,11 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(WebMenuMetrics.actionGap, 9)
         XCTAssertEqual(WebMenuMetrics.pairedGap, 8)
         XCTAssertEqual(WebMenuMetrics.menuPetHorizontalShiftFraction, 0.15)
+        XCTAssertEqual(WebMenuMetrics.menuPetBaseHorizontalOffset, 20)
         XCTAssertEqual(WebMenuMetrics.motivationHorizontalShiftFraction, 0.10)
+        XCTAssertEqual(WebMenuMetrics.motivationHorizontalNudge, -10)
         XCTAssertEqual(WebMenuMetrics.motivationScale, 1.15)
+        XCTAssertEqual(WebMenuMetrics.introRulesHorizontalOffset, 10)
     }
 
     func testThemeVisualTokensMatchTheReviewedWebContract() {
@@ -186,6 +189,15 @@ final class CosmeticsTests: XCTestCase {
             12,
             accuracy: 0.001
         )
+        XCTAssertEqual(GameCellVisualMetrics.previewGlyphScale, 3)
+        XCTAssertEqual(
+            GameCellVisualMetrics.glyphBoxSide(
+                side: 100,
+                scale: GameCellVisualMetrics.previewGlyphScale
+            ),
+            36,
+            accuracy: 0.001
+        )
         XCTAssertEqual(
             GameCellVisualMetrics.cornerRadius(theme: .classic, side: 40),
             4
@@ -212,6 +224,17 @@ final class CosmeticsTests: XCTestCase {
             5.6,
             accuracy: 0.001
         )
+        XCTAssertEqual(
+            GameCellVisualMetrics.glyphBoxSide(
+                side: 40,
+                scale: GameCellVisualMetrics.previewGlyphScale
+            ),
+            16.8,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(GameCellVisualMetrics.liveGlyphScale(gridDimension: 1), 1)
+        XCTAssertEqual(GameCellVisualMetrics.liveGlyphScale(gridDimension: 2), 2)
+        XCTAssertEqual(GameCellVisualMetrics.liveGlyphScale(gridDimension: 4), 3)
         XCTAssertEqual(GameCellVisualMetrics.targetBorderWidth, 3)
         XCTAssertEqual(GameCellVisualMetrics.activeBorderWidth, 2)
         XCTAssertEqual(GameHUDMetrics.colorHeroOutlineWidth, 4)
@@ -636,10 +659,11 @@ final class CosmeticsTests: XCTestCase {
             canvasWidth: 64,
             maximumPanelWidth: 460,
             horizontalPadding: 12,
-            horizontalOffset: 10 - 375 * 0.15
+            horizontalOffset: WebMenuMetrics.menuPetBaseHorizontalOffset
+                - 375 * WebMenuMetrics.menuPetHorizontalShiftFraction
         )
 
-        XCTAssertEqual(centerX, 284.75, accuracy: 0.001)
+        XCTAssertEqual(centerX, 294.75, accuracy: 0.001)
         XCTAssertEqual(
             PetTapFollow.resolve(
                 pointerX: 18.75,
@@ -654,12 +678,12 @@ final class CosmeticsTests: XCTestCase {
     func testGameplayFeedbackUsesCenteredAnnouncementsAndHidesLegacyCopies() {
         XCTAssertEqual(GameplayAnnouncementPresentation.getReadyDuration, .seconds(1))
         for feedback in [
-            "Tap Pink ■", "Godlike - 201ms", "Perfect - 301ms", "Hit",
+            "Tap Pink ■", "Godlike • 201ms", "Perfect • 301ms", "Hit",
             "Get ready", "Missed", "Too early", "Too slow", "Wrong cell",
         ] {
             XCTAssertTrue(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
-        for feedback in ["Great - 401ms", "Good - 501ms"] {
+        for feedback in ["Great • 401ms", "Good • 501ms"] {
             XCTAssertTrue(GameplayFeedbackPresentation.isVisuallyHidden(feedback), feedback)
         }
         XCTAssertFalse(GameplayFeedbackPresentation.isVisuallyHidden("Decoy dodged"))
@@ -691,11 +715,7 @@ final class CosmeticsTests: XCTestCase {
             )
         )
         XCTAssertGreaterThan(
-            GameplayOverlayLayer.scoreFlyout,
-            GameplayOverlayLayer.ratingStamp
-        )
-        XCTAssertGreaterThan(
-            GameplayOverlayLayer.ratingStamp,
+            GameplayOverlayLayer.tapFeedback,
             GameplayOverlayLayer.announcement
         )
         XCTAssertGreaterThan(
@@ -713,6 +733,30 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertGreaterThan(
             GameplayOverlayLayer.board,
             GameplayOverlayLayer.boardShell
+        )
+        let missedYellowByTheme = [
+            "classic": "#ffd84d",
+            "disco": "#ffe681",
+            "light": "#f2bd14",
+            "pixel": "#ffd13d",
+        ]
+        for theme in ThemePalette.all {
+            XCTAssertEqual(
+                GameplayAnnouncementStyle.toneHex(for: .missed, theme: theme),
+                missedYellowByTheme[theme.id]
+            )
+        }
+        XCTAssertEqual(
+            GameColorHeroPresentation.outlineHex(
+                theme: .light,
+                mode: .arcade,
+                colorIndex: 2
+            ),
+            ThemePalette.light.tileColors[2]
+        )
+        XCTAssertEqual(
+            GameColorHeroPresentation.outlineOpacity(theme: .light, mode: .arcade),
+            0.82
         )
     }
 

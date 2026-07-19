@@ -6,7 +6,9 @@ final class PimPoPomUITests: XCTestCase {
     }
 
     func testArcadeLaunchesAndAcceptsFirstTap() throws {
-        let app = launch(additionalArguments: ["--ui-test-reaction-ms", "200"])
+        let app = launch(
+            additionalArguments: ["--ui-test-reaction-ms", "200", "--ui-test-glyphs-on"]
+        )
         let arcade = app.buttons["mode-normal"]
         XCTAssertTrue(arcade.waitForExistence(timeout: 8))
         arcade.tap()
@@ -31,9 +33,9 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(feedback.label.hasPrefix("Tap "), "A target never became active")
         board.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         usleep(140_000)
-        attachScreenshot(of: app, name: "SE hit stamp and score flyout")
-        usleep(100_000)
-        attachScreenshot(of: app, name: "SE local feedback fading")
+        attachScreenshot(of: app, name: "SE straight two-line tap feedback")
+        usleep(400_000)
+        attachScreenshot(of: app, name: "SE two-line tap feedback fading")
 
         let score = app.staticTexts["game-score"]
         XCTAssertEqual(

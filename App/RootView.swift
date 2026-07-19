@@ -187,7 +187,8 @@ struct RootView: View {
                     isSleeping: menuPetSleeping
                 )
                 .offset(
-                    x: 10 - screenWidth * WebMenuMetrics.menuPetHorizontalShiftFraction,
+                    x: WebMenuMetrics.menuPetBaseHorizontalOffset
+                        - screenWidth * WebMenuMetrics.menuPetHorizontalShiftFraction,
                     y: WebMenuMetrics.headerHeight + 17
                 )
                 .task(id: "\(petID)-\(menuPetActivity)-\(scenePhase)") {
@@ -314,7 +315,10 @@ struct RootView: View {
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .offset(x: screenWidth * WebMenuMetrics.motivationHorizontalShiftFraction)
+                .offset(
+                    x: screenWidth * WebMenuMetrics.motivationHorizontalShiftFraction
+                        + WebMenuMetrics.motivationHorizontalNudge
+                )
                 .accessibilityIdentifier("menu-motivation")
                 .task(id: motivationTaskID) {
                     guard motivationCanRotate else { return }
@@ -342,6 +346,7 @@ struct RootView: View {
                         )
                     }
                 }
+                .offset(x: WebMenuMetrics.introRulesHorizontalOffset)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Tap your color. Become the fastest. Collect rewards.")
                 .accessibilityIdentifier("menu-intro-stamps")
@@ -648,7 +653,7 @@ struct RootView: View {
                 canvasWidth: 64,
                 maximumPanelWidth: WebMenuMetrics.maximumPanelWidth,
                 horizontalPadding: 12,
-                horizontalOffset: 10
+                horizontalOffset: WebMenuMetrics.menuPetBaseHorizontalOffset
                     - screenWidth * WebMenuMetrics.menuPetHorizontalShiftFraction
             ),
             interactionWidth: screenWidth,

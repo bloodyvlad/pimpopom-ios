@@ -16,8 +16,11 @@ enum WebMenuMetrics {
     static let actionGap: CGFloat = 9
     static let pairedGap: CGFloat = 8
     static let menuPetHorizontalShiftFraction: CGFloat = 0.15
+    static let menuPetBaseHorizontalOffset: CGFloat = 20
     static let motivationHorizontalShiftFraction: CGFloat = 0.10
+    static let motivationHorizontalNudge: CGFloat = -10
     static let motivationScale: CGFloat = 1.15
+    static let introRulesHorizontalOffset: CGFloat = 10
 }
 
 enum PimPoPomBrandColors {

@@ -382,6 +382,7 @@ enum ThemePreviewStyle {
 enum GameCellVisualMetrics {
     static let targetBorderWidth: CGFloat = 3
     static let activeBorderWidth: CGFloat = 2
+    static let previewGlyphScale: CGFloat = 3
 
     static func cornerRadius(
         theme: ThemePalette,
@@ -403,9 +404,18 @@ enum GameCellVisualMetrics {
 
     static func glyphBoxSide(
         side: CGFloat,
-        minimumBaseSide: CGFloat = 14
+        minimumBaseSide: CGFloat = 14,
+        scale: CGFloat = 1
     ) -> CGFloat {
-        max(minimumBaseSide, side * 0.30) / 2.5
+        max(minimumBaseSide, side * 0.30) / 2.5 * max(0, scale)
+    }
+
+    static func liveGlyphScale(gridDimension: Int) -> CGFloat {
+        switch gridDimension {
+        case 2: 2
+        case 4: 3
+        default: 1
+        }
     }
 }
 
@@ -422,6 +432,7 @@ struct GameCellPreview: View {
     var showsGlyphs = true
     var isTarget = true
     var textureSeed: Int?
+    var glyphScale: CGFloat = 1
 
     var body: some View {
         GeometryReader { proxy in
@@ -466,7 +477,10 @@ struct GameCellPreview: View {
                             CenteredColorGlyphView(
                                 glyph: glyph,
                                 color: glyphColor,
-                                size: GameCellVisualMetrics.glyphBoxSide(side: side),
+                                size: GameCellVisualMetrics.glyphBoxSide(
+                                    side: side,
+                                    scale: glyphScale
+                                ),
                                 style: effects.glyphStyle
                             )
                         }
@@ -708,7 +722,8 @@ struct ThemePreview: View {
                             glyph: color.glyph,
                             showsGlyphs: showsGlyphs,
                             isTarget: false,
-                            textureSeed: index
+                            textureSeed: index,
+                            glyphScale: GameCellVisualMetrics.previewGlyphScale
                         )
                     }
                 }

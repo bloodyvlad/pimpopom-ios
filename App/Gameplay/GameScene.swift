@@ -241,6 +241,7 @@ final class GameScene: SKScene {
                     color: theme.cellInkUIColor(at: activeColorIndex),
                     in: rect,
                     cellSide: cellSide,
+                    gridDimension: dimension,
                     index: index
                 )
             }
@@ -377,11 +378,13 @@ final class GameScene: SKScene {
         color: UIColor,
         in rect: CGRect,
         cellSide: CGFloat,
+        gridDimension: Int,
         index: Int
     ) {
         let boxSide = GameCellVisualMetrics.glyphBoxSide(
             side: cellSide,
-            minimumBaseSide: 24
+            minimumBaseSide: 24,
+            scale: GameCellVisualMetrics.liveGlyphScale(gridDimension: gridDimension)
         )
         let glyphRect = CGRect(
             x: rect.midX - boxSide / 2,

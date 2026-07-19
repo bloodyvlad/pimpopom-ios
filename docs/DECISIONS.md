@@ -421,3 +421,18 @@ Reduce the shared canonical glyph box by dividing its existing resolved size—i
 Consequences: Tap feedback stays spatially tied to the player's action and cannot collide with or animate toward the HUD/footer. Every theme continues to share one equal-bounds glyph contract at the smaller scale. Tests lock the exact offsets, rotations, 980-millisecond lifetime, no-destination presentation model, glyph divisor, outline width, and staging version/build. Physical review must confirm that the reduced Pixel glyphs remain readable and that edge-adjacent feedback is acceptably visible.
 
 Revisit when: physical-device legibility requires a less aggressive minimum glyph size, Reduce Motion needs a separate transition, or the feedback offsets collide with a future board layout.
+
+## P-029 — Scale glyphs by board density and unify local tap feedback
+
+- Date: 2026-07-19
+- Status: Accepted; supersedes P-028 for glyph scale, successful-hit composition, reaction copy, and main-menu optical offsets
+
+Context: Physical review of the reduced P-028 glyphs found that one uniform scale made dense boards and compact previews too timid while the one-cell board was already balanced. The separated, tilted points and reaction labels also created more visual language than one accepted tap needed. Light's fixed blue Your Color outline could disagree with the selected cell, and the launch rules, rotating slogans, and pet needed small independent horizontal corrections.
+
+Decision: Retain the normalized equal-bounds glyph geometry and P-028's reduced base box. Keep that box at 1× on the 1×1 board, multiply it by 2 on the 2×2 board, and by 3 on the 4×4 board (the 16-cell stage). Use the same 3× multiplier in the Arcade Your Color swatch and every Theme Shop screenshot. Do not change hit regions, difficulty timing, target selection, glyph semantics, or the Zen gradient swatch. In Arcade, derive the Your Color panel outline and glow from the selected cell color; Light no longer substitutes a fixed blue outline.
+
+For each accepted tap, show one borderless, unrotated two-line presentation at the normalized tap coordinate: 16-point `+N points` copy and a smaller 12-point `Rating • Nms` line 19 points below it. Fade the grouped copy together after a 680-millisecond hold and remove it at 980 milliseconds; do not animate it toward the Points field or Speed Bar. Continue allowing up to eight concurrent presentations. Render the centered **Missed** announcement with each theme's true yellow cell color. Move the cold-launch rule group 10 points right, rotating slogans 10 points left, and the rendered menu pet plus its tap-follow center 10 points right.
+
+Consequences: Glyph visibility now grows with board density without disturbing the already accepted one-cell composition, and preview surfaces remain representative of the most demanding live stage. A correct tap has one stable visual anchor and one fade lifecycle rather than two decorated stamps. Light's target panel cannot advertise a color different from its actual cell. Deterministic tests lock all scale factors, exact tap/rating positions, copy, timing, yellow Missed mapping, menu offsets, and the menu pet input/render alignment. This batch is merged without a build-number change, TestFlight upload, or physical-device installation; Simulator verification remains required before describing the result as visually accepted.
+
+Revisit when: physical-device review shows edge clipping, the 4×4 glyphs crowd their cell material, Dynamic Type requires a separate feedback layout, or a future board dimension needs an explicit scale contract.

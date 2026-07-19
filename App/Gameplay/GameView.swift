@@ -234,15 +234,17 @@ struct GameView: View {
         )
         let colorIndex = coordinator.snapshot.playerColorIndex
         let name = coordinator.mode == .zen ? "Any" : coordinator.snapshot.playerColor.name
-        let outlineTone =
-            if palette.isLight {
-                Color(hex: "#477694")
-            } else if coordinator.mode == .zen {
-                Color(hex: palette.accent)
-            } else {
-                palette.color(at: colorIndex)
-            }
-        let outlineOpacity = palette.isLight ? 0.52 : 0.82
+        let outlineTone = Color(
+            hex: GameColorHeroPresentation.outlineHex(
+                theme: palette,
+                mode: coordinator.mode,
+                colorIndex: colorIndex
+            )
+        )
+        let outlineOpacity = GameColorHeroPresentation.outlineOpacity(
+            theme: palette,
+            mode: coordinator.mode
+        )
 
         return VStack(alignment: .leading, spacing: 5) {
             Text("YOUR COLOR")
@@ -261,7 +263,8 @@ struct GameView: View {
                             colorIndex: colorIndex,
                             glyph: coordinator.snapshot.playerColor.glyph,
                             showsGlyphs: frozenGlyphsEnabled,
-                            isTarget: true
+                            isTarget: true,
+                            glyphScale: GameCellVisualMetrics.previewGlyphScale
                         )
                     }
                 }
@@ -435,53 +438,37 @@ struct GameView: View {
 
             ForEach(hitFeedbackPresentations) { presentation in
                 GeometryReader { proxy in
-                    GlowStampView(
-                        text: GameplayRatingFormatting.stamp(
-                            rating: presentation.event.rating,
-                            milliseconds: presentation.event.milliseconds
-                        ),
-                        tone: presentation.stamp.tone,
-                        theme: palette,
-                        tilt: presentation.stamp.tilt,
-                        size: 12,
-                        horizontalPadding: 9,
-                        verticalPadding: 5,
-                        uppercasesText: false,
-                        usesTransparentBackground: true
-                    )
-                    .position(
-                        presentation.stampPosition(in: proxy.size)
-                    )
-                    .opacity(presentation.stampOpacity)
-                    .scaleEffect(presentation.stampScale)
-                }
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-                .zIndex(GameplayOverlayLayer.ratingStamp)
-            }
-
-            ForEach(hitFeedbackPresentations) { presentation in
-                GeometryReader { proxy in
-                    Text(presentation.scoreText)
-                        .font(
-                            palette.appFont(
-                                size: 14,
-                                weight: .black,
-                                relativeTo: .headline
+                    ZStack {
+                        Text(presentation.scoreText)
+                            .font(
+                                palette.appFont(
+                                    size: GameplayHitFeedbackMetrics.pointsFontSize,
+                                    weight: .black,
+                                    relativeTo: .headline
+                                )
                             )
-                        )
-                        .monospacedDigit()
-                        .foregroundStyle(presentation.stamp.tone)
-                        .shadow(color: presentation.stamp.tone.opacity(0.98), radius: 5)
-                        .shadow(color: presentation.stamp.tone.opacity(0.64), radius: 11)
-                        .position(presentation.scorePosition(in: proxy.size))
-                        .rotationEffect(.degrees(GameplayHitFeedbackMetrics.scoreRotationDegrees))
-                        .opacity(presentation.isScoreVisible ? 1 : 0)
-                        .scaleEffect(presentation.scoreScale)
+                            .monospacedDigit()
+                            .position(presentation.tapPosition(in: proxy.size))
+
+                        Text(presentation.ratingText)
+                            .font(
+                                palette.appFont(
+                                    size: GameplayHitFeedbackMetrics.ratingFontSize,
+                                    weight: .bold,
+                                    relativeTo: .subheadline
+                                )
+                            )
+                            .monospacedDigit()
+                            .position(presentation.ratingPosition(in: proxy.size))
+                    }
+                    .foregroundStyle(presentation.tone)
+                    .shadow(color: presentation.tone.opacity(0.98), radius: 5)
+                    .shadow(color: presentation.tone.opacity(0.64), radius: 11)
+                    .opacity(presentation.opacity)
                 }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
-                .zIndex(GameplayOverlayLayer.scoreFlyout)
+                .zIndex(GameplayOverlayLayer.tapFeedback)
             }
 
             if let announcement {
@@ -504,7 +491,7 @@ struct GameView: View {
                     .allowsHitTesting(false)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
-                    .zIndex(GameplayOverlayLayer.ratingStamp)
+                    .zIndex(GameplayOverlayLayer.announcement)
                     .accessibilityHidden(displayedFeedback == "Get ready")
                     .accessibilityIdentifier("game-feedback")
             }
@@ -1049,9 +1036,7 @@ struct GameView: View {
         hitFeedbackPresentations.append(
             GameplayHitPresentation(
                 event: event,
-                stamp: RatingStampPresentation.make(event: event),
-                stampPhase: .visible,
-                isScoreVisible: true
+                phase: .visible
             )
         )
         let task = Task { @MainActor in
@@ -1060,11 +1045,7 @@ struct GameView: View {
             try? await Task.sleep(for: GameplayHitFeedbackMetrics.visibleHoldDuration)
             guard !Task.isCancelled else { return }
             withAnimation(.easeOut(duration: GameplayHitFeedbackMetrics.fadeDurationSeconds)) {
-                updateHitFeedback(
-                    id: event.id,
-                    stampPhase: .hidden,
-                    isScoreVisible: false
-                )
+                updateHitFeedback(id: event.id, phase: .hidden)
             }
             try? await Task.sleep(for: GameplayHitFeedbackMetrics.fadeDuration)
             guard !Task.isCancelled else { return }
@@ -1076,18 +1057,12 @@ struct GameView: View {
 
     private func updateHitFeedback(
         id: Int,
-        stampPhase: GameplayHitAnimationPhase? = nil,
-        isScoreVisible: Bool? = nil
+        phase: GameplayHitAnimationPhase
     ) {
         guard let index = hitFeedbackPresentations.firstIndex(where: { $0.id == id }) else {
             return
         }
-        if let stampPhase {
-            hitFeedbackPresentations[index].stampPhase = stampPhase
-        }
-        if let isScoreVisible {
-            hitFeedbackPresentations[index].isScoreVisible = isScoreVisible
-        }
+        hitFeedbackPresentations[index].phase = phase
     }
 
     private func clearHitFeedback() {
@@ -1107,9 +1082,37 @@ struct GameView: View {
     }
 }
 
-struct RatingStampPresentation: Equatable {
+enum GameplayHitAnimationPhase: Equatable {
+    case hidden
+    case visible
+}
+
+enum GameplayHitFeedbackMetrics {
+    static let pointsFontSize: CGFloat = 16
+    static let ratingFontSize: CGFloat = 12
+    static let ratingVerticalOffset: CGFloat = 19
+    static let visibleHoldDuration: Duration = .milliseconds(680)
+    static let fadeDuration: Duration = .milliseconds(300)
+    static let fadeDurationSeconds = 0.30
+    static let lifetimeMilliseconds = 980
+}
+
+struct GameplayHitPresentation: Equatable, Identifiable {
     let event: GameplayHitFeedbackEvent
-    let tilt = GameplayHitFeedbackMetrics.stampRotationDegrees
+    var phase: GameplayHitAnimationPhase
+
+    var id: Int { event.id }
+
+    var scoreText: String {
+        GameplayScoreFormatting.flyout(points: event.pointsAwarded)
+    }
+
+    var ratingText: String {
+        GameplayRatingFormatting.detail(
+            rating: event.rating,
+            milliseconds: event.milliseconds
+        )
+    }
 
     var tone: Color {
         switch event.rating {
@@ -1120,75 +1123,22 @@ struct RatingStampPresentation: Equatable {
         }
     }
 
-    static func make(event: GameplayHitFeedbackEvent) -> Self {
-        Self(event: event)
+    var opacity: Double {
+        phase == .hidden ? 0 : 1
     }
 
-    func position(in size: CGSize) -> CGPoint {
+    func tapPosition(in size: CGSize) -> CGPoint {
         CGPoint(
-            x: event.normalizedLocation.x * size.width
-                + GameplayHitFeedbackMetrics.stampHorizontalOffset,
+            x: event.normalizedLocation.x * size.width,
             y: event.normalizedLocation.y * size.height
-                + GameplayHitFeedbackMetrics.stampVerticalOffset
         )
     }
-}
 
-enum GameplayHitAnimationPhase: Equatable {
-    case hidden
-    case visible
-}
-
-enum GameplayHitFeedbackMetrics {
-    static let scoreHorizontalOffset: CGFloat = -20
-    static let scoreVerticalOffset: CGFloat = -20
-    static let scoreRotationDegrees = -40.0
-    static let stampHorizontalOffset: CGFloat = 30
-    static let stampVerticalOffset: CGFloat = -30
-    static let stampRotationDegrees = 40.0
-    static let visibleHoldDuration: Duration = .milliseconds(680)
-    static let fadeDuration: Duration = .milliseconds(300)
-    static let fadeDurationSeconds = 0.30
-    static let lifetimeMilliseconds = 980
-}
-
-struct GameplayHitPresentation: Equatable, Identifiable {
-    let event: GameplayHitFeedbackEvent
-    let stamp: RatingStampPresentation
-    var stampPhase: GameplayHitAnimationPhase
-    var isScoreVisible: Bool
-
-    var id: Int { event.id }
-
-    var scoreText: String {
-        GameplayScoreFormatting.flyout(points: event.pointsAwarded)
-    }
-
-    var stampOpacity: Double {
-        stampPhase == .hidden ? 0 : 1
-    }
-
-    var stampScale: CGFloat {
-        switch stampPhase {
-        case .hidden: 0.88
-        case .visible: 1
-        }
-    }
-
-    var scoreScale: CGFloat {
-        return isScoreVisible ? 1 : 0.84
-    }
-
-    func stampPosition(in size: CGSize) -> CGPoint {
-        stamp.position(in: size)
-    }
-
-    func scorePosition(in size: CGSize) -> CGPoint {
-        CGPoint(
-            x: event.normalizedLocation.x * size.width
-                + GameplayHitFeedbackMetrics.scoreHorizontalOffset,
-            y: event.normalizedLocation.y * size.height
-                + GameplayHitFeedbackMetrics.scoreVerticalOffset
+    func ratingPosition(in size: CGSize) -> CGPoint {
+        let tap = tapPosition(in: size)
+        return CGPoint(
+            x: tap.x,
+            y: tap.y + GameplayHitFeedbackMetrics.ratingVerticalOffset
         )
     }
 }
@@ -1265,6 +1215,23 @@ enum GameHUDMetrics {
     static let livesColorHex = "#ff5370"
 }
 
+enum GameColorHeroPresentation {
+    static func outlineHex(
+        theme: ThemePalette,
+        mode: GameMode,
+        colorIndex: Int
+    ) -> String {
+        if mode == .zen {
+            return theme.isLight ? "#477694" : theme.accent
+        }
+        return theme.tileColors[colorIndex % theme.tileColors.count]
+    }
+
+    static func outlineOpacity(theme: ThemePalette, mode: GameMode) -> Double {
+        theme.isLight && mode == .zen ? 0.52 : 0.82
+    }
+}
+
 enum GameplayLayoutMetrics {
     static let footerLift: CGFloat = 8
     static let adBannerHeight: CGFloat = 50
@@ -1281,7 +1248,7 @@ enum GameplayFeedbackPresentation {
         }
         if feedback.hasPrefix("Tap ") { return true }
         if feedback == "Hit" { return true }
-        return ["Godlike -", "Perfect -", "Great -", "Good -"]
+        return ["Godlike •", "Perfect •", "Great •", "Good •"]
             .contains { feedback.hasPrefix($0) }
     }
 }
@@ -1294,8 +1261,7 @@ enum GameplayOverlayLayer {
     static let discoGlow = 100.0
     static let boardShellBorder = 150.0
     static let announcement = 200.0
-    static let ratingStamp = 300.0
-    static let scoreFlyout = 310.0
+    static let tapFeedback = 310.0
 }
 
 enum GameplayCenterAnnouncement: Equatable, Sendable {
@@ -1346,13 +1312,22 @@ private struct GameplayCenterAnnouncementView: View {
     }
 
     private var tone: Color {
+        Color(hex: GameplayAnnouncementStyle.toneHex(for: announcement, theme: theme))
+    }
+}
+
+enum GameplayAnnouncementStyle {
+    static func toneHex(
+        for announcement: GameplayCenterAnnouncement,
+        theme: ThemePalette
+    ) -> String {
         switch announcement {
         case .getReady:
-            Color(hex: theme.accent)
+            theme.accent
         case .missed:
-            Color(hex: theme.isLight ? "#b94117" : "#ff9b5c")
+            theme.tileColors[1]
         case .tooSlow:
-            Color(hex: theme.isLight ? "#a52b50" : "#ff6f9f")
+            theme.isLight ? "#a52b50" : "#ff6f9f"
         }
     }
 }

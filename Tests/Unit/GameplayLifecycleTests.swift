@@ -62,6 +62,53 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertFalse(scene.children.contains { $0.name?.hasPrefix("cell-glyph-") == true })
     }
 
+    func testGameSceneAppliesDensityScaleToRenderedGlyphBounds() throws {
+        let oneByOneEngine = GameEngine(random: { 0 })
+        _ = oneByOneEngine.start(now: 0, mode: .arcade)
+        let oneByOne = oneByOneEngine.activateRound(now: 1_000).snapshot
+
+        let twoByTwoEngine = GameEngine(random: { 0 })
+        _ = twoByTwoEngine.start(now: 0, mode: .arcade)
+        var twoByTwoNow = 1_000.0
+        for _ in 0..<twoByTwoEngine.configuration.twoByTwoStartsAtHits {
+            let active = twoByTwoEngine.activateRound(now: twoByTwoNow).snapshot
+            let targetIndex = try XCTUnwrap(active.targetIndex)
+            _ = twoByTwoEngine.tap(
+                cellIndex: targetIndex,
+                now: twoByTwoNow + 100,
+                resolvedAt: twoByTwoNow + 100
+            )
+            twoByTwoNow += 1_000
+        }
+        let twoByTwo = twoByTwoEngine.activateRound(now: twoByTwoNow).snapshot
+
+        let fourByFourEngine = GameEngine(random: { 0 })
+        _ = fourByFourEngine.start(now: 0, mode: .arcade)
+        let fourByFour = fourByFourEngine.activateRound(
+            now: Double(fourByFourEngine.configuration.phases.fourByFourStartsAtMilliseconds)
+        ).snapshot
+
+        for snapshot in [oneByOne, twoByTwo, fourByFour] {
+            let dimension = snapshot.difficulty.gridDimension
+            let scene = GameScene()
+            scene.apply(snapshot)
+            let glyph = try XCTUnwrap(
+                scene.children.first { $0.name?.hasPrefix("cell-glyph-") == true }
+                    as? SKShapeNode
+            )
+            let path = try XCTUnwrap(glyph.path)
+            let layout = GameBoardLayout(size: scene.size, dimension: dimension)
+            let expectedSide = GameCellVisualMetrics.glyphBoxSide(
+                side: layout.cellSide,
+                minimumBaseSide: 24,
+                scale: GameCellVisualMetrics.liveGlyphScale(gridDimension: dimension)
+            )
+
+            XCTAssertEqual(path.boundingBox.width, expectedSide, accuracy: 0.001)
+            XCTAssertEqual(path.boundingBox.height, expectedSide, accuracy: 0.001)
+        }
+    }
+
     func testGameSceneSharesThemeEffectsAndPixelGlyphPathsWithPreviews() throws {
         let engine = GameEngine(random: { 0 })
         _ = engine.start(now: 0, mode: .arcade)
@@ -205,7 +252,7 @@ final class GameplayLifecycleTests: XCTestCase {
         coordinator.stop()
     }
 
-    func testEveryAcceptedHitPublishesRoundedStampAndScoreFlyoutData() {
+    func testEveryAcceptedHitPublishesRoundedTwoLineTapFeedbackData() {
         let godlike = hitFeedback(reactionMilliseconds: 249.4)
         XCTAssertEqual(godlike?.rating, .godlike)
         XCTAssertEqual(godlike?.milliseconds, 249)

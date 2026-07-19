@@ -39,8 +39,8 @@ enum GameplayMissPresentation {
 }
 
 enum GameplayRatingFormatting {
-    static func stamp(rating: SpeedRating, milliseconds: Int) -> String {
-        "\(rating.label) - \(milliseconds)ms"
+    static func detail(rating: SpeedRating, milliseconds: Int) -> String {
+        "\(rating.label) • \(milliseconds)ms"
     }
 }
 
@@ -198,7 +198,7 @@ final class GameCoordinator: ObservableObject {
         case .hit:
             setRoundPresentationExpired(false)
             if let rating = transition.speedRating {
-                feedback = GameplayRatingFormatting.stamp(
+                feedback = GameplayRatingFormatting.detail(
                     rating: rating,
                     milliseconds: transition.displayedReactionMilliseconds ?? 0
                 )

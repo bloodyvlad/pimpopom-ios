@@ -143,7 +143,7 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(ResponseProgressPresentation.remainingFraction(-0.4, isActive: true), 0)
     }
 
-    func testTapFeedbackUsesFixedLocalOffsetsAndNeverMovesToTheHUD() {
+    func testTapFeedbackUsesOneStraightTwoLinePresentationAtTheTap() {
         let event = GameplayHitFeedbackEvent(
             id: 1,
             rating: .perfect,
@@ -151,36 +151,32 @@ final class PreferencesAndContractTests: XCTestCase {
             pointsAwarded: 2_343,
             normalizedLocation: CGPoint(x: 0.25, y: 0.60)
         )
-        let presentation = RatingStampPresentation.make(event: event)
-        let point = presentation.position(in: CGSize(width: 351, height: 351))
-
-        XCTAssertEqual(presentation.event, event)
-        XCTAssertEqual(presentation.tilt, 40)
-        XCTAssertEqual(point.x, 117.75, accuracy: 0.001)
-        XCTAssertEqual(point.y, 180.6, accuracy: 0.001)
-
         let hit = GameplayHitPresentation(
             event: event,
-            stamp: presentation,
-            stampPhase: .visible,
-            isScoreVisible: true
+            phase: .visible
         )
         XCTAssertEqual(
-            GameplayRatingFormatting.stamp(rating: .good, milliseconds: 802),
-            "Good - 802ms"
+            GameplayRatingFormatting.detail(rating: .good, milliseconds: 802),
+            "Good • 802ms"
         )
         XCTAssertEqual(hit.scoreText, "+2,343 points")
+        XCTAssertEqual(hit.ratingText, "Perfect • 321ms")
         XCTAssertEqual(
-            hit.scorePosition(in: CGSize(width: 320, height: 320)),
-            CGPoint(x: 60, y: 172)
+            hit.tapPosition(in: CGSize(width: 320, height: 320)),
+            CGPoint(x: 80, y: 192)
         )
         XCTAssertEqual(
-            hit.stampPosition(in: CGSize(width: 351, height: 351)),
-            point
+            hit.ratingPosition(in: CGSize(width: 320, height: 320)),
+            CGPoint(x: 80, y: 211)
         )
-        XCTAssertEqual(GameplayHitFeedbackMetrics.scoreRotationDegrees, -40)
-        XCTAssertEqual(GameplayHitFeedbackMetrics.stampRotationDegrees, 40)
+        XCTAssertEqual(GameplayHitFeedbackMetrics.pointsFontSize, 16)
+        XCTAssertEqual(GameplayHitFeedbackMetrics.ratingFontSize, 12)
+        XCTAssertEqual(GameplayHitFeedbackMetrics.ratingVerticalOffset, 19)
         XCTAssertEqual(GameplayHitFeedbackMetrics.lifetimeMilliseconds, 980)
+        XCTAssertEqual(hit.opacity, 1)
+        var fadingHit = hit
+        fadingHit.phase = .hidden
+        XCTAssertEqual(fadingHit.opacity, 0)
     }
 
     func testGameplayHUDUsesRequestedZenAndFooterMetrics() {
