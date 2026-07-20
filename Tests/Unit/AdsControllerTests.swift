@@ -1,3 +1,4 @@
+import GoogleMobileAds
 import PimPoPomCore
 import UIKit
 import XCTest
@@ -94,6 +95,45 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertFalse(liveWithHash.validationProblems(configurationName: "Release").isEmpty)
     }
 
+    func testAdUnitRouteFallsBackOnceOnlyWhenUnitsDiffer() {
+        var ownerRoute = AdUnitRoute(
+            primaryUnitID: "owner-production",
+            fallbackUnitID: "google-demo"
+        )
+        XCTAssertEqual(ownerRoute.currentUnitID, "owner-production")
+        XCTAssertFalse(ownerRoute.isUsingFallback)
+        XCTAssertTrue(ownerRoute.useFallbackIfAvailable())
+        XCTAssertEqual(ownerRoute.currentUnitID, "google-demo")
+        XCTAssertTrue(ownerRoute.isUsingFallback)
+        XCTAssertFalse(ownerRoute.useFallbackIfAvailable())
+
+        var demoRoute = AdUnitRoute(
+            primaryUnitID: "google-demo",
+            fallbackUnitID: "google-demo"
+        )
+        XCTAssertFalse(demoRoute.useFallbackIfAvailable())
+        XCTAssertEqual(demoRoute.currentUnitID, "google-demo")
+    }
+
+    func testDemoFallbackRecognizesOnlyExactGoogleNoFillError() {
+        let noFill = NSError(
+            domain: GADErrorDomain,
+            code: GoogleMobileAds.RequestError.noFill.rawValue
+        )
+        let anotherGoogleError = NSError(
+            domain: GADErrorDomain,
+            code: GoogleMobileAds.RequestError.noFill.rawValue + 1
+        )
+        let unrelatedNoFillCode = NSError(
+            domain: "example.error",
+            code: GoogleMobileAds.RequestError.noFill.rawValue
+        )
+
+        XCTAssertTrue(GoogleAdsService.isNoFill(noFill))
+        XCTAssertFalse(GoogleAdsService.isNoFill(anotherGoogleError))
+        XCTAssertFalse(GoogleAdsService.isNoFill(unrelatedNoFillCode))
+    }
+
     func testAccountResolutionFailsClosedUntilAuthoritativeSessionArrives() {
         XCTAssertEqual(AdAccountResolution.resolve(nil), .unresolved)
         XCTAssertEqual(AdAccountResolution.resolve(Self.anonymousSession), .adsAllowed)
@@ -167,6 +207,46 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertEqual(fixture.ads.interstitialPreloadCount, 1)
         XCTAssertEqual(fixture.controller.lifecycleState, .ready)
         XCTAssertTrue(fixture.controller.isPrivacyChoicesVisible)
+    }
+
+    func testTransientConsentFailureRetriesAndRecoversAds() async {
+        let fixture = Self.makeFixture(
+            consentSnapshot: ConsentSnapshot(
+                canRequestAds: false,
+                privacyOptionsRequirement: .unknown
+            )
+        )
+        fixture.consent.requestError = FakeAdsError.requestedFailure
+        await fixture.controller.bootstrap(session: Self.anonymousSession)
+
+        XCTAssertEqual(fixture.controller.lifecycleState, .failed)
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.startCount, 0)
+
+        fixture.consent.requestError = nil
+        fixture.consent.snapshot = ConsentSnapshot(
+            canRequestAds: true,
+            privacyOptionsRequirement: .notRequired
+        )
+        await fixture.controller.retryEligibilityIfNeeded()
+
+        XCTAssertEqual(fixture.consent.requestCount, 2)
+        XCTAssertEqual(fixture.ads.startCount, 1)
+        XCTAssertEqual(fixture.ads.interstitialPreloadCount, 1)
+        XCTAssertEqual(fixture.controller.lifecycleState, .ready)
+        XCTAssertTrue(fixture.controller.reservesBannerSlot)
+    }
+
+    func testEligibilityRetryIsNoOpOutsideFailedAdsAllowedState() async {
+        let ready = Self.makeFixture()
+        await ready.controller.bootstrap(session: Self.anonymousSession)
+        await ready.controller.retryEligibilityIfNeeded()
+        XCTAssertEqual(ready.consent.requestCount, 1)
+
+        let adFree = Self.makeFixture()
+        await adFree.controller.bootstrap(session: Self.authenticatedSession(adFree: true))
+        await adFree.controller.retryEligibilityIfNeeded()
+        XCTAssertEqual(adFree.consent.requestCount, 0)
     }
 
     func testPrivacyChoicesPresentationRefreshesState() async {

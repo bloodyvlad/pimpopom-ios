@@ -59,7 +59,10 @@ final class GoogleAdsService: NSObject, AdsServing {
     private var isApplicationActive = true
     private weak var bannerContainer: UIView?
     private var bannerView: BannerView?
+    private var bannerRoute: AdUnitRoute?
+    private var bannerWaitsForForegroundRetry = false
     private var interstitialAd: InterstitialAd?
+    private var interstitialRoute: AdUnitRoute?
     private var interstitialLoadedAt: Date?
     private var interstitialLoadTask: Task<Void, Never>?
     private var isPresentingInterstitial = false
@@ -70,6 +73,15 @@ final class GoogleAdsService: NSObject, AdsServing {
 
     func configure(_ configuration: AdsConfiguration) {
         self.configuration = configuration
+        bannerRoute = AdUnitRoute(
+            primaryUnitID: configuration.bannerUnitID,
+            fallbackUnitID: configuration.fallbackBannerUnitID
+        )
+        interstitialRoute = AdUnitRoute(
+            primaryUnitID: configuration.interstitialUnitID,
+            fallbackUnitID: configuration.fallbackInterstitialUnitID
+        )
+        bannerWaitsForForegroundRetry = false
         let requestConfiguration = MobileAds.shared.requestConfiguration
         requestConfiguration.maxAdContentRating = GADMaxAdContentRating.general
         requestConfiguration.ageRestrictedTreatment = .unspecified
@@ -79,6 +91,12 @@ final class GoogleAdsService: NSObject, AdsServing {
             configuration.testDeviceIdentifiers.isEmpty
             ? nil
             : configuration.testDeviceIdentifiers
+        logger.notice(
+            "Configured ads route: \(configuration.isOwnerDevice ? "owner primary with demo fallback" : "demo", privacy: .public)"
+        )
+        consoleDiagnostic(
+            configuration.isOwnerDevice ? "route=owner-primary" : "route=demo"
+        )
     }
 
     func start() {
@@ -91,7 +109,7 @@ final class GoogleAdsService: NSObject, AdsServing {
     }
 
     func attachBanner(to container: UIView, availableWidth: CGFloat) {
-        guard hasStarted, isApplicationActive, let configuration else {
+        guard hasStarted, isApplicationActive, configuration != nil else {
             detachBanner(from: container)
             return
         }
@@ -102,6 +120,7 @@ final class GoogleAdsService: NSObject, AdsServing {
         }
 
         bannerContainer = container
+        guard !bannerWaitsForForegroundRetry else { return }
         if let bannerView {
             install(bannerView, in: container)
             return
@@ -110,15 +129,28 @@ final class GoogleAdsService: NSObject, AdsServing {
         // Current large anchored-adaptive banners may be 50–150 points tall.
         // The accepted PimPoPom gameplay host is strictly 50 points, so use the
         // official 320×50 format instead of clipping an adaptive creative.
+        loadBanner(in: container)
+    }
+
+    private func loadBanner(in container: UIView) {
+        guard hasStarted,
+            isApplicationActive,
+            let route = bannerRoute
+        else { return }
         let banner = BannerView(adSize: AdSizeBanner)
-        banner.adUnitID = configuration.bannerUnitID
+        banner.adUnitID = route.currentUnitID
         banner.rootViewController = Self.topViewController()
         banner.delegate = self
         banner.accessibilityIdentifier = "google-banner-view"
         bannerView = banner
         install(banner, in: container)
         onBannerStateChange?(.loading)
-        logger.debug("Requesting a fixed banner")
+        logger.notice(
+            "Requesting fixed banner via \(route.isUsingFallback ? "demo fallback" : "primary", privacy: .public) route"
+        )
+        consoleDiagnostic(
+            "banner request route=\(route.isUsingFallback ? "demo-fallback" : "primary")"
+        )
         banner.load(Request())
     }
 
@@ -136,25 +168,49 @@ final class GoogleAdsService: NSObject, AdsServing {
             isApplicationActive,
             interstitialAd == nil,
             interstitialLoadTask == nil,
-            let configuration
+            interstitialRoute != nil
         else { return }
 
-        let unitID = configuration.interstitialUnitID
         interstitialLoadTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer { interstitialLoadTask = nil }
+            await loadInterstitialWithFallback()
+        }
+    }
+
+    private func loadInterstitialWithFallback() async {
+        while hasStarted, isApplicationActive, let route = interstitialRoute {
             do {
-                let ad = try await InterstitialAd.load(with: unitID, request: Request())
+                let ad = try await InterstitialAd.load(
+                    with: route.currentUnitID,
+                    request: Request()
+                )
                 guard hasStarted else { return }
                 ad.fullScreenContentDelegate = self
                 interstitialAd = ad
                 interstitialLoadedAt = Date()
+                logger.notice(
+                    "Interstitial loaded via \(route.isUsingFallback ? "demo fallback" : "primary", privacy: .public) route"
+                )
+                consoleDiagnostic(
+                    "interstitial loaded route=\(route.isUsingFallback ? "demo-fallback" : "primary")"
+                )
+                return
             } catch {
+                let nsError = error as NSError
                 logger.error(
-                    "Interstitial preload failed: \(error.localizedDescription, privacy: .public)"
+                    "Interstitial preload failed [\(nsError.domain, privacy: .public):\(nsError.code, privacy: .public)]: \(nsError.localizedDescription, privacy: .public)"
+                )
+                consoleDiagnostic(
+                    "interstitial failed domain=\(nsError.domain) code=\(nsError.code) message=\(nsError.localizedDescription)"
                 )
                 interstitialAd = nil
                 interstitialLoadedAt = nil
+                guard Self.isNoFill(error),
+                    interstitialRoute?.useFallbackIfAvailable() == true
+                else { return }
+                logger.notice("Retrying interstitial with the configured demo fallback")
+                consoleDiagnostic("interstitial retry route=demo-fallback")
             }
         }
     }
@@ -175,8 +231,14 @@ final class GoogleAdsService: NSObject, AdsServing {
 
     func setApplicationActive(_ isActive: Bool) {
         isApplicationActive = isActive
-        if isActive, let bannerContainer, let bannerView {
-            install(bannerView, in: bannerContainer)
+        if isActive, let bannerContainer {
+            if bannerWaitsForForegroundRetry {
+                bannerWaitsForForegroundRetry = false
+                discardBanner()
+                loadBanner(in: bannerContainer)
+            } else if let bannerView {
+                install(bannerView, in: bannerContainer)
+            }
         }
     }
 
@@ -188,11 +250,16 @@ final class GoogleAdsService: NSObject, AdsServing {
         interstitialAd = nil
         interstitialLoadedAt = nil
         isPresentingInterstitial = false
+        discardBanner()
+        bannerContainer = nil
+        bannerWaitsForForegroundRetry = false
+        onBannerStateChange?(.unavailable)
+    }
+
+    private func discardBanner() {
         bannerView?.delegate = nil
         bannerView?.removeFromSuperview()
         bannerView = nil
-        bannerContainer = nil
-        onBannerStateChange?(.unavailable)
     }
 
     private func install(_ banner: BannerView, in container: UIView) {
@@ -233,19 +300,53 @@ final class GoogleAdsService: NSObject, AdsServing {
         }
         return controller
     }
+
+    static func isNoFill(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return nsError.domain == GADErrorDomain
+            && nsError.code == GoogleMobileAds.RequestError.noFill.rawValue
+    }
+
+    private func consoleDiagnostic(_ message: String) {
+        guard ProcessInfo.processInfo.arguments.contains("--ad-diagnostics") else { return }
+        print("[PimPoPom Ads] \(message)")
+    }
 }
 
 extension GoogleAdsService: BannerViewDelegate {
     func bannerViewDidReceiveAd(_ bannerView: BannerView) {
         guard bannerView === self.bannerView else { return }
-        logger.info("Banner loaded")
+        logger.notice("Banner loaded")
+        consoleDiagnostic("banner loaded")
         onBannerStateChange?(.loaded)
     }
 
     func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError error: Error) {
         guard bannerView === self.bannerView else { return }
-        logger.error("Banner load failed: \(error.localizedDescription, privacy: .public)")
-        onBannerStateChange?(.failed)
+        let nsError = error as NSError
+        logger.error(
+            "Banner load failed [\(nsError.domain, privacy: .public):\(nsError.code, privacy: .public)]: \(nsError.localizedDescription, privacy: .public)"
+        )
+        consoleDiagnostic(
+            "banner failed domain=\(nsError.domain) code=\(nsError.code) message=\(nsError.localizedDescription)"
+        )
+        if Self.isNoFill(error),
+            bannerRoute?.useFallbackIfAvailable() == true,
+            let container = bannerContainer,
+            isApplicationActive
+        {
+            logger.notice("Retrying banner with the configured demo fallback")
+            consoleDiagnostic("banner retry route=demo-fallback")
+            discardBanner()
+            loadBanner(in: container)
+        } else {
+            bannerWaitsForForegroundRetry = true
+            onBannerStateChange?(.failed)
+            // Do not let GMA's retained banner refresh itself repeatedly after
+            // a terminal load failure. A genuine foreground transition is the
+            // only retry trigger for this app process.
+            discardBanner()
+        }
     }
 }
 

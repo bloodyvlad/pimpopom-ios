@@ -47,6 +47,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Changed
 
+- Owner-split TestFlight QA now retries an exact production-unit no-fill once with Google's corresponding official demo unit, while non-owner testers remain demo-only and Release behavior is unchanged. Transient UMP refresh failures receive one bounded post-bootstrap/foreground retry, and privacy-safe diagnostics record the account, consent, route, and GMA error class without identifiers.
 - Enabled the fixed banner inside the already separated gameplay footer for ad-supported runs, while keeping every ad surface absent for ad-free players, and reduced successful leaderboard-save feedback from a card to one compact Results line.
 - Unaffordable owned-account theme/pet taps now open Buy Coins directly, and redundant shop instruction, coin-shortfall, and newly-purchased-pet status copy no longer consumes shop space.
 

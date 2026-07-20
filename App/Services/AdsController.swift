@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import PimPoPomCore
 import UIKit
 
@@ -43,8 +44,13 @@ final class AdsController: ObservableObject {
     private let configurationProblems: [String]
     private var hasBootstrapped = false
     private var eligibilityGeneration = 0
+    private var eligibilityFlowInFlight = false
     private var attemptedResultIDs: Set<UUID> = []
     private var presentationInFlight = false
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.otcsoftware.pimpopom",
+        category: "AdsEligibility"
+    )
 
     init(
         configuration: AdsConfiguration,
@@ -104,6 +110,21 @@ final class AdsController: ObservableObject {
 
     func setApplicationActive(_ isActive: Bool) {
         adsService.setApplicationActive(isActive)
+    }
+
+    /// A failed UMP refresh must not permanently disable ads for the process.
+    /// The caller invokes this once after initial bootstrap and on foreground.
+    func retryEligibilityIfNeeded() async {
+        guard hasBootstrapped,
+            lifecycleState == .failed,
+            accountResolution == .adsAllowed,
+            configuration.isEnabled,
+            configurationProblems.isEmpty,
+            !eligibilityFlowInFlight
+        else { return }
+        logger.notice("Retrying ad eligibility after a transient failure")
+        consoleDiagnostic("retrying eligibility")
+        await runEligibilityFlow()
     }
 
     func attachBanner(to container: UIView, availableWidth: CGFloat) {
@@ -177,6 +198,8 @@ final class AdsController: ObservableObject {
         let previous = accountResolution
         let next = AdAccountResolution.resolve(session)
         accountResolution = next
+        logger.notice("Ad account resolution: \(self.accountLabel(next), privacy: .public)")
+        consoleDiagnostic("account=\(accountLabel(next))")
 
         guard configuration.isEnabled, configurationProblems.isEmpty else {
             deactivateAds(state: .disabled, clearCadence: next == .adFree)
@@ -195,6 +218,9 @@ final class AdsController: ObservableObject {
     }
 
     private func runEligibilityFlow() async {
+        guard !eligibilityFlowInFlight else { return }
+        eligibilityFlowInFlight = true
+        defer { eligibilityFlowInFlight = false }
         eligibilityGeneration += 1
         let generation = eligibilityGeneration
         lifecycleState = .requestingConsent
@@ -207,6 +233,10 @@ final class AdsController: ObservableObject {
                 accountResolution == .adsAllowed
             else { return }
             applyConsentSnapshot(snapshot)
+            logger.notice(
+                "UMP eligibility complete; can request ads: \(snapshot.canRequestAds, privacy: .public)"
+            )
+            consoleDiagnostic("ump canRequestAds=\(snapshot.canRequestAds)")
             if snapshot.canRequestAds {
                 startAdsIfNeeded()
             } else {
@@ -218,6 +248,13 @@ final class AdsController: ObservableObject {
             else { return }
             let snapshot = consentService.currentSnapshot
             applyConsentSnapshot(snapshot)
+            let nsError = error as NSError
+            logger.error(
+                "UMP eligibility failed [\(nsError.domain, privacy: .public):\(nsError.code, privacy: .public)]; stored consent permits ads: \(snapshot.canRequestAds, privacy: .public)"
+            )
+            consoleDiagnostic(
+                "ump failed domain=\(nsError.domain) code=\(nsError.code) storedCanRequestAds=\(snapshot.canRequestAds)"
+            )
             statusMessage = "Ad privacy information could not be refreshed."
             if snapshot.canRequestAds {
                 startAdsIfNeeded()
@@ -270,5 +307,18 @@ final class AdsController: ObservableObject {
 
     private func persistProgress() {
         progressStore.save(progress)
+    }
+
+    private func accountLabel(_ resolution: AdAccountResolution) -> String {
+        switch resolution {
+        case .unresolved: "unresolved"
+        case .adsAllowed: "ads-allowed"
+        case .adFree: "ad-free"
+        }
+    }
+
+    private func consoleDiagnostic(_ message: String) {
+        guard ProcessInfo.processInfo.arguments.contains("--ad-diagnostics") else { return }
+        print("[PimPoPom Ads] \(message)")
     }
 }

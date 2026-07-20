@@ -154,6 +154,7 @@ struct RootView: View {
             audio.playLaunchSting()
             await restoreSession()
             await ads.bootstrap(session: backend.sessionState)
+            await ads.retryEligibilityIfNeeded()
             await purchases.loadProducts()
             await purchases.reconcileOutstandingTransactions()
             await cosmetics.refresh()
@@ -176,7 +177,10 @@ struct RootView: View {
                 audio.setMusicContext(.menu)
             }
             if phase == .active {
-                Task { await purchases.reconcileOutstandingTransactions() }
+                Task {
+                    await ads.retryEligibilityIfNeeded()
+                    await purchases.reconcileOutstandingTransactions()
+                }
             }
         }
         .onChange(of: backend.sessionState) { _, _ in

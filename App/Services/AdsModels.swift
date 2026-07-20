@@ -248,6 +248,35 @@ struct AdsConfiguration: Equatable, Sendable {
     }
 }
 
+/// Selects a configured primary ad unit and permits at most one transition to
+/// its explicitly reviewed fallback. In owner-split Staging builds the primary
+/// is the owner's production unit and the fallback is Google's demo unit. For
+/// every other configuration both values are identical, so no fallback exists.
+struct AdUnitRoute: Equatable, Sendable {
+    let primaryUnitID: String
+    let fallbackUnitID: String
+    private(set) var currentUnitID: String
+
+    init(primaryUnitID: String, fallbackUnitID: String) {
+        self.primaryUnitID = primaryUnitID
+        self.fallbackUnitID = fallbackUnitID
+        currentUnitID = primaryUnitID
+    }
+
+    var isUsingFallback: Bool {
+        currentUnitID == fallbackUnitID && fallbackUnitID != primaryUnitID
+    }
+
+    mutating func useFallbackIfAvailable() -> Bool {
+        guard !fallbackUnitID.isEmpty,
+            fallbackUnitID != primaryUnitID,
+            currentUnitID != fallbackUnitID
+        else { return false }
+        currentUnitID = fallbackUnitID
+        return true
+    }
+}
+
 enum AdAccountResolution: Equatable, Sendable {
     case unresolved
     case adsAllowed
