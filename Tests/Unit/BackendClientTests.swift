@@ -40,6 +40,8 @@ final class BackendClientTests: XCTestCase {
         XCTAssertNil(legacy.wallet)
         XCTAssertNil(legacy.adFree)
         XCTAssertNil(legacy.storeKit)
+        XCTAssertNil(legacy.appleSignIn)
+        XCTAssertNil(legacy.identityBindings)
 
         let current = try JSONDecoder().decode(
             SessionResponse.self,
@@ -48,6 +50,8 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(current.wallet, Self.initialStoreWallet)
         XCTAssertEqual(current.adFree, false)
         XCTAssertEqual(current.storeKit?.boundToken, Self.storeAccountToken)
+        XCTAssertEqual(current.appleSignIn, Self.appleConfiguration)
+        XCTAssertEqual(current.identityBindings, Self.googleBindings)
     }
 
     func testStoreKitCreditUsesExactNativeContractAndUpdatesAuthoritativeSession() async throws {
@@ -310,7 +314,413 @@ final class BackendClientTests: XCTestCase {
         let payload = try XCTUnwrap(
             JSONSerialization.jsonObject(with: body) as? [String: String]
         )
-        XCTAssertEqual(payload["credential"], "native-id-token")
+        XCTAssertEqual(
+            payload,
+            [
+                "credential": "native-id-token",
+                "intent": "login",
+            ]
+        )
+    }
+
+    func testGoogleRegistrationUsesExplicitRegisterIntent() async throws {
+        let recorder = RequestRecorder()
+        let signedOutData = try JSONEncoder().encode(Self.signedOutSession)
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): return StubResponse(data: signedOutData)
+            case ("/api/auth/google", "POST"): return StubResponse(data: signedInData)
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        _ = try await backend.registerWithGoogle(googleIDToken: "new-google-token")
+
+        let request = try XCTUnwrap(recorder.requests(forPath: "/api/auth/google").first)
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(request.body))
+                as? [String: String]
+        )
+        XCTAssertEqual(
+            payload,
+            [
+                "credential": "new-google-token",
+                "intent": "register",
+            ]
+        )
+    }
+
+    func testAppleLoginUsesChallengeNonceStateAndExactCompletionContract() async throws {
+        let recorder = RequestRecorder()
+        let signedOutData = try JSONEncoder().encode(Self.signedOutSession)
+        let appleSession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-apple",
+            googleClientId: Self.signedInSession.googleClientId,
+            appleSignIn: Self.appleConfiguration,
+            season: Self.signedInSession.season,
+            profile: Self.signedInSession.profile,
+            identityBindings: IdentityBindings(
+                google: false,
+                apple: true,
+                gameCenter: false
+            ),
+            wallet: Self.initialStoreWallet,
+            adFree: true,
+            storeKit: StoreKitBindingResponse(
+                appAccountToken: Self.storeAccountToken.uuidString.lowercased(),
+                bindingStatus: "bound"
+            ),
+            ranks: [
+                GameMode.arcade.rawValue: RankInfo(
+                    rank: 3,
+                    totalEntries: 20,
+                    topPercent: 15
+                )
+            ]
+        )
+        let challenge = AppleSignInChallenge(
+            challengeId: "apple-challenge",
+            nonce: "raw-server-nonce",
+            state: "server-state",
+            intent: .login,
+            audience: "com.otcsoftware.pimpopom",
+            expiresAt: "2026-07-20T15:00:00Z"
+        )
+        let challengeData = try JSONEncoder().encode(
+            AppleSignInChallengeResponse(appleSignIn: challenge)
+        )
+        let appleSessionData = try JSONEncoder().encode(appleSession)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): return StubResponse(data: signedOutData)
+            case ("/api/auth/apple/challenge", "POST"):
+                return StubResponse(data: challengeData, statusCode: 201)
+            case ("/api/auth/apple", "POST"):
+                return StubResponse(data: appleSessionData)
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        let issued = try await backend.issueAppleSignInChallenge(intent: .login)
+        let response = try await backend.completeAppleAuthorization(
+            challenge: issued,
+            proof: AppleAuthorizationProof(
+                state: issued.state,
+                identityToken: "apple.identity.token",
+                authorizationCode: "one-time-code"
+            )
+        )
+
+        XCTAssertEqual(issued.nonce, "raw-server-nonce")
+        XCTAssertEqual(response.identityBindings?.apple, true)
+        XCTAssertEqual(backend.profile?.id, Self.signedInSession.profile?.id)
+
+        let challengeRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/auth/apple/challenge").first
+        )
+        XCTAssertEqual(challengeRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-1")
+        XCTAssertEqual(
+            try XCTUnwrap(
+                JSONSerialization.jsonObject(
+                    with: try XCTUnwrap(challengeRequest.body)
+                ) as? [String: String]
+            ),
+            ["intent": "login"]
+        )
+
+        let completionRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/auth/apple").first
+        )
+        XCTAssertEqual(completionRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-1")
+        XCTAssertEqual(
+            try XCTUnwrap(
+                JSONSerialization.jsonObject(
+                    with: try XCTUnwrap(completionRequest.body)
+                ) as? [String: String]
+            ),
+            [
+                "challengeId": "apple-challenge",
+                "state": "server-state",
+                "identityToken": "apple.identity.token",
+                "authorizationCode": "one-time-code",
+            ]
+        )
+    }
+
+    func testAppleCompletionRejectsWrongStateBeforeSendingCredential() async throws {
+        let recorder = RequestRecorder()
+        let signedOutData = try JSONEncoder().encode(Self.signedOutSession)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(data: signedOutData)
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let challenge = AppleSignInChallenge(
+            challengeId: "challenge",
+            nonce: "nonce",
+            state: "expected-state",
+            intent: .login,
+            audience: "com.otcsoftware.pimpopom",
+            expiresAt: "2026-07-20T15:00:00Z"
+        )
+
+        do {
+            _ = try await backend.completeAppleAuthorization(
+                challenge: challenge,
+                proof: AppleAuthorizationProof(
+                    state: "wrong-state",
+                    identityToken: "token",
+                    authorizationCode: "code"
+                )
+            )
+            XCTFail("A state mismatch must be rejected before sending Apple credentials.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "invalid-apple-authorization-proof")
+        }
+        XCTAssertTrue(recorder.requests(forPath: "/api/auth/apple").isEmpty)
+    }
+
+    func testAppleReauthenticationRejectsDifferentPlayerAndClearsLocalAuthentication()
+        async throws
+    {
+        let recorder = RequestRecorder()
+        let signedInData = try JSONEncoder().encode(Self.signedInSession)
+        let otherProfile = PlayerProfile(
+            id: "player-other",
+            nickname: "Other",
+            nicknameConfirmed: true,
+            coins: 0,
+            totalPlayMs: 0,
+            ownedPetIds: [],
+            selectedPetId: nil,
+            petVisible: false,
+            equippedPetId: nil,
+            specialPetId: nil,
+            ownedThemeIds: ["classic", "disco"],
+            selectedThemeId: "classic",
+            isAdmin: false,
+            createdAt: "2026-07-20T00:00:00Z",
+            updatedAt: "2026-07-20T00:00:00Z"
+        )
+        let otherSession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-other",
+            googleClientId: Self.signedInSession.googleClientId,
+            appleSignIn: Self.appleConfiguration,
+            season: Self.signedInSession.season,
+            profile: otherProfile,
+            identityBindings: IdentityBindings(
+                google: false,
+                apple: true,
+                gameCenter: false
+            ),
+            ranks: nil
+        )
+        let otherData = try JSONEncoder().encode(otherSession)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): return StubResponse(data: signedInData)
+            case ("/api/auth/apple", "POST"): return StubResponse(data: otherData)
+            case ("/api/logout", "POST"):
+                return StubResponse(
+                    data: Data(#"{"error":"Logout unavailable"}"#.utf8),
+                    statusCode: 503
+                )
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let challenge = AppleSignInChallenge(
+            challengeId: "reauth-challenge",
+            nonce: "nonce",
+            state: "state",
+            intent: .reauth,
+            audience: "com.otcsoftware.pimpopom",
+            expiresAt: "2026-07-20T15:00:00Z"
+        )
+
+        do {
+            _ = try await backend.completeAppleAuthorization(
+                challenge: challenge,
+                proof: AppleAuthorizationProof(
+                    state: "state",
+                    identityToken: "apple.identity.token",
+                    authorizationCode: "one-time-code"
+                ),
+                expectedPlayerID: "player-new"
+            )
+            XCTFail("A different Apple player must never authorize this profile.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, BackendClient.accountDeletionAccountMismatchCode)
+        }
+
+        XCTAssertEqual(recorder.requests(forPath: "/api/auth/apple").count, 1)
+        XCTAssertEqual(recorder.requests(forPath: "/api/logout").count, 1)
+        XCTAssertNil(backend.sessionState)
+        XCTAssertNil(backend.profile)
+        XCTAssertFalse(backend.isAuthenticated)
+    }
+
+    func testGoogleLinkAndGameCenterLinkUseExactProofContracts() async throws {
+        let recorder = RequestRecorder()
+        let appleOnlySession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-link",
+            googleClientId: Self.signedInSession.googleClientId,
+            appleSignIn: Self.appleConfiguration,
+            season: Self.signedInSession.season,
+            profile: Self.signedInSession.profile,
+            identityBindings: IdentityBindings(
+                google: false,
+                apple: true,
+                gameCenter: false
+            ),
+            ranks: nil
+        )
+        let googleLinkedSession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-google-linked",
+            googleClientId: Self.signedInSession.googleClientId,
+            appleSignIn: Self.appleConfiguration,
+            season: Self.signedInSession.season,
+            profile: Self.signedInSession.profile,
+            identityBindings: IdentityBindings(
+                google: true,
+                apple: true,
+                gameCenter: false
+            ),
+            wallet: Self.initialStoreWallet,
+            adFree: true,
+            storeKit: StoreKitBindingResponse(
+                appAccountToken: Self.storeAccountToken.uuidString.lowercased(),
+                bindingStatus: "bound"
+            ),
+            ranks: [
+                GameMode.arcade.rawValue: RankInfo(
+                    rank: 3,
+                    totalEntries: 20,
+                    topPercent: 15
+                )
+            ]
+        )
+        let gameCenterChallenge = GameCenterLinkChallenge(
+            challengeId: "gc-challenge",
+            expiresAt: "2026-07-20T15:00:00Z"
+        )
+        let gameCenterResponse = GameCenterLinkResponse(
+            profile: try XCTUnwrap(Self.signedInSession.profile),
+            identityBindings: IdentityBindings(
+                google: true,
+                apple: true,
+                gameCenter: true
+            ),
+            gameCenter: GameCenterLinkResult(linked: true, newlyLinked: true)
+        )
+        let appleOnlyData = try JSONEncoder().encode(appleOnlySession)
+        let googleLinkedData = try JSONEncoder().encode(googleLinkedSession)
+        let challengeData = try JSONEncoder().encode(
+            GameCenterLinkChallengeResponse(gameCenter: gameCenterChallenge)
+        )
+        let linkData = try JSONEncoder().encode(gameCenterResponse)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _): return StubResponse(data: appleOnlyData)
+            case ("/api/profile/identities/google", "POST"):
+                return StubResponse(data: googleLinkedData)
+            case ("/api/profile/game-center/challenge", "POST"):
+                return StubResponse(data: challengeData, statusCode: 201)
+            case ("/api/profile/game-center", "POST"):
+                return StubResponse(data: linkData)
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let playerID = try XCTUnwrap(backend.profile?.id)
+
+        _ = try await backend.linkGoogle(
+            googleIDToken: "google-link-token",
+            expectedPlayerID: playerID
+        )
+        let issued = try await backend.issueGameCenterLinkChallenge(
+            expectedPlayerID: playerID
+        )
+        _ = try await backend.linkGameCenter(
+            challenge: issued,
+            verification: GameCenterIdentityVerification(
+                signedTeamPlayerID: "T:team-player",
+                bundleIdentifier: "com.otcsoftware.pimpopom",
+                publicKeyURL: URL(
+                    string: "https://static.gc.apple.com/public-key/test.cer"
+                )!,
+                signature: Data([0xfb, 0xef]),
+                salt: Data([0x01, 0x02, 0x03]),
+                timestamp: 1_784_556_123_456
+            ),
+            expectedPlayerID: playerID
+        )
+
+        let googleRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/profile/identities/google").first
+        )
+        XCTAssertEqual(googleRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-link")
+        XCTAssertEqual(
+            try XCTUnwrap(
+                JSONSerialization.jsonObject(with: try XCTUnwrap(googleRequest.body))
+                    as? [String: String]
+            ),
+            ["credential": "google-link-token"]
+        )
+
+        let challengeRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/profile/game-center/challenge").first
+        )
+        XCTAssertEqual(
+            challengeRequest.header(named: "X-SpeedyTapper-CSRF"),
+            "csrf-google-linked"
+        )
+        XCTAssertEqual(try XCTUnwrap(challengeRequest.body), Data("{}".utf8))
+
+        let gameCenterRequest = try XCTUnwrap(
+            recorder.requests(forPath: "/api/profile/game-center").first
+        )
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: try XCTUnwrap(gameCenterRequest.body))
+                as? [String: Any]
+        )
+        XCTAssertEqual(payload["challengeId"] as? String, "gc-challenge")
+        XCTAssertEqual(payload["teamPlayerId"] as? String, "T:team-player")
+        XCTAssertEqual(
+            payload["publicKeyUrl"] as? String,
+            "https://static.gc.apple.com/public-key/test.cer"
+        )
+        XCTAssertEqual(payload["signature"] as? String, "++8=")
+        XCTAssertEqual(payload["salt"] as? String, "AQID")
+        XCTAssertEqual(
+            (payload["timestamp"] as? NSNumber)?.uint64Value,
+            1_784_556_123_456
+        )
+        XCTAssertEqual(backend.sessionState?.identityBindings?.gameCenter, true)
+        XCTAssertEqual(backend.sessionState?.appleSignIn, Self.appleConfiguration)
+        XCTAssertEqual(backend.sessionState?.wallet, Self.initialStoreWallet)
+        XCTAssertEqual(backend.sessionState?.adFree, true)
+        XCTAssertEqual(
+            backend.sessionState?.storeKit?.boundToken,
+            Self.storeAccountToken
+        )
+        XCTAssertEqual(backend.sessionState?.ranks, googleLinkedSession.ranks)
     }
 
     func testLightThemeUsesDarkPromptInkAndWhiteBoardInk() {
@@ -430,6 +840,16 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(payload, ["confirmation": BackendClient.accountDeletionConfirmation])
         let loginRequest = try XCTUnwrap(recorder.requests(forPath: "/api/auth/google").first)
         XCTAssertEqual(loginRequest.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+        XCTAssertEqual(
+            try XCTUnwrap(
+                JSONSerialization.jsonObject(with: try XCTUnwrap(loginRequest.body))
+                    as? [String: String]
+            ),
+            [
+                "credential": "fresh-google-id-token",
+                "intent": "reauth",
+            ]
+        )
 
         let freshSession = try await backend.loadSession()
         XCTAssertFalse(freshSession.authenticated)
@@ -1209,6 +1629,17 @@ final class BackendClientTests: XCTestCase {
         uuidString: "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE"
     )!
 
+    private static let appleConfiguration = AppleSignInConfiguration(
+        enabled: true,
+        clientId: "com.otcsoftware.pimpopom"
+    )
+
+    private static let googleBindings = IdentityBindings(
+        google: true,
+        apple: false,
+        gameCenter: false
+    )
+
     private static let initialStoreWallet = StoreWalletSummary(
         earned: 75,
         purchased: 0,
@@ -1221,6 +1652,7 @@ final class BackendClientTests: XCTestCase {
         authenticated: true,
         csrfToken: "csrf-storekit",
         googleClientId: "server-client.apps.googleusercontent.com",
+        appleSignIn: appleConfiguration,
         season: Season(id: "season-1", name: "Season 1"),
         profile: PlayerProfile(
             id: "BBBBBBBB-CCCC-4DDD-8EEE-FFFFFFFFFFFF",
@@ -1239,6 +1671,7 @@ final class BackendClientTests: XCTestCase {
             createdAt: "2026-07-19T00:00:00Z",
             updatedAt: "2026-07-19T00:00:00Z"
         ),
+        identityBindings: googleBindings,
         wallet: initialStoreWallet,
         adFree: false,
         storeKit: StoreKitBindingResponse(

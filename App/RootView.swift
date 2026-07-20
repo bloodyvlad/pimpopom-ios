@@ -15,10 +15,8 @@ struct RootView: View {
     @EnvironmentObject private var ads: AdsController
 
     let googleIdentity: GoogleIdentityService
+    let appleIdentity: AppleIdentityService
 
-    @State private var accountStatus: String?
-    @State private var nickname = ""
-    @State private var accountBusy = false
     @State private var navigationPath: [GameMode] = []
     @State private var showsProfile = false
     @State private var showsAchievements = false
@@ -106,6 +104,7 @@ struct RootView: View {
         ) {
             ProfileView(
                 googleIdentity: googleIdentity,
+                appleIdentity: appleIdentity,
                 onDismiss: { showsProfile = false }
             )
             .environmentObject(backend)
@@ -752,153 +751,17 @@ struct RootView: View {
         menuPetActivity += 1
     }
 
-    private var profileSheet: some View {
-        NavigationStack {
-            ZStack {
-                AppThemeBackground(theme: palette)
-                ScrollView {
-                    accountCard
-                        .frame(maxWidth: WebMenuMetrics.maximumPanelWidth)
-                        .padding(16)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { showsProfile = false }
-                }
-            }
-        }
-    }
-
-    private var accountCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Player", systemImage: "person.crop.circle")
-                    .font(palette.appFont(size: 18, weight: .bold, relativeTo: .headline))
-                Spacer()
-                if backend.isLoadingSession || accountBusy { ProgressView() }
-            }
-
-            if let profile = backend.profile {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(profile.nickname)
-                            .font(palette.appFont(size: 22, weight: .bold, relativeTo: .title3))
-                        Text("\(profile.coins) coins · \(profile.totalPlayMs / 60_000) verified minutes")
-                            .font(palette.appFont(size: 12, weight: .regular, relativeTo: .caption))
-                            .monospacedDigit()
-                            .foregroundStyle(Color(hex: palette.muted))
-                    }
-                    Spacer()
-                    Button("Sign out") { Task { await signOut() } }
-                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
-                }
-
-                if !profile.nicknameConfirmed {
-                    TextField("Public nickname", text: $nickname)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding(12)
-                        .background(
-                            Color.black.opacity(palette.isLight ? 0.06 : 0.24),
-                            in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
-                        )
-                    Button("Confirm nickname") { Task { await saveNickname() } }
-                        .buttonStyle(WebSecondaryButtonStyle(theme: palette, accent: Color(hex: palette.chromeAccent)))
-                        .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                } else {
-                    Text("Arcade runs use the deployed protocol-verified leaderboard.")
-                        .font(palette.appFont(size: 12, relativeTo: .caption))
-                        .foregroundStyle(Color(hex: palette.muted))
-                }
-            } else {
-                Text(
-                    "Play locally now. Sign in to use the existing players, coins, achievements, Pet Shop, and ranked leaderboard."
-                )
-                .font(palette.appFont(size: 15, relativeTo: .body))
-                .foregroundStyle(Color(hex: palette.muted))
-                Button {
-                    Task { await signIn() }
-                } label: {
-                    Label("Continue with Google", systemImage: "person.badge.key.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(WebSecondaryButtonStyle(theme: palette, accent: Color(hex: palette.chromeAccent)))
-                .disabled(!googleIdentity.isConfigured || accountBusy)
-
-                if !googleIdentity.isConfigured {
-                    Text("Google placeholder active: add the iOS OAuth client ID in Config/Local.xcconfig.")
-                        .font(palette.appFont(size: 12, relativeTo: .caption))
-                        .foregroundStyle(.yellow.opacity(0.80))
-                }
-            }
-
-            if let status = accountStatus ?? backend.lastError {
-                Text(status)
-                    .font(palette.appFont(size: 12, relativeTo: .caption))
-                    .foregroundStyle(.orange)
-            }
-        }
-        .foregroundStyle(Color(hex: palette.foreground))
-        .webCardStyle(theme: palette, padding: 16)
-    }
-
     private func restoreSession() async {
-        accountBusy = true
-        defer { accountBusy = false }
         do {
             let session = try await backend.loadSession()
             guard !session.authenticated,
                 let token = try await googleIdentity.restoreIDTokenIfAvailable()
             else {
-                accountStatus = nil
                 return
             }
             _ = try await backend.login(googleIDToken: token)
-            accountStatus = nil
         } catch {
-            accountStatus = error.localizedDescription
-        }
-    }
-
-    private func signIn() async {
-        accountBusy = true
-        defer { accountBusy = false }
-        do {
-            let token = try await googleIdentity.signIn()
-            let session = try await backend.login(googleIDToken: token)
-            nickname = session.profile?.nicknameConfirmed == false ? "" : session.profile?.nickname ?? ""
-            await achievements.refresh(showLoading: false)
-            accountStatus = nil
-        } catch {
-            accountStatus = error.localizedDescription
-        }
-    }
-
-    private func signOut() async {
-        accountBusy = true
-        defer { accountBusy = false }
-        do {
-            _ = try await backend.logout()
-            googleIdentity.signOut()
-            await achievements.refresh(showLoading: false)
-            accountStatus = nil
-        } catch {
-            accountStatus = error.localizedDescription
-        }
-    }
-
-    private func saveNickname() async {
-        accountBusy = true
-        defer { accountBusy = false }
-        do {
-            _ = try await backend.updateNickname(nickname)
-            accountStatus = nil
-        } catch {
-            accountStatus = error.localizedDescription
+            // Profile presents actionable sign-in errors; launch restoration stays non-blocking.
         }
     }
 
@@ -952,15 +815,18 @@ struct RootView: View {
         adsService: FakeAdsService(),
         progressStore: MemoryInterstitialProgressStore()
     )
-    RootView(googleIdentity: GoogleIdentityService())
-        .environmentObject(backend)
-        .environmentObject(preferences)
-        .environmentObject(cosmetics)
-        .environmentObject(achievements)
-        .environmentObject(AudioController())
-        .environmentObject(AppIconController())
-        .environmentObject(HomeQuickActionController.shared)
-        .environmentObject(GameCenterService(arguments: ["--uitesting"]))
-        .environmentObject(purchases)
-        .environmentObject(ads)
+    RootView(
+        googleIdentity: GoogleIdentityService(),
+        appleIdentity: AppleIdentityService()
+    )
+    .environmentObject(backend)
+    .environmentObject(preferences)
+    .environmentObject(cosmetics)
+    .environmentObject(achievements)
+    .environmentObject(AudioController())
+    .environmentObject(AppIconController())
+    .environmentObject(HomeQuickActionController.shared)
+    .environmentObject(GameCenterService(arguments: ["--uitesting"]))
+    .environmentObject(purchases)
+    .environmentObject(ads)
 }

@@ -85,9 +85,11 @@
                     <ul>
                         <li>An internal random player identifier and your chosen public nickname.</li>
                         <li>
-                            A one-way digest that links the profile to the supported sign-in provider.
+                            One-way digests that link the profile to explicitly linked Apple or Google sign-in methods.
                             We do not retain your provider password, raw provider subject, raw ID token,
-                            Google display name, or Google email address in the PimPoPom database.
+                            provider display name, or provider email address in the PimPoPom database.
+                            Encrypted Apple authorization material is retained only so authorization can
+                            be revoked when the profile is deleted.
                         </li>
                         <li>Secure session records needed to keep you signed in and protect account actions.</li>
                         <li>Coins, achievements, pets, themes, purchase entitlements, and related account state.</li>
@@ -106,11 +108,15 @@
                     <p>
                         Game Center is optional. PimPoPom activates Game Center only after you choose
                         <strong>Connect</strong> in Profile. While connected, Apple may provide your
-                        Game Center display name and scoped player identifiers to the app. The current
-                        PimPoPom version keeps those values in memory for connection status and does
-                        not submit scores or achievements to Game Center. Choosing <strong>Turn Off</strong> stops
-                        PimPoPom from using Game Center; your Apple Game Center account is managed in
-                        iOS Settings.
+                        Game Center display name and scoped player identifiers to the app. If you then
+                        choose <strong>Link Profile</strong> or <strong>Verify</strong>, PimPoPom sends a fresh
+                        Apple-signed verification tuple to our service. The service validates it and
+                        stores a one-way digest of the scoped team player identifier as a one-to-one
+                        secondary profile link; it does not retain the raw identifier, signature, salt,
+                        or display name. The current version does not submit scores or achievements to
+                        Game Center. Choosing <strong>Turn Off</strong> stops local PimPoPom participation,
+                        but does not remove the server link or sign out the Apple account. Your Apple
+                        Game Center account is managed in iOS Settings.
                     </p>
 
                     <h3>Diagnostics, security, and support</h3>

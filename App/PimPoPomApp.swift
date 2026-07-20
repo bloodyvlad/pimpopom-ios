@@ -14,6 +14,7 @@ struct PimPoPomApp: App {
     @StateObject private var purchases: PurchaseController
     @StateObject private var ads: AdsController
     private let googleIdentity = GoogleIdentityService()
+    private let appleIdentity = AppleIdentityService()
 
     init() {
         let backend = BackendClient()
@@ -69,23 +70,26 @@ struct PimPoPomApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(googleIdentity: googleIdentity)
-                .environmentObject(backend)
-                .environmentObject(preferences)
-                .environmentObject(cosmetics)
-                .environmentObject(achievements)
-                .environmentObject(audio)
-                .environmentObject(appIcons)
-                .environmentObject(quickActions)
-                .environmentObject(gameCenter)
-                .environmentObject(purchases)
-                .environmentObject(ads)
-                .onOpenURL {
-                    if !quickActions.handle($0) {
-                        _ = googleIdentity.handle($0)
-                    }
+            RootView(
+                googleIdentity: googleIdentity,
+                appleIdentity: appleIdentity
+            )
+            .environmentObject(backend)
+            .environmentObject(preferences)
+            .environmentObject(cosmetics)
+            .environmentObject(achievements)
+            .environmentObject(audio)
+            .environmentObject(appIcons)
+            .environmentObject(quickActions)
+            .environmentObject(gameCenter)
+            .environmentObject(purchases)
+            .environmentObject(ads)
+            .onOpenURL {
+                if !quickActions.handle($0) {
+                    _ = googleIdentity.handle($0)
                 }
-                .preferredColorScheme(cosmetics.theme.isLight ? .light : .dark)
+            }
+            .preferredColorScheme(cosmetics.theme.isLight ? .light : .dark)
         }
     }
 }

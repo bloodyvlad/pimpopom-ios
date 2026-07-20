@@ -1,3 +1,4 @@
+import AuthenticationServices
 import PimPoPomCore
 import SwiftUI
 
@@ -7,9 +8,19 @@ private enum ProfileAccountDeletionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .accountChanged:
-            "A different Google account was selected. No account was deleted, and PimPoPom signed out."
+            "A different account was selected. No account was deleted, and PimPoPom signed out."
         }
     }
+}
+
+private enum PendingProfileRegistration {
+    case apple
+    case google(idToken: String)
+}
+
+private enum ProfileReauthenticationProvider {
+    case apple
+    case google
 }
 
 struct ProfileView: View {
@@ -18,6 +29,7 @@ struct ProfileView: View {
     @EnvironmentObject private var gameCenter: GameCenterService
 
     let googleIdentity: GoogleIdentityService
+    let appleIdentity: AppleIdentityService
     let onDismiss: () -> Void
 
     @State private var nickname = ""
@@ -29,8 +41,29 @@ struct ProfileView: View {
     @State private var showsAccountDeletionConfirmation = false
     @State private var accountDeletionConfirmation = ""
     @State private var accountDeletionStatus: String?
+    @State private var pendingRegistration: PendingProfileRegistration?
+    @State private var showsRegistrationConfirmation = false
+    @State private var pendingDeletionProfileID: String?
+    @State private var showsDeletionProviderChoice = false
+    @State private var pendingGameCenterLink = false
+    @State private var gameCenterLinking = false
+    @State private var gameCenterLinkTask: Task<Void, Never>?
+    @State private var gameCenterLinkGeneration = 0
+    @State private var verifiedGameCenterTeamPlayerID: String?
 
     private var palette: ThemePalette { cosmetics.theme }
+    private var appleSignInEnabled: Bool {
+        backend.sessionState?.appleSignIn?.enabled ?? true
+    }
+    private var identityBindings: IdentityBindings {
+        backend.sessionState?.identityBindings
+            ?? IdentityBindings(
+                google: backend.isAuthenticated,
+                apple: false,
+                gameCenter: false
+            )
+    }
+    private var accountOperationBusy: Bool { busy || gameCenterLinking }
 
     var body: some View {
         NavigationStack {
@@ -52,8 +85,11 @@ struct ProfileView: View {
                     .frame(maxWidth: .infinity)
                 }
 
-                if busy {
-                    WebLoadingOverlay(theme: palette, label: "Updating profile")
+                if accountOperationBusy {
+                    WebLoadingOverlay(
+                        theme: palette,
+                        label: gameCenterLinking ? "Verifying Game Center" : "Updating profile"
+                    )
                 }
             }
             .foregroundStyle(Color(hex: palette.foreground))
@@ -72,7 +108,68 @@ struct ProfileView: View {
                 await loadProfile()
             }
             .onChange(of: backend.profile?.id) { oldPlayerID, newPlayerID in
-                if oldPlayerID != newPlayerID { resetAccountDeletionForm() }
+                if oldPlayerID != newPlayerID {
+                    resetAccountDeletionForm()
+                    gameCenterLinkGeneration += 1
+                    gameCenterLinkTask?.cancel()
+                    gameCenterLinkTask = nil
+                    gameCenterLinking = false
+                    verifiedGameCenterTeamPlayerID = nil
+                    pendingGameCenterLink = false
+                }
+            }
+            .onChange(of: gameCenter.state) { _, state in
+                if case .authenticated(let player) = state {
+                    if verifiedGameCenterTeamPlayerID != player.teamPlayerID {
+                        verifiedGameCenterTeamPlayerID = nil
+                    }
+                } else {
+                    verifiedGameCenterTeamPlayerID = nil
+                }
+                guard pendingGameCenterLink,
+                    case .authenticated = state
+                else { return }
+                startGameCenterLinkIfNeeded()
+            }
+            .confirmationDialog(
+                "Create a new PimPoPom profile?",
+                isPresented: $showsRegistrationConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Create New Profile") {
+                    Task { await registerPendingIdentity() }
+                }
+                Button("Cancel", role: .cancel) {
+                    cancelPendingRegistration()
+                }
+            } message: {
+                Text(
+                    "No existing profile is linked to this sign-in. A new profile has a separate wallet, scores, pets, themes, and purchases. To keep an existing profile, sign in with its linked method and add this one afterward."
+                )
+            }
+            .confirmationDialog(
+                "Verify before deleting",
+                isPresented: $showsDeletionProviderChoice,
+                titleVisibility: .visible
+            ) {
+                Button("Verify with Apple") {
+                    beginConfirmedDeletion(using: .apple)
+                }
+                Button("Verify with Google") {
+                    beginConfirmedDeletion(using: .google)
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeletionProfileID = nil
+                }
+            } message: {
+                Text("Choose a linked sign-in method to confirm that this profile is yours.")
+            }
+            .onDisappear {
+                gameCenterLinkTask?.cancel()
+                gameCenterLinkTask = nil
+                if pendingRegistration != nil {
+                    cancelPendingRegistration()
+                }
             }
         }
     }
@@ -132,8 +229,24 @@ struct ProfileView: View {
                     .stroke(Color(hex: "#ffd84d").opacity(0.44), lineWidth: palette.isPixel ? 2 : 1)
             }
 
+            if appleSignInEnabled {
+                AppleSignInButton(
+                    style: palette.isLight ? .black : .white,
+                    accessibilityIdentifier: "profile-apple-sign-in"
+                ) {
+                    Task { await signInWithApple() }
+                }
+                .id(palette.isLight ? "apple-black" : "apple-white")
+                .frame(height: 50)
+                .disabled(accountOperationBusy)
+            } else {
+                Text("Sign in with Apple is temporarily unavailable.")
+                    .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
+                    .foregroundStyle(Color(hex: "#966700"))
+            }
+
             Button {
-                Task { await signIn() }
+                Task { await signInWithGoogle() }
             } label: {
                 Label("Continue with Google", systemImage: "person.badge.key.fill")
             }
@@ -143,11 +256,11 @@ struct ProfileView: View {
                     accent: Color(hex: palette.chromeAccent)
                 )
             )
-            .disabled(!googleIdentity.isConfigured || busy)
+            .disabled(!googleIdentity.isConfigured || accountOperationBusy)
             .accessibilityIdentifier("profile-google-sign-in")
 
             if !googleIdentity.isConfigured {
-                Text("Google placeholder active: add the iOS OAuth client ID in Config/Local.xcconfig.")
+                Text("Google sign-in needs the iOS OAuth client ID in Config/Local.xcconfig.")
                     .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
                     .foregroundStyle(Color(hex: "#966700"))
             }
@@ -182,6 +295,7 @@ struct ProfileView: View {
                     Button("Log out") { Task { await signOut() } }
                         .font(palette.appFont(size: 11, weight: .black, relativeTo: .caption))
                         .foregroundStyle(Color(hex: palette.accent))
+                        .disabled(accountOperationBusy)
                 }
 
                 Text("PUBLIC NICKNAME")
@@ -215,11 +329,16 @@ struct ProfileView: View {
                             )
                         )
                         .frame(width: 82)
-                        .disabled(nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(
+                            accountOperationBusy
+                                || nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
                         .accessibilityIdentifier("profile-save-nickname")
                 }
             }
             .webCardStyle(theme: palette, padding: 14)
+
+            identityMethodsCard(profile)
 
             gameCenterCard
 
@@ -249,6 +368,80 @@ struct ProfileView: View {
             statusMessage
 
             accountDeletionDangerZone(profile)
+        }
+    }
+
+    private func identityMethodsCard(_ profile: PlayerProfile) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("SIGN-IN METHODS")
+                .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                .tracking(0.9)
+                .foregroundStyle(Color(hex: palette.muted))
+
+            identityMethodRow(
+                title: "Apple",
+                systemImage: "apple.logo",
+                linked: identityBindings.apple,
+                linkTitle: "Link Apple",
+                enabled: appleSignInEnabled
+            ) {
+                Task { await linkApple(to: profile) }
+            }
+
+            Divider().overlay(Color(hex: palette.foreground).opacity(0.12))
+
+            identityMethodRow(
+                title: "Google",
+                systemImage: "person.badge.key.fill",
+                linked: identityBindings.google,
+                linkTitle: "Link Google",
+                enabled: googleIdentity.isConfigured
+            ) {
+                Task { await linkGoogle(to: profile) }
+            }
+
+            Text(
+                "Sign-in methods are linked only after you verify this profile. PimPoPom never merges accounts by email or nickname."
+            )
+            .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
+            .foregroundStyle(Color(hex: palette.muted))
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .webCardStyle(theme: palette, padding: 12)
+        .accessibilityIdentifier("profile-identity-methods")
+    }
+
+    private func identityMethodRow(
+        title: String,
+        systemImage: String,
+        linked: Bool,
+        linkTitle: String,
+        enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .bold))
+                .frame(width: 28)
+                .foregroundStyle(Color(hex: palette.accent))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(palette.appFont(size: 14, weight: .black, relativeTo: .body))
+                Text(linked ? "Linked" : "Not linked")
+                    .font(palette.appFont(size: 9, weight: .bold, relativeTo: .caption2))
+                    .foregroundStyle(Color(hex: linked ? "#4dcc72" : palette.muted))
+            }
+            Spacer()
+            if linked {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(Color(hex: "#4dcc72"))
+                    .accessibilityLabel("Linked")
+            } else {
+                Button(linkTitle, action: action)
+                    .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption))
+                    .foregroundStyle(Color(hex: palette.accent))
+                    .disabled(accountOperationBusy || !enabled)
+            }
         }
     }
 
@@ -287,10 +480,23 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile-game-center")
             }
 
-            Text("This controls PimPoPom only. Manage the Apple account in iOS Settings.")
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(
+                    "This controls PimPoPom only. Linking never grants profile access, coins, or purchases. Scores and achievements are not published yet."
+                )
                 .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
                 .foregroundStyle(Color(hex: palette.muted))
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("profile-game-center-explanation")
+
+                if showsGameCenterTurnOffShortcut {
+                    Button("Turn Off") { turnOffGameCenter() }
+                        .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                        .foregroundStyle(Color(hex: palette.accent))
+                        .disabled(gameCenterLinking)
+                        .accessibilityIdentifier("profile-game-center-turn-off")
+                }
+            }
         }
         .webCardStyle(theme: palette, padding: 12)
     }
@@ -343,7 +549,7 @@ struct ProfileView: View {
                         .accessibilityIdentifier("profile-delete-cancel")
 
                     Button("Permanently delete", role: .destructive) {
-                        Task { await deleteAccount(profile) }
+                        requestConfirmedDeletion(for: profile)
                     }
                     .buttonStyle(
                         WebSecondaryButtonStyle(
@@ -353,7 +559,7 @@ struct ProfileView: View {
                         )
                     )
                     .disabled(
-                        busy
+                        accountOperationBusy
                             || accountDeletionConfirmation
                                 != BackendClient.accountDeletionConfirmation
                     )
@@ -381,7 +587,7 @@ struct ProfileView: View {
                         minimumHeight: 44
                     )
                 )
-                .disabled(busy)
+                .disabled(accountOperationBusy)
                 .accessibilityIdentifier("profile-delete-account")
             }
         }
@@ -393,13 +599,25 @@ struct ProfileView: View {
     private var gameCenterStatus: String {
         switch gameCenter.state {
         case .disabled:
-            "Off · no Game Center scores shared"
+            identityBindings.gameCenter
+                ? "Linked to this profile · off in PimPoPom"
+                : "Off · no Game Center data shared"
         case .idle:
             "Ready to connect · PimPoPom play still works"
         case .authenticating:
             "Connecting… · PimPoPom play still works"
         case .authenticated(let player):
-            "Connected as \(player.displayName) · no scores shared"
+            if backend.isAuthenticated {
+                if isCurrentGameCenterPlayerVerified {
+                    "Verified as \(player.displayName) · publishing is off"
+                } else if identityBindings.gameCenter {
+                    "Profile has a link · verify \(player.displayName)"
+                } else {
+                    "Connected as \(player.displayName) · link this profile"
+                }
+            } else {
+                "Connected as \(player.displayName) · sign in to link"
+            }
         case .unavailable:
             "Unavailable · PimPoPom play still works"
         }
@@ -414,7 +632,11 @@ struct ProfileView: View {
         case .authenticating:
             "Connecting…"
         case .authenticated:
-            "Turn Off"
+            if backend.isAuthenticated, !isCurrentGameCenterPlayerVerified {
+                identityBindings.gameCenter ? "Verify" : "Link Profile"
+            } else {
+                "Turn Off"
+            }
         case .unavailable:
             gameCenter.participationEnabled ? "Turn Off" : "Retry"
         }
@@ -422,24 +644,54 @@ struct ProfileView: View {
 
     private var isGameCenterActionDisabled: Bool {
         if case .authenticating = gameCenter.state { return true }
-        return false
+        return busy || gameCenterLinking
+    }
+
+    private var showsGameCenterTurnOffShortcut: Bool {
+        guard backend.isAuthenticated,
+            !isCurrentGameCenterPlayerVerified,
+            case .authenticated = gameCenter.state
+        else { return false }
+        return true
+    }
+
+    private var isCurrentGameCenterPlayerVerified: Bool {
+        guard case .authenticated(let player) = gameCenter.state else { return false }
+        return verifiedGameCenterTeamPlayerID == player.teamPlayerID
     }
 
     private func handleGameCenterAction() {
         switch gameCenter.state {
         case .disabled, .idle:
+            pendingGameCenterLink = backend.isAuthenticated
             gameCenter.connect()
         case .authenticating:
             break
         case .authenticated:
-            gameCenter.disableParticipation()
+            if backend.isAuthenticated, !isCurrentGameCenterPlayerVerified {
+                pendingGameCenterLink = true
+                startGameCenterLinkIfNeeded()
+            } else {
+                turnOffGameCenter()
+            }
         case .unavailable:
             if gameCenter.participationEnabled {
-                gameCenter.disableParticipation()
+                turnOffGameCenter()
             } else {
+                pendingGameCenterLink = backend.isAuthenticated
                 gameCenter.retryAuthentication()
             }
         }
+    }
+
+    private func turnOffGameCenter() {
+        gameCenterLinkGeneration += 1
+        pendingGameCenterLink = false
+        gameCenterLinkTask?.cancel()
+        gameCenterLinkTask = nil
+        gameCenterLinking = false
+        verifiedGameCenterTeamPlayerID = nil
+        gameCenter.disableParticipation()
     }
 
     private func rankCard(_ rank: RankInfo) -> some View {
@@ -500,18 +752,209 @@ struct ProfileView: View {
         }
     }
 
-    private func signIn() async {
+    private func signInWithGoogle() async {
+        busy = true
+        defer { busy = false }
+        var attemptedToken: String?
+        do {
+            let token = try await googleIdentity.signIn()
+            attemptedToken = token
+            let session = try await backend.login(googleIDToken: token)
+            await finishAuthentication(session)
+        } catch let error as BackendError where error.status == 409 && !backend.isAuthenticated {
+            status = error.localizedDescription
+            if let token = attemptedToken {
+                pendingRegistration = .google(idToken: token)
+                showsRegistrationConfirmation = true
+            }
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    private func signInWithApple() async {
         busy = true
         defer { busy = false }
         do {
-            let token = try await googleIdentity.signIn()
-            let session = try await backend.login(googleIDToken: token)
-            nickname = session.profile?.nickname ?? ""
-            status = nil
-            await cosmetics.refresh()
-            await loadProfile()
+            let session = try await authorizeWithApple(intent: .login)
+            await finishAuthentication(session)
+        } catch let error as BackendError where error.status == 409 && !backend.isAuthenticated {
+            status = error.localizedDescription
+            pendingRegistration = .apple
+            showsRegistrationConfirmation = true
         } catch {
             status = error.localizedDescription
+        }
+    }
+
+    private func registerPendingIdentity() async {
+        guard let pendingRegistration else { return }
+        self.pendingRegistration = nil
+        busy = true
+        defer { busy = false }
+        do {
+            let session: SessionResponse
+            switch pendingRegistration {
+            case .apple:
+                session = try await authorizeWithApple(intent: .register)
+            case .google(let idToken):
+                session = try await backend.registerWithGoogle(googleIDToken: idToken)
+            }
+            await finishAuthentication(session)
+        } catch let error as BackendError where error.status == 409 {
+            if case .google = pendingRegistration {
+                googleIdentity.signOut()
+            }
+            status = error.localizedDescription
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    private func finishAuthentication(_ session: SessionResponse) async {
+        nickname = session.profile?.nicknameConfirmed == false ? "" : session.profile?.nickname ?? ""
+        status = nil
+        await cosmetics.refresh()
+        await loadProfile()
+    }
+
+    private func authorizeWithApple(
+        intent: PrimaryAuthenticationIntent,
+        expectedPlayerID: String? = nil
+    ) async throws -> SessionResponse {
+        let challenge = try await backend.issueAppleSignInChallenge(intent: intent)
+        let proof = try await appleIdentity.authorize(challenge: challenge)
+        return try await backend.completeAppleAuthorization(
+            challenge: challenge,
+            proof: proof,
+            expectedPlayerID: expectedPlayerID
+        )
+    }
+
+    private func linkApple(to profile: PlayerProfile) async {
+        busy = true
+        defer { busy = false }
+        do {
+            try await reauthenticateCurrentProfile(profile.id)
+            _ = try await authorizeWithApple(
+                intent: .link,
+                expectedPlayerID: profile.id
+            )
+            status = "Apple is now linked to this profile."
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    private func linkGoogle(to profile: PlayerProfile) async {
+        busy = true
+        defer { busy = false }
+        do {
+            try await reauthenticateCurrentProfile(profile.id)
+            let token = try await googleIdentity.signIn()
+            _ = try await backend.linkGoogle(
+                googleIDToken: token,
+                expectedPlayerID: profile.id
+            )
+            status = "Google is now linked to this profile."
+        } catch let error as BackendError where error.status == 409 {
+            googleIdentity.signOut()
+            status = error.localizedDescription
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    private func reauthenticateCurrentProfile(_ playerID: String) async throws {
+        if identityBindings.apple {
+            _ = try await authorizeWithApple(
+                intent: .reauth,
+                expectedPlayerID: playerID
+            )
+            return
+        }
+        if identityBindings.google {
+            let credential = try await googleReauthenticationCredential()
+            do {
+                _ = try await backend.reauthenticateWithGoogle(
+                    googleIDToken: credential,
+                    expectedPlayerID: playerID
+                )
+            } catch let error as BackendError where error.status == 409 {
+                googleIdentity.signOut()
+                throw error
+            }
+            return
+        }
+        throw BackendError(
+            status: 401,
+            message: "Link Apple or Google before continuing.",
+            code: "primary-authentication-unavailable"
+        )
+    }
+
+    private func startGameCenterLinkIfNeeded() {
+        guard pendingGameCenterLink,
+            !gameCenterLinking,
+            gameCenterLinkTask == nil,
+            let playerID = backend.profile?.id,
+            case .authenticated = gameCenter.state
+        else { return }
+
+        gameCenterLinkGeneration += 1
+        let generation = gameCenterLinkGeneration
+        gameCenterLinking = true
+        gameCenterLinkTask = Task { @MainActor in
+            defer {
+                if generation == gameCenterLinkGeneration {
+                    gameCenterLinking = false
+                    gameCenterLinkTask = nil
+                }
+            }
+            do {
+                let challenge = try await gameCenterChallenge(
+                    playerID: playerID
+                )
+                try Task.checkCancellation()
+                guard pendingGameCenterLink,
+                    gameCenter.participationEnabled,
+                    backend.profile?.id == playerID,
+                    case .authenticated = gameCenter.state
+                else { throw CancellationError() }
+
+                let proof = try await gameCenter.fetchIdentityVerification()
+                try Task.checkCancellation()
+                _ = try await backend.linkGameCenter(
+                    challenge: challenge,
+                    verification: proof,
+                    expectedPlayerID: playerID
+                )
+                guard generation == gameCenterLinkGeneration else { return }
+                verifiedGameCenterTeamPlayerID = proof.signedTeamPlayerID
+                pendingGameCenterLink = false
+                status = "Game Center is linked. Scores and achievements are not published yet."
+            } catch is CancellationError {
+                return
+            } catch {
+                guard generation == gameCenterLinkGeneration else { return }
+                pendingGameCenterLink = false
+                status = error.localizedDescription
+            }
+        }
+    }
+
+    private func gameCenterChallenge(
+        playerID: String
+    ) async throws -> GameCenterLinkChallenge {
+        do {
+            return try await backend.issueGameCenterLinkChallenge(
+                expectedPlayerID: playerID
+            )
+        } catch let error as BackendError where error.status == 403 {
+            try await reauthenticateCurrentProfile(playerID)
+            return try await backend.issueGameCenterLinkChallenge(
+                expectedPlayerID: playerID
+            )
         }
     }
 
@@ -521,6 +964,7 @@ struct ProfileView: View {
         do {
             _ = try await backend.logout()
             googleIdentity.signOut()
+            pendingGameCenterLink = false
             response = nil
             nickname = ""
             status = nil
@@ -543,7 +987,41 @@ struct ProfileView: View {
         }
     }
 
-    private func deleteAccount(_ profile: PlayerProfile) async {
+    private func requestConfirmedDeletion(for profile: PlayerProfile) {
+        guard accountDeletionConfirmation == BackendClient.accountDeletionConfirmation else {
+            accountDeletionStatus = "Type DELETE MY ACCOUNT exactly to continue."
+            return
+        }
+
+        pendingDeletionProfileID = profile.id
+        if identityBindings.apple, identityBindings.google {
+            showsDeletionProviderChoice = true
+        } else if identityBindings.apple {
+            beginConfirmedDeletion(using: .apple)
+        } else if identityBindings.google {
+            beginConfirmedDeletion(using: .google)
+        } else {
+            pendingDeletionProfileID = nil
+            accountDeletionStatus =
+                "No verified sign-in method is linked to this profile. Refresh Profile and try again."
+        }
+    }
+
+    private func beginConfirmedDeletion(using provider: ProfileReauthenticationProvider) {
+        guard let playerID = pendingDeletionProfileID,
+            backend.profile?.id == playerID
+        else {
+            accountDeletionStatus = ProfileAccountDeletionError.accountChanged.localizedDescription
+            pendingDeletionProfileID = nil
+            return
+        }
+        Task { await deleteAccount(playerID: playerID, using: provider) }
+    }
+
+    private func deleteAccount(
+        playerID: String,
+        using provider: ProfileReauthenticationProvider
+    ) async {
         guard accountDeletionConfirmation == BackendClient.accountDeletionConfirmation else {
             accountDeletionStatus = "Type DELETE MY ACCOUNT exactly to continue."
             return
@@ -553,21 +1031,30 @@ struct ProfileView: View {
         accountDeletionStatus = nil
         defer { busy = false }
         do {
-            let credential = try await accountDeletionCredential()
-            _ = try await backend.reauthenticateForAccountDeletion(
-                googleIDToken: credential,
-                expectedPlayerID: profile.id
-            )
+            switch provider {
+            case .apple:
+                _ = try await authorizeWithApple(
+                    intent: .reauth,
+                    expectedPlayerID: playerID
+                )
+            case .google:
+                let credential = try await googleReauthenticationCredential()
+                _ = try await backend.reauthenticateWithGoogle(
+                    googleIDToken: credential,
+                    expectedPlayerID: playerID
+                )
+            }
 
             _ = try await backend.deleteAccount(
                 confirmation: accountDeletionConfirmation,
-                expectedPlayerID: profile.id
+                expectedPlayerID: playerID
             )
             googleIdentity.signOut()
             response = nil
             nickname = ""
             status = nil
             resetAccountDeletionForm()
+            pendingDeletionProfileID = nil
             onDismiss()
         } catch let error as BackendError
             where error.code == BackendClient.accountDeletionAccountMismatchCode
@@ -577,12 +1064,18 @@ struct ProfileView: View {
             nickname = ""
             status = ProfileAccountDeletionError.accountChanged.localizedDescription
             resetAccountDeletionForm()
+            pendingDeletionProfileID = nil
+        } catch let error as BackendError where error.status == 409 {
+            if case .google = provider {
+                googleIdentity.signOut()
+            }
+            accountDeletionStatus = error.localizedDescription
         } catch {
             accountDeletionStatus = error.localizedDescription
         }
     }
 
-    private func accountDeletionCredential() async throws -> String {
+    private func googleReauthenticationCredential() async throws -> String {
         #if DEBUG
             let arguments = ProcessInfo.processInfo.arguments
             if arguments.contains("--uitesting"),
@@ -594,9 +1087,18 @@ struct ProfileView: View {
         return try await googleIdentity.signIn()
     }
 
+    private func cancelPendingRegistration() {
+        if case .google? = pendingRegistration {
+            googleIdentity.signOut()
+        }
+        pendingRegistration = nil
+    }
+
     private func resetAccountDeletionForm() {
         showsAccountDeletionConfirmation = false
+        showsDeletionProviderChoice = false
         accountDeletionConfirmation = ""
         accountDeletionStatus = nil
+        pendingDeletionProfileID = nil
     }
 }

@@ -867,7 +867,11 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(profileButton.isHittable)
 
         profileButton.tap()
-        XCTAssertTrue(app.buttons["profile-google-sign-in"].waitForExistence(timeout: 3))
+        let appleSignIn = app.buttons["profile-apple-sign-in"]
+        let googleSignIn = app.buttons["profile-google-sign-in"]
+        XCTAssertTrue(appleSignIn.waitForExistence(timeout: 3))
+        XCTAssertTrue(googleSignIn.waitForExistence(timeout: 3))
+        XCTAssertLessThan(appleSignIn.frame.minY, googleSignIn.frame.minY)
         XCTAssertTrue(
             app.staticTexts["profile-game-center-card"].waitForExistence(timeout: 3)
         )

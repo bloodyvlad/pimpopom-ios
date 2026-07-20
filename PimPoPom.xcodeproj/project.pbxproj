@@ -13,6 +13,7 @@
 		04052855CC26052581CF9499 /* audio-light-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */; };
 		066C6CBA43656DC6D7BA87F3 /* PurchaseController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E2A0743676367B419D7078 /* PurchaseController.swift */; };
 		069780A643FA0657F2591156 /* audio-classic-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */; };
+		07131DCCAFB181F709F262FB /* AppleIdentityServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */; };
 		0AD2A3C5E816E83335A715E9 /* misha-climber.png in Resources */ = {isa = PBXBuildFile; fileRef = 343C3D60DEB6783CB739995F /* misha-climber.png */; };
 		11BEA7BA6EFF98C47DF75DCB /* kesha-perch.png in Resources */ = {isa = PBXBuildFile; fileRef = A094CABC4F0AA44F4126624B /* kesha-perch.png */; };
 		18D7F6E90248D32DD8371432 /* audio-light-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 7A7AAB5003782A88EC74437A /* audio-light-tones.wav */; };
@@ -37,6 +38,7 @@
 		5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */; };
 		5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */; };
 		5F6277B4B9A7E0BBC3DDD44F /* AdBannerSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */; };
+		60D82B86C5B02B0DE3F426DB /* AppleSignInButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */; };
 		60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */; };
 		6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */; };
 		65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */; };
@@ -55,6 +57,7 @@
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
 		9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */; };
 		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
+		97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */; };
 		997453F97D0DAA43FBBF5C3B /* jersey-10-regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */; };
 		9B7E95ABFFA0240D9388D799 /* disco-concrete.png in Resources */ = {isa = PBXBuildFile; fileRef = CA0B3667E36EAC21E084AD82 /* disco-concrete.png */; };
 		9BE6F4395E1981A42564EE35 /* StoreKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11F37B0D75969458F56254C5 /* StoreKitService.swift */; };
@@ -110,6 +113,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIdentityServiceTests.swift; sourceTree = "<group>"; };
 		0666D60D3D9DC1385FFD0B8C /* AdsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsController.swift; sourceTree = "<group>"; };
 		06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetCompanionView.swift; sourceTree = "<group>"; };
 		08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdBannerSlot.swift; sourceTree = "<group>"; };
@@ -183,7 +187,9 @@
 		CA0B3667E36EAC21E084AD82 /* disco-concrete.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-concrete.png"; sourceTree = "<group>"; };
 		CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-sprite.png"; sourceTree = "<group>"; };
 		CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleIdentityService.swift; sourceTree = "<group>"; };
+		D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIdentityService.swift; sourceTree = "<group>"; };
 		D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsControllerTests.swift; sourceTree = "<group>"; };
+		D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInButton.swift; sourceTree = "<group>"; };
 		D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		DA2E75B83D2198FB2E99E518 /* BackendModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendModels.swift; sourceTree = "<group>"; };
 		DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */ = {isa = PBXFileReference; path = "audio-classic-menu.m4a"; sourceTree = "<group>"; };
@@ -324,6 +330,7 @@
 			isa = PBXGroup;
 			children = (
 				FF525ACA8A69F39145C25A62 /* AchievementsView.swift */,
+				D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */,
 				2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */,
 				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
 				2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */,
@@ -359,6 +366,7 @@
 			isa = PBXGroup;
 			children = (
 				D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */,
+				0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */,
 				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
 				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
 				14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */,
@@ -400,6 +408,7 @@
 				0666D60D3D9DC1385FFD0B8C /* AdsController.swift */,
 				6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */,
 				B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */,
+				D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */,
 				ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */,
 				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
 				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
@@ -616,6 +625,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */,
+				07131DCCAFB181F709F262FB /* AppleIdentityServiceTests.swift in Sources */,
 				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
 				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
 				EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */,
@@ -637,6 +647,8 @@
 				B356FCCA35545B44F4D3A1AC /* AdsModels.swift in Sources */,
 				6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */,
 				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
+				97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */,
+				60D82B86C5B02B0DE3F426DB /* AppleSignInButton.swift in Sources */,
 				3E8B789C6846539EE101679E /* AudioController.swift in Sources */,
 				EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */,
 				46F5040558302ED97373D477 /* BackendModels.swift in Sources */,

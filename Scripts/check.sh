@@ -55,6 +55,7 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :UIApplicationShortcutItems:0:UIApplic
 test "$(/usr/libexec/PlistBuddy -c 'Print :UIApplicationShortcutItems:0:UIApplicationShortcutItemUserInfo:url' "$built_info_plist")" = "pimpopom://settings/icon"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:1:CFBundleURLSchemes:0' "$built_info_plist")" = "pimpopom"
 test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.game-center' Config/PimPoPom.entitlements)" = "true"
+test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' Config/PimPoPom.entitlements)" = "Default"
 
 staging_build_settings=$(xcodebuild \
   -project PimPoPom.xcodeproj \

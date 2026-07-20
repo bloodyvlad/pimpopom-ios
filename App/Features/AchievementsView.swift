@@ -132,7 +132,7 @@ final class AchievementsController: ObservableObject {
 
     private static func defaultStatus(for payload: AchievementsResponse) -> String {
         if !payload.authenticated {
-            return "Sign in with Google in Profile to track and claim achievements."
+            return "Sign in from Profile to track and claim achievements."
         }
         if payload.claimableCount > 0 {
             return "Tap a green check to collect its coin reward."

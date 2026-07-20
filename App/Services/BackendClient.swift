@@ -234,6 +234,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             let leaderboard = Self.uiTestLeaderboard(mode: mode, playerName: profile.nickname)
             return ProfileResponse(
                 profile: profile,
+                identityBindings: uiTestSession?.identityBindings,
                 ranks: [
                     GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 42, topPercent: 15),
                     GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 8, topPercent: nil),
@@ -241,7 +242,24 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 leaderboard: leaderboard
             )
         }
-        return try await request(path: "/api/profile?mode=\(mode.rawValue)")
+        let epoch = sessionStateEpoch
+        let playerID = sessionState?.profile?.id
+        let response: ProfileResponse = try await request(
+            path: "/api/profile?mode=\(mode.rawValue)"
+        )
+        guard epoch == sessionStateEpoch,
+            playerID != nil,
+            response.profile.id == playerID,
+            sessionState?.profile?.id == playerID
+        else {
+            throw Self.staleSessionError
+        }
+        replaceProfile(
+            response.profile,
+            identityBindings: response.identityBindings,
+            ranks: response.ranks
+        )
+        return response
     }
 
     func loadThemes() async throws -> ThemeCatalogResponse {
@@ -353,9 +371,46 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
 
     @discardableResult
     func login(googleIDToken: String) async throws -> SessionResponse {
+        try await authenticateWithGoogle(
+            googleIDToken: googleIDToken,
+            intent: .login
+        )
+    }
+
+    @discardableResult
+    func registerWithGoogle(googleIDToken: String) async throws -> SessionResponse {
+        try await authenticateWithGoogle(
+            googleIDToken: googleIDToken,
+            intent: .register
+        )
+    }
+
+    @discardableResult
+    func reauthenticateWithGoogle(
+        googleIDToken: String,
+        expectedPlayerID: String
+    ) async throws -> SessionResponse {
+        let response = try await authenticateWithGoogle(
+            googleIDToken: googleIDToken,
+            intent: .reauth
+        )
+        try await requireSameAuthenticatedPlayer(
+            response,
+            expectedPlayerID: expectedPlayerID
+        )
+        return response
+    }
+
+    @discardableResult
+    private func authenticateWithGoogle(
+        googleIDToken: String,
+        intent: PrimaryAuthenticationIntent
+    ) async throws -> SessionResponse {
+        guard intent != .link else { throw Self.invalidAuthenticationIntentError }
         if isUITestOffline {
             #if DEBUG
                 guard
+                    intent == .reauth,
                     isAccountDeletionUITestFixtureEnabled,
                     googleIDToken == Self.uiTestAccountDeletionCredential,
                     let uiTestSession,
@@ -368,8 +423,13 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             #endif
         }
 
-        let body = try encoder.encode(["credential": googleIDToken])
-        let token = try await beginStateMutation(requiresAuthenticatedProfile: false)
+        let body = try encoder.encode([
+            "credential": googleIDToken,
+            "intent": intent.rawValue,
+        ])
+        let token = try await beginStateMutation(
+            requiresAuthenticatedProfile: intent == .reauth
+        )
         do {
             let response: SessionResponse = try await request(
                 path: "/api/auth/google",
@@ -377,7 +437,9 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 body: body,
                 csrf: csrfToken
             )
-            guard isCurrent(token) else { throw Self.staleSessionError }
+            guard isCurrent(token), response.authenticated, response.profile != nil else {
+                throw Self.invalidAuthenticationResponseError
+            }
             applySessionResponse(response)
             finishStateMutation(token)
             return response
@@ -392,19 +454,236 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         googleIDToken: String,
         expectedPlayerID: String
     ) async throws -> SessionResponse {
-        let response = try await login(googleIDToken: googleIDToken)
-        guard response.authenticated, response.profile?.id == expectedPlayerID else {
-            do {
-                let loggedOut = try await logout()
-                if loggedOut.authenticated || loggedOut.profile != nil {
-                    discardLocalAuthentication()
-                }
-            } catch {
-                discardLocalAuthentication()
+        try await reauthenticateWithGoogle(
+            googleIDToken: googleIDToken,
+            expectedPlayerID: expectedPlayerID
+        )
+    }
+
+    @discardableResult
+    func linkGoogle(
+        googleIDToken: String,
+        expectedPlayerID: String
+    ) async throws -> SessionResponse {
+        let body = try encoder.encode(["credential": googleIDToken])
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            guard token.playerID == expectedPlayerID else {
+                throw Self.accountAuthenticationMismatchError
             }
-            throw Self.accountDeletionAccountMismatchError
+            let response: SessionResponse = try await request(
+                path: "/api/profile/identities/google",
+                method: "POST",
+                body: body,
+                csrf: csrfToken
+            )
+            guard isCurrent(token),
+                response.authenticated,
+                response.profile?.id == expectedPlayerID,
+                response.identityBindings?.google == true
+            else {
+                throw Self.invalidIdentityLinkResponseError
+            }
+            applySessionResponse(response)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
         }
-        return response
+    }
+
+    func issueAppleSignInChallenge(
+        intent: PrimaryAuthenticationIntent
+    ) async throws -> AppleSignInChallenge {
+        guard !isUITestOffline else { throw Self.uiTestOfflineError }
+        if csrfToken == nil { _ = try await loadSession() }
+        guard activeStateMutationEpoch == nil else { throw Self.stateMutationBusyError }
+
+        let epoch = sessionStateEpoch
+        let playerID = sessionState?.profile?.id
+        let response: AppleSignInChallengeResponse = try await request(
+            path: "/api/auth/apple/challenge",
+            method: "POST",
+            body: try encoder.encode(["intent": intent.rawValue]),
+            csrf: csrfToken
+        )
+        let challenge = response.appleSignIn
+        let configuredAudience = sessionState?.appleSignIn?.clientId
+        guard epoch == sessionStateEpoch,
+            playerID == sessionState?.profile?.id,
+            challenge.intent == intent,
+            configuredAudience == nil || challenge.audience == configuredAudience,
+            !challenge.challengeId.isEmpty,
+            !challenge.nonce.isEmpty,
+            !challenge.state.isEmpty,
+            !challenge.audience.isEmpty
+        else {
+            throw Self.invalidAppleChallengeResponseError
+        }
+        return challenge
+    }
+
+    @discardableResult
+    func completeAppleAuthorization(
+        challenge: AppleSignInChallenge,
+        proof: AppleAuthorizationProof,
+        expectedPlayerID: String? = nil
+    ) async throws -> SessionResponse {
+        struct Body: Encodable {
+            let challengeId: String
+            let state: String
+            let identityToken: String
+            let authorizationCode: String
+        }
+
+        guard proof.state == challenge.state,
+            !proof.identityToken.isEmpty,
+            !proof.authorizationCode.isEmpty
+        else {
+            throw Self.invalidAppleAuthorizationProofError
+        }
+
+        let requiresProfile = challenge.intent == .link || challenge.intent == .reauth
+        let token = try await beginStateMutation(
+            requiresAuthenticatedProfile: requiresProfile
+        )
+        do {
+            if requiresProfile,
+                token.playerID != expectedPlayerID
+            {
+                throw Self.accountAuthenticationMismatchError
+            }
+            let response: SessionResponse = try await request(
+                path: "/api/auth/apple",
+                method: "POST",
+                body: try encoder.encode(
+                    Body(
+                        challengeId: challenge.challengeId,
+                        state: proof.state,
+                        identityToken: proof.identityToken,
+                        authorizationCode: proof.authorizationCode
+                    )
+                ),
+                csrf: csrfToken
+            )
+            guard isCurrent(token), response.authenticated, response.profile != nil else {
+                throw Self.invalidAuthenticationResponseError
+            }
+            if let expectedPlayerID,
+                response.profile?.id != expectedPlayerID
+            {
+                applySessionResponse(response)
+                finishStateMutation(token)
+                try await requireSameAuthenticatedPlayer(
+                    response,
+                    expectedPlayerID: expectedPlayerID
+                )
+                throw Self.accountAuthenticationMismatchError
+            }
+            if challenge.intent == .link,
+                response.identityBindings?.apple != true
+            {
+                throw Self.invalidIdentityLinkResponseError
+            }
+            applySessionResponse(response)
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
+    }
+
+    func issueGameCenterLinkChallenge(
+        expectedPlayerID: String
+    ) async throws -> GameCenterLinkChallenge {
+        guard !isUITestOffline else { throw Self.uiTestOfflineError }
+        if csrfToken == nil { _ = try await loadSession() }
+        guard activeStateMutationEpoch == nil else { throw Self.stateMutationBusyError }
+        guard sessionState?.authenticated == true,
+            sessionState?.profile?.id == expectedPlayerID
+        else {
+            throw Self.accountAuthenticationMismatchError
+        }
+
+        let epoch = sessionStateEpoch
+        let response: GameCenterLinkChallengeResponse = try await request(
+            path: "/api/profile/game-center/challenge",
+            method: "POST",
+            body: Data("{}".utf8),
+            csrf: csrfToken
+        )
+        let challenge = response.gameCenter
+        guard epoch == sessionStateEpoch,
+            sessionState?.profile?.id == expectedPlayerID,
+            !challenge.challengeId.isEmpty
+        else {
+            throw Self.invalidGameCenterLinkResponseError
+        }
+        return challenge
+    }
+
+    @discardableResult
+    func linkGameCenter(
+        challenge: GameCenterLinkChallenge,
+        verification: GameCenterIdentityVerification,
+        expectedPlayerID: String
+    ) async throws -> GameCenterLinkResponse {
+        struct Body: Encodable {
+            let challengeId: String
+            let teamPlayerId: String
+            let publicKeyUrl: String
+            let signature: String
+            let salt: String
+            let timestamp: UInt64
+        }
+
+        guard !verification.signedTeamPlayerID.isEmpty,
+            verification.publicKeyURL.scheme?.lowercased() == "https",
+            !verification.signature.isEmpty,
+            !verification.salt.isEmpty,
+            verification.timestamp > 0
+        else {
+            throw Self.invalidGameCenterProofError
+        }
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            guard token.playerID == expectedPlayerID else {
+                throw Self.accountAuthenticationMismatchError
+            }
+            let response: GameCenterLinkResponse = try await request(
+                path: "/api/profile/game-center",
+                method: "POST",
+                body: try encoder.encode(
+                    Body(
+                        challengeId: challenge.challengeId,
+                        teamPlayerId: verification.signedTeamPlayerID,
+                        publicKeyUrl: verification.publicKeyURL.absoluteString,
+                        signature: verification.signature.base64EncodedString(),
+                        salt: verification.salt.base64EncodedString(),
+                        timestamp: verification.timestamp
+                    )
+                ),
+                csrf: csrfToken
+            )
+            guard isCurrent(token),
+                response.profile.id == expectedPlayerID,
+                response.identityBindings.gameCenter,
+                response.gameCenter.linked
+            else {
+                throw Self.invalidGameCenterLinkResponseError
+            }
+            replaceProfile(
+                response.profile,
+                identityBindings: response.identityBindings
+            )
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
     }
 
     @discardableResult
@@ -440,7 +719,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         do {
             guard token.playerID == expectedPlayerID else {
                 discardLocalAuthentication()
-                throw Self.accountDeletionAccountMismatchError
+                throw Self.accountAuthenticationMismatchError
             }
             let response: AccountDeletionResponse
             if isUITestOffline {
@@ -498,7 +777,11 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             guard isCurrent(token, responseProfileID: response.profile.id) else {
                 throw Self.staleSessionError
             }
-            replaceProfile(response.profile, ranks: response.ranks)
+            replaceProfile(
+                response.profile,
+                identityBindings: response.identityBindings,
+                ranks: response.ranks
+            )
             finishStateMutation(token)
             return response
         } catch {
@@ -757,6 +1040,23 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         }
     }
 
+    private func requireSameAuthenticatedPlayer(
+        _ response: SessionResponse,
+        expectedPlayerID: String
+    ) async throws {
+        guard response.authenticated, response.profile?.id == expectedPlayerID else {
+            do {
+                let loggedOut = try await logout()
+                if loggedOut.authenticated || loggedOut.profile != nil {
+                    discardLocalAuthentication()
+                }
+            } catch {
+                discardLocalAuthentication()
+            }
+            throw Self.accountAuthenticationMismatchError
+        }
+    }
+
     #if DEBUG
         private var isAccountDeletionUITestFixtureEnabled: Bool {
             let arguments = ProcessInfo.processInfo.arguments
@@ -872,6 +1172,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
 
     private func replaceProfile(
         _ profile: PlayerProfile,
+        identityBindings: IdentityBindings? = nil,
         ranks: [String: RankInfo]? = nil
     ) {
         guard let sessionState else { return }
@@ -883,8 +1184,10 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             authenticated: true,
             csrfToken: sessionState.csrfToken,
             googleClientId: sessionState.googleClientId,
+            appleSignIn: sessionState.appleSignIn,
             season: sessionState.season,
             profile: profile,
+            identityBindings: identityBindings ?? sessionState.identityBindings,
             wallet: wallet,
             adFree: sessionState.adFree,
             storeKit: sessionState.storeKit,
@@ -903,8 +1206,10 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             authenticated: true,
             csrfToken: sessionState.csrfToken,
             googleClientId: sessionState.googleClientId,
+            appleSignIn: sessionState.appleSignIn,
             season: sessionState.season,
             profile: replacingCoins(in: profile, with: response.wallet.total),
+            identityBindings: sessionState.identityBindings,
             wallet: response.wallet,
             adFree: response.adFree,
             storeKit: sessionState.storeKit,
@@ -1079,10 +1384,22 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         }
     }
 
+    private static let uiTestAppleConfiguration = AppleSignInConfiguration(
+        enabled: true,
+        clientId: "com.otcsoftware.pimpopom"
+    )
+
+    private static let uiTestGoogleBindings = IdentityBindings(
+        google: true,
+        apple: false,
+        gameCenter: false
+    )
+
     private static let uiTestSignedOutSession = SessionResponse(
         authenticated: false,
         csrfToken: "ui-test-offline",
         googleClientId: "placeholder.apps.googleusercontent.com",
+        appleSignIn: uiTestAppleConfiguration,
         season: Season(id: "ui-test", name: "Offline UI Test"),
         profile: nil,
         ranks: nil
@@ -1093,6 +1410,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             authenticated: true,
             csrfToken: "local-storekit-offline",
             googleClientId: "placeholder.apps.googleusercontent.com",
+            appleSignIn: uiTestAppleConfiguration,
             season: Season(id: "local-storekit", name: "Local StoreKit"),
             profile: PlayerProfile(
                 id: LocalStoreKitCreditService.account.profileID,
@@ -1111,6 +1429,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 createdAt: "2026-07-19T00:00:00Z",
                 updatedAt: "2026-07-19T00:00:00Z"
             ),
+            identityBindings: uiTestGoogleBindings,
             wallet: StoreWalletSummary(
                 earned: 75,
                 purchased: 0,
@@ -1135,8 +1454,10 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 authenticated: uiTestStoreKitSession.authenticated,
                 csrfToken: uiTestStoreKitSession.csrfToken,
                 googleClientId: uiTestStoreKitSession.googleClientId,
+                appleSignIn: uiTestStoreKitSession.appleSignIn,
                 season: uiTestStoreKitSession.season,
                 profile: uiTestStoreKitSession.profile,
+                identityBindings: uiTestStoreKitSession.identityBindings,
                 wallet: uiTestStoreKitSession.wallet,
                 adFree: true,
                 storeKit: uiTestStoreKitSession.storeKit,
@@ -1149,6 +1470,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         authenticated: true,
         csrfToken: "ui-test-offline",
         googleClientId: "placeholder.apps.googleusercontent.com",
+        appleSignIn: uiTestAppleConfiguration,
         season: Season(id: "ui-test", name: "Offline UI Test"),
         profile: PlayerProfile(
             id: "ui-test-player",
@@ -1167,6 +1489,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         ),
+        identityBindings: uiTestGoogleBindings,
         ranks: [
             GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
             GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
@@ -1177,6 +1500,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         authenticated: true,
         csrfToken: "ui-test-offline",
         googleClientId: "placeholder.apps.googleusercontent.com",
+        appleSignIn: uiTestAppleConfiguration,
         season: Season(id: "ui-test", name: "Offline UI Test"),
         profile: PlayerProfile(
             id: "ui-test-pancake-player",
@@ -1195,6 +1519,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         ),
+        identityBindings: uiTestGoogleBindings,
         ranks: [
             GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
             GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
@@ -1205,6 +1530,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         authenticated: true,
         csrfToken: "ui-test-offline",
         googleClientId: "placeholder.apps.googleusercontent.com",
+        appleSignIn: uiTestAppleConfiguration,
         season: Season(id: "ui-test", name: "Offline UI Test"),
         profile: PlayerProfile(
             id: "ui-test-achievement-player",
@@ -1223,6 +1549,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         ),
+        identityBindings: uiTestGoogleBindings,
         ranks: [
             GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
             GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
@@ -1380,8 +1707,50 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
 
     private static let authenticationRequiredError = BackendError(
         status: 401,
-        message: "Sign in with Google to continue.",
+        message: "Sign in to continue.",
         code: "authentication-required"
+    )
+
+    private static let invalidAuthenticationIntentError = BackendError(
+        status: 400,
+        message: "Use the explicit provider-linking flow to add a sign-in method.",
+        code: "invalid-authentication-intent"
+    )
+
+    private static let invalidAuthenticationResponseError = BackendError(
+        status: 0,
+        message: "The sign-in response could not be verified. Please try again.",
+        code: "invalid-authentication-response"
+    )
+
+    private static let invalidIdentityLinkResponseError = BackendError(
+        status: 0,
+        message: "The service did not confirm the linked sign-in method.",
+        code: "invalid-identity-link-response"
+    )
+
+    private static let invalidAppleChallengeResponseError = BackendError(
+        status: 0,
+        message: "The Sign in with Apple request could not be verified. Please try again.",
+        code: "invalid-apple-challenge-response"
+    )
+
+    private static let invalidAppleAuthorizationProofError = BackendError(
+        status: 400,
+        message: "Apple returned an incomplete authorization. Please try again.",
+        code: "invalid-apple-authorization-proof"
+    )
+
+    private static let invalidGameCenterProofError = BackendError(
+        status: 400,
+        message: "Game Center returned an incomplete identity proof. Please try again.",
+        code: "invalid-game-center-proof"
+    )
+
+    private static let invalidGameCenterLinkResponseError = BackendError(
+        status: 0,
+        message: "The service did not confirm the Game Center link. Please try again.",
+        code: "invalid-game-center-link-response"
     )
 
     private static let invalidAchievementError = BackendError(
@@ -1402,9 +1771,9 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         code: "invalid-account-deletion-response"
     )
 
-    private static let accountDeletionAccountMismatchError = BackendError(
+    private static let accountAuthenticationMismatchError = BackendError(
         status: 409,
-        message: "A different Google account was selected. No account was deleted.",
+        message: "A different account was selected. No account was changed.",
         code: accountDeletionAccountMismatchCode
     )
 

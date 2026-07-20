@@ -39,12 +39,71 @@ struct StoreKitBindingResponse: Codable, Equatable, Sendable {
     }
 }
 
+enum PrimaryAuthenticationIntent: String, Codable, Equatable, Sendable {
+    case login
+    case register
+    case link
+    case reauth
+}
+
+struct AppleSignInConfiguration: Codable, Equatable, Sendable {
+    let enabled: Bool
+    let clientId: String?
+}
+
+struct IdentityBindings: Codable, Equatable, Sendable {
+    let google: Bool
+    let apple: Bool
+    let gameCenter: Bool
+}
+
+struct AppleSignInChallenge: Codable, Equatable, Sendable {
+    let challengeId: String
+    let nonce: String
+    let state: String
+    let intent: PrimaryAuthenticationIntent
+    let audience: String
+    let expiresAt: String
+}
+
+struct AppleSignInChallengeResponse: Codable, Equatable, Sendable {
+    let appleSignIn: AppleSignInChallenge
+}
+
+struct AppleAuthorizationProof: Equatable, Sendable {
+    let state: String
+    let identityToken: String
+    let authorizationCode: String
+}
+
+struct GameCenterLinkChallenge: Codable, Equatable, Sendable {
+    let challengeId: String
+    let expiresAt: String
+}
+
+struct GameCenterLinkChallengeResponse: Codable, Equatable, Sendable {
+    let gameCenter: GameCenterLinkChallenge
+}
+
+struct GameCenterLinkResult: Codable, Equatable, Sendable {
+    let linked: Bool
+    let newlyLinked: Bool
+}
+
+struct GameCenterLinkResponse: Codable, Equatable {
+    let profile: PlayerProfile
+    let identityBindings: IdentityBindings
+    let gameCenter: GameCenterLinkResult
+}
+
 struct SessionResponse: Codable, Equatable {
     let authenticated: Bool
     let csrfToken: String
     let googleClientId: String
+    let appleSignIn: AppleSignInConfiguration?
     let season: Season
     let profile: PlayerProfile?
+    let identityBindings: IdentityBindings?
     let wallet: StoreWalletSummary?
     let adFree: Bool?
     let storeKit: StoreKitBindingResponse?
@@ -54,8 +113,10 @@ struct SessionResponse: Codable, Equatable {
         authenticated: Bool,
         csrfToken: String,
         googleClientId: String,
+        appleSignIn: AppleSignInConfiguration? = nil,
         season: Season,
         profile: PlayerProfile?,
+        identityBindings: IdentityBindings? = nil,
         wallet: StoreWalletSummary? = nil,
         adFree: Bool? = nil,
         storeKit: StoreKitBindingResponse? = nil,
@@ -64,8 +125,10 @@ struct SessionResponse: Codable, Equatable {
         self.authenticated = authenticated
         self.csrfToken = csrfToken
         self.googleClientId = googleClientId
+        self.appleSignIn = appleSignIn
         self.season = season
         self.profile = profile
+        self.identityBindings = identityBindings
         self.wallet = wallet
         self.adFree = adFree
         self.storeKit = storeKit
@@ -113,6 +176,7 @@ struct LeaderboardResponse: Codable, Equatable {
 
 struct ProfileResponse: Codable, Equatable {
     let profile: PlayerProfile
+    let identityBindings: IdentityBindings?
     let wallet: StoreWalletSummary?
     let adFree: Bool?
     let storeKit: StoreKitBindingResponse?
@@ -121,6 +185,7 @@ struct ProfileResponse: Codable, Equatable {
 
     init(
         profile: PlayerProfile,
+        identityBindings: IdentityBindings? = nil,
         wallet: StoreWalletSummary? = nil,
         adFree: Bool? = nil,
         storeKit: StoreKitBindingResponse? = nil,
@@ -128,6 +193,7 @@ struct ProfileResponse: Codable, Equatable {
         leaderboard: LeaderboardResponse
     ) {
         self.profile = profile
+        self.identityBindings = identityBindings
         self.wallet = wallet
         self.adFree = adFree
         self.storeKit = storeKit
