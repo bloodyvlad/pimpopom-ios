@@ -11,6 +11,8 @@ Status: **draft for owner review**. These assets were prepared from TestFlight b
 - [`metadata/en-US.md`](metadata/en-US.md) — copy-ready English (U.S.) metadata.
 - [`launch-checklist.md`](launch-checklist.md) — launch gates and App Store Connect sequence.
 - [`video-shot-list.md`](video-shot-list.md) — optional 25-second App Preview plan.
+- [`legal/privacy.html`](legal/privacy.html) and [`legal/support.html`](legal/support.html) — upload-ready static page drafts; replace the documented legal/contact placeholders before publishing.
+- [`game-center/en-US.md`](game-center/en-US.md) — concise Arcade leaderboard copy plus the proposed five-achievement catalog and exact permanent vendor IDs.
 
 ## Upload mapping
 
@@ -37,7 +39,7 @@ Do not submit the production app until these are closed:
 
 1. Retain public-release rights evidence for every bundled pet asset and the Disco texture set. Their current source records approve internal migration use but explicitly leave public distribution pending.
 2. Complete final PimPoPom trademark/brand clearance and confirm the exact rights-owning seller/copyright entity.
-3. Publish and verify Privacy Policy, Support, Terms, and account-deletion URLs.
+3. Fill, review, publish, and verify the included Privacy Policy and Support/account-deletion pages, then add a Terms URL if counsel or the final service model requires one.
 4. Complete the archive-derived App Privacy answers, production AdMob/UMP review, StoreKit Sandbox/Production verification, and the remaining gates in [`launch-checklist.md`](launch-checklist.md).
 
 Jersey 10 is already covered by the retained SIL Open Font License 1.1.

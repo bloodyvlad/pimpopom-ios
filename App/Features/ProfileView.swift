@@ -253,36 +253,44 @@ struct ProfileView: View {
     }
 
     private var gameCenterCard: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "gamecontroller.fill")
-                .font(.system(size: 23, weight: .black))
-                .foregroundStyle(Color(hex: palette.accent))
-                .frame(width: 34)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Image(systemName: "gamecontroller.fill")
+                    .font(.system(size: 23, weight: .black))
+                    .foregroundStyle(Color(hex: palette.accent))
+                    .frame(width: 34)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Game Center")
-                    .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
-                    .accessibilityIdentifier("profile-game-center-card")
-                Text(gameCenterStatus)
-                    .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
-                    .foregroundStyle(Color(hex: palette.muted))
-                    .accessibilityIdentifier("profile-game-center-status")
-            }
-            .accessibilityElement(children: .contain)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Game Center")
+                        .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
+                        .accessibilityIdentifier("profile-game-center-card")
+                    Text(gameCenterStatus)
+                        .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
+                        .foregroundStyle(Color(hex: palette.muted))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("profile-game-center-status")
+                }
+                .accessibilityElement(children: .contain)
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-            Button(gameCenterButtonTitle) { gameCenter.retryAuthentication() }
-                .buttonStyle(
-                    WebSecondaryButtonStyle(
-                        theme: palette,
-                        accent: Color(hex: palette.accent),
-                        minimumHeight: 40
+                Button(gameCenterButtonTitle, action: handleGameCenterAction)
+                    .buttonStyle(
+                        WebSecondaryButtonStyle(
+                            theme: palette,
+                            accent: Color(hex: palette.accent),
+                            minimumHeight: 40
+                        )
                     )
-                )
-                .frame(width: 105)
-                .disabled(!canRetryGameCenter)
-                .accessibilityIdentifier("profile-game-center")
+                    .frame(width: 105)
+                    .disabled(isGameCenterActionDisabled)
+                    .accessibilityIdentifier("profile-game-center")
+            }
+
+            Text("This controls PimPoPom only. Manage the Apple account in iOS Settings.")
+                .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
+                .foregroundStyle(Color(hex: palette.muted))
+                .accessibilityIdentifier("profile-game-center-explanation")
         }
         .webCardStyle(theme: palette, padding: 12)
     }
@@ -384,12 +392,14 @@ struct ProfileView: View {
 
     private var gameCenterStatus: String {
         switch gameCenter.state {
+        case .disabled:
+            "Off · no Game Center scores shared"
         case .idle:
-            "Not started · PimPoPom play still works"
+            "Ready to connect · PimPoPom play still works"
         case .authenticating:
             "Connecting… · PimPoPom play still works"
         case .authenticated(let player):
-            "Connected as \(player.displayName)"
+            "Connected as \(player.displayName) · no scores shared"
         case .unavailable:
             "Unavailable · PimPoPom play still works"
         }
@@ -397,20 +407,39 @@ struct ProfileView: View {
 
     private var gameCenterButtonTitle: String {
         switch gameCenter.state {
+        case .disabled:
+            "Connect"
         case .idle:
             "Connect"
         case .authenticating:
             "Connecting…"
         case .authenticated:
-            "Connected"
+            "Turn Off"
         case .unavailable:
-            "Retry"
+            gameCenter.participationEnabled ? "Turn Off" : "Retry"
         }
     }
 
-    private var canRetryGameCenter: Bool {
-        if case .unavailable = gameCenter.state { return true }
+    private var isGameCenterActionDisabled: Bool {
+        if case .authenticating = gameCenter.state { return true }
         return false
+    }
+
+    private func handleGameCenterAction() {
+        switch gameCenter.state {
+        case .disabled, .idle:
+            gameCenter.connect()
+        case .authenticating:
+            break
+        case .authenticated:
+            gameCenter.disableParticipation()
+        case .unavailable:
+            if gameCenter.participationEnabled {
+                gameCenter.disableParticipation()
+            } else {
+                gameCenter.retryAuthentication()
+            }
+        }
     }
 
     private func rankCard(_ rank: RankInfo) -> some View {

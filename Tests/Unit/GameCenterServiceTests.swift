@@ -12,11 +12,12 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: [:],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: { _ in true }
         )
 
-        service.startAuthentication()
-        service.startAuthentication()
+        service.connect()
+        service.connect()
         XCTAssertEqual(harness.installCount, 1)
         XCTAssertEqual(service.state, .authenticating)
 
@@ -44,13 +45,14 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: [:],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: {
                 presentedController = $0
                 return true
             }
         )
 
-        service.startAuthentication()
+        service.connect()
         harness.authenticationCallback?(controller, nil)
 
         XCTAssertTrue(presentedController === controller)
@@ -64,10 +66,11 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: [:],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: { _ in true }
         )
 
-        service.startAuthentication()
+        service.connect()
         harness.authenticationCallback?(nil, "The player cancelled sign-in.")
         XCTAssertEqual(service.state, .unavailable("The player cancelled sign-in."))
 
@@ -83,13 +86,14 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: ["XCTestConfigurationFilePath": "fixture.xctestconfiguration"],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: { _ in
                 XCTFail("UI tests must not present Game Center")
                 return false
             }
         )
 
-        service.startAuthentication()
+        service.connect()
 
         XCTAssertEqual(harness.installCount, 0)
         XCTAssertEqual(
@@ -105,6 +109,7 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: [:],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: { _ in true }
         )
 
@@ -130,9 +135,10 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: [:],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: { _ in true }
         )
-        service.startAuthentication()
+        service.connect()
         harness.authenticationCallback?(nil, nil)
 
         let verification = try await service.fetchIdentityVerification()
@@ -161,9 +167,10 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: [:],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: { _ in true }
         )
-        service.startAuthentication()
+        service.connect()
         harness.authenticationCallback?(nil, nil)
 
         do {
@@ -188,9 +195,10 @@ final class GameCenterServiceTests: XCTestCase {
             arguments: [],
             environment: [:],
             bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
             presentAuthenticationViewController: { _ in true }
         )
-        service.startAuthentication()
+        service.connect()
         harness.authenticationCallback?(nil, nil)
 
         do {
@@ -200,22 +208,131 @@ final class GameCenterServiceTests: XCTestCase {
             XCTAssertEqual(error as? GameCenterServiceError, .incompleteVerification)
         }
     }
+
+    func testLaunchDoesNotInstallAuthenticationUntilPlayerOptsIn() {
+        let harness = GameCenterClientHarness()
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+
+        service.resumeAuthenticationIfOptedIn()
+
+        XCTAssertEqual(service.state, .disabled)
+        XCTAssertFalse(service.participationEnabled)
+        XCTAssertEqual(harness.installCount, 0)
+    }
+
+    func testSuccessfulConnectionPersistsOptInAndResumesOnNextLaunch() {
+        let harness = GameCenterClientHarness()
+        var service: GameCenterService? = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+
+        service?.connect()
+        harness.authenticated = true
+        harness.authenticationCallback?(nil, nil)
+        XCTAssertTrue(service?.participationEnabled == true)
+        service = nil
+
+        let relaunched = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        relaunched.resumeAuthenticationIfOptedIn()
+
+        XCTAssertTrue(relaunched.participationEnabled)
+        XCTAssertEqual(harness.installCount, 2)
+    }
+
+    func testCancelledConnectionDoesNotCreateAStartupOptIn() {
+        let harness = GameCenterClientHarness()
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        harness.authenticationCallback?(nil, "The player cancelled sign-in.")
+
+        let relaunched = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        relaunched.resumeAuthenticationIfOptedIn()
+
+        XCTAssertFalse(relaunched.participationEnabled)
+        XCTAssertEqual(relaunched.state, .disabled)
+        XCTAssertEqual(harness.installCount, 1)
+    }
+
+    func testTurningOffRemovesTheHandlerAndIgnoresStaleCallbacks() {
+        let harness = GameCenterClientHarness()
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        let staleCallback = harness.authenticationCallback
+        harness.authenticated = true
+        harness.authenticationCallback?(nil, nil)
+
+        service.disableParticipation()
+        staleCallback?(nil, nil)
+
+        XCTAssertEqual(service.state, .disabled)
+        XCTAssertFalse(service.participationEnabled)
+        XCTAssertEqual(harness.removeCount, 1)
+        XCTAssertNil(harness.authenticationCallback)
+    }
 }
 
 @MainActor
 private final class GameCenterClientHarness {
     var installCount = 0
+    var removeCount = 0
     var authenticated = false
     var teamPlayerID = "team-player-1"
     var authenticationCallback: GameCenterClient.AuthenticationCallback?
     var verification: (URL, Data, Data, UInt64)?
     var beforeVerificationCallback: (() -> Void)?
+    let defaults = UserDefaults(
+        suiteName: "GameCenterServiceTests.\(UUID().uuidString)"
+    )!
 
     var client: GameCenterClient {
         GameCenterClient(
             installAuthenticationHandler: { [weak self] callback in
                 self?.installCount += 1
                 self?.authenticationCallback = callback
+            },
+            removeAuthenticationHandler: { [weak self] in
+                self?.removeCount += 1
+                self?.authenticationCallback = nil
             },
             isAuthenticated: { [weak self] in self?.authenticated == true },
             displayName: { "Arcade Tester" },

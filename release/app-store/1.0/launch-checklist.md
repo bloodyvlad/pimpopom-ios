@@ -7,9 +7,9 @@ This is the working owner/engineering checklist for the first production release
 - [ ] Obtain and retain public-release rights evidence for every pet source/master/runtime sprite in `assets/pets/SOURCES.md`.
 - [ ] Obtain and retain public-release rights evidence for the Disco texture sources in `assets/themes/SOURCES.md`.
 - [ ] Complete PimPoPom trademark/brand clearance and confirm the enrolled seller/rightsholder name.
-- [ ] Add Sign in with Apple or document and validate a genuine App Review Guideline 4.8 exception. Build 6 exposes Google Sign-In for the primary profile but no Sign in with Apple path.
+- [ ] Add a complete Sign in with Apple provider or document and validate a genuine App Review Guideline 4.8 exception. Do not add a client-only button: the current backend/profile schema and recent-auth deletion flow are Google-specific.
 - [ ] Add the public-leaderboard safety path appropriate to player nicknames: filtering, reporting, blocking where applicable, support escalation, and a documented moderation policy.
-- [ ] Publish HTTPS Privacy Policy, Support, Terms, and account-deletion help pages controlled by the seller.
+- [ ] Replace every placeholder in `legal/privacy.html` and `legal/support.html`, review them against the final archive, and publish HTTPS Privacy Policy plus Support/account-deletion pages controlled by the seller. Add separate Terms if counsel or the final service model requires them.
 - [ ] Create a true public Release archive. Build 6 intentionally contains owner-only production-unit QA and demo-unit routing for other testers; that is not a public monetization policy and must not ship unchanged.
 - [ ] Verify StoreKit credit, refund, reversal, revocation, debt, Family Sharing, and account deletion end to end in Sandbox on a physical iPhone.
 - [ ] Configure and verify App Store Server Notifications V2 for both Sandbox and Production. One environment-aware backend endpoint may serve both URLs.
@@ -25,6 +25,7 @@ This is the working owner/engineering checklist for the first production release
 - [ ] Complete Content Rights honestly. Third-party fonts, ad content, and licensed/generated art must all have retained rights evidence.
 - [ ] Complete the current age-rating questionnaire. Declare advertising. Treat the ranked leaderboard as a possible skill-based “Contest” even without prizes; use the least frequency that truthfully describes actual play. Do not choose Kids Category merely to broaden reach.
 - [ ] Keep Jersey 10’s SIL OFL 1.1 licence and font provenance with the release records.
+- [ ] For Sign in with Apple, enable the capability on explicit App ID `com.otcsoftware.pimpopom`; create a dedicated Sign in with Apple key; securely provide its `.p8` and Key ID; confirm Team ID `APX2925X66`; and approve explicit user-confirmed linking for existing Google profiles. Do not auto-merge identities by email. A native-only flow does not require a Services ID or web return URL.
 
 ## 2. Storefront metadata and media
 
@@ -47,7 +48,8 @@ This is the working owner/engineering checklist for the first production release
 - [ ] Submit the first IAP products with the first app version as Apple requires.
 - [ ] Verify `com.otcsoftware.pimpopom.removeads.lifetime` is non-consumable, restorable, and Family Sharing is enabled; coin packs remain consumable.
 - [ ] Confirm the Sandbox and Production notification URLs respond correctly and route by Apple-signed environment.
-- [ ] Confirm the permanent Game Center `Arcade` leaderboard is attached only if its component and server-fed mirror are ready for this release. Optional local authentication must never block play.
+- [ ] Set the permanent Game Center `Arcade` description to `Global Arcade high scores.` Attach it only if its component and server-fed mirror are ready for this release. Optional authentication must be player-initiated, Turn Off must remain available, and Game Center must never block play.
+- [ ] If Game Center achievements ship, create the five exact P-042 vendor IDs as visible, nonrepeatable achievements totaling 100 points; add display name, pre-earned/earned descriptions, and a 1024×1024 RGB image for each. Attach them only after verified binding, server-held consent, historical backfill, outbox idempotency, TestFlight prerelease routing, and Turn Off/account-deletion behavior pass.
 - [ ] If submitting the first Game Center component, include it with the same app version.
 - [ ] Select manual release for version 1.0 so approval does not publish unexpectedly.
 

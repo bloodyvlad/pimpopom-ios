@@ -58,7 +58,7 @@ Before any ad-enabled archive, run the configuration validator and inspect the b
 
 ### Internal
 
-- Smoke cold install/update/reinstall, both modes, identity/linking, ranked proof, leaderboard, achievements, themes/pets, audio/haptics, consent/test or approved diagnostic ads, Remove Ads, coin purchase, restore, account deletion, and support URLs.
+- Smoke cold install/update/reinstall, both modes, identity/linking, ranked proof, leaderboard, explicit Game Center Connect/Turn Off without a cold-launch prompt, achievements, themes/pets, audio/haptics, consent/test or approved diagnostic ads, Remove Ads, coin purchase, restore, account deletion, and support URLs.
 - Verify production-like server rate limits/alerts without using live ad clicks or uncontrolled real purchases.
 
 ### External

@@ -1,4 +1,5 @@
 import Combine
+import Foundation
 import GameKit
 import UIKit
 
@@ -18,6 +19,7 @@ struct GameCenterIdentityVerification: Equatable, Sendable {
 }
 
 enum GameCenterConnectionState: Equatable {
+    case disabled
     case idle
     case authenticating
     case authenticated(GameCenterPlayerIdentity)
@@ -53,6 +55,7 @@ struct GameCenterClient {
     typealias VerificationCallback = @MainActor (URL?, Data?, Data?, UInt64, String?) -> Void
 
     let installAuthenticationHandler: (@escaping AuthenticationCallback) -> Void
+    let removeAuthenticationHandler: () -> Void
     let isAuthenticated: () -> Bool
     let displayName: () -> String
     let gamePlayerID: () -> String
@@ -64,6 +67,9 @@ struct GameCenterClient {
             GKLocalPlayer.local.authenticateHandler = { viewController, error in
                 callback(viewController, error?.localizedDescription)
             }
+        },
+        removeAuthenticationHandler: {
+            GKLocalPlayer.local.authenticateHandler = nil
         },
         isAuthenticated: { GKLocalPlayer.local.isAuthenticated },
         displayName: { GKLocalPlayer.local.displayName },
@@ -93,9 +99,13 @@ struct GameCenterClient {
 
 @MainActor
 final class GameCenterService: ObservableObject {
-    @Published private(set) var state = GameCenterConnectionState.idle
+    static let participationPreferenceKey = "game-center.participation.enabled"
+
+    @Published private(set) var state: GameCenterConnectionState
+    @Published private(set) var participationEnabled: Bool
 
     private let client: GameCenterClient
+    private let defaults: UserDefaults
     private let arguments: [String]
     private let environment: [String: String]
     private let bundleIdentifier: String
@@ -108,6 +118,7 @@ final class GameCenterService: ObservableObject {
         arguments: [String] = ProcessInfo.processInfo.arguments,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         bundleIdentifier: String = Bundle.main.bundleIdentifier ?? "",
+        defaults: UserDefaults = .standard,
         presentAuthenticationViewController: @escaping @MainActor (UIViewController) -> Bool =
             GameCenterService.presentAuthenticationViewController
     ) {
@@ -115,16 +126,40 @@ final class GameCenterService: ObservableObject {
         self.arguments = arguments
         self.environment = environment
         self.bundleIdentifier = bundleIdentifier
+        self.defaults = defaults
         self.presentAuthenticationViewController = presentAuthenticationViewController
+        let savedParticipation = defaults.bool(forKey: Self.participationPreferenceKey)
+        participationEnabled = savedParticipation
+        state = savedParticipation ? .idle : .disabled
     }
 
-    func startAuthentication() {
+    func resumeAuthenticationIfOptedIn() {
+        guard participationEnabled else {
+            state = .disabled
+            return
+        }
+        startAuthentication()
+    }
+
+    func connect() {
+        startAuthentication()
+    }
+
+    private func startAuthentication() {
         guard !hasInstalledAuthenticationHandler else { return }
         installAuthenticationHandler()
     }
 
     func retryAuthentication() {
         installAuthenticationHandler()
+    }
+
+    func disableParticipation() {
+        authenticationGeneration += 1
+        client.removeAuthenticationHandler()
+        hasInstalledAuthenticationHandler = false
+        setParticipationEnabled(false)
+        state = .disabled
     }
 
     func fetchIdentityVerification() async throws -> GameCenterIdentityVerification {
@@ -181,6 +216,7 @@ final class GameCenterService: ObservableObject {
         if arguments.contains("--uitesting")
             || environment["XCTestConfigurationFilePath"] != nil
         {
+            hasInstalledAuthenticationHandler = false
             state = .unavailable("Unavailable in deterministic automated tests")
             return
         }
@@ -198,6 +234,8 @@ final class GameCenterService: ObservableObject {
         if let viewController {
             state = .authenticating
             if !presentAuthenticationViewController(viewController) {
+                client.removeAuthenticationHandler()
+                hasInstalledAuthenticationHandler = false
                 state = .unavailable("Game Center could not open its sign-in screen.")
             }
             return
@@ -215,11 +253,19 @@ final class GameCenterService: ObservableObject {
                 )
                 return
             }
+            setParticipationEnabled(true)
             state = .authenticated(identity)
             return
         }
 
+        client.removeAuthenticationHandler()
+        hasInstalledAuthenticationHandler = false
         state = .unavailable(error ?? "Game Center is unavailable. PimPoPom still works normally.")
+    }
+
+    private func setParticipationEnabled(_ enabled: Bool) {
+        participationEnabled = enabled
+        defaults.set(enabled, forKey: Self.participationPreferenceKey)
     }
 
     private static func presentAuthenticationViewController(

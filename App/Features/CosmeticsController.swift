@@ -181,7 +181,7 @@ final class CosmeticsController: ObservableObject {
 
         if !backend.isAuthenticated {
             guard CosmeticCatalog.freeThemeIDs.contains(theme.id) else {
-                themeMessage = "Sign in with Google to buy paid themes."
+                themeMessage = "Sign in to buy paid themes."
                 return
             }
             selectLocally(theme.id)
@@ -216,7 +216,7 @@ final class CosmeticsController: ObservableObject {
     func performPetAction(_ pet: CosmeticCatalogItem) async {
         guard !isLoading, !isEconomyMutationPending else { return }
         guard backend.isAuthenticated else {
-            petMessage = "Sign in with Google before buying or changing pets."
+            petMessage = "Sign in to buy and select pets."
             return
         }
 

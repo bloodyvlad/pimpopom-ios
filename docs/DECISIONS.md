@@ -395,7 +395,7 @@ Revisit when: A real ad SDK defines an adaptive size contract, Reduce Motion rev
 ## P-027 — Start named TestFlight QA and enable optional Game Center authentication
 
 - Date: 2026-07-18
-- Status: Accepted; narrow exception to P-014/P-025 for the named first beta cohort
+- Status: Accepted; narrow exception to P-014/P-025 for the named first beta cohort; launch-time authentication superseded by P-041
 
 Context: The owner enrolled in the Apple Developer Program, created the PimPoPom App Store Connect record for `com.otcsoftware.pimpopom`, requested a first internal tester plus one external QA tester, and accepted P-011. A separate native staging backend does not yet exist, while the current app already uses the deployed Hostinger compatibility service and shared Season 1 data. Ads and StoreKit remain non-granting placeholders.
 
@@ -599,3 +599,33 @@ Decision: When an authenticated player taps an unowned theme or pet whose author
 Consequences: Insufficient-funds taps take the shortest valid route to localized StoreKit products, while shops use less vertical space and no longer echo state already visible on the tile. No client-side coin grant, price trust, or cosmetic ownership inference is introduced; the StoreKit and backend transaction boundaries remain unchanged.
 
 Revisit when: the StoreKit sheet gains a product recommendation based on shortfall, signed-out purchasing becomes supported, or physical review finds direct modal presentation too abrupt.
+
+## P-041 — Require explicit Game Center participation and support Turn Off
+
+- Date: 2026-07-20
+- Status: Accepted; supersedes P-027 only for launch-time Game Center authentication and Profile controls
+
+Context: Installing `GKLocalPlayer.local.authenticateHandler` during every cold launch can authenticate an already signed-in Apple player immediately and can show Apple's Game Center banner before the player has chosen to use that optional surface. The owner requested a clickable Profile control and a way to disconnect or prevent leaderboard publication. GameKit exposes authentication and the Apple-supplied sign-in controller, but it does not expose an app-level sign-out method. PimPoPom also has no current Game Center score-submission or Hostinger mirror path, so no result is presently published to Apple's leaderboard.
+
+Decision: Default PimPoPom Game Center participation to **Off**. Do not install Apple's authentication handler on a fresh or upgraded installation until the player taps **Connect** in Profile. Persist the preference only after Game Center successfully authenticates; cancellation or failure must not create a future-launch opt-in. A successful opt-in may resume non-blocking authentication on later launches. While connected, expose **Turn Off**: invalidate outstanding callbacks, remove the authentication handler, clear the local opt-in, and return Profile to the Off state. Explain that this controls PimPoPom only and that the Apple account is managed in iOS Settings. Keep deterministic UI tests from presenting Apple's controller.
+
+Do not describe Turn Off as Apple account sign-out, do not claim it deletes an Apple leaderboard entry, and do not add a client submission call. Before the future P-011 server-fed mirror is enabled, add authenticated server-side publication consent and unlink semantics so a device-local flag is not the only enforcement boundary. The current App Store Connect leaderboard description should be the concise production-facing sentence **Global Arcade high scores.**; Apple's own Prerelease panel remains until the component is submitted and live.
+
+Consequences: A new player receives no cold-launch Game Center prompt or banner from PimPoPom. Players deliberately opt in from Profile and can later stop PimPoPom's Game Center use without affecting local play, Google/PimPoPom identity, the Hostinger global leaderboard, economy, purchases, or the Apple account itself. Existing builds that had authenticated Game Center do not silently migrate that state into participation because the new preference starts false. Physical validation must cover fresh install, upgrade, successful connection, cancellation, Turn Off, Apple account change, parental restrictions, and relaunch.
+
+Revisit when: the Hostinger binding/outbox is implemented, Apple adds an app-level sign-out or score-deletion API, Game Center becomes authoritative, or product policy removes the optional Apple leaderboard.
+
+## P-042 — Mirror authoritative PimPoPom achievements through the Game Center server path
+
+- Date: 2026-07-20
+- Status: Accepted design; blocked on the same verified player binding and publication-consent backend required by P-011/P-041
+
+Context: PimPoPom already has five server-authoritative, nonrepeatable achievements with durable stable IDs and historical reconciliation. The owner requested that they also appear in Game Center. Direct `GKAchievement.report` calls would let a modified client publish fabricated completion and could silently combine different PimPoPom profiles under one Apple player. Apple's server achievement submission API can instead project server truth, but it accepts an Apple scoped player identifier and therefore inherits the unresolved trusted-identity association described by P-011.
+
+Decision: Extend the future Game Center binding/outbox to achievements. Reserve the exact permanent vendor IDs and point values listed in `docs/API_CONTRACT.md`, totaling 100 Game Center points. All five are visible and nonrepeatable. Because the current API exposes no numeric progress, map `locked` to no submission and both `claimable` and `claimed` to 100%; an achievement is completed when its server goal unlocks, not when the separate coin reward is claimed. Use an explicit five-entry allowlist, reconcile historical eligibility before first backfill, and enqueue future unlocks transactionally. Submit only monotonic 100% state, with TestFlight prerelease and production routing kept distinct.
+
+Require explicit Game Center Connect plus an authenticated PimPoPom profile, a verified one-to-one Apple/PimPoPom binding, and server-held publication consent. Turn Off revokes consent and cancels unsent outbox work but does not erase already-published Apple achievements. Account deletion removes binding, consent, and pending work without resetting the independent Apple account. Apple-account or PimPoPom-account changes require explicit confirmation and may not auto-rebind by display name or email. Game Center completion never grants PimPoPom coins, ownership, rank, or profile authority.
+
+Consequences: Game Center can show familiar achievements without becoming an economy authority or trusting the iOS binary. Already-earned goals can backfill after consent, and later unlocks remain idempotent. This does require five configured App Store Connect achievement records and images, backend identity binding/outbox work, correction policy, and physical TestFlight validation before any component is attached to a submitted app version.
+
+Revisit when: Apple documents a stronger client/server scoped-identifier association, PimPoPom adds numeric achievement progress, a goal meaning changes, or the Game Center surface is removed.

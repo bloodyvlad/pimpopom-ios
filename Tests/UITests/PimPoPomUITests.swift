@@ -799,9 +799,12 @@ final class PimPoPomUITests: XCTestCase {
             app.swipeUp()
         }
         XCTAssertTrue(gameCenter.waitForExistence(timeout: 3))
-        XCTAssertEqual(gameCenter.label, "Retry")
+        XCTAssertEqual(gameCenter.label, "Connect")
         let gameCenterStatus = app.descendants(matching: .any)["profile-game-center-status"]
         XCTAssertTrue(gameCenterStatus.waitForExistence(timeout: 2))
+        XCTAssertTrue(gameCenterStatus.label.hasPrefix("Off"))
+        gameCenter.tap()
+        XCTAssertEqual(gameCenter.label, "Retry")
         XCTAssertTrue(gameCenterStatus.label.hasPrefix("Unavailable"))
         XCTAssertFalse(app.alerts["Game Center"].exists)
         attachScreenshot(of: app, name: "SE profile parity")

@@ -147,7 +147,7 @@ struct RootView: View {
         .task {
             configureDebugLaunch()
             openPendingQuickAction()
-            gameCenter.startAuthentication()
+            gameCenter.resumeAuthenticationIfOptedIn()
             audio.setApplicationActive(scenePhase == .active)
             ads.setApplicationActive(scenePhase == .active)
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
