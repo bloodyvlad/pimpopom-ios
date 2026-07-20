@@ -1,0 +1,88 @@
+{
+  "version": "1.0-draft",
+  "sourceBuild": "1.01 (6)",
+  "sourceCommit": "2d55f71",
+  "screenshots": [
+    {
+      "path": "screenshots/6.9-inch/01-tiny-taps-giant-scores.png",
+      "width": 1260,
+      "height": 2736,
+      "format": "PNG",
+      "alpha": false
+    },
+    {
+      "path": "screenshots/6.9-inch/02-every-millisecond-matters.png",
+      "width": 1260,
+      "height": 2736,
+      "format": "PNG",
+      "alpha": false
+    },
+    {
+      "path": "screenshots/6.9-inch/03-find-your-flow.png",
+      "width": 1260,
+      "height": 2736,
+      "format": "PNG",
+      "alpha": false
+    },
+    {
+      "path": "screenshots/6.9-inch/04-switch-up-your-style.png",
+      "width": 1260,
+      "height": 2736,
+      "format": "PNG",
+      "alpha": false
+    },
+    {
+      "path": "screenshots/6.9-inch/05-chase-the-leaderboard.png",
+      "width": 1260,
+      "height": 2736,
+      "format": "PNG",
+      "alpha": false
+    },
+    {
+      "path": "screenshots/6.9-inch/06-your-game-in-one-place.png",
+      "width": 1260,
+      "height": 2736,
+      "format": "PNG",
+      "alpha": false
+    }
+  ],
+  "banners": [
+    {
+      "path": "banners/pimpopom-hero-dark-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "format": "PNG",
+      "appStoreField": false
+    },
+    {
+      "path": "banners/pimpopom-hero-light-1920x1080.png",
+      "width": 1920,
+      "height": 1080,
+      "format": "PNG",
+      "appStoreField": false
+    },
+    {
+      "path": "banners/pimpopom-social-dark-1200x628.png",
+      "width": 1200,
+      "height": 628,
+      "format": "PNG",
+      "appStoreField": false
+    },
+    {
+      "path": "banners/pimpopom-website-dark-2400x1000.png",
+      "width": 2400,
+      "height": 1000,
+      "format": "PNG",
+      "appStoreField": false
+    }
+  ],
+  "review": [
+    "review/app-store-screenshot-contact-sheet.png",
+    "review/banner-options-contact-sheet.png"
+  ],
+  "notes": [
+    "App UI, icon, captions, and product claims are deterministic.",
+    "ImageGen output is used only for abstract ambient campaign backgrounds.",
+    "Apple App Store Connect has no generic product-page banner field; banner exports are for web, social, press, or future featuring requests."
+  ]
+}
