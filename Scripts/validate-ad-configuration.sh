@@ -38,7 +38,7 @@ case "$mode" in
         test "$configuration" != 'OwnerAdsQA' || fail 'Owner Ads QA cannot use demo ads'
         test "$banner_id" = "$demo_banner" || fail 'demo mode requires the reviewed fixed banner demo unit'
         test "$interstitial_id" = "$demo_interstitial" || fail 'demo mode requires the reviewed interstitial demo unit'
-        test -z "$test_ids" || fail 'demo mode does not accept private test-device identifiers'
+        test -z "$test_ids" || fail 'demo mode does not accept test-device identifiers'
         ;;
     owner-split-test)
         test "$configuration" = 'Staging' || fail 'owner-split-test is restricted to Staging'
@@ -63,7 +63,7 @@ case "$mode" in
         test "$banner_id" != "$demo_banner" || fail 'Owner Ads QA cannot use the demo banner unit'
         test "$interstitial_id" != "$demo_interstitial" || fail 'Owner Ads QA cannot use the demo interstitial unit'
         printf '%s\n' "$test_ids" | grep -Eq '^[[:xdigit:]]{32}$' \
-            || fail 'Owner Ads QA requires one ignored GMA 32-character hexadecimal test-device hash'
+            || fail 'Owner Ads QA requires one GMA 32-character hexadecimal test-device hash'
         ;;
     live)
         test "$configuration" = 'Release' || fail 'live ads are restricted to Release'

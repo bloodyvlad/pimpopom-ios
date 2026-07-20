@@ -30,12 +30,12 @@ Use semantic marketing versions once public. CI should own build-number allocati
 
 | Candidate | Required ad configuration |
 | --- | --- |
-| Debug/local automation | Real PimPoPom AdMob App ID, Google demo banner/interstitial units, no private test hash |
-| Named Staging/TestFlight QA | Demo units by default; the accepted owner-split candidate may use private IDFV fingerprints to select production units plus the registered GMA test hash only on those installations, with one exact no-fill fallback to demo inventory |
-| Owner Ads QA | Ignored production units plus the owner's ignored hashed GMA test-device identifier; every creative must visibly say **Test mode** |
+| Debug/local automation | Real PimPoPom AdMob App ID, Google demo banner/interstitial units, no custom test-device ID |
+| Named Staging/TestFlight QA | Committed demo defaults; committed owner IDFV fingerprints select the committed production units plus registered GMA test-device ID only on those installations, with one exact no-fill fallback to official demo inventory |
+| Owner Ads QA | Committed production units plus the owner's registered GMA test-device ID; every creative must visibly say **Test mode** |
 | Public Release | Ignored production units, `live` mode, no test-device identifier; only after separate owner authorization |
 
-Before any ad-enabled archive, run the configuration validator and inspect the built `Info.plist`. Before public live activation, also verify the current aggregate archive privacy report and App Store privacy answers, UMP consent/privacy-options messages, accepted age treatment, `https://otcsoft.com/app-ads.txt` using the exact personalized AdMob line, AdMob app linkage/readiness, banner/interstitial physical evidence, and server-authoritative Remove Ads behavior. Do not infer or construct the `app-ads.txt` publisher line from memory. No owner test hash belongs in logs, Git, App Store metadata, or a public archive.
+Before any ad-enabled archive, run the configuration validator and inspect the built `Info.plist`. Before public live activation, also verify the current aggregate archive privacy report and App Store privacy answers, UMP consent/privacy-options messages, accepted age treatment, `https://otcsoft.com/app-ads.txt` using the exact personalized AdMob line, AdMob app linkage/readiness, banner/interstitial physical evidence, and server-authoritative Remove Ads behavior. Do not infer or construct the `app-ads.txt` publisher line from memory. The closed-beta owner fingerprints and GMA test-device ID are intentionally committed, but neither belongs in App Store metadata or a public live Release archive.
 
 ## Archive and upload
 

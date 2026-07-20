@@ -4,12 +4,8 @@
 PIMPOPOM_GOOGLE_IOS_CLIENT_ID = 000000000000-example.apps.googleusercontent.com
 PIMPOPOM_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.000000000000-example
 
-// Ad units do not belong in this general local file. For owner-device ad QA,
-// create ignored Config/OwnerAdsQA.private.xcconfig with:
-// PIMPOPOM_ADMOB_BANNER_UNIT_ID = production banner unit
-// PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = production interstitial unit
-// PIMPOPOM_ADMOB_TEST_DEVICE_IDS = hash printed by the GMA Xcode console
-//
+// Closed-beta AdMob identifiers are committed in the named Staging and
+// OwnerAdsQA configurations; do not duplicate them in this OAuth file.
 // For an explicitly authorized public archive, create ignored
 // Config/ReleaseAds.private.xcconfig with live mode, production units, and an
 // empty test-device list. Never copy the owner hash into that file.

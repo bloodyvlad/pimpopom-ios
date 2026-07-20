@@ -204,6 +204,7 @@ final class GoogleAdsService: NSObject, AdsServing {
                 consoleDiagnostic(
                     "interstitial failed domain=\(nsError.domain) code=\(nsError.code) message=\(nsError.localizedDescription)"
                 )
+                consoleResponseDiagnostic(for: nsError)
                 interstitialAd = nil
                 interstitialLoadedAt = nil
                 guard Self.isNoFill(error),
@@ -311,6 +312,23 @@ final class GoogleAdsService: NSObject, AdsServing {
         guard ProcessInfo.processInfo.arguments.contains("--ad-diagnostics") else { return }
         print("[PimPoPom Ads] \(message)")
     }
+
+    private func consoleResponseDiagnostic(for error: NSError) {
+        guard ProcessInfo.processInfo.arguments.contains("--ad-diagnostics"),
+            let responseInfo = error.userInfo[GADErrorUserInfoKeyResponseInfo]
+                as? ResponseInfo
+        else { return }
+        let dictionary = responseInfo.dictionaryRepresentation
+        if JSONSerialization.isValidJSONObject(dictionary),
+            let data = try? JSONSerialization.data(withJSONObject: dictionary, options: [.sortedKeys]),
+            let json = String(data: data, encoding: .utf8)
+        {
+            print("[PimPoPom Ads] response=\(json)")
+        } else {
+            print("[PimPoPom Ads] response=\(dictionary)")
+        }
+    }
+
 }
 
 extension GoogleAdsService: BannerViewDelegate {
@@ -330,6 +348,7 @@ extension GoogleAdsService: BannerViewDelegate {
         consoleDiagnostic(
             "banner failed domain=\(nsError.domain) code=\(nsError.code) message=\(nsError.localizedDescription)"
         )
+        consoleResponseDiagnostic(for: nsError)
         if Self.isNoFill(error),
             bannerRoute?.useFallbackIfAvailable() == true,
             let container = bannerContainer,

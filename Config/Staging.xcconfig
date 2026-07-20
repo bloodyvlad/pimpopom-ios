@@ -3,11 +3,14 @@
 
 // TestFlight QA uses release optimization and the existing Hostinger compatibility
 // service. It remains a narrow named-tester build, not a separate staging backend.
-PIMPOPOM_ADS_MODE = demo
+// The owner selector values are intentionally committed for this closed beta.
+PIMPOPOM_ADS_MODE = owner-split-test
 PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716
 PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910
-PIMPOPOM_ADMOB_TEST_DEVICE_IDS =
-#include? "StagingOwner.private.xcconfig"
+PIMPOPOM_ADMOB_OWNER_BANNER_UNIT_ID = ca-app-pub-6428992187280935/3513535878
+PIMPOPOM_ADMOB_OWNER_INTERSTITIAL_UNIT_ID = ca-app-pub-6428992187280935/5433122203
+PIMPOPOM_ADMOB_TEST_DEVICE_IDS = 65889f215752fbc9ad39e52b00d92987
+PIMPOPOM_OWNER_DEVICE_IDFV_SHA256S = f03e49a5c401d1751b9209a1492546fddf6f07881748e726b160123d24c956bc,afbbf5e4a0fbc79b30d09a222fa796d894a38187fd32b9b9eaef54b010d7d8fd,d5c3eb8267560a95dec4bda8719065a2b80655953a740cf5de3b1db27175b967
 
 SWIFT_COMPILATION_MODE = wholemodule
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) STAGING

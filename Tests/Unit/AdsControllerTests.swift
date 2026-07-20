@@ -68,6 +68,47 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertTrue(guest.validationProblems(configurationName: "Staging").isEmpty)
     }
 
+    func testOwnerAdsQAKeepsProductionUnitsAndRegisteredTestDevice() {
+        let ownerBanner = "ca-app-pub-6428992187280935/3513535878"
+        let ownerInterstitial = "ca-app-pub-6428992187280935/5433122203"
+        let testDeviceHash = "65889f215752fbc9ad39e52b00d92987"
+        let configuration = AdsConfiguration.fromInfoDictionary([
+            "PimPoPomAdsMode": "owner-real-test",
+            "GADApplicationIdentifier": AdsConfiguration.realAppID,
+            "PimPoPomAdMobBannerUnitID": ownerBanner,
+            "PimPoPomAdMobInterstitialUnitID": ownerInterstitial,
+            "PimPoPomAdMobTestDeviceIDs": testDeviceHash,
+        ])
+
+        XCTAssertTrue(configuration.isOwnerDevice)
+        XCTAssertEqual(configuration.bannerUnitID, ownerBanner)
+        XCTAssertEqual(configuration.interstitialUnitID, ownerInterstitial)
+        XCTAssertEqual(configuration.testDeviceIdentifiers, [testDeviceHash])
+        XCTAssertEqual(configuration.fallbackBannerUnitID, ownerBanner)
+        XCTAssertEqual(configuration.fallbackInterstitialUnitID, ownerInterstitial)
+        XCTAssertTrue(
+            configuration.validationProblems(configurationName: "OwnerAdsQA").isEmpty
+        )
+    }
+
+    func testDecoderDoesNotHideForbiddenTestDeviceIDsFromValidation() {
+        let testDeviceHash = "65889f215752fbc9ad39e52b00d92987"
+        let sharedValues: [String: Any] = [
+            "GADApplicationIdentifier": AdsConfiguration.realAppID,
+            "PimPoPomAdMobBannerUnitID": AdsConfiguration.fixedBannerDemoUnitID,
+            "PimPoPomAdMobInterstitialUnitID": AdsConfiguration.interstitialDemoUnitID,
+            "PimPoPomAdMobTestDeviceIDs": testDeviceHash,
+        ]
+
+        for mode in [AdsMode.demo, .disabled, .live] {
+            var values = sharedValues
+            values["PimPoPomAdsMode"] = mode.rawValue
+            let configuration = AdsConfiguration.fromInfoDictionary(values)
+            XCTAssertEqual(configuration.testDeviceIdentifiers, [testDeviceHash])
+            XCTAssertFalse(configuration.validationProblems().isEmpty)
+        }
+    }
+
     func testConfigurationGuardsRejectUnsafeReleaseAndOwnerModes() {
         let releaseDemo = Self.demoConfiguration
         XCTAssertFalse(

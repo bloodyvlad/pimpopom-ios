@@ -1,13 +1,12 @@
 #include "Base.xcconfig"
 #include? "Local.xcconfig"
 
-// This configuration deliberately refuses to build until the production
-// units and the owner's GMA test-device hash are supplied by the ignored file.
+// Closed-beta cable diagnostics use PimPoPom's production units in Google
+// Test mode on the registered owner device.
 PIMPOPOM_ADS_MODE = owner-real-test
-PIMPOPOM_ADMOB_BANNER_UNIT_ID =
-PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID =
-PIMPOPOM_ADMOB_TEST_DEVICE_IDS =
-#include? "OwnerAdsQA.private.xcconfig"
+PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-6428992187280935/3513535878
+PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-6428992187280935/5433122203
+PIMPOPOM_ADMOB_TEST_DEVICE_IDS = 65889f215752fbc9ad39e52b00d92987
 
 SWIFT_COMPILATION_MODE = wholemodule
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) OWNER_ADS_QA

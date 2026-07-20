@@ -62,10 +62,16 @@ struct AdsConfiguration: Equatable, Sendable {
 
     @MainActor
     static func load(bundle: Bundle = .main) -> AdsConfiguration {
+        let identifierForVendor = UIDevice.current.identifierForVendor
+        if ProcessInfo.processInfo.arguments.contains("--ad-diagnostics") {
+            let rawIdentifier = identifierForVendor?.uuidString.lowercased() ?? "unavailable"
+            let fingerprint = identifierForVendorFingerprint(identifierForVendor)
+            print("[PimPoPom Ads] idfv=\(rawIdentifier) idfv-sha256=\(fingerprint)")
+        }
         let values = bundle.infoDictionary ?? [:]
         return fromInfoDictionary(
             values,
-            identifierForVendor: UIDevice.current.identifierForVendor
+            identifierForVendor: identifierForVendor
         )
     }
 
@@ -92,19 +98,29 @@ struct AdsConfiguration: Equatable, Sendable {
             stringValue(values["PimPoPomOwnerDeviceIDFVHashes"])
         ).map { $0.lowercased() }
         let identifierFingerprint = identifierForVendorFingerprint(identifierForVendor)
-        let isOwnerDevice =
+        let isMatchingOwnerSplitDevice =
             mode == .ownerSplitTest
             && !identifierFingerprint.isEmpty
             && ownerDeviceIDFVHashes.contains(identifierFingerprint)
+        // OwnerAdsQA is an explicit cable-only configuration. It does not use
+        // the Staging IDFV selector, but it must retain the registered GMA test
+        // device identifier so production units are requested in Test mode.
+        let isOwnerDevice = isMatchingOwnerSplitDevice || mode == .ownerRealTest
+        let activeTestDeviceIdentifiers =
+            mode == .ownerSplitTest
+            ? (isMatchingOwnerSplitDevice ? configuredTestDeviceIdentifiers : [])
+            : configuredTestDeviceIdentifiers
 
         return AdsConfiguration(
             mode: mode,
             appID: stringValue(values["GADApplicationIdentifier"]),
-            bannerUnitID: isOwnerDevice ? ownerBannerUnitID : defaultBannerUnitID,
-            interstitialUnitID: isOwnerDevice
+            bannerUnitID: isMatchingOwnerSplitDevice
+                ? ownerBannerUnitID
+                : defaultBannerUnitID,
+            interstitialUnitID: isMatchingOwnerSplitDevice
                 ? ownerInterstitialUnitID
                 : defaultInterstitialUnitID,
-            testDeviceIdentifiers: isOwnerDevice ? configuredTestDeviceIdentifiers : [],
+            testDeviceIdentifiers: activeTestDeviceIdentifiers,
             ownerBannerUnitID: ownerBannerUnitID,
             ownerInterstitialUnitID: ownerInterstitialUnitID,
             ownerTestDeviceIdentifiers: configuredTestDeviceIdentifiers,
@@ -193,7 +209,7 @@ struct AdsConfiguration: Equatable, Sendable {
                 problems.append("Owner Ads QA requires production-format ad units.")
             }
             if testDeviceIdentifiers.isEmpty {
-                problems.append("Owner Ads QA requires an ignored test-device hash.")
+                problems.append("Owner Ads QA requires a registered test-device hash.")
             }
         case .live:
             if configurationName != nil, configurationName != "Release" {
