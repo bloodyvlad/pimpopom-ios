@@ -6,6 +6,9 @@ app_id=${PIMPOPOM_ADMOB_APP_ID:-}
 banner_id=${PIMPOPOM_ADMOB_BANNER_UNIT_ID:-}
 interstitial_id=${PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID:-}
 test_ids=${PIMPOPOM_ADMOB_TEST_DEVICE_IDS:-}
+owner_banner_id=${PIMPOPOM_ADMOB_OWNER_BANNER_UNIT_ID:-}
+owner_interstitial_id=${PIMPOPOM_ADMOB_OWNER_INTERSTITIAL_UNIT_ID:-}
+owner_idfv_hash=${PIMPOPOM_OWNER_DEVICE_IDFV_SHA256:-}
 configuration=${CONFIGURATION:-}
 
 demo_banner='ca-app-pub-3940256099942544/2934735716'
@@ -37,6 +40,17 @@ case "$mode" in
         test "$interstitial_id" = "$demo_interstitial" || fail 'demo mode requires the reviewed interstitial demo unit'
         test -z "$test_ids" || fail 'demo mode does not accept private test-device identifiers'
         ;;
+    owner-split-test)
+        test "$configuration" = 'Staging' || fail 'owner-split-test is restricted to Staging'
+        test "$banner_id" = "$demo_banner" || fail 'owner split mode requires the demo banner by default'
+        test "$interstitial_id" = "$demo_interstitial" || fail 'owner split mode requires the demo interstitial by default'
+        require_production_unit "$owner_banner_id" 'Owner split banner'
+        require_production_unit "$owner_interstitial_id" 'Owner split interstitial'
+        printf '%s\n' "$test_ids" | grep -Eq '^[[:xdigit:]]{32}$' \
+            || fail 'owner split mode requires one GMA 32-character hexadecimal test-device hash'
+        printf '%s\n' "$owner_idfv_hash" | grep -Eq '^[[:xdigit:]]{64}$' \
+            || fail 'owner split mode requires one SHA-256 IDFV fingerprint'
+        ;;
     owner-real-test)
         test "$configuration" = 'OwnerAdsQA' || fail 'owner-real-test is restricted to OwnerAdsQA'
         require_production_unit "$banner_id" 'Owner Ads QA banner'
@@ -55,10 +69,11 @@ case "$mode" in
         test -z "$test_ids" || fail 'Release cannot contain test-device identifiers'
         ;;
     *)
-        fail 'mode must be disabled, demo, owner-real-test, or live'
+        fail 'mode must be disabled, demo, owner-split-test, owner-real-test, or live'
         ;;
 esac
 
 if test "$configuration" = 'Staging'; then
-    test "$mode" = 'demo' || fail 'Staging is restricted to Google demo inventory'
+    test "$mode" = 'demo' || test "$mode" = 'owner-split-test' \
+        || fail 'Staging is restricted to demo inventory with an optional owner-device production route'
 fi

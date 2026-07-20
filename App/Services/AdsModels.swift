@@ -1,9 +1,11 @@
+import CryptoKit
 import Foundation
 import UIKit
 
 enum AdsMode: String, CaseIterable, Codable, Sendable {
     case disabled
     case demo
+    case ownerSplitTest = "owner-split-test"
     case ownerRealTest = "owner-real-test"
     case live
 
@@ -20,27 +22,95 @@ struct AdsConfiguration: Equatable, Sendable {
     let bannerUnitID: String
     let interstitialUnitID: String
     let testDeviceIdentifiers: [String]
+    let ownerBannerUnitID: String
+    let ownerInterstitialUnitID: String
+    let ownerTestDeviceIdentifiers: [String]
+    let ownerDeviceIDFVHash: String
+    let isOwnerDevice: Bool
+    let fallbackBannerUnitID: String
+    let fallbackInterstitialUnitID: String
+
+    init(
+        mode: AdsMode,
+        appID: String,
+        bannerUnitID: String,
+        interstitialUnitID: String,
+        testDeviceIdentifiers: [String],
+        ownerBannerUnitID: String = "",
+        ownerInterstitialUnitID: String = "",
+        ownerTestDeviceIdentifiers: [String] = [],
+        ownerDeviceIDFVHash: String = "",
+        isOwnerDevice: Bool = false,
+        fallbackBannerUnitID: String? = nil,
+        fallbackInterstitialUnitID: String? = nil
+    ) {
+        self.mode = mode
+        self.appID = appID
+        self.bannerUnitID = bannerUnitID
+        self.interstitialUnitID = interstitialUnitID
+        self.testDeviceIdentifiers = testDeviceIdentifiers
+        self.ownerBannerUnitID = ownerBannerUnitID
+        self.ownerInterstitialUnitID = ownerInterstitialUnitID
+        self.ownerTestDeviceIdentifiers = ownerTestDeviceIdentifiers
+        self.ownerDeviceIDFVHash = ownerDeviceIDFVHash
+        self.isOwnerDevice = isOwnerDevice
+        self.fallbackBannerUnitID = fallbackBannerUnitID ?? bannerUnitID
+        self.fallbackInterstitialUnitID = fallbackInterstitialUnitID ?? interstitialUnitID
+    }
 
     var isEnabled: Bool { mode.isEnabled }
 
+    @MainActor
     static func load(bundle: Bundle = .main) -> AdsConfiguration {
         let values = bundle.infoDictionary ?? [:]
-        return fromInfoDictionary(values)
+        return fromInfoDictionary(
+            values,
+            identifierForVendor: UIDevice.current.identifierForVendor
+        )
     }
 
-    static func fromInfoDictionary(_ values: [String: Any]) -> AdsConfiguration {
+    static func fromInfoDictionary(
+        _ values: [String: Any],
+        identifierForVendor: UUID? = nil
+    ) -> AdsConfiguration {
         let mode =
             AdsMode(
                 rawValue: stringValue(values["PimPoPomAdsMode"])
             ) ?? .disabled
+        let defaultBannerUnitID = stringValue(values["PimPoPomAdMobBannerUnitID"])
+        let defaultInterstitialUnitID = stringValue(
+            values["PimPoPomAdMobInterstitialUnitID"]
+        )
+        let configuredTestDeviceIdentifiers = splitIdentifiers(
+            stringValue(values["PimPoPomAdMobTestDeviceIDs"])
+        )
+        let ownerBannerUnitID = stringValue(values["PimPoPomAdMobOwnerBannerUnitID"])
+        let ownerInterstitialUnitID = stringValue(
+            values["PimPoPomAdMobOwnerInterstitialUnitID"]
+        )
+        let ownerDeviceIDFVHash = stringValue(
+            values["PimPoPomOwnerDeviceIDFVHash"]
+        ).lowercased()
+        let isOwnerDevice =
+            mode == .ownerSplitTest
+            && !ownerDeviceIDFVHash.isEmpty
+            && ownerDeviceIDFVHash == identifierForVendorFingerprint(identifierForVendor)
+
         return AdsConfiguration(
             mode: mode,
             appID: stringValue(values["GADApplicationIdentifier"]),
-            bannerUnitID: stringValue(values["PimPoPomAdMobBannerUnitID"]),
-            interstitialUnitID: stringValue(values["PimPoPomAdMobInterstitialUnitID"]),
-            testDeviceIdentifiers: splitIdentifiers(
-                stringValue(values["PimPoPomAdMobTestDeviceIDs"])
-            )
+            bannerUnitID: isOwnerDevice ? ownerBannerUnitID : defaultBannerUnitID,
+            interstitialUnitID: isOwnerDevice
+                ? ownerInterstitialUnitID
+                : defaultInterstitialUnitID,
+            testDeviceIdentifiers: isOwnerDevice ? configuredTestDeviceIdentifiers : [],
+            ownerBannerUnitID: ownerBannerUnitID,
+            ownerInterstitialUnitID: ownerInterstitialUnitID,
+            ownerTestDeviceIdentifiers: configuredTestDeviceIdentifiers,
+            ownerDeviceIDFVHash: ownerDeviceIDFVHash,
+            isOwnerDevice: isOwnerDevice,
+            fallbackBannerUnitID: defaultBannerUnitID,
+            fallbackInterstitialUnitID: defaultInterstitialUnitID
         )
     }
 
@@ -82,6 +152,29 @@ struct AdsConfiguration: Equatable, Sendable {
             }
             if configurationName == "Release" || configurationName == "OwnerAdsQA" {
                 problems.append("Demo mode is not valid for this configuration.")
+            }
+        case .ownerSplitTest:
+            if configurationName != nil, configurationName != "Staging" {
+                problems.append("Owner split testing is restricted to Staging.")
+            }
+            if !Self.isReviewedDemoPair(
+                bannerUnitID: fallbackBannerUnitID,
+                interstitialUnitID: fallbackInterstitialUnitID
+            ) {
+                problems.append("Owner split testing requires Google demo units by default.")
+            }
+            if !Self.looksLikeProductionUnit(ownerBannerUnitID)
+                || !Self.looksLikeProductionUnit(ownerInterstitialUnitID)
+            {
+                problems.append("Owner split testing requires production-format owner units.")
+            }
+            if ownerTestDeviceIdentifiers.count != 1
+                || !Self.isHex(ownerTestDeviceIdentifiers[0], length: 32)
+            {
+                problems.append("Owner split testing requires one GMA test-device hash.")
+            }
+            if !Self.isHex(ownerDeviceIDFVHash, length: 64) {
+                problems.append("Owner split testing requires one SHA-256 IDFV fingerprint.")
             }
         case .ownerRealTest:
             if configurationName != nil, configurationName != "OwnerAdsQA" {
@@ -125,6 +218,26 @@ struct AdsConfiguration: Equatable, Sendable {
         value.hasPrefix("ca-app-pub-6428992187280935/")
             && value != fixedBannerDemoUnitID
             && value != interstitialDemoUnitID
+    }
+
+    static func identifierForVendorFingerprint(_ identifier: UUID?) -> String {
+        guard let identifier else { return "" }
+        let normalized = identifier.uuidString.lowercased()
+        return SHA256.hash(data: Data(normalized.utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+    }
+
+    private static func isReviewedDemoPair(
+        bannerUnitID: String,
+        interstitialUnitID: String
+    ) -> Bool {
+        bannerUnitID == fixedBannerDemoUnitID
+            && interstitialUnitID == interstitialDemoUnitID
+    }
+
+    private static func isHex(_ value: String, length: Int) -> Bool {
+        value.count == length && value.allSatisfy(\.isHexDigit)
     }
 }
 

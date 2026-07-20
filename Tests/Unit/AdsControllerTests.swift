@@ -24,6 +24,46 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertTrue(configuration.validationProblems(configurationName: "Debug").isEmpty)
     }
 
+    func testOwnerSplitUsesProductionUnitsOnlyForMatchingIDFV() {
+        let ownerIDFV = UUID(uuidString: "00000000-1111-2222-3333-444444444444")!
+        let guestIDFV = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
+        let ownerBanner = "ca-app-pub-6428992187280935/111"
+        let ownerInterstitial = "ca-app-pub-6428992187280935/222"
+        let testDeviceHash = "0123456789abcdef0123456789abcdef"
+        let values: [String: Any] = [
+            "PimPoPomAdsMode": "owner-split-test",
+            "GADApplicationIdentifier": AdsConfiguration.realAppID,
+            "PimPoPomAdMobBannerUnitID": AdsConfiguration.fixedBannerDemoUnitID,
+            "PimPoPomAdMobInterstitialUnitID": AdsConfiguration.interstitialDemoUnitID,
+            "PimPoPomAdMobOwnerBannerUnitID": ownerBanner,
+            "PimPoPomAdMobOwnerInterstitialUnitID": ownerInterstitial,
+            "PimPoPomAdMobTestDeviceIDs": testDeviceHash,
+            "PimPoPomOwnerDeviceIDFVHash": AdsConfiguration.identifierForVendorFingerprint(
+                ownerIDFV
+            ),
+        ]
+
+        let owner = AdsConfiguration.fromInfoDictionary(
+            values,
+            identifierForVendor: ownerIDFV
+        )
+        XCTAssertTrue(owner.isOwnerDevice)
+        XCTAssertEqual(owner.bannerUnitID, ownerBanner)
+        XCTAssertEqual(owner.interstitialUnitID, ownerInterstitial)
+        XCTAssertEqual(owner.testDeviceIdentifiers, [testDeviceHash])
+        XCTAssertTrue(owner.validationProblems(configurationName: "Staging").isEmpty)
+
+        let guest = AdsConfiguration.fromInfoDictionary(
+            values,
+            identifierForVendor: guestIDFV
+        )
+        XCTAssertFalse(guest.isOwnerDevice)
+        XCTAssertEqual(guest.bannerUnitID, AdsConfiguration.fixedBannerDemoUnitID)
+        XCTAssertEqual(guest.interstitialUnitID, AdsConfiguration.interstitialDemoUnitID)
+        XCTAssertTrue(guest.testDeviceIdentifiers.isEmpty)
+        XCTAssertTrue(guest.validationProblems(configurationName: "Staging").isEmpty)
+    }
+
     func testConfigurationGuardsRejectUnsafeReleaseAndOwnerModes() {
         let releaseDemo = Self.demoConfiguration
         XCTAssertFalse(

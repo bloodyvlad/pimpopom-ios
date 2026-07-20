@@ -541,3 +541,18 @@ Set build 4's per-build **What to Test** after processing and add it to Internal
 Consequences: Other testers cannot receive live production inventory, the owner's production-unit verification remains physically isolated, and the external review remains truthful at every stage. Upload and internal testing can proceed while build 3 is pending, but external build-4 access and its two global metadata updates may wait on Apple's one-build-per-version review constraint. Public Release still requires production units without a test identifier, `app-ads.txt`, privacy/UMP review, physical evidence, and separate authorization.
 
 Revisit when: build 3 leaves review, Google changes its per-request/test-device model, a dedicated internal-only bundle is accepted, or public live-ad release gates are complete.
+
+## P-037 — Route TestFlight build 5 by the owner's app-visible device identifier
+
+- Date: 2026-07-20
+- Status: Accepted for named TestFlight build 5 only; supersedes P-036 for this archive without authorizing public live ads
+
+Context: The owner requested one TestFlight binary that uses PimPoPom production ad units on the connected owner phone and Google's official demo units on every other tester device. GMA's test-device hash marks requests as test traffic but cannot choose ad-unit IDs. iOS does expose `identifierForVendor` (IDFV) to the app without using the hardware UDID or ATT.
+
+Decision: Advance version `1.01` to build `5`. In the explicitly authorized Staging archive, hash the current IDFV locally with SHA-256 and compare it with one ignored private fingerprint. A match selects the supplied production banner/interstitial IDs and registers the phone's separate 32-character GMA test-device hash; a missing or nonmatching IDFV selects Google's demo banner/interstitial IDs and supplies no test-device identifier. Store neither the raw IDFV nor any owner email/account marker, transmit no IDFV through PimPoPom, and keep all selector inputs in ignored `0600` configuration. Restrict this mode to Staging and validate the demo fallback, production-format owner units, one GMA hash, and one SHA-256 fingerprint at build time. If the owner's IDFV changes, fail safely to demo inventory.
+
+Also include the Pixel-theme HUD correction in build 5: use square segmented Speed Bar chrome, a square multiplier badge, and code-native pixel hearts while retaining the existing Jersey 10 labels and semantic red life color. Use the existing TestFlight beta description, testing instructions, and review notes, adding the release-note line **Minor fixes for Pixel Theme**.
+
+Consequences: The same TestFlight binary can exercise the production units safely on the registered owner phone while external testers remain on Google demo inventory. The archive necessarily contains public production unit IDs, the one-way owner fingerprint, and the GMA test hash, but contains no raw Apple UUID or secret key. Every owner creative must visibly say **Test mode** and must never be clicked. This exception remains named-cohort QA only; public Release still requires live-mode review, no test hash, `app-ads.txt`, privacy/UMP completion, physical evidence, and separate authorization.
+
+Revisit when: the IDFV changes, build 5 leaves TestFlight, Apple or Google changes identifier/test-device behavior, the named cohort expands, or public live-ad release gates are complete.

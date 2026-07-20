@@ -385,12 +385,20 @@ struct GameView: View {
                 .foregroundStyle(Color(hex: palette.muted))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
-            Text(value)
-                .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
-                .monospacedDigit()
-                .foregroundStyle(valueColor ?? Color(hex: palette.foreground))
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
+            if identifier == "game-lives", palette.isPixel, coordinator.mode == .arcade {
+                PixelLivesView(
+                    remaining: max(0, min(3, coordinator.snapshot.lives)),
+                    color: valueColor ?? Color(hex: palette.foreground)
+                )
+                .frame(height: 16)
+            } else {
+                Text(value)
+                    .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
+                    .monospacedDigit()
+                    .foregroundStyle(valueColor ?? Color(hex: palette.foreground))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 3)
@@ -562,13 +570,15 @@ struct GameView: View {
     }
 
     private var streakMeter: some View {
-        HStack(spacing: 7) {
+        let trackShape = palette.isPixel ? AnyShape(Rectangle()) : AnyShape(Capsule())
+
+        return HStack(spacing: 7) {
             GeometryReader { proxy in
                 let progressWidth = proxy.size.width * streakProgressFraction
                 ZStack(alignment: .leading) {
-                    Capsule()
+                    trackShape
                         .fill(streakTierColor.opacity(coordinator.snapshot.multiplier == 1 ? 0.10 : 0.28))
-                    Capsule()
+                    trackShape
                         .fill(
                             LinearGradient(
                                 colors: [
@@ -581,8 +591,24 @@ struct GameView: View {
                             )
                         )
                         .frame(width: progressWidth)
-                        .clipShape(Capsule())
+                        .clipShape(trackShape)
                         .animation(.easeOut(duration: 0.45), value: streakProgressFraction)
+                    if palette.isPixel {
+                        HStack(spacing: 0) {
+                            ForEach(0..<5, id: \.self) { index in
+                                Rectangle()
+                                    .fill(Color.clear)
+                                    .overlay(alignment: .trailing) {
+                                        if index < 4 {
+                                            Rectangle()
+                                                .fill(Color(hex: palette.board).opacity(0.62))
+                                                .frame(width: 2)
+                                        }
+                                    }
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
                     Text("SPEED BAR")
                         .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption2))
                         .tracking(0.65)
@@ -597,7 +623,13 @@ struct GameView: View {
                 .font(palette.appFont(size: 21, weight: .black, relativeTo: .title3))
                 .foregroundStyle(coordinator.snapshot.multiplier == 1 ? Color(hex: palette.foreground) : .black)
                 .frame(width: 46, height: 36)
-                .background(streakTierColor, in: Capsule())
+                .background(streakTierColor, in: trackShape)
+                .overlay {
+                    if palette.isPixel {
+                        Rectangle()
+                            .stroke(Color(hex: palette.foreground).opacity(0.36), lineWidth: 2)
+                    }
+                }
                 .shadow(
                     color: streakTierColor.opacity(coordinator.snapshot.multiplier == 1 ? 0.10 : 0.55),
                     radius: palette.isPixel ? 0 : 8
@@ -1110,6 +1142,82 @@ struct GameView: View {
         frozenGlyphsEnabled = preferences.glyphsEnabled
         coordinator.applyTheme(frozenTheme.id)
         coordinator.applyGlyphsEnabled(frozenGlyphsEnabled)
+    }
+}
+
+private struct PixelLivesView: View {
+    let remaining: Int
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<3, id: \.self) { index in
+                PixelHeartIcon(filled: index < remaining, color: color)
+                    .frame(width: 14, height: 12)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+private struct PixelHeartIcon: View {
+    let filled: Bool
+    let color: Color
+
+    private static let filledCells = cells([
+        "0110110",
+        "1111111",
+        "1111111",
+        "0111110",
+        "0011100",
+        "0001000",
+    ])
+    private static let outlineCells = cells([
+        "0110110",
+        "1001001",
+        "1000001",
+        "0100010",
+        "0010100",
+        "0001000",
+    ])
+
+    var body: some View {
+        Canvas { context, size in
+            let columns = 7
+            let rows = 6
+            let pixel = min(size.width / CGFloat(columns), size.height / CGFloat(rows))
+            let originX = (size.width - pixel * CGFloat(columns)) / 2
+            let originY = (size.height - pixel * CGFloat(rows)) / 2
+            let cells = filled ? Self.filledCells : Self.outlineCells
+
+            for row in 0..<rows {
+                for column in 0..<columns {
+                    let cell = row * columns + column
+                    guard cells.contains(cell) else { continue }
+                    context.fill(
+                        Path(
+                            CGRect(
+                                x: originX + CGFloat(column) * pixel,
+                                y: originY + CGFloat(row) * pixel,
+                                width: pixel,
+                                height: pixel
+                            )
+                        ),
+                        with: .color(color.opacity(filled ? 1 : 0.42))
+                    )
+                }
+            }
+        }
+    }
+
+    private static func cells(_ rows: [String]) -> Set<Int> {
+        Set(
+            rows.enumerated().flatMap { row, pattern in
+                pattern.enumerated().compactMap { column, value in
+                    value == "1" ? row * 7 + column : nil
+                }
+            }
+        )
     }
 }
 

@@ -31,7 +31,7 @@ Use semantic marketing versions once public. CI should own build-number allocati
 | Candidate | Required ad configuration |
 | --- | --- |
 | Debug/local automation | Real PimPoPom AdMob App ID, Google demo banner/interstitial units, no private test hash |
-| Named Staging/TestFlight QA | Real App ID, Google demo units, no private test hash |
+| Named Staging/TestFlight QA | Demo units by default; build 5 may use the private owner IDFV fingerprint to select production units plus the registered GMA test hash only on that phone |
 | Owner Ads QA | Ignored production units plus the owner's ignored hashed GMA test-device identifier; every creative must visibly say **Test mode** |
 | Public Release | Ignored production units, `live` mode, no test-device identifier; only after separate owner authorization |
 
