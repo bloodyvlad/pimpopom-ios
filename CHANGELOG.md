@@ -41,7 +41,9 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Deterministic Game Center unit/UI coverage proving system authentication is suppressed in UI tests and that unavailable Game Center does not gate PimPoPom services.
 - A five-product StoreKit 2 catalog, app-owned StoreKit actor/protocol, launch-time transaction listeners, acknowledgement-before-finish purchase controller, account-bound PHP credit bridge, and Debug-only offline StoreKit scheme.
 - One shared localized Coin Store across the main menu, Theme Shop, and Pet Shop, with signed-in/binding gates, pending/cancelled/unverified/error states, authoritative wallet/refund-debt/ad-free presentation, unfinished-transaction retry, and standalone Remove Ads restore.
-- Secure in-app account deletion requiring recent Google authentication and the exact confirmation phrase, with strict response validation before local session removal.
+- Secure in-app account deletion requiring recent Apple or Google authentication and the exact confirmation phrase, with strict response validation before local session removal.
+- Native Sign in with Apple login, separately confirmed registration, explicit Apple↔Google profile linking, and provider-neutral reauthentication without email-based account merging.
+- Explicit challenge-bound Game Center profile verification using Apple's signed `teamPlayerID` tuple while keeping Game Center optional, secondary, and independent from wallet access.
 
 ### Changed
 

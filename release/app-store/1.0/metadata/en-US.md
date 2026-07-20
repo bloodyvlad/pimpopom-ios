@@ -91,6 +91,20 @@ Test Arcade and Zen gameplay, banner placement, the interstitial after every 3 e
 
 Purchases use Apple’s TestFlight Sandbox environment. Advertising uses Google AdMob. The gameplay banner is placed in a fixed bottom area separated from the gameplay zone by the Speed Bar. The interstitial becomes due after 3 eligible completed rounds and is attempted from Results. Sign-in is optional and the app can be evaluated without reviewer-provided credentials.
 
+## Build 7 / version 1.02 TestFlight copy
+
+**Beta App Description**
+
+PimPoPom is a reaction game with Arcade and Zen modes. Version 1.02 adds Sign in with Apple and explicit Apple, Google, and Game Center profile linking while preserving optional signed-out play.
+
+**What to Test**
+
+Test Sign in with Apple login and separately confirmed registration, linking Apple to an existing Google-backed PimPoPom profile, provider reauthentication, Game Center Connect/Verify/Turn Off, and account deletion. Also test Arcade and Zen gameplay, banner placement, the interstitial after every 3 eligible completed rounds, sandbox coin purchases, ad removal, purchase restoration, and Privacy Choices. Please report account-link conflicts, unexpected profile or wallet changes, crashes, layout problems, purchase errors, or ads shown to ad-free accounts.
+
+**Beta Review Notes**
+
+Sign-in is optional and the app can be evaluated without reviewer-provided credentials. Sign in with Apple and Google are primary PimPoPom identity methods. The app never merges accounts automatically: an existing player must sign in to that profile first and explicitly link another provider. Game Center is optional, link-only in this build, and does not create or access a PimPoPom wallet; scores and achievements are not yet published to Game Center. Purchases use Apple’s TestFlight Sandbox environment. Advertising uses Google AdMob. The gameplay banner is fixed below the Speed Bar, and the interstitial becomes due after 3 eligible completed rounds and is attempted from Results.
+
 ## Production App Review notes draft
 
 PimPoPom can be evaluated without signing in: launch the app, choose Arcade or Zen, and play immediately. Arcade leaderboard submission, profile-bound cosmetics, achievements, and StoreKit value require a signed-in PimPoPom profile.
