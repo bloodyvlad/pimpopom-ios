@@ -161,7 +161,7 @@ final class CosmeticsController: ObservableObject {
                 : "Default and Disco are free. Sign in to buy paid themes."
             petMessage =
                 backend.isAuthenticated
-                ? withSpecialPetNotice("Choose one pet to show, or hide the current companion.")
+                ? ""
                 : "Sign in to buy and select pets."
         } else if !failures.isEmpty {
             let unavailable = failures.joined(separator: " and ")
@@ -190,7 +190,7 @@ final class CosmeticsController: ObservableObject {
         }
 
         if action == .buy, coinBalance < theme.priceCoins {
-            themeMessage = "You need \(theme.priceCoins - coinBalance) more coins for \(theme.name)."
+            themeMessage = ""
             return
         }
 
@@ -228,7 +228,7 @@ final class CosmeticsController: ObservableObject {
         )
 
         if action == .buy, coinBalance < pet.priceCoins {
-            petMessage = "You need \(pet.priceCoins - coinBalance) more coins for \(pet.name)."
+            petMessage = ""
             return
         }
 
@@ -252,11 +252,10 @@ final class CosmeticsController: ObservableObject {
                 petMessage = action == .buy ? "Buying \(pet.name)…" : "Selecting \(pet.name)…"
                 let response = try await backend.selectPet(pet.id)
                 applyProfile(response.profile)
-                petMessage = withSpecialPetNotice(
+                petMessage =
                     response.pet.purchased
-                        ? "\(pet.name) is yours and selected."
-                        : "\(pet.name) is selected."
-                )
+                    ? ""
+                    : withSpecialPetNotice("\(pet.name) is selected.")
             }
         } catch {
             petMessage = error.localizedDescription

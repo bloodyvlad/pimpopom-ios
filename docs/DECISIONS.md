@@ -556,3 +556,46 @@ Also include the Pixel-theme HUD correction in build 5: use square segmented Spe
 Consequences: The same TestFlight binary can exercise the production units safely on the registered owner phone while external testers remain on Google demo inventory. The archive necessarily contains public production unit IDs, the one-way owner fingerprint, and the GMA test hash, but contains no raw Apple UUID or secret key. Every owner creative must visibly say **Test mode** and must never be clicked. This exception remains named-cohort QA only; public Release still requires live-mode review, no test hash, `app-ads.txt`, privacy/UMP completion, physical evidence, and separate authorization.
 
 Revisit when: the IDFV changes, build 5 leaves TestFlight, Apple or Google changes identifier/test-device behavior, the named cohort expands, or public live-ad release gates are complete.
+
+## P-038 — Correct TestFlight owner routing and use a three-final interstitial cadence
+
+- Date: 2026-07-20
+- Status: Accepted for named TestFlight build 6; supersedes P-037 for owner routing and P-033 only for cadence
+
+Context: Build 5 compared the IDFV fingerprint captured from a development-signed cable install. The installed TestFlight build safely fell back to Google demo inventory because Apple derives the App Store/TestFlight vendor identity differently and returned a distinct IDFV. Apple also documents that IDFV may reset after every app from a vendor is removed. The owner additionally requested interstitial eligibility after every three completed run finals instead of ten, plus clearer main-menu outlines for Leaderboard, Profile, and Settings.
+
+Decision: Advance version `1.01` to build `6`. Keep the existing owner-split Staging mode, production owner units, registered GMA test-device hash, and demo fallback, but accept up to four unique ignored SHA-256 IDFV fingerprints. Configure this archive with only the owner's observed cable-install and TestFlight-install fingerprints. Store and compare no raw UUID, transmit no IDFV, and continue to treat a missing/nonmatching value as a non-owner demo route. This remains a brittle named-build QA exception rather than a general identity mechanism; a reset IDFV requires another explicit fingerprint update.
+
+Change the persistent, deduplicated combined Arcade/Zen threshold from ten completed finals to three. Start a fresh `v2` counter generation so a partial ten-run count is not reinterpreted. Preserve all other safeguards: ad-free players do not count or present; duplicate result rendering counts once; no-fill, unloaded, offline, and failed presentation remain due; and the count resets only when SDK presentation actually begins.
+
+Give the menu Leaderboard and Profile controls border-only blue and green accents using contrast-aware theme tokens. Give Settings an 85%-white border, with a faint dark under-stroke on Light so the requested white edge remains readable. Do not recolor the controls' icons, labels, or backgrounds.
+
+Consequences: The TestFlight copy on the currently observed owner installation selects the two PimPoPom production units while its registered GMA hash keeps requests in visible test mode; every other tester remains on Google's demo units. Build 5 cannot be repaired in place. Build 6's interstitial appears more frequently and therefore needs explicit accidental-tap and results-transition review before broader distribution. IDFV matching is not stable enrollment, App Attest, DeviceCheck, or an App Store release identity system.
+
+Revisit when: the owner reinstalls all OTC Software apps and the IDFV changes, the beta cohort expands, explicit first-party owner enrollment is implemented, three-final frequency harms gameplay or accidental-tap safety, or public live ads are authorized.
+
+## P-039 — Fill the fixed gameplay banner and compact successful score status
+
+- Date: 2026-07-20
+- Status: Accepted for TestFlight build 6; supersedes P-033/P-034 only for the active-game banner and result-save presentation
+
+Context: The gameplay layout already reserved a stable 50-point safe-area footer below the Speed Bar, but `AdBannerSlot` explicitly prohibited attaching the banner during Arcade/Zen. This made the build appear to lose ads as soon as play began. On signed-in Arcade Results, successful leaderboard persistence also occupied a separate 52-point styled card and could make the small-screen result surface require scrolling once its banner was present.
+
+Decision: Permit the same fixed 320×50 banner to rehost in the existing gameplay footer for ad-supported Arcade and Zen runs. Keep it outside the board and gameplay gesture surface, below the Speed Bar, without resizing the board when loading, filling, or failing. Preserve the existing fail-closed behavior: disabled, unresolved, or authoritative ad-free sessions construct no ad surface; a mid-run ad-free transition tears down the creative immediately and retains only invisible run-lifetime geometry. On Results, render saving and successful leaderboard persistence as one small inline status row without a card or minimum height. Retain a styled status card only when an upload failed and the player needs the Retry score upload action.
+
+Consequences: Eligible ads are visible on menu, gameplay, and results instead of disappearing during play, and successful signed-in Results recover vertical space on standard-height phones. One GMA banner view remains app-owned and is safely reparented between the three surfaces. Simulator fakes must prove exact 320×50 gameplay placement and ad-free absence; a physical TestFlight pass must still confirm separation, no accidental gameplay/ad tap crossover, real creative behavior, and fixed Results layout before production release.
+
+Revisit when: physical review finds the gameplay banner distracting or prone to accidental taps, localization makes the compact save status wrap, a larger adaptive format is accepted, or the gameplay footer geometry changes.
+
+## P-040 — Route unaffordable cosmetic taps directly to Buy Coins
+
+- Date: 2026-07-20
+- Status: Accepted for TestFlight build 6
+
+Context: Theme Shop and Pet Shop already exposed a Buy Coins button, but tapping an unowned item above the authenticated wallet balance only displayed “You need … more coins.” Pet Shop also retained a general “Choose one pet…” instruction and a newly-purchased “is yours and selected” message even though the tile state already communicated those outcomes. These rows consumed scarce vertical space without advancing the intended action.
+
+Decision: When an authenticated player taps an unowned theme or pet whose authoritative balance is below its catalog price, open the shared Buy Coins StoreKit sheet immediately and do not call the cosmetic debit endpoint. Keep signed-out purchase taps on the existing sign-in gate. Remove the authenticated Pet Shop instruction, both theme/pet shortfall messages, and the redundant newly-purchased-pet success message. Preserve actionable service errors, pending progress, selection/show/hide feedback, server prices, and server-authoritative balance/ownership checks.
+
+Consequences: Insufficient-funds taps take the shortest valid route to localized StoreKit products, while shops use less vertical space and no longer echo state already visible on the tile. No client-side coin grant, price trust, or cosmetic ownership inference is introduced; the StoreKit and backend transaction boundaries remain unchanged.
+
+Revisit when: the StoreKit sheet gains a product recommendation based on shortfall, signed-out purchasing becomes supported, or physical review finds direct modal presentation too abrupt.

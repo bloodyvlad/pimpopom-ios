@@ -8,7 +8,7 @@ interstitial_id=${PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID:-}
 test_ids=${PIMPOPOM_ADMOB_TEST_DEVICE_IDS:-}
 owner_banner_id=${PIMPOPOM_ADMOB_OWNER_BANNER_UNIT_ID:-}
 owner_interstitial_id=${PIMPOPOM_ADMOB_OWNER_INTERSTITIAL_UNIT_ID:-}
-owner_idfv_hash=${PIMPOPOM_OWNER_DEVICE_IDFV_SHA256:-}
+owner_idfv_hashes=${PIMPOPOM_OWNER_DEVICE_IDFV_SHA256S:-}
 configuration=${CONFIGURATION:-}
 
 demo_banner='ca-app-pub-3940256099942544/2934735716'
@@ -48,8 +48,13 @@ case "$mode" in
         require_production_unit "$owner_interstitial_id" 'Owner split interstitial'
         printf '%s\n' "$test_ids" | grep -Eq '^[[:xdigit:]]{32}$' \
             || fail 'owner split mode requires one GMA 32-character hexadecimal test-device hash'
-        printf '%s\n' "$owner_idfv_hash" | grep -Eq '^[[:xdigit:]]{64}$' \
-            || fail 'owner split mode requires one SHA-256 IDFV fingerprint'
+        printf '%s\n' "$owner_idfv_hashes" \
+            | grep -Eq '^[[:xdigit:]]{64}(,[[:xdigit:]]{64}){0,3}$' \
+            || fail 'owner split mode requires one to four SHA-256 IDFV fingerprints'
+        owner_idfv_hash_count=$(printf '%s\n' "$owner_idfv_hashes" | tr ',' '\n' | sort -u | wc -l | tr -d ' ')
+        configured_idfv_hash_count=$(printf '%s\n' "$owner_idfv_hashes" | tr ',' '\n' | wc -l | tr -d ' ')
+        test "$owner_idfv_hash_count" = "$configured_idfv_hash_count" \
+            || fail 'owner split mode requires unique SHA-256 IDFV fingerprints'
         ;;
     owner-real-test)
         test "$configuration" = 'OwnerAdsQA' || fail 'owner-real-test is restricted to OwnerAdsQA'

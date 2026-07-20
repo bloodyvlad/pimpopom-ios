@@ -99,6 +99,13 @@ struct ThemeShopView: View {
 
         return Button {
             guard action != .selected else { return }
+            if action == .buy,
+                cosmetics.isAuthenticated,
+                !cosmetics.canAfford(item)
+            {
+                showsCoinStore = true
+                return
+            }
             Task { await cosmetics.performThemeAction(item) }
         } label: {
             VStack(spacing: 7) {

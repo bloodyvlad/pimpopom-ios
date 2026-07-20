@@ -213,6 +213,31 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
     }
 
+    func testUnaffordableThemeAndPetOpenCoinStoreWithoutShortfallCopy() throws {
+        let themeApp = launch(additionalArguments: ["--ui-test-pet-profile"])
+        openMenuControl("open-theme-shop", in: themeApp)
+
+        let pixel = themeApp.buttons["theme-action-pixel"]
+        XCTAssertTrue(pixel.waitForExistence(timeout: 3))
+        pixel.tap()
+        XCTAssertTrue(themeApp.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
+        XCTAssertFalse(themeApp.staticTexts["You need 25 more coins for Pixel."].exists)
+
+        themeApp.terminate()
+        let petApp = launch(additionalArguments: ["--ui-test-pet-profile"])
+        openMenuControl("open-pet-shop", in: petApp)
+        XCTAssertFalse(
+            petApp.staticTexts["Choose one pet to show, or hide the current companion."].exists
+        )
+
+        let misha = petApp.buttons["pet-action-misha"]
+        XCTAssertTrue(scrollToElement(misha, in: petApp))
+        misha.tap()
+        XCTAssertTrue(petApp.navigationBars["Buy Coins"].waitForExistence(timeout: 3))
+        XCTAssertFalse(petApp.staticTexts["You need 25 more coins for Misha."].exists)
+        XCTAssertFalse(petApp.staticTexts["Foka is yours and selected."].exists)
+    }
+
     func testSettingsExposeIndependentAudioControls() throws {
         let app = launch()
         openMenuControl("open-settings", in: app)
@@ -237,7 +262,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Current Theme"].exists)
     }
 
-    func testFakeAdsAppearOnlyOnMenuAndResults() throws {
+    func testFakeAdsAppearOnMenuGameplayAndResults() throws {
         let app = launch(additionalArguments: ["--ui-test-ads-enabled"])
         let menuSlot = app.descendants(matching: .any)["ad-slot-menu"]
         XCTAssertTrue(menuSlot.waitForExistence(timeout: 3))
@@ -272,8 +297,16 @@ final class PimPoPomUITests: XCTestCase {
         app.buttons["mode-zen"].tap()
         let activeSlot = app.descendants(matching: .any)["ad-slot-activeGameplay"]
         XCTAssertTrue(activeSlot.waitForExistence(timeout: 8))
-        XCTAssertEqual(activeSlot.value as? String, "Empty during active gameplay")
-        XCTAssertFalse(app.descendants(matching: .any)["fake-ad-banner"].exists)
+        XCTAssertEqual(activeSlot.frame.height, 50, accuracy: 1)
+        XCTAssertEqual(activeSlot.value as? String, "Loaded")
+        let gameplayBanner = app.descendants(matching: .any)["fake-ad-banner"]
+        XCTAssertTrue(gameplayBanner.waitForExistence(timeout: 2))
+        XCTAssertEqual(gameplayBanner.frame.width, 320, accuracy: 1)
+        XCTAssertEqual(gameplayBanner.frame.midX, activeSlot.frame.midX, accuracy: 1)
+        let speedBar = app.descendants(matching: .any)["speed-streak"]
+        XCTAssertTrue(speedBar.exists)
+        XCTAssertLessThanOrEqual(speedBar.frame.maxY, activeSlot.frame.minY)
+        attachScreenshot(of: app, name: "SE gameplay fixed banner below Speed Bar")
 
         app.buttons["end-zen-run"].tap()
         XCTAssertTrue(app.staticTexts["results-title"].waitForExistence(timeout: 3))
@@ -285,6 +318,29 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(resultsBanner.waitForExistence(timeout: 2))
         XCTAssertEqual(resultsBanner.frame.width, 320, accuracy: 1)
         XCTAssertEqual(resultsBanner.frame.midX, resultsSlot.frame.midX, accuracy: 1)
+        attachScreenshot(of: app, name: "SE Results fixed banner")
+    }
+
+    func testRankedSaveStatusFitsAboveResultsBannerWithoutScrolling() throws {
+        let app = launch(
+            additionalArguments: ["--ui-test-ads-enabled", "--ui-test-storekit-profile"]
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["fake-ad-banner"].waitForExistence(timeout: 5)
+        )
+        app.buttons["mode-normal"].tap()
+
+        XCTAssertTrue(app.staticTexts["results-title"].waitForExistence(timeout: 30))
+        let status = app.descendants(matching: .any)["result-save-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 3))
+        XCTAssertTrue(status.label.contains("Score saved to leaderboard"))
+
+        let resultsSlot = app.descendants(matching: .any)["ad-slot-results"]
+        XCTAssertTrue(resultsSlot.waitForExistence(timeout: 3))
+        XCTAssertGreaterThanOrEqual(status.frame.minY, app.frame.minY)
+        XCTAssertLessThanOrEqual(status.frame.maxY, resultsSlot.frame.minY)
+        XCTAssertTrue(app.buttons["results-menu"].isHittable)
+        attachScreenshot(of: app, name: "SE compact ranked save above Results banner")
     }
 
     func testAdFreePlayerSeesNoRemoveAdsControlOrBannerArea() throws {

@@ -34,7 +34,7 @@ final class AdsController: ObservableObject {
     }
 
     var reservesBannerSlot: Bool {
-        configuration.isEnabled && lifecycleState != .disabled
+        canAttachBanner
     }
 
     private let consentService: any ConsentServing

@@ -18,7 +18,7 @@ struct AdBannerSlot: View {
     }
 
     private var canHostAd: Bool {
-        placement != .activeGameplay && reservesHeight
+        reservesHeight
     }
 
     var body: some View {
@@ -43,13 +43,12 @@ struct AdBannerSlot: View {
         .allowsHitTesting(canHostAd && ads.canAttachBanner)
         .accessibilityHidden(!reservesHeight)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(canHostAd ? "Advertisement" : "Reserved gameplay spacing")
+        .accessibilityLabel("Advertisement")
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("ad-slot-\(placement.rawValue)")
     }
 
     private var accessibilityValue: String {
-        guard canHostAd else { return "Empty during active gameplay" }
         return switch ads.bannerState {
         case .loaded: "Loaded"
         case .loading: "Loading"
@@ -76,24 +75,37 @@ private struct BannerContainerRepresentable: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: UIView, context _: Context) {
+    func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.pendingAttachment?.cancel()
         uiView.isUserInteractionEnabled = isEnabled && controller.canAttachBanner
         guard isEnabled else {
             controller.detachBanner(from: uiView)
             return
         }
-        controller.attachBanner(to: uiView, availableWidth: availableWidth)
+        let controller = controller
+        let availableWidth = availableWidth
+        context.coordinator.pendingAttachment = Task { @MainActor [weak uiView, weak controller] in
+            await Task.yield()
+            guard !Task.isCancelled, let uiView, let controller else { return }
+            controller.attachBanner(to: uiView, availableWidth: availableWidth)
+        }
     }
 
     static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        coordinator.pendingAttachment?.cancel()
         coordinator.controller?.detachBanner(from: uiView)
     }
 
     final class Coordinator {
         weak var controller: AdsController?
+        var pendingAttachment: Task<Void, Never>?
 
         init(controller: AdsController) {
             self.controller = controller
+        }
+
+        deinit {
+            pendingAttachment?.cancel()
         }
     }
 }

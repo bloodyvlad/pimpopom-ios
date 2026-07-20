@@ -327,6 +327,9 @@ struct RootView: View {
             .buttonStyle(
                 WebSecondaryButtonStyle(
                     theme: palette,
+                    borderAccent: Color(
+                        hex: WebMenuBorderAccents.leaderboardHex(theme: palette)
+                    ),
                     minimumHeight: WebMenuMetrics.utilityTarget
                 )
             )
@@ -353,6 +356,9 @@ struct RootView: View {
             .buttonStyle(
                 WebSecondaryButtonStyle(
                     theme: palette,
+                    borderAccent: Color(
+                        hex: WebMenuBorderAccents.profileHex(theme: palette)
+                    ),
                     minimumHeight: WebMenuMetrics.utilityTarget
                 )
             )
@@ -554,7 +560,15 @@ struct RootView: View {
                 }
                 .padding(.horizontal, 14)
             }
-            .buttonStyle(WebSecondaryButtonStyle(theme: palette))
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    borderAccent: Color.white.opacity(WebMenuBorderAccents.settingsOpacity),
+                    borderUnderlay: palette.isLight
+                        ? Color(hex: "#3e6c8b").opacity(0.20)
+                        : nil
+                )
+            )
             .accessibilityIdentifier("open-settings")
         }
     }

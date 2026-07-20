@@ -154,7 +154,15 @@ struct GameView: View {
                 }
             } else if reservesAdSpacingForRun {
                 if ads.reservesBannerSlot {
-                    adSurface(placement: .activeGameplay)
+                    if preparing {
+                        Color.clear
+                            .frame(height: GameplayLayoutMetrics.adBannerHeight)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 4)
+                            .accessibilityHidden(true)
+                    } else {
+                        adSurface(placement: .activeGameplay)
+                    }
                 } else {
                     Color.clear
                         .frame(height: GameplayLayoutMetrics.adBannerHeight)
@@ -168,7 +176,7 @@ struct GameView: View {
 
     private func adSurface(placement: AdBannerPlacement) -> some View {
         AdBannerSlot(placement: placement)
-            .opacity(preparing ? 0 : 1)
+            .id(placement.rawValue)
             .padding(.horizontal, 12)
             .padding(.vertical, 4)
             .background(Color(hex: palette.backgroundBottom).opacity(0.96))
@@ -784,42 +792,45 @@ struct GameView: View {
                     .webCardStyle(theme: palette, padding: 12)
                     .accessibilityIdentifier("result-speed-ratings")
 
-                    if submissionStarted || submissionFailed || submissionConfirmation != nil {
+                    if submissionFailed {
                         VStack(spacing: 8) {
-                            if submissionStarted {
-                                ProgressView("Saving score…")
-                                    .tint(Color(hex: palette.accent))
-                            } else if submissionFailed {
-                                Text(submissionError ?? "Score was not saved.")
-                                    .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                                    .foregroundStyle(.orange)
-                                    .multilineTextAlignment(.center)
+                            Text(submissionError ?? "Score was not saved.")
+                                .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                                .foregroundStyle(.orange)
+                                .multilineTextAlignment(.center)
 
-                                if runTicket != nil {
-                                    Button("Retry score upload") { submitRankedRunIfNeeded() }
-                                        .buttonStyle(
-                                            WebSecondaryButtonStyle(
-                                                theme: palette,
-                                                accent: Color(hex: palette.accent),
-                                                minimumHeight: 38
-                                            )
-                                        )
-                                }
-                            } else if let submissionConfirmation {
-                                Label(submissionConfirmation, systemImage: "checkmark.seal.fill")
-                                    .font(
-                                        palette.appFont(
-                                            size: 11,
-                                            weight: .bold,
-                                            relativeTo: .caption
+                            if runTicket != nil {
+                                Button("Retry score upload") { submitRankedRunIfNeeded() }
+                                    .buttonStyle(
+                                        WebSecondaryButtonStyle(
+                                            theme: palette,
+                                            accent: Color(hex: palette.accent),
+                                            minimumHeight: 38
                                         )
                                     )
-                                    .foregroundStyle(Color(hex: palette.accent))
-                                    .multilineTextAlignment(.center)
                             }
                         }
                         .frame(maxWidth: .infinity, minHeight: 52)
                         .webCardStyle(theme: palette, padding: 10)
+                        .accessibilityIdentifier("result-save-status")
+                    } else if submissionStarted || submissionConfirmation != nil {
+                        HStack(spacing: 5) {
+                            if submissionStarted {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(Color(hex: palette.accent))
+                                Text("Saving score…")
+                            } else if let submissionConfirmation {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .accessibilityHidden(true)
+                                Text(submissionConfirmation)
+                            }
+                        }
+                        .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
+                        .foregroundStyle(Color(hex: palette.accent))
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("result-save-status")
                     }
                 }

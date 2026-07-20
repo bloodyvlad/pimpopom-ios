@@ -59,8 +59,8 @@
 	<string>$(PIMPOPOM_ADMOB_OWNER_INTERSTITIAL_UNIT_ID)</string>
 	<key>PimPoPomAdMobTestDeviceIDs</key>
 	<string>$(PIMPOPOM_ADMOB_TEST_DEVICE_IDS)</string>
-	<key>PimPoPomOwnerDeviceIDFVHash</key>
-	<string>$(PIMPOPOM_OWNER_DEVICE_IDFV_SHA256)</string>
+	<key>PimPoPomOwnerDeviceIDFVHashes</key>
+	<string>$(PIMPOPOM_OWNER_DEVICE_IDFV_SHA256S)</string>
 	<key>PimPoPomAdsMode</key>
 	<string>$(PIMPOPOM_ADS_MODE)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

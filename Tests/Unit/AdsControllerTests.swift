@@ -24,8 +24,9 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertTrue(configuration.validationProblems(configurationName: "Debug").isEmpty)
     }
 
-    func testOwnerSplitUsesProductionUnitsOnlyForMatchingIDFV() {
-        let ownerIDFV = UUID(uuidString: "00000000-1111-2222-3333-444444444444")!
+    func testOwnerSplitUsesProductionUnitsOnlyForMatchingInstallIDFV() {
+        let cableOwnerIDFV = UUID(uuidString: "00000000-1111-2222-3333-444444444444")!
+        let testFlightOwnerIDFV = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
         let guestIDFV = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!
         let ownerBanner = "ca-app-pub-6428992187280935/111"
         let ownerInterstitial = "ca-app-pub-6428992187280935/222"
@@ -38,20 +39,22 @@ final class AdsControllerTests: XCTestCase {
             "PimPoPomAdMobOwnerBannerUnitID": ownerBanner,
             "PimPoPomAdMobOwnerInterstitialUnitID": ownerInterstitial,
             "PimPoPomAdMobTestDeviceIDs": testDeviceHash,
-            "PimPoPomOwnerDeviceIDFVHash": AdsConfiguration.identifierForVendorFingerprint(
-                ownerIDFV
-            ),
+            "PimPoPomOwnerDeviceIDFVHashes": [cableOwnerIDFV, testFlightOwnerIDFV]
+                .map(AdsConfiguration.identifierForVendorFingerprint)
+                .joined(separator: ","),
         ]
 
-        let owner = AdsConfiguration.fromInfoDictionary(
-            values,
-            identifierForVendor: ownerIDFV
-        )
-        XCTAssertTrue(owner.isOwnerDevice)
-        XCTAssertEqual(owner.bannerUnitID, ownerBanner)
-        XCTAssertEqual(owner.interstitialUnitID, ownerInterstitial)
-        XCTAssertEqual(owner.testDeviceIdentifiers, [testDeviceHash])
-        XCTAssertTrue(owner.validationProblems(configurationName: "Staging").isEmpty)
+        for ownerIDFV in [cableOwnerIDFV, testFlightOwnerIDFV] {
+            let owner = AdsConfiguration.fromInfoDictionary(
+                values,
+                identifierForVendor: ownerIDFV
+            )
+            XCTAssertTrue(owner.isOwnerDevice)
+            XCTAssertEqual(owner.bannerUnitID, ownerBanner)
+            XCTAssertEqual(owner.interstitialUnitID, ownerInterstitial)
+            XCTAssertEqual(owner.testDeviceIdentifiers, [testDeviceHash])
+            XCTAssertTrue(owner.validationProblems(configurationName: "Staging").isEmpty)
+        }
 
         let guest = AdsConfiguration.fromInfoDictionary(
             values,
@@ -118,6 +121,7 @@ final class AdsControllerTests: XCTestCase {
             XCTAssertEqual(fixture.ads.startCount, 0)
             XCTAssertEqual(fixture.ads.bannerAttachCount, 0)
             XCTAssertEqual(fixture.ads.interstitialPreloadCount, 0)
+            XCTAssertFalse(fixture.controller.reservesBannerSlot)
         }
     }
 
@@ -132,6 +136,7 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertEqual(blocked.controller.lifecycleState, .consentBlocked)
         XCTAssertTrue(blocked.controller.isPrivacyChoicesVisible)
         XCTAssertEqual(blocked.ads.startCount, 0)
+        XCTAssertFalse(blocked.controller.reservesBannerSlot)
 
         let failed = Self.makeFixture(
             consentSnapshot: ConsentSnapshot(
@@ -143,6 +148,7 @@ final class AdsControllerTests: XCTestCase {
         await failed.controller.bootstrap(session: Self.anonymousSession)
         XCTAssertEqual(failed.controller.lifecycleState, .failed)
         XCTAssertEqual(failed.ads.startCount, 0)
+        XCTAssertFalse(failed.controller.reservesBannerSlot)
     }
 
     func testStoredConsentMayStartAdsAfterRefreshFailure() async {
@@ -187,7 +193,7 @@ final class AdsControllerTests: XCTestCase {
     func testAdFreeTransitionDestroysAdsAndClearsCadence() async {
         let fixture = Self.makeFixture(
             progress: InterstitialProgress(
-                completedSessions: 8,
+                completedSessions: 2,
                 isDue: false,
                 recentCompletionIDs: []
             )
@@ -217,25 +223,25 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertEqual(fixture.controller.lifecycleState, .ready)
     }
 
-    func testCompletionCadenceSaturatesAtTenAcrossArcadeAndZen() async {
+    func testCompletionCadenceSaturatesAtThreeAcrossArcadeAndZen() async {
         let fixture = Self.makeFixture()
         await fixture.controller.bootstrap(session: Self.anonymousSession)
 
-        for index in 0..<9 {
+        for index in 0..<2 {
             fixture.controller.recordCompletedSession(
                 id: Self.uuid(index),
                 mode: index.isMultiple(of: 2) ? .arcade : .zen
             )
         }
-        XCTAssertEqual(fixture.controller.progress.completedSessions, 9)
+        XCTAssertEqual(fixture.controller.progress.completedSessions, 2)
         XCTAssertFalse(fixture.controller.progress.isDue)
 
-        fixture.controller.recordCompletedSession(id: Self.uuid(9), mode: .zen)
-        XCTAssertEqual(fixture.controller.progress.completedSessions, 10)
+        fixture.controller.recordCompletedSession(id: Self.uuid(2), mode: .zen)
+        XCTAssertEqual(fixture.controller.progress.completedSessions, 3)
         XCTAssertTrue(fixture.controller.progress.isDue)
 
-        fixture.controller.recordCompletedSession(id: Self.uuid(10), mode: .arcade)
-        XCTAssertEqual(fixture.controller.progress.completedSessions, 10)
+        fixture.controller.recordCompletedSession(id: Self.uuid(3), mode: .arcade)
+        XCTAssertEqual(fixture.controller.progress.completedSessions, 3)
         XCTAssertTrue(fixture.controller.progress.isDue)
     }
 
@@ -253,7 +259,7 @@ final class AdsControllerTests: XCTestCase {
     func testAdFreePlayersNeverIncrementOrPresent() async {
         let fixture = Self.makeFixture(
             progress: InterstitialProgress(
-                completedSessions: 9,
+                completedSessions: 2,
                 isDue: false,
                 recentCompletionIDs: []
             )
@@ -271,7 +277,7 @@ final class AdsControllerTests: XCTestCase {
     func testUnavailableInterstitialRetainsDueStateForLaterCompletion() async {
         let fixture = Self.makeFixture(
             progress: InterstitialProgress(
-                completedSessions: 9,
+                completedSessions: 2,
                 isDue: false,
                 recentCompletionIDs: []
             )
@@ -283,7 +289,7 @@ final class AdsControllerTests: XCTestCase {
 
         let preloadCountBeforeAttempt = fixture.ads.interstitialPreloadCount
         XCTAssertFalse(fixture.controller.presentInterstitialIfDue(for: id))
-        XCTAssertEqual(fixture.controller.progress.completedSessions, 10)
+        XCTAssertEqual(fixture.controller.progress.completedSessions, 3)
         XCTAssertTrue(fixture.controller.progress.isDue)
         XCTAssertEqual(
             fixture.ads.interstitialPreloadCount,
@@ -301,7 +307,7 @@ final class AdsControllerTests: XCTestCase {
     func testSuccessfulPresentationResetsOnlyWhenPresentationBegins() async {
         let fixture = Self.makeFixture(
             progress: InterstitialProgress(
-                completedSessions: 9,
+                completedSessions: 2,
                 isDue: false,
                 recentCompletionIDs: []
             )
@@ -320,7 +326,7 @@ final class AdsControllerTests: XCTestCase {
     func testPresentationFailureKeepsInterstitialDue() async {
         let fixture = Self.makeFixture(
             progress: InterstitialProgress(
-                completedSessions: 9,
+                completedSessions: 2,
                 isDue: false,
                 recentCompletionIDs: []
             )
@@ -331,7 +337,7 @@ final class AdsControllerTests: XCTestCase {
         fixture.controller.recordCompletedSession(id: id, mode: .arcade)
 
         XCTAssertTrue(fixture.controller.presentInterstitialIfDue(for: id))
-        XCTAssertEqual(fixture.controller.progress.completedSessions, 10)
+        XCTAssertEqual(fixture.controller.progress.completedSessions, 3)
         XCTAssertTrue(fixture.controller.progress.isDue)
     }
 

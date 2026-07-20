@@ -123,6 +123,13 @@ struct PetShopView: View {
                 }
 
                 Button {
+                    if action == .buy,
+                        cosmetics.isAuthenticated,
+                        !cosmetics.canAfford(item)
+                    {
+                        showsCoinStore = true
+                        return
+                    }
                     Task { await cosmetics.performPetAction(item) }
                 } label: {
                     HStack(spacing: 6) {

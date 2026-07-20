@@ -25,7 +25,7 @@ struct AdsConfiguration: Equatable, Sendable {
     let ownerBannerUnitID: String
     let ownerInterstitialUnitID: String
     let ownerTestDeviceIdentifiers: [String]
-    let ownerDeviceIDFVHash: String
+    let ownerDeviceIDFVHashes: [String]
     let isOwnerDevice: Bool
     let fallbackBannerUnitID: String
     let fallbackInterstitialUnitID: String
@@ -39,7 +39,7 @@ struct AdsConfiguration: Equatable, Sendable {
         ownerBannerUnitID: String = "",
         ownerInterstitialUnitID: String = "",
         ownerTestDeviceIdentifiers: [String] = [],
-        ownerDeviceIDFVHash: String = "",
+        ownerDeviceIDFVHashes: [String] = [],
         isOwnerDevice: Bool = false,
         fallbackBannerUnitID: String? = nil,
         fallbackInterstitialUnitID: String? = nil
@@ -52,7 +52,7 @@ struct AdsConfiguration: Equatable, Sendable {
         self.ownerBannerUnitID = ownerBannerUnitID
         self.ownerInterstitialUnitID = ownerInterstitialUnitID
         self.ownerTestDeviceIdentifiers = ownerTestDeviceIdentifiers
-        self.ownerDeviceIDFVHash = ownerDeviceIDFVHash
+        self.ownerDeviceIDFVHashes = ownerDeviceIDFVHashes
         self.isOwnerDevice = isOwnerDevice
         self.fallbackBannerUnitID = fallbackBannerUnitID ?? bannerUnitID
         self.fallbackInterstitialUnitID = fallbackInterstitialUnitID ?? interstitialUnitID
@@ -88,13 +88,14 @@ struct AdsConfiguration: Equatable, Sendable {
         let ownerInterstitialUnitID = stringValue(
             values["PimPoPomAdMobOwnerInterstitialUnitID"]
         )
-        let ownerDeviceIDFVHash = stringValue(
-            values["PimPoPomOwnerDeviceIDFVHash"]
-        ).lowercased()
+        let ownerDeviceIDFVHashes = splitIdentifiers(
+            stringValue(values["PimPoPomOwnerDeviceIDFVHashes"])
+        ).map { $0.lowercased() }
+        let identifierFingerprint = identifierForVendorFingerprint(identifierForVendor)
         let isOwnerDevice =
             mode == .ownerSplitTest
-            && !ownerDeviceIDFVHash.isEmpty
-            && ownerDeviceIDFVHash == identifierForVendorFingerprint(identifierForVendor)
+            && !identifierFingerprint.isEmpty
+            && ownerDeviceIDFVHashes.contains(identifierFingerprint)
 
         return AdsConfiguration(
             mode: mode,
@@ -107,7 +108,7 @@ struct AdsConfiguration: Equatable, Sendable {
             ownerBannerUnitID: ownerBannerUnitID,
             ownerInterstitialUnitID: ownerInterstitialUnitID,
             ownerTestDeviceIdentifiers: configuredTestDeviceIdentifiers,
-            ownerDeviceIDFVHash: ownerDeviceIDFVHash,
+            ownerDeviceIDFVHashes: ownerDeviceIDFVHashes,
             isOwnerDevice: isOwnerDevice,
             fallbackBannerUnitID: defaultBannerUnitID,
             fallbackInterstitialUnitID: defaultInterstitialUnitID
@@ -173,8 +174,14 @@ struct AdsConfiguration: Equatable, Sendable {
             {
                 problems.append("Owner split testing requires one GMA test-device hash.")
             }
-            if !Self.isHex(ownerDeviceIDFVHash, length: 64) {
-                problems.append("Owner split testing requires one SHA-256 IDFV fingerprint.")
+            if ownerDeviceIDFVHashes.isEmpty
+                || ownerDeviceIDFVHashes.count > 4
+                || Set(ownerDeviceIDFVHashes).count != ownerDeviceIDFVHashes.count
+                || ownerDeviceIDFVHashes.contains(where: { !Self.isHex($0, length: 64) })
+            {
+                problems.append(
+                    "Owner split testing requires one to four unique SHA-256 IDFV fingerprints."
+                )
             }
         case .ownerRealTest:
             if configurationName != nil, configurationName != "OwnerAdsQA" {
@@ -300,7 +307,7 @@ protocol AdsServing: AnyObject {
 }
 
 struct InterstitialProgress: Codable, Equatable, Sendable {
-    static let threshold = 10
+    static let threshold = 3
 
     var completedSessions: Int
     var isDue: Bool
@@ -343,7 +350,10 @@ protocol InterstitialProgressStoring: AnyObject {
 
 @MainActor
 final class UserDefaultsInterstitialProgressStore: InterstitialProgressStoring {
-    private static let key = "ads.interstitial-progress.v1"
+    // The storage generation tracks cadence semantics. Build 6 changes the
+    // threshold from ten completions to three, so an old partial counter must
+    // not be interpreted under the new policy.
+    private static let key = "ads.interstitial-progress.v2"
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {

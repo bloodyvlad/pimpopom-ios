@@ -31,6 +31,18 @@ enum MenuRemoveAdsPlacement {
     }
 }
 
+enum WebMenuBorderAccents {
+    static let settingsOpacity = 0.85
+
+    static func profileHex(theme: ThemePalette) -> String {
+        theme.isLight ? "#25812f" : theme.tileColors[3]
+    }
+
+    static func leaderboardHex(theme: ThemePalette) -> String {
+        theme.chromeAccent
+    }
+}
+
 enum PimPoPomBrandColors {
     static let pimGradient = ["#16b887", "#39c85f", "#86bd3c"]
 }
@@ -436,6 +448,8 @@ extension View {
 struct WebSecondaryButtonStyle: ButtonStyle {
     let theme: ThemePalette
     var accent: Color?
+    var borderAccent: Color?
+    var borderUnderlay: Color?
     var minimumHeight: CGFloat = WebMenuMetrics.standardControlHeight
 
     func makeBody(configuration: Configuration) -> some View {
@@ -443,6 +457,8 @@ struct WebSecondaryButtonStyle: ButtonStyle {
             configuration: configuration,
             theme: theme,
             accent: accent,
+            borderAccent: borderAccent,
+            borderUnderlay: borderUnderlay,
             minimumHeight: minimumHeight
         )
     }
@@ -453,6 +469,8 @@ struct WebSecondaryButtonStyle: ButtonStyle {
         let configuration: Configuration
         let theme: ThemePalette
         let accent: Color?
+        let borderAccent: Color?
+        let borderUnderlay: Color?
         let minimumHeight: CGFloat
 
         var body: some View {
@@ -470,7 +488,15 @@ struct WebSecondaryButtonStyle: ButtonStyle {
                         background.clipShape(shape)
                     }
                 }
-                .overlay { shape.stroke(borderColor, lineWidth: theme.isPixel ? 2 : 1) }
+                .overlay {
+                    if let borderUnderlay {
+                        shape.stroke(
+                            borderUnderlay,
+                            lineWidth: theme.isPixel ? 4 : 3
+                        )
+                    }
+                    shape.stroke(borderColor, lineWidth: theme.isPixel ? 2 : 1)
+                }
                 .shadow(
                     color: theme.isPixel ? .clear : shadowColor,
                     radius: 7,
@@ -504,6 +530,7 @@ struct WebSecondaryButtonStyle: ButtonStyle {
         }
 
         private var borderColor: Color {
+            if let borderAccent { return borderAccent }
             if let accent {
                 return accent.opacity(theme.isLight ? 0.72 : 0.78)
             }
@@ -513,9 +540,13 @@ struct WebSecondaryButtonStyle: ButtonStyle {
         }
 
         private var shadowColor: Color {
-            if theme.isPixel { return accent?.opacity(0.24) ?? Color(hex: "#070713") }
-            if theme.isLight { return accent?.opacity(0.12) ?? Color(hex: "#3f799d").opacity(0.09) }
-            return accent?.opacity(theme.id == "disco" ? 0.31 : 0.19) ?? .black.opacity(0.16)
+            let emphasis = borderAccent ?? accent
+            if theme.isPixel { return emphasis?.opacity(0.24) ?? Color(hex: "#070713") }
+            if theme.isLight {
+                return emphasis?.opacity(0.12) ?? Color(hex: "#3f799d").opacity(0.09)
+            }
+            return emphasis?.opacity(theme.id == "disco" ? 0.31 : 0.19)
+                ?? .black.opacity(0.16)
         }
     }
 }

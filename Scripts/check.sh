@@ -65,7 +65,7 @@ staging_build_settings=$(xcodebuild \
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CONFIGURATION = Staging'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.01'
-printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 5'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 6'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910'
@@ -74,7 +74,7 @@ if test -f Config/StagingOwner.private.xcconfig; then
   printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_OWNER_BANNER_UNIT_ID = ca-app-pub-6428992187280935/3513535878'
   printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_OWNER_INTERSTITIAL_UNIT_ID = ca-app-pub-6428992187280935/5433122203'
   printf '%s\n' "$staging_build_settings" | awk -F ' = ' '/ PIMPOPOM_ADMOB_TEST_DEVICE_IDS = / { print $2; exit }' | rg -q '^[[:xdigit:]]{32}$'
-  printf '%s\n' "$staging_build_settings" | awk -F ' = ' '/ PIMPOPOM_OWNER_DEVICE_IDFV_SHA256 = / { print $2; exit }' | rg -q '^[[:xdigit:]]{64}$'
+  printf '%s\n' "$staging_build_settings" | awk -F ' = ' '/ PIMPOPOM_OWNER_DEVICE_IDFV_SHA256S = / { print $2; exit }' | rg -q '^[[:xdigit:]]{64}(,[[:xdigit:]]{64}){0,3}$'
 else
   printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADS_MODE = demo'
 fi

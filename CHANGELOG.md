@@ -6,7 +6,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Added
 
-- App-owned Google Mobile Ads 13.6.0 and UMP 3.1.0 adapters with authoritative server ad-free gating, required Privacy choices, fixed 320×50 menu/results banners, an empty stable active-game host, and a persistent deduplicated ten-completion Arcade/Zen interstitial cadence.
+- App-owned Google Mobile Ads 13.6.0 and UMP 3.1.0 adapters with authoritative server ad-free gating, required Privacy choices, fixed 320×50 menu/gameplay/results banners, stable active-game geometry, and a persistent deduplicated three-completion Arcade/Zen interstitial cadence.
 - Test-safe Debug/Staging/Owner Ads QA/Release configuration guards, current Google SKAdNetwork registration, required-reason privacy declarations, zero-network ad fakes, and deterministic consent/banner/interstitial coverage.
 - Separate native iOS repository under the PimPoPom product name.
 - Initial migration, architecture, gameplay, API, monetization/privacy, testing, release, and asset-provenance documentation.
@@ -44,6 +44,13 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 - Secure in-app account deletion requiring recent Google authentication and the exact confirmation phrase, with strict response validation before local session removal.
 
 ### Changed
+
+- Enabled the fixed banner inside the already separated gameplay footer for ad-supported runs, while keeping every ad surface absent for ad-free players, and reduced successful leaderboard-save feedback from a card to one compact Results line.
+- Unaffordable owned-account theme/pet taps now open Buy Coins directly, and redundant shop instruction, coin-shortfall, and newly-purchased-pet status copy no longer consumes shop space.
+
+- Corrected TestFlight owner-ad routing by allowing the distinct cable-install and TestFlight-install IDFV fingerprints, while keeping raw UUIDs out of Git/runtime metadata and preserving Google demo-unit fallback for every other device.
+- Reduced interstitial eligibility from every ten completed Arcade/Zen finals to every three, with a fresh versioned counter and the existing no-fill, deduplication, and ad-free safeguards.
+- Added border-only blue Leaderboard, green Profile, and 85%-white Settings accents to the main menu without recoloring their icons or labels.
 
 - Replaced the disc-based internal app-icon candidate with a mask-safe stacked `Pim` / `Po` / `Pom` wordmark using the live logo gradients, a generated luminous backdrop, and a deterministic exact-text export path.
 - Promoted the glow treatment to the default app icon and removed the black-outline candidate from the bundled icon choices while retaining its source for provenance.
