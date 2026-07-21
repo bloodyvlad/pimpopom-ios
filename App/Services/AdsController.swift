@@ -14,6 +14,13 @@ enum AdsLifecycleState: Equatable, Sendable {
 
 @MainActor
 final class AdsController: ObservableObject {
+    private enum ConsentRefreshState {
+        case notStarted
+        case requesting
+        case complete
+        case failed
+    }
+
     @Published private(set) var lifecycleState: AdsLifecycleState
     @Published private(set) var bannerState = BannerAdState.unavailable
     @Published private(set) var privacyOptionsRequirement = PrivacyOptionsRequirement.unknown
@@ -43,8 +50,10 @@ final class AdsController: ObservableObject {
     private let progressStore: any InterstitialProgressStoring
     private let configurationProblems: [String]
     private var hasBootstrapped = false
-    private var eligibilityGeneration = 0
     private var eligibilityFlowInFlight = false
+    private var consentRefreshState = ConsentRefreshState.notStarted
+    private var hasConfiguredAds = false
+    private var adsStartInFlight = false
     private var attemptedResultIDs: Set<UUID> = []
     private var presentationInFlight = false
     private let logger = Logger(
@@ -100,12 +109,15 @@ final class AdsController: ObservableObject {
             return
         }
         hasBootstrapped = true
-        await applySession(session, forceEligibilityFlow: true)
+        await applySession(session)
+
+        guard configuration.isEnabled, configurationProblems.isEmpty else { return }
+        await runEligibilityFlow()
     }
 
     func updateSession(_ session: SessionResponse?) async {
         guard hasBootstrapped else { return }
-        await applySession(session, forceEligibilityFlow: false)
+        await applySession(session)
     }
 
     func setApplicationActive(_ isActive: Bool) {
@@ -116,7 +128,7 @@ final class AdsController: ObservableObject {
     /// The caller invokes this once after initial bootstrap and on foreground.
     func retryEligibilityIfNeeded() async {
         guard hasBootstrapped,
-            lifecycleState == .failed,
+            case .failed = consentRefreshState,
             accountResolution == .adsAllowed,
             configuration.isEnabled,
             configurationProblems.isEmpty,
@@ -173,29 +185,19 @@ final class AdsController: ObservableObject {
 
         do {
             let snapshot = try await consentService.presentPrivacyOptions()
+            consentRefreshState = .complete
             applyConsentSnapshot(snapshot)
-            if snapshot.canRequestAds {
-                startAdsIfNeeded()
-            } else {
-                deactivateAds(state: .consentBlocked, clearCadence: false)
-            }
+            await reconcileEligibility()
         } catch {
             let snapshot = consentService.currentSnapshot
+            consentRefreshState = .failed
             applyConsentSnapshot(snapshot)
             statusMessage = "Privacy choices are unavailable right now. Please try again."
-            if snapshot.canRequestAds {
-                startAdsIfNeeded()
-            } else {
-                deactivateAds(state: .failed, clearCadence: false)
-            }
+            await reconcileEligibility()
         }
     }
 
-    private func applySession(
-        _ session: SessionResponse?,
-        forceEligibilityFlow: Bool
-    ) async {
-        let previous = accountResolution
+    private func applySession(_ session: SessionResponse?) async {
         let next = AdAccountResolution.resolve(session)
         accountResolution = next
         logger.notice("Ad account resolution: \(self.accountLabel(next), privacy: .public)")
@@ -206,47 +208,29 @@ final class AdsController: ObservableObject {
             return
         }
 
-        switch next {
-        case .unresolved:
-            deactivateAds(state: .waitingForAccount, clearCadence: false)
-        case .adFree:
-            deactivateAds(state: .disabled, clearCadence: true)
-        case .adsAllowed:
-            guard forceEligibilityFlow || previous != .adsAllowed else { return }
-            await runEligibilityFlow()
-        }
+        await reconcileEligibility()
     }
 
     private func runEligibilityFlow() async {
         guard !eligibilityFlowInFlight else { return }
         eligibilityFlowInFlight = true
         defer { eligibilityFlowInFlight = false }
-        eligibilityGeneration += 1
-        let generation = eligibilityGeneration
+        consentRefreshState = .requesting
         lifecycleState = .requestingConsent
         statusMessage = nil
-        adsService.configure(configuration)
 
         do {
             let snapshot = try await consentService.requestConsent()
-            guard generation == eligibilityGeneration,
-                accountResolution == .adsAllowed
-            else { return }
+            consentRefreshState = .complete
             applyConsentSnapshot(snapshot)
             logger.notice(
                 "UMP eligibility complete; can request ads: \(snapshot.canRequestAds, privacy: .public)"
             )
             consoleDiagnostic("ump canRequestAds=\(snapshot.canRequestAds)")
-            if snapshot.canRequestAds {
-                startAdsIfNeeded()
-            } else {
-                deactivateAds(state: .consentBlocked, clearCadence: false)
-            }
+            await reconcileEligibility()
         } catch {
-            guard generation == eligibilityGeneration,
-                accountResolution == .adsAllowed
-            else { return }
             let snapshot = consentService.currentSnapshot
+            consentRefreshState = .failed
             applyConsentSnapshot(snapshot)
             let nsError = error as NSError
             logger.error(
@@ -256,11 +240,7 @@ final class AdsController: ObservableObject {
                 "ump failed domain=\(nsError.domain) code=\(nsError.code) storedCanRequestAds=\(snapshot.canRequestAds)"
             )
             statusMessage = "Ad privacy information could not be refreshed."
-            if snapshot.canRequestAds {
-                startAdsIfNeeded()
-            } else {
-                deactivateAds(state: .failed, clearCadence: false)
-            }
+            await reconcileEligibility()
         }
     }
 
@@ -268,9 +248,63 @@ final class AdsController: ObservableObject {
         privacyOptionsRequirement = snapshot.privacyOptionsRequirement
     }
 
-    private func startAdsIfNeeded() {
-        guard accountResolution == .adsAllowed, configuration.isEnabled else { return }
-        adsService.start()
+    private func configureAdsIfNeeded() {
+        guard !hasConfiguredAds else { return }
+        adsService.configure(configuration)
+        hasConfiguredAds = true
+    }
+
+    private func reconcileEligibility() async {
+        guard configuration.isEnabled, configurationProblems.isEmpty else {
+            deactivateAds(state: .disabled, clearCadence: accountResolution == .adFree)
+            return
+        }
+
+        switch accountResolution {
+        case .unresolved:
+            deactivateAds(state: .waitingForAccount, clearCadence: false)
+        case .adFree:
+            deactivateAds(state: .disabled, clearCadence: true)
+        case .adsAllowed:
+            switch consentRefreshState {
+            case .notStarted, .requesting:
+                deactivateAds(state: .requestingConsent, clearCadence: false)
+            case .complete:
+                if consentService.currentSnapshot.canRequestAds {
+                    await startAdsIfNeeded()
+                } else {
+                    deactivateAds(state: .consentBlocked, clearCadence: false)
+                }
+            case .failed:
+                if consentService.currentSnapshot.canRequestAds {
+                    await startAdsIfNeeded()
+                } else {
+                    deactivateAds(state: .failed, clearCadence: false)
+                }
+            }
+        }
+    }
+
+    private func startAdsIfNeeded() async {
+        guard accountResolution == .adsAllowed,
+            configuration.isEnabled,
+            consentService.currentSnapshot.canRequestAds,
+            lifecycleState != .ready,
+            !adsStartInFlight
+        else { return }
+        adsStartInFlight = true
+        defer { adsStartInFlight = false }
+        configureAdsIfNeeded()
+        await adsService.start()
+        guard accountResolution == .adsAllowed,
+            consentService.currentSnapshot.canRequestAds
+        else {
+            deactivateAds(
+                state: accountResolution == .adFree ? .disabled : .waitingForAccount,
+                clearCadence: accountResolution == .adFree
+            )
+            return
+        }
         lifecycleState = .ready
         adsService.preloadInterstitial()
     }
@@ -279,7 +313,6 @@ final class AdsController: ObservableObject {
         state: AdsLifecycleState,
         clearCadence: Bool
     ) {
-        eligibilityGeneration += 1
         adsService.destroyAll()
         bannerState = .unavailable
         lifecycleState = state

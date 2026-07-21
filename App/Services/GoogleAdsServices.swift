@@ -5,6 +5,8 @@ import UserMessagingPlatform
 
 @MainActor
 final class GoogleConsentService: ConsentServing {
+    private var didApplyDebugReset = false
+
     var currentSnapshot: ConsentSnapshot {
         ConsentSnapshot(
             canRequestAds: ConsentInformation.shared.canRequestAds,
@@ -14,6 +16,19 @@ final class GoogleConsentService: ConsentServing {
 
     func requestConsent() async throws -> ConsentSnapshot {
         let parameters = RequestParameters()
+        #if DEBUG
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("--ump-debug-reset"), !didApplyDebugReset {
+                ConsentInformation.shared.reset()
+                didApplyDebugReset = true
+            }
+            if arguments.contains("--ump-debug-eea") {
+                let debugSettings = DebugSettings()
+                debugSettings.geography = .EEA
+                parameters.debugSettings = debugSettings
+            }
+        #endif
+        consoleDiagnostic("requesting consent information")
         try await withCheckedThrowingContinuation {
             (continuation: CheckedContinuation<Void, Error>) in
             ConsentInformation.shared.requestConsentInfoUpdate(with: parameters) { error in
@@ -24,7 +39,9 @@ final class GoogleConsentService: ConsentServing {
                 }
             }
         }
+        consoleDiagnostic("consent information updated; \(statusDescription)")
         try await ConsentForm.loadAndPresentIfRequired(from: nil)
+        consoleDiagnostic("required form completed; \(statusDescription)")
         return currentSnapshot
     }
 
@@ -44,6 +61,21 @@ final class GoogleConsentService: ConsentServing {
         @unknown default:
             .unknown
         }
+    }
+
+    private var statusDescription: String {
+        let information = ConsentInformation.shared
+        return [
+            "status=\(information.consentStatus.rawValue)",
+            "form=\(information.formStatus.rawValue)",
+            "canRequestAds=\(information.canRequestAds)",
+            "privacy=\(information.privacyOptionsRequirementStatus.rawValue)",
+        ].joined(separator: " ")
+    }
+
+    private func consoleDiagnostic(_ message: String) {
+        guard ProcessInfo.processInfo.arguments.contains("--ad-diagnostics") else { return }
+        print("[PimPoPom UMP] \(message)")
     }
 }
 
@@ -99,12 +131,15 @@ final class GoogleAdsService: NSObject, AdsServing {
         )
     }
 
-    func start() {
+    func start() async {
         guard !hasStarted else { return }
         hasStarted = true
         if !hasInitializedSDK {
             hasInitializedSDK = true
-            MobileAds.shared.start()
+            let status = await MobileAds.shared.start()
+            consoleDiagnostic(
+                "sdk initialized adapters=\(status.adapterStatusesByClassName.count)"
+            )
         }
     }
 
@@ -436,6 +471,7 @@ final class FakeAdsService: AdsServing {
     var bannerOutcome = BannerAdState.loaded
     var interstitialAvailable = true
     var beginsPresentation = true
+    var startDelay: Duration?
     private(set) var configureCount = 0
     private(set) var startCount = 0
     private(set) var bannerAttachCount = 0
@@ -462,9 +498,12 @@ final class FakeAdsService: AdsServing {
         configured = true
     }
 
-    func start() {
+    func start() async {
         guard configured else { return }
         startCount += 1
+        if let startDelay {
+            try? await Task.sleep(for: startDelay)
+        }
         started = true
     }
 

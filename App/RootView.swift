@@ -152,8 +152,12 @@ struct RootView: View {
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
             audio.playLaunchSting()
+            // UMP belongs to the application launch, not to an identity event.
+            // Refresh/present consent before restoring or changing the player session;
+            // AdsController still waits for authoritative ad-free resolution before GMA starts.
+            await ads.bootstrap(session: nil)
             await restoreSession()
-            await ads.bootstrap(session: backend.sessionState)
+            await ads.updateSession(backend.sessionState)
             await ads.retryEligibilityIfNeeded()
             await purchases.loadProducts()
             await purchases.reconcileOutstandingTransactions()

@@ -192,18 +192,113 @@ final class AdsControllerTests: XCTestCase {
         )
     }
 
-    func testUnknownAndAdFreeStartupMakeZeroConsentOrAdRequests() async {
-        for session in [nil, Self.authenticatedSession(adFree: true)] {
-            let fixture = Self.makeFixture()
-            await fixture.controller.bootstrap(session: session)
+    func testLaunchRequestsConsentBeforeAccountResolutionWithoutStartingAds() async {
+        let fixture = Self.makeFixture()
 
-            XCTAssertEqual(fixture.consent.requestCount, 0)
-            XCTAssertEqual(fixture.ads.configureCount, 0)
-            XCTAssertEqual(fixture.ads.startCount, 0)
-            XCTAssertEqual(fixture.ads.bannerAttachCount, 0)
-            XCTAssertEqual(fixture.ads.interstitialPreloadCount, 0)
-            XCTAssertFalse(fixture.controller.reservesBannerSlot)
-        }
+        await fixture.controller.bootstrap(session: nil)
+
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.configureCount, 0)
+        XCTAssertEqual(fixture.ads.startCount, 0)
+        XCTAssertEqual(fixture.ads.bannerAttachCount, 0)
+        XCTAssertEqual(fixture.ads.interstitialPreloadCount, 0)
+        XCTAssertEqual(fixture.controller.accountResolution, .unresolved)
+        XCTAssertEqual(fixture.controller.lifecycleState, .waitingForAccount)
+        XCTAssertFalse(fixture.controller.reservesBannerSlot)
+    }
+
+    func testAdFreeStartupStillRefreshesConsentButNeverStartsAds() async {
+        let fixture = Self.makeFixture()
+
+        await fixture.controller.bootstrap(session: Self.authenticatedSession(adFree: true))
+
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.configureCount, 0)
+        XCTAssertEqual(fixture.ads.startCount, 0)
+        XCTAssertEqual(fixture.ads.bannerAttachCount, 0)
+        XCTAssertEqual(fixture.ads.interstitialPreloadCount, 0)
+        XCTAssertEqual(fixture.controller.accountResolution, .adFree)
+        XCTAssertEqual(fixture.controller.lifecycleState, .disabled)
+        XCTAssertFalse(fixture.controller.reservesBannerSlot)
+    }
+
+    func testSessionResolutionAfterLaunchUsesConsentWithoutRequestingAgain() async {
+        let fixture = Self.makeFixture()
+        await fixture.controller.bootstrap(session: nil)
+
+        await fixture.controller.updateSession(Self.anonymousSession)
+        await fixture.controller.updateSession(Self.authenticatedSession(adFree: false))
+
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.configureCount, 1)
+        XCTAssertEqual(fixture.ads.startCount, 1)
+        XCTAssertEqual(fixture.ads.interstitialPreloadCount, 1)
+        XCTAssertEqual(fixture.controller.lifecycleState, .ready)
+        XCTAssertTrue(fixture.controller.reservesBannerSlot)
+    }
+
+    func testConcurrentSessionUpdatesWaitForOneAdsInitialization() async {
+        let fixture = Self.makeFixture()
+        fixture.ads.startDelay = .milliseconds(50)
+        await fixture.controller.bootstrap(session: nil)
+
+        async let firstUpdate: Void = fixture.controller.updateSession(Self.anonymousSession)
+        await Task.yield()
+        async let duplicateUpdate: Void = fixture.controller.updateSession(
+            Self.anonymousSession
+        )
+        _ = await (firstUpdate, duplicateUpdate)
+
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.startCount, 1)
+        XCTAssertEqual(fixture.ads.interstitialPreloadCount, 1)
+        XCTAssertEqual(fixture.controller.lifecycleState, .ready)
+    }
+
+    func testBlockedLaunchConsentStaysBlockedWhenAccountResolves() async {
+        let fixture = Self.makeFixture(
+            consentSnapshot: ConsentSnapshot(
+                canRequestAds: false,
+                privacyOptionsRequirement: .required
+            )
+        )
+        await fixture.controller.bootstrap(session: nil)
+
+        await fixture.controller.updateSession(Self.anonymousSession)
+
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.configureCount, 0)
+        XCTAssertEqual(fixture.ads.startCount, 0)
+        XCTAssertEqual(fixture.controller.lifecycleState, .consentBlocked)
+        XCTAssertTrue(fixture.controller.isPrivacyChoicesVisible)
+    }
+
+    func testFailedLaunchConsentRetriesOnlyAfterAccountAllowsAds() async {
+        let fixture = Self.makeFixture(
+            consentSnapshot: ConsentSnapshot(
+                canRequestAds: false,
+                privacyOptionsRequirement: .unknown
+            )
+        )
+        fixture.consent.requestError = FakeAdsError.requestedFailure
+        await fixture.controller.bootstrap(session: nil)
+
+        await fixture.controller.retryEligibilityIfNeeded()
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.startCount, 0)
+
+        await fixture.controller.updateSession(Self.anonymousSession)
+        fixture.consent.requestError = nil
+        fixture.consent.snapshot = ConsentSnapshot(
+            canRequestAds: true,
+            privacyOptionsRequirement: .notRequired
+        )
+        await fixture.controller.retryEligibilityIfNeeded()
+
+        XCTAssertEqual(fixture.consent.requestCount, 2)
+        XCTAssertEqual(fixture.ads.configureCount, 1)
+        XCTAssertEqual(fixture.ads.startCount, 1)
+        XCTAssertEqual(fixture.controller.lifecycleState, .ready)
     }
 
     func testConsentBlockedAndFailedWithoutStoredConsentNeverStartAds() async {
@@ -287,7 +382,7 @@ final class AdsControllerTests: XCTestCase {
         let adFree = Self.makeFixture()
         await adFree.controller.bootstrap(session: Self.authenticatedSession(adFree: true))
         await adFree.controller.retryEligibilityIfNeeded()
-        XCTAssertEqual(adFree.consent.requestCount, 0)
+        XCTAssertEqual(adFree.consent.requestCount, 1)
     }
 
     func testPrivacyChoicesPresentationRefreshesState() async {
@@ -332,10 +427,10 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertFalse(fixture.controller.reservesBannerSlot)
     }
 
-    func testAccountSwitchFromAdFreeRestartsConsentBeforeAds() async {
+    func testAccountSwitchFromAdFreeUsesLaunchConsentWithoutReplayingForm() async {
         let fixture = Self.makeFixture()
         await fixture.controller.bootstrap(session: Self.authenticatedSession(adFree: true))
-        XCTAssertEqual(fixture.consent.requestCount, 0)
+        XCTAssertEqual(fixture.consent.requestCount, 1)
 
         await fixture.controller.updateSession(Self.authenticatedSession(adFree: false))
 

@@ -342,7 +342,7 @@ protocol AdsServing: AnyObject {
     var onInterstitialPresentationEnded: (() -> Void)? { get set }
 
     func configure(_ configuration: AdsConfiguration)
-    func start()
+    func start() async
     func attachBanner(to container: UIView, availableWidth: CGFloat)
     func detachBanner(from container: UIView)
     func preloadInterstitial()

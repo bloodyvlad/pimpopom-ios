@@ -62,12 +62,14 @@ Current implementation fills eligible main-menu, active-gameplay, and terminal-r
 
 If Google Mobile Ads is selected:
 
-1. Request updated UMP consent information on every launch before any ad request.
+1. Request updated UMP consent information on every ads-enabled app launch before restoring or changing player identity and before any ad request. Login, logout, and provider-link events must consume the cached launch result rather than initiate or present UMP.
 2. Present required forms and expose Privacy Options when required.
 3. Load ads only when the SDK reports that ads may be requested.
 4. Do not initialize or preload live ads before consent/age treatment is ready.
 5. Put the required `GADApplicationIdentifier` and current `SKAdNetworkItems` in the accepted build configuration.
 6. For GMA ad requests, configure `ageRestrictedTreatment`/TFAT and max content rating before SDK initialization; its legacy TFCD/TFUA request properties are deprecated. Separately set UMP `RequestParameters.isTaggedForUnderAgeOfConsent` before the consent-information update when the accepted policy requires it—UMP still uses that property and does not forward the signal to GMA.
+
+The application and account gates are deliberately separate. UMP may refresh or present while the PHP session is unresolved, but GMA remains unconfigured and unstarted until UMP reports `canRequestAds` and the backend authoritatively resolves the profile as ad-supported. An ad-free resolution never suppresses the once-per-launch consent refresh already in progress, but it prevents all ad SDK startup and inventory. A valid blocked consent result is stable; only a transport/form failure is eligible for the bounded post-bootstrap/foreground retry. Debug-only `--ump-debug-eea` and `--ump-debug-reset` launch arguments support first-install testing on the named Simulator and are compiled out of non-Debug builds.
 
 ATT is separate from UMP/GDPR consent. Request ATT only if the final configuration performs cross-app/site tracking or uses IDFA. Contextual/nontracking advertising is the recommended starting point. No feature, reward, or purchase may depend on accepting ATT.
 
