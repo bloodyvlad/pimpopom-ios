@@ -2,6 +2,21 @@
 
 PimPoPom is the native iOS edition of a fast color-reaction game. **PimPoPom** is the product name in the app, App Store metadata, icons, audio branding, analytics, support material, and player-facing copy.
 
+## Built with Codex & GPT-5.6
+
+**PimPoPom was built with Codex and GPT-5.6 through a human-directed, agentic development workflow for the OpenAI Build Week Hackathon.** Codex helped turn an existing web/PHP game into a native iOS product; the owner directed the product, reviewed each iteration on real devices, and made the final design and release decisions.
+
+- **Visual asset generation:** generated and refined app icons, theme artwork and textures, promotional graphics, pet sprites, directional frames, animation-ready sprite sheets, and character animation behavior, while retaining source prompts, masters, provenance, and rollback assets.
+- **Music generation:** created original theme-specific menu and gameplay music, prepared seamless runtime loops, retained lossless masters, and integrated independent native music playback.
+- **Sound generation:** created themed tap-tone banks, the life-loss cue, and the original rising **Pim → Po → Pom** launch sting, then integrated and tested low-latency playback.
+- **Web-browser UI tests:** used browser automation to inspect the original game, exercise responsive states, compare behavior and layouts, capture visual evidence, and guide the native parity work.
+- **iOS Simulator tests:** generated the Xcode project, built Swift targets, ran deterministic core/unit/UI suites, and exercised the app across the iPhone SE (2022), iPhone 13 mini, and iPhone 13 Pro simulator profiles.
+- **Computer use:** operated Xcode and signed-in web consoles to configure and validate App Store Connect, TestFlight, Game Center, StoreKit, AdMob, and UMP consent flows.
+- **Automatic deployments:** prepared versioned release artifacts, performed configuration and privacy checks, uploaded TestFlight builds, and ran repeatable backend packaging, migration, deployment, and smoke-test workflows.
+- **Vercel and Hostinger MCP usage:** used the Vercel and Hostinger MCP integrations to inspect deployment state, deploy and verify the PHP/API runtime on Hostinger, validate live endpoints, and preserve the immutable Vercel deployment as the rollback generation.
+
+Codex also supported the Swift/SwiftUI/SpriteKit architecture, PHP API integration, StoreKit and advertising adapters, test generation, debugging, documentation, decision records, source/licence tracking, Git history, and release checklists. AI-generated output was reviewed, tested, and accepted through the same project gates as hand-written work.
+
 This repository is intentionally independent from the legacy web implementation. It now contains a playable native Arcade/Zen alpha, a pure Swift rules engine, SpriteKit rendering, SwiftUI app surfaces, and an internal integration with the existing Hostinger PHP service.
 
 ## Migration baseline
