@@ -215,11 +215,12 @@ Exit: StoreKit sandbox, server notification, refund, restore, duplicate, consent
 
 ## Phase 9 — Add native platform features selectively
 
-1. **Implemented:** add non-blocking Game Center authentication after local play is already available without it; expose optional status/retry and keep every PimPoPom service independent.
+1. **Implemented:** add non-blocking, explicit Game Center authentication after local play is already available without it; expose optional status/retry and keep every PimPoPom service independent.
 2. **Selected/configured in App Store Connect:** use one permanent board, `com.otcsoftware.pimpopom.arcade.verified` / **Arcade**, as a high-to-low integer personal-best leaderboard.
-3. **Backend work remaining:** bind Apple-signed runtime identity to an authenticated PimPoPom player, then submit only the current protocol-verified all-time best through an idempotent Hostinger outbox and Apple's server API. Retry mirror failures independently and coalesce older work so it cannot lower the board.
-4. Do not add client score submission. Keep the board empty until the server binding/outbox, prerelease flag, and correction policy pass integration tests.
-5. Add share sheets, deep links, notifications, widgets, or Live Activities only through separate product decisions; none are migration requirements.
+3. **Implemented in native and PHP:** require a recent Google/Apple PimPoPom profile, persistent GameKit scoped IDs, a one-use PHP challenge, fresh signature material, explicit `publish: true`, one-to-one `teamPlayerID`/`gamePlayerID` binding, and server-held publication consent. Surface linked, queued, ready, held, conflict, reset-needed, and reauthentication states.
+4. **Implemented in PHP:** publish only the protocol-verified Arcade personal best and five authoritative achievements through an idempotent, environment-aware outbox. Retry independently, coalesce older work, and never lower the board. The native client never calls GameKit score/achievement submission APIs.
+5. **Physical TestFlight acceptance remaining:** verify live persistent scoped IDs, challenge/link/backfill, later score and achievement delivery, Turn Off, conflict handling, and Apple propagation delay.
+6. Add share sheets, deep links, notifications, widgets, or Live Activities only through separate product decisions; none are migration requirements.
 
 Exit: Game Center failure or sign-out cannot block gameplay, server ranking, purchases, or account access.
 

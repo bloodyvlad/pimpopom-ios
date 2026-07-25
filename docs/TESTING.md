@@ -2,7 +2,15 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
-## Current alpha evidence — 2026-07-19
+## Current build-9 candidate evidence — 2026-07-25
+
+- `Scripts/check.sh` passed project regeneration, strict Swift formatting, asset/source/licence hashes, Info/privacy/configuration guards, 29 deterministic core tests, the generic Swift 6 Simulator build, and 204 native unit/UI tests on the named iPhone SE (3rd generation, 2022) Simulator with iOS 26.5. Xcode reported zero failures, skips, or expected failures: 233 checks including the core package.
+- A focused 78-test slice covers the supplied exact 50×50 Pixel star, GameKit persistent-scoped-ID refusal, challenge-after-persistence ordering, exact `gamePlayerId`/`publish: true` proof contract, nullable/additive status decoding, publication disable, conflict/reauthentication state resolution, and retained session/economy state.
+- The full UI matrix includes the deterministic screenshot fixture and autoplay interior-tap paths in addition to the existing gameplay, identity, StoreKit, ads/UMP, cosmetics, profile, leaderboard, achievement, and compact-layout paths. The fixture remains Debug/`--uitesting` only and performs no production mutation.
+- A live signed-out Hostinger read on 2026-07-25 returned Apple login enabled plus `serverPublicationAvailable: true`, `preReleased: true`, and the complete unlinked Game Center status shape expected by build 9. This proves public response compatibility only; it does not exercise an authenticated challenge, GameKit signature, binding, PHP outbox, or Apple delivery.
+- Still required on TestFlight/physical hardware: persistent scoped-ID confirmation, authenticated link/backfill, later Arcade best delivery, five achievement deliveries, Turn Off, account conflict, held/reset-needed support states, Apple propagation delay, and the wider physical/ad/StoreKit/accessibility/audio matrix below.
+
+## Retained alpha evidence — 2026-07-19
 
 - **Unit-tested:** 29 pure Swift checks cover scoring/rounding, phase/grid boundaries, lives/recovery, proof timing/order, deadline equality, multiplier overflow/reset/5× accounting, decoy overlap/expiry/reservation/ignored opportunities, reset behavior, and Zen retention/cadence/manual results. Native app tests additionally cover cosmetics and API contracts, audio lifecycle, preferences, gameplay presentation, server-authoritative Achievements, explicit Game Center opt-in/persistence/handler teardown, exact five-product StoreKit configuration and recovery, account-scoped paid value, strict account deletion, ad environment guards, authoritative account gating, UMP outcomes, teardown, banner states, persistent 2/3/4 cadence, deduplication, no-fill retry, presentation-began reset, and the exact 667-point compact-menu cutoff.
 - **Simulator-tested:** all 28 XCUITest paths pass on the named iPhone SE (3rd generation, 2022) Simulator with iOS 26.5 at responsive-layout implementation commit `f4f9be4`. Xcode reported 160 passed tests—132 native unit and 28 UI—with zero failures, zero skips, and zero expected failures; including the separate core package, the full check exercised 189 tests. Zero-network fake paths verify an exact centered 320×50 menu/results creative, compact SE header control, taller-screen bottom-control branch, authoritative ad-free removal of the control and every banner container, absent disabled/ad-free gameplay hosts, stable eligible-run spacing, pushed Settings lifecycle, retained 351-point board geometry, and the required accessible Privacy choices route. The focused taller-menu path also passed on an iPhone 13 mini Simulator; the complete 13 mini/13 Pro matrix was not rerun. Existing paths cover StoreKit, Profile/deletion, Leaderboard/gameplay/onboarding/Achievements, Game Center isolation, Disco, gap handling, Zen, pets, audio, themes, and compact layout. Fixtures are local and prevent Google requests or production mutations.
@@ -116,6 +124,41 @@ Cover every screen and important state at minimum/maximum Dynamic Type, VoiceOve
 - minimum 44×44-point controls and logical VoiceOver order.
 
 Snapshot tests are regression evidence, not a substitute for interactive device inspection.
+
+### App Store screenshot fixture
+
+Debug builds expose an offline screenshot fixture only when both `--uitesting` and
+`--screenshot-mode` are present. It can open the menu, Theme Shop, Pet Shop,
+Leaderboard, signed-out Profile, Achievements, Arcade, or Zen with an owned
+theme/pet catalog and an optional selected pet. Leaderboard names and results are
+synthetic, distinct, and used only for marketing/test captures.
+`--screenshot-autoplay` follows the live target through the normal gameplay input
+path at a seeded random interior point rather than the cell center, including
+pet-facing updates. It uses seeded reaction delays of 190–280 ms for 1×1,
+270–350 ms for 2×2, and 310–500 ms for 4×4. On a menu fixture with a selected pet
+it also alternates synthetic left/right taps so the capture shows the same
+directional sprite behavior as a real menu tap and does not fall asleep.
+
+Run the complete screenshot and RocketSim video sequence against an already-built
+Debug simulator app:
+
+```sh
+Scripts/capture-screenshot-fixtures.sh \
+  SIMULATOR_UDID \
+  6.9-inch \
+  /absolute/output/directory
+```
+
+The script retains multiple gameplay candidates because the target, reaction
+feedback, and pet frame animate independently. Visually select the strongest
+frame instead of treating the first timed capture as release truth. RocketSim
+records several short 60 fps MP4 clips instead of one long capture because its
+CLI transports the finalized media through a bounded IPC message. The script
+opts this fixture into app audio; ordinary UI tests remain silent. The RocketSim
+CLI currently has no separate audio switch, so audio availability is verified
+from the resulting media stream rather than assumed from the command line.
+Fixture activation is disabled in non-Debug builds and does not alter production
+accounts, wallets, scores, purchases, consent, or advertising.
 
 ## Physical device matrix
 

@@ -42,6 +42,7 @@ final class BackendClientTests: XCTestCase {
         XCTAssertNil(legacy.storeKit)
         XCTAssertNil(legacy.appleSignIn)
         XCTAssertNil(legacy.identityBindings)
+        XCTAssertNil(legacy.gameCenter)
 
         let current = try JSONDecoder().decode(
             SessionResponse.self,
@@ -52,6 +53,40 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(current.storeKit?.boundToken, Self.storeAccountToken)
         XCTAssertEqual(current.appleSignIn, Self.appleConfiguration)
         XCTAssertEqual(current.identityBindings, Self.googleBindings)
+        XCTAssertEqual(current.gameCenter, Self.gameCenterUnlinkedStatus)
+    }
+
+    func testSessionDecodesNullableGameCenterLaneAndUnknownFields() throws {
+        let data = Data(
+            """
+            {
+              "authenticated": false,
+              "csrfToken": "csrf",
+              "googleClientId": "server-client.apps.googleusercontent.com",
+              "season": {"id":"season-1","name":"Season 1"},
+              "profile": null,
+              "identityBindings": null,
+              "gameCenter": {
+                "serverPublicationAvailable": true,
+                "preReleased": null,
+                "identityLinked": false,
+                "publicationEnabled": false,
+                "mirrorReady": false,
+                "pendingJobs": 0,
+                "heldJobs": 0,
+                "needsReset": false,
+                "futureField": {"ignored": true}
+              },
+              "ranks": null,
+              "futureTopLevel": true
+            }
+            """.utf8
+        )
+        let response = try JSONDecoder().decode(SessionResponse.self, from: data)
+
+        XCTAssertEqual(response.gameCenter?.serverPublicationAvailable, true)
+        XCTAssertNil(response.gameCenter?.preReleased)
+        XCTAssertEqual(response.gameCenter?.identityLinked, false)
     }
 
     func testStoreKitCreditUsesExactNativeContractAndUpdatesAuthoritativeSession() async throws {
@@ -600,6 +635,7 @@ final class BackendClientTests: XCTestCase {
                 apple: true,
                 gameCenter: false
             ),
+            gameCenter: Self.gameCenterUnlinkedStatus,
             wallet: Self.initialStoreWallet,
             adFree: true,
             storeKit: StoreKitBindingResponse(
@@ -625,7 +661,18 @@ final class BackendClientTests: XCTestCase {
                 apple: true,
                 gameCenter: true
             ),
-            gameCenter: GameCenterLinkResult(linked: true, newlyLinked: true)
+            gameCenter: GameCenterServerStatus(
+                serverPublicationAvailable: true,
+                preReleased: true,
+                identityLinked: true,
+                publicationEnabled: true,
+                mirrorReady: true,
+                pendingJobs: 6,
+                heldJobs: 0,
+                needsReset: false,
+                newlyLinked: true,
+                gamePlayerIdNewlyBound: true
+            )
         )
         let appleOnlyData = try JSONEncoder().encode(appleOnlySession)
         let googleLinkedData = try JSONEncoder().encode(googleLinkedSession)
@@ -661,6 +708,7 @@ final class BackendClientTests: XCTestCase {
             challenge: issued,
             verification: GameCenterIdentityVerification(
                 signedTeamPlayerID: "T:team-player",
+                gamePlayerID: "G:game-player",
                 bundleIdentifier: "com.otcsoftware.pimpopom",
                 publicKeyURL: URL(
                     string: "https://static.gc.apple.com/public-key/test.cer"
@@ -702,6 +750,8 @@ final class BackendClientTests: XCTestCase {
         )
         XCTAssertEqual(payload["challengeId"] as? String, "gc-challenge")
         XCTAssertEqual(payload["teamPlayerId"] as? String, "T:team-player")
+        XCTAssertEqual(payload["gamePlayerId"] as? String, "G:game-player")
+        XCTAssertEqual(payload["publish"] as? Bool, true)
         XCTAssertEqual(
             payload["publicKeyUrl"] as? String,
             "https://static.gc.apple.com/public-key/test.cer"
@@ -712,7 +762,16 @@ final class BackendClientTests: XCTestCase {
             (payload["timestamp"] as? NSNumber)?.uint64Value,
             1_784_556_123_456
         )
+        XCTAssertEqual(
+            Set(payload.keys),
+            [
+                "challengeId", "teamPlayerId", "gamePlayerId", "publish",
+                "publicKeyUrl", "signature", "salt", "timestamp",
+            ]
+        )
         XCTAssertEqual(backend.sessionState?.identityBindings?.gameCenter, true)
+        XCTAssertEqual(backend.sessionState?.gameCenter?.mirrorReady, true)
+        XCTAssertEqual(backend.sessionState?.gameCenter?.pendingJobs, 6)
         XCTAssertEqual(backend.sessionState?.appleSignIn, Self.appleConfiguration)
         XCTAssertEqual(backend.sessionState?.wallet, Self.initialStoreWallet)
         XCTAssertEqual(backend.sessionState?.adFree, true)
@@ -721,6 +780,87 @@ final class BackendClientTests: XCTestCase {
             Self.storeAccountToken
         )
         XCTAssertEqual(backend.sessionState?.ranks, googleLinkedSession.ranks)
+    }
+
+    func testGameCenterPublicationDisableUsesExactContractAndRetainsIdentity() async throws {
+        let recorder = RequestRecorder()
+        let readyStatus = GameCenterServerStatus(
+            serverPublicationAvailable: true,
+            preReleased: true,
+            identityLinked: true,
+            publicationEnabled: true,
+            mirrorReady: true,
+            pendingJobs: 2,
+            heldJobs: 0,
+            needsReset: false
+        )
+        let readySession = SessionResponse(
+            authenticated: true,
+            csrfToken: "csrf-game-center",
+            googleClientId: Self.signedInSession.googleClientId,
+            appleSignIn: Self.appleConfiguration,
+            season: Self.signedInSession.season,
+            profile: Self.signedInSession.profile,
+            identityBindings: IdentityBindings(
+                google: true,
+                apple: false,
+                gameCenter: true
+            ),
+            gameCenter: readyStatus,
+            ranks: nil
+        )
+        let disabledStatus = GameCenterServerStatus(
+            serverPublicationAvailable: true,
+            preReleased: true,
+            identityLinked: true,
+            publicationEnabled: false,
+            mirrorReady: false,
+            pendingJobs: 0,
+            heldJobs: 0,
+            needsReset: false,
+            disabled: true
+        )
+        let response = GameCenterPublicationResponse(gameCenter: disabledStatus)
+        let sessionData = try JSONEncoder().encode(readySession)
+        let responseData = try JSONEncoder().encode(response)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", _):
+                return StubResponse(data: sessionData)
+            case ("/api/profile/game-center/publication", "DELETE"):
+                return StubResponse(data: responseData)
+            default:
+                return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let playerID = try XCTUnwrap(backend.profile?.id)
+
+        _ = try await backend.disableGameCenterPublication(
+            expectedPlayerID: playerID
+        )
+
+        let request = try XCTUnwrap(
+            recorder.requests(forPath: "/api/profile/game-center/publication").first
+        )
+        XCTAssertEqual(request.method, "DELETE")
+        XCTAssertEqual(
+            request.header(named: "X-SpeedyTapper-CSRF"),
+            "csrf-game-center"
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(
+                JSONSerialization.jsonObject(with: try XCTUnwrap(request.body))
+                    as? [String: Bool]
+            ),
+            ["confirm": true]
+        )
+        XCTAssertEqual(backend.sessionState?.identityBindings?.gameCenter, true)
+        XCTAssertEqual(backend.sessionState?.gameCenter, disabledStatus)
+        XCTAssertTrue(backend.isAuthenticated)
+        XCTAssertEqual(backend.profile?.id, playerID)
     }
 
     func testLightThemeUsesDarkPromptInkAndWhiteBoardInk() {
@@ -1640,6 +1780,17 @@ final class BackendClientTests: XCTestCase {
         gameCenter: false
     )
 
+    private static let gameCenterUnlinkedStatus = GameCenterServerStatus(
+        serverPublicationAvailable: true,
+        preReleased: true,
+        identityLinked: false,
+        publicationEnabled: false,
+        mirrorReady: false,
+        pendingJobs: 0,
+        heldJobs: 0,
+        needsReset: false
+    )
+
     private static let initialStoreWallet = StoreWalletSummary(
         earned: 75,
         purchased: 0,
@@ -1672,6 +1823,7 @@ final class BackendClientTests: XCTestCase {
             updatedAt: "2026-07-19T00:00:00Z"
         ),
         identityBindings: googleBindings,
+        gameCenter: gameCenterUnlinkedStatus,
         wallet: initialStoreWallet,
         adFree: false,
         storeKit: StoreKitBindingResponse(

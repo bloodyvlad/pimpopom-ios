@@ -85,9 +85,15 @@ struct AudioOutputPolicy: Equatable, Sendable {
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
         #if DEBUG
-            arguments.contains("--uitesting")
-                || environment["XCTestConfigurationFilePath"] != nil
+            let isRunningXCTest =
+                environment["XCTestConfigurationFilePath"] != nil
                 || environment["XCTestSessionIdentifier"] != nil
+            let allowsScreenshotRecordingAudio =
+                !isRunningXCTest
+                && ScreenshotFixture.resolve(arguments: arguments) != nil
+                && arguments.contains(ScreenshotFixture.recordAudioArgument)
+            return isRunningXCTest
+                || (arguments.contains("--uitesting") && !allowsScreenshotRecordingAudio)
         #else
             false
         #endif

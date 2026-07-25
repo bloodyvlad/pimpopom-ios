@@ -79,11 +79,14 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             uiTestSession = offline ? Self.selectedUITestSession : nil
         #endif
         if offline {
+            let arguments = ProcessInfo.processInfo.arguments
+            let exposesScreenshotAchievements =
+                ScreenshotFixture.resolve(arguments: arguments)?.destination == .achievements
             uiTestAchievements = Self.uiTestAchievementResponse(
                 session: uiTestSession,
-                exposesClaimableFixture: ProcessInfo.processInfo.arguments.contains(
-                    "--ui-test-achievements-profile"
-                )
+                exposesClaimableFixture:
+                    arguments.contains("--ui-test-achievements-profile")
+                    || exposesScreenshotAchievements
             )
         }
         if let urlSession {
@@ -206,7 +209,13 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
 
     func loadLeaderboard(mode: GameMode) async throws -> LeaderboardResponse {
         if isUITestOffline {
-            if ProcessInfo.processInfo.arguments.contains("--ui-test-leaderboard-fixture"),
+            let arguments = ProcessInfo.processInfo.arguments
+            let exposesScreenshotLeaderboard =
+                ScreenshotFixture.resolve(arguments: arguments)?.destination == .leaderboard
+            if exposesScreenshotLeaderboard, let profile = uiTestSession?.profile {
+                return Self.screenshotLeaderboard(mode: mode, playerName: profile.nickname)
+            }
+            if arguments.contains("--ui-test-leaderboard-fixture"),
                 let profile = uiTestSession?.profile
             {
                 return Self.uiTestLeaderboard(mode: mode, playerName: profile.nickname)
@@ -257,6 +266,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         replaceProfile(
             response.profile,
             identityBindings: response.identityBindings,
+            gameCenter: response.gameCenter,
             ranks: response.ranks
         )
         return response
@@ -633,6 +643,8 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         struct Body: Encodable {
             let challengeId: String
             let teamPlayerId: String
+            let gamePlayerId: String
+            let publish: Bool
             let publicKeyUrl: String
             let signature: String
             let salt: String
@@ -640,6 +652,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         }
 
         guard !verification.signedTeamPlayerID.isEmpty,
+            !verification.gamePlayerID.isEmpty,
             verification.publicKeyURL.scheme?.lowercased() == "https",
             !verification.signature.isEmpty,
             !verification.salt.isEmpty,
@@ -659,6 +672,8 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                     Body(
                         challengeId: challenge.challengeId,
                         teamPlayerId: verification.signedTeamPlayerID,
+                        gamePlayerId: verification.gamePlayerID,
+                        publish: true,
                         publicKeyUrl: verification.publicKeyURL.absoluteString,
                         signature: verification.signature.base64EncodedString(),
                         salt: verification.salt.base64EncodedString(),
@@ -670,14 +685,50 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             guard isCurrent(token),
                 response.profile.id == expectedPlayerID,
                 response.identityBindings.gameCenter,
-                response.gameCenter.linked
+                response.gameCenter.identityLinked,
+                response.gameCenter.publicationEnabled
             else {
                 throw Self.invalidGameCenterLinkResponseError
             }
             replaceProfile(
                 response.profile,
-                identityBindings: response.identityBindings
+                identityBindings: response.identityBindings,
+                gameCenter: response.gameCenter
             )
+            finishStateMutation(token)
+            return response
+        } catch {
+            finishStateMutation(token)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func disableGameCenterPublication(
+        expectedPlayerID: String
+    ) async throws -> GameCenterPublicationResponse {
+        struct Body: Encodable {
+            let confirm: Bool
+        }
+
+        let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
+        do {
+            guard token.playerID == expectedPlayerID else {
+                throw Self.accountAuthenticationMismatchError
+            }
+            let response: GameCenterPublicationResponse = try await request(
+                path: "/api/profile/game-center/publication",
+                method: "DELETE",
+                body: try encoder.encode(Body(confirm: true)),
+                csrf: csrfToken
+            )
+            guard isCurrent(token),
+                response.gameCenter.identityLinked,
+                !response.gameCenter.publicationEnabled
+            else {
+                throw Self.invalidGameCenterLinkResponseError
+            }
+            replaceGameCenterStatus(response.gameCenter)
             finishStateMutation(token)
             return response
         } catch {
@@ -780,6 +831,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             replaceProfile(
                 response.profile,
                 identityBindings: response.identityBindings,
+                gameCenter: response.gameCenter,
                 ranks: response.ranks
             )
             finishStateMutation(token)
@@ -1173,6 +1225,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
     private func replaceProfile(
         _ profile: PlayerProfile,
         identityBindings: IdentityBindings? = nil,
+        gameCenter: GameCenterServerStatus? = nil,
         ranks: [String: RankInfo]? = nil
     ) {
         guard let sessionState else { return }
@@ -1188,12 +1241,34 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             season: sessionState.season,
             profile: profile,
             identityBindings: identityBindings ?? sessionState.identityBindings,
+            gameCenter: gameCenter ?? sessionState.gameCenter,
             wallet: wallet,
             adFree: sessionState.adFree,
             storeKit: sessionState.storeKit,
             ranks: ranks ?? sessionState.ranks
         )
         self.sessionState = updatedSession
+        if isUITestOffline { uiTestSession = updatedSession }
+    }
+
+    private func replaceGameCenterStatus(_ gameCenter: GameCenterServerStatus) {
+        guard let sessionState else { return }
+        let updatedSession = SessionResponse(
+            authenticated: sessionState.authenticated,
+            csrfToken: sessionState.csrfToken,
+            googleClientId: sessionState.googleClientId,
+            appleSignIn: sessionState.appleSignIn,
+            season: sessionState.season,
+            profile: sessionState.profile,
+            identityBindings: sessionState.identityBindings,
+            gameCenter: gameCenter,
+            wallet: sessionState.wallet,
+            adFree: sessionState.adFree,
+            storeKit: sessionState.storeKit,
+            ranks: sessionState.ranks
+        )
+        self.sessionState = updatedSession
+        lastError = nil
         if isUITestOffline { uiTestSession = updatedSession }
     }
 
@@ -1210,6 +1285,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             season: sessionState.season,
             profile: replacingCoins(in: profile, with: response.wallet.total),
             identityBindings: sessionState.identityBindings,
+            gameCenter: sessionState.gameCenter,
             wallet: response.wallet,
             adFree: response.adFree,
             storeKit: sessionState.storeKit,
@@ -1367,7 +1443,14 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
 
     private static var selectedUITestSession: SessionResponse {
         #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--ui-test-ad-free") {
+            if let screenshotFixture = ScreenshotFixture.resolve(
+                arguments: ProcessInfo.processInfo.arguments
+            ) {
+                if screenshotFixture.destination == .profile {
+                    return uiTestSignedOutSession
+                }
+                return uiTestScreenshotSession(fixture: screenshotFixture)
+            } else if ProcessInfo.processInfo.arguments.contains("--ui-test-ad-free") {
                 return uiTestAdFreeSession
             } else if ProcessInfo.processInfo.arguments.contains("--ui-test-storekit-profile") {
                 return uiTestStoreKitSession
@@ -1383,6 +1466,61 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             return uiTestSignedOutSession
         }
     }
+
+    #if DEBUG
+        private static func uiTestScreenshotSession(
+            fixture: ScreenshotFixture
+        ) -> SessionResponse {
+            let petID = fixture.petID
+            let profile = PlayerProfile(
+                id: "00000000-0000-4000-8000-000000000099",
+                nickname: "PimPoPlayer",
+                nicknameConfirmed: true,
+                coins: 999,
+                totalPlayMs: 420_000,
+                ownedPetIds: ["foka", "kesha", "tauta", "misha", "pancake"],
+                selectedPetId: petID,
+                petVisible: petID != nil,
+                equippedPetId: petID,
+                specialPetId: nil,
+                ownedThemeIds: ["classic", "disco", "light", "pixel"],
+                selectedThemeId: fixture.themeID,
+                isAdmin: false,
+                createdAt: "2026-07-24T00:00:00Z",
+                updatedAt: "2026-07-24T00:00:00Z"
+            )
+            return SessionResponse(
+                authenticated: true,
+                csrfToken: "screenshot-fixture-offline",
+                googleClientId: "placeholder.apps.googleusercontent.com",
+                appleSignIn: uiTestAppleConfiguration,
+                season: Season(id: "screenshot-fixture", name: "Screenshot Fixture"),
+                profile: profile,
+                identityBindings: uiTestGoogleBindings,
+                wallet: StoreWalletSummary(
+                    earned: 999,
+                    purchased: 0,
+                    earnedDebt: 0,
+                    refundDebt: 0,
+                    total: 999
+                ),
+                adFree: true,
+                storeKit: nil,
+                ranks: [
+                    GameMode.arcade.rawValue: RankInfo(
+                        rank: 6,
+                        totalEntries: 42,
+                        topPercent: 15
+                    ),
+                    GameMode.zen.rawValue: RankInfo(
+                        rank: nil,
+                        totalEntries: 0,
+                        topPercent: nil
+                    ),
+                ]
+            )
+        }
+    #endif
 
     private static let uiTestAppleConfiguration = AppleSignInConfiguration(
         enabled: true,
@@ -1616,7 +1754,153 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         coinBalance: 0
     )
 
-    private static func uiTestLeaderboard(mode: GameMode, playerName: String) -> LeaderboardResponse {
+    static func screenshotLeaderboard(mode: GameMode, playerName: String) -> LeaderboardResponse {
+        let showsPancake = ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile")
+        let entries = [
+            LeaderboardEntry(
+                id: "ui-rank-1",
+                rank: 1,
+                name: "TapNova",
+                petId: showsPancake ? "pancake" : "kesha",
+                mode: mode.rawValue,
+                score: 18_940,
+                survivalMs: 247_000,
+                fastestReactionMs: 187,
+                averageReactionMs: 306,
+                hits: 126,
+                dodges: 17,
+                speedRatings: SpeedRatingCounts(godlike: 21, perfect: 43, great: 39, good: 23),
+                createdAt: "2026-07-15T00:00:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-rank-2",
+                rank: 2,
+                name: "NeonMoth",
+                petId: "tauta",
+                mode: mode.rawValue,
+                score: 17_680,
+                survivalMs: 231_000,
+                fastestReactionMs: 194,
+                averageReactionMs: 317,
+                hits: 119,
+                dodges: 15,
+                speedRatings: SpeedRatingCounts(godlike: 18, perfect: 41, great: 38, good: 22),
+                createdAt: "2026-07-15T00:01:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-rank-3",
+                rank: 3,
+                name: "SwiftPaws",
+                petId: "misha",
+                mode: mode.rawValue,
+                score: 16_920,
+                survivalMs: 220_000,
+                fastestReactionMs: 201,
+                averageReactionMs: 324,
+                hits: 113,
+                dodges: 14,
+                speedRatings: SpeedRatingCounts(godlike: 16, perfect: 39, great: 37, good: 21),
+                createdAt: "2026-07-15T00:02:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-rank-4",
+                rank: 4,
+                name: "LimeOrbit",
+                petId: "foka",
+                mode: mode.rawValue,
+                score: 15_740,
+                survivalMs: 207_000,
+                fastestReactionMs: 209,
+                averageReactionMs: 337,
+                hits: 106,
+                dodges: 12,
+                speedRatings: SpeedRatingCounts(godlike: 14, perfect: 36, great: 35, good: 21),
+                createdAt: "2026-07-15T00:03:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-rank-5",
+                rank: 5,
+                name: "EchoPixel",
+                petId: "pancake",
+                mode: mode.rawValue,
+                score: 14_880,
+                survivalMs: 196_000,
+                fastestReactionMs: 216,
+                averageReactionMs: 345,
+                hits: 101,
+                dodges: 10,
+                speedRatings: SpeedRatingCounts(godlike: 12, perfect: 34, great: 34, good: 21),
+                createdAt: "2026-07-15T00:04:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-player",
+                rank: 6,
+                name: playerName,
+                petId: showsPancake ? "pancake" : "foka",
+                mode: mode.rawValue,
+                score: 13_960,
+                survivalMs: 184_000,
+                fastestReactionMs: 221,
+                averageReactionMs: 352,
+                hits: 95,
+                dodges: 9,
+                speedRatings: SpeedRatingCounts(godlike: 10, perfect: 31, great: 33, good: 21),
+                createdAt: "2026-07-15T00:05:00Z",
+                isCurrentPlayer: true,
+                isContextResult: true,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+            LeaderboardEntry(
+                id: "ui-rank-7",
+                rank: 7,
+                name: "TinyBolt",
+                petId: "kesha",
+                mode: mode.rawValue,
+                score: 13_420,
+                survivalMs: 176_000,
+                fastestReactionMs: 228,
+                averageReactionMs: 361,
+                hits: 91,
+                dodges: 8,
+                speedRatings: SpeedRatingCounts(godlike: 9, perfect: 29, great: 32, good: 21),
+                createdAt: "2026-07-15T00:06:00Z",
+                isCurrentPlayer: false,
+                isContextResult: false,
+                verification: mode == .arcade ? "verified" : "legacy"
+            ),
+        ]
+        return LeaderboardResponse(
+            season: uiTestPetSession.season,
+            mode: mode.rawValue,
+            entries: entries,
+            totalEntries: mode == .arcade ? 42 : 8,
+            playerRank: mode == .arcade ? 6 : nil,
+            topPercent: mode == .arcade ? 15 : nil,
+            contextRank: mode == .arcade ? 6 : nil,
+            contextTopPercent: mode == .arcade ? 15 : nil,
+            contextEntryId: mode == .arcade ? "ui-player" : nil
+        )
+    }
+
+    private static func uiTestLeaderboard(
+        mode: GameMode,
+        playerName: String
+    ) -> LeaderboardResponse {
         let showsPancake = ProcessInfo.processInfo.arguments.contains("--ui-test-pancake-profile")
         let entries = [
             LeaderboardEntry(

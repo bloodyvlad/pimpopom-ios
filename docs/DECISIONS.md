@@ -695,3 +695,31 @@ Add Debug-only `--ump-debug-eea` and `--ump-debug-reset` launch arguments so the
 Consequences: The consent form belongs to first app presentation rather than sign-in, and session changes cannot replay it. Anonymous and signed-in ad-supported players share the same launch consent result. Existing ad-free players may still complete a required launch privacy message, but GMA makes no request for them. Unit tests separately prove consent bootstrap, account gating, blocked consent, failure retry, ad-free teardown, same-launch login transitions, and duplicate-session initialization serialization. A real first-install EEA form was presented and accepted on the named iPhone SE (2022) Simulator and the owner's physical iPhone SE; both then reported consent obtained and `canRequestAds == true`. Google Ad Inspector identified Google LLC CMP ID 300/version 2 on the failed Simulator request and displayed `GDPR applies = true` plus nonempty AC and TC strings, proving the privacy signals reached GMA. Even after serializing initialization and making one Simulator request with untouched official-demo request configuration, Google returned exact no-fill with valid response IDs and zero mediation line items. This removes a local race but does not satisfy the build-8 creative gate; physical creative validation remains required before upload or live release.
 
 Revisit when: age treatment is accepted, Google changes its launch/update requirements, UMP dashboard messages change, or the app removes advertising entirely.
+
+## P-047 — Preserve completed multiplier tiers and normalize tall-phone gameplay layout
+
+- Date: 2026-07-25
+- Status: Accepted native visual refinement
+
+Context: On tall iPhones, the fixed-width menu stamps and pet appeared undersized, the gameplay board remained too close to the HUD, and flexible space separated the board from the Speed Bar by a visually excessive amount. Multiplier promotion also animated the only fill layer from full back to empty, which looked like a mistake had erased the player's progress. The Pixel star mask was asymmetric and visibly distorted.
+
+Decision: Scale the main-menu intro stamps, rotating slogans, their padding, and the companion from a 375-point screen-width reference up to an 18% cap. Keep the gameplay board near full width, allocate up to 44 points of tall-screen surplus above it, and hold the board-to-Speed-Bar spacing at 14 points across supported iPhones; leave remaining surplus below the Speed Bar. Render multiplier progress in two layers. On promotion, first animate the outgoing tier to its fifth step, including when a two-step Godlike hit carries overflow; then dim that full tier to 60% and reveal carried progress as a new bright layer above it. At 5×, keep the bright layer full. Reproduce the owner-supplied Pixel star as its exact 50×50 stepped mask on the original square canvas, including the intentional two-row top and bottom margins.
+
+Consequences: Larger phones use their extra height without visually disconnecting the board and Speed Bar, while compact-phone geometry remains stable. Multiplier promotion reads as retained progress rather than loss. Deterministic unit tests lock compact/tall layout plans, scaling limits, tier-layer state, and the exact Pixel star mask. The normal iPhone 16 Pro Max Simulator is the visual reference for this refinement; it does not replace physical-device validation.
+
+Revisit when: supported device widths materially exceed the current cap, the gameplay footer height changes, the Speed Bar gains a tier-history treatment, or physical review finds the fixed gap too tight.
+
+## P-048 — Let PHP publish verified Game Center mirrors after explicit linking consent
+
+- Date: 2026-07-25
+- Status: Accepted for TestFlight build `1.02 (9)`; supersedes the publication-disabled portions of P-041/P-043
+
+Context: The backend now supports recent-primary-authenticated Game Center challenges, verified one-to-one team identity binding, a once-bound persistent `gamePlayerID`, server-held publication consent, prerelease/production routing, an idempotent score/achievement outbox, and publication disable. Direct client submission would bypass PHP's proof, moderation, achievement, and correction authority.
+
+Decision: Keep Game Center secondary and link-only. After explicit Profile opt-in, require persistent GameKit scoped IDs, refresh the PimPoPom session, obtain a one-use PHP challenge, then obtain fresh GameKit signature material. Submit the exact `teamPlayerId`, client-asserted persistent `gamePlayerId`, proof fields, and `publish: true`. On stale primary authentication, reauthenticate Google/Apple and restart from a new challenge. Never retry or merge a `409` conflict. Render server `linked`, `queued`, `ready`, `held`, and `needsReset` status rather than inferring completion locally. Turn Off disables PHP publication and pending work but retains the identity binding and does not claim to sign out of Apple's Game Center account.
+
+PHP alone publishes the protocol-verified Arcade all-time best and the five allowlisted authoritative achievements. The native app must not call `GKLeaderboard.submitScore` or `GKAchievement.report`, must not send score/achievement claims in its link payload, and must not cache server publication truth in preferences. `gamePlayerID` is deliberately described as client-asserted and one-time bound, not as covered by Apple's signature.
+
+Consequences: Apple visibility is optional and eventually consistent while local play, PimPoPom login, PHP ranking, achievements, StoreKit, cosmetics, and account deletion remain operational without it. Pending jobs are owned by PHP retries; held jobs and reset-needed state remain visible instead of causing relink loops. Physical TestFlight validation is still required for scoped-ID persistence, live backfill, later result delivery, achievement delivery, disable, conflicts, and Apple propagation delay.
+
+Revisit when: Apple changes GameKit identity/signature semantics, adds supported per-player leaderboard/achievement deletion, or PHP publication policy changes.

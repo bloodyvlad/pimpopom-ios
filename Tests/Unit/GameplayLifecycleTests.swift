@@ -77,6 +77,28 @@ final class GameplayLifecycleTests: XCTestCase {
         XCTAssertFalse(scene.children.contains { $0.name?.hasPrefix("cell-glyph-") == true })
     }
 
+    func testScreenshotAutoplayPointStaysInsideCellWithoutUsingItsCenter() throws {
+        let engine = GameEngine(random: { 0 })
+        _ = engine.start(now: 0, mode: .arcade)
+        let active = engine.activateRound(now: 1_000).snapshot
+        let scene = GameScene()
+        scene.apply(active)
+
+        let point = try XCTUnwrap(
+            scene.tapPoint(
+                forCellAt: 0,
+                horizontalFraction: 0.23,
+                verticalFraction: 0.77
+            )
+        )
+        let cellFrame = GameBoardLayout(size: scene.size, dimension: 1)
+            .cellFrame(at: 0, yAxis: .up)
+
+        XCTAssertTrue(cellFrame.contains(point))
+        XCTAssertNotEqual(point.x, cellFrame.midX, accuracy: 0.001)
+        XCTAssertNotEqual(point.y, cellFrame.midY, accuracy: 0.001)
+    }
+
     func testGameSceneAppliesDensityScaleToRenderedGlyphBounds() throws {
         let oneByOneEngine = GameEngine(random: { 0 })
         _ = oneByOneEngine.start(now: 0, mode: .arcade)

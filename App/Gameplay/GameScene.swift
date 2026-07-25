@@ -129,6 +129,21 @@ final class GameScene: SKScene {
         )
     }
 
+    func tapPoint(
+        forCellAt index: Int,
+        horizontalFraction: Double,
+        verticalFraction: Double
+    ) -> CGPoint? {
+        guard cellFrames.indices.contains(index) else { return nil }
+        let frame = cellFrames[index]
+        let xFraction = min(1, max(0, horizontalFraction))
+        let yFraction = min(1, max(0, verticalFraction))
+        return CGPoint(
+            x: frame.minX + frame.width * CGFloat(xFraction),
+            y: frame.maxY - frame.height * CGFloat(yFraction)
+        )
+    }
+
     private func gapMissCellIndex(closestTo location: CGPoint) -> Int? {
         guard let snapshot, cellFrames.count > 1 else { return nil }
         let excludedTarget = snapshot.state == .active ? snapshot.targetIndex : nil

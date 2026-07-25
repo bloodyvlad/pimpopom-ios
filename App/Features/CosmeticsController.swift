@@ -335,7 +335,9 @@ final class CosmeticsController: ObservableObject {
             guard arguments.contains("--uitesting") else { return nil }
 
             let value: String?
-            if let argument = arguments.first(where: { $0.hasPrefix("--ui-test-theme=") }) {
+            if let fixture = ScreenshotFixture.resolve(arguments: arguments) {
+                value = fixture.themeID
+            } else if let argument = arguments.first(where: { $0.hasPrefix("--ui-test-theme=") }) {
                 value = String(argument.dropFirst("--ui-test-theme=".count))
             } else if let index = arguments.firstIndex(of: "--ui-test-theme"),
                 arguments.indices.contains(index + 1)

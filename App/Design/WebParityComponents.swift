@@ -3,6 +3,8 @@ import SwiftUI
 
 enum WebMenuMetrics {
     static let maximumPanelWidth: CGFloat = 460
+    static let compactReferenceWidth: CGFloat = 375
+    static let maximumLargePhoneScale: CGFloat = 1.18
     static let compactOuterInset: CGFloat = 10
     static let panelPadding: CGFloat = 22
     static let narrowPanelPadding: CGFloat = 16
@@ -21,6 +23,18 @@ enum WebMenuMetrics {
     static let motivationHorizontalNudge: CGFloat = -10
     static let motivationScale: CGFloat = 1.15
     static let introRulesHorizontalOffset: CGFloat = 10
+
+    static func largePhoneScale(screenWidth: CGFloat) -> CGFloat {
+        guard screenWidth.isFinite, screenWidth > 0 else { return 1 }
+        return min(
+            maximumLargePhoneScale,
+            max(1, screenWidth / compactReferenceWidth)
+        )
+    }
+
+    static func menuPetSize(screenWidth: CGFloat) -> CGFloat {
+        64 * largePhoneScale(screenWidth: screenWidth)
+    }
 }
 
 enum MenuRemoveAdsPlacement {

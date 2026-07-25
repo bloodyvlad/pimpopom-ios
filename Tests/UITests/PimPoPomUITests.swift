@@ -606,6 +606,127 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertLessThan(try XCTUnwrap(samples.last), first)
     }
 
+    func testScreenshotFixtureAutoplaysAnUnlockedPixelProfile() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--deterministic-game",
+            "--uitesting",
+            "--screenshot-mode",
+            "--screenshot-screen=arcade",
+            "--screenshot-theme=pixel",
+            "--screenshot-pet=foka",
+            "--screenshot-autoplay",
+            "--screenshot-seed=42",
+        ]
+        app.launch()
+
+        let board = app.descendants(matching: .any)["reaction-board"]
+        XCTAssertTrue(board.waitForExistence(timeout: 8))
+        XCTAssertEqual(board.value as? String, "1 by 1")
+        let pet = app.descendants(matching: .any)["gameplay-pet-foka"]
+        XCTAssertTrue(pet.waitForExistence(timeout: 3))
+
+        let score = app.descendants(matching: .any)["game-score"]
+        XCTAssertTrue(score.waitForExistence(timeout: 3))
+        let autoplayDeadline = Date().addingTimeInterval(5)
+        while Date() < autoplayDeadline, score.label.filter(\.isNumber) == "0" {
+            usleep(20_000)
+        }
+        XCTAssertNotEqual(score.label.filter(\.isNumber), "0")
+
+        var observedDirectionalFacing = false
+        let facingDeadline = Date().addingTimeInterval(3)
+        while Date() < facingDeadline {
+            if let value = pet.value as? String,
+                value != "front",
+                value != "Sleeping"
+            {
+                observedDirectionalFacing = true
+                break
+            }
+            usleep(20_000)
+        }
+        XCTAssertTrue(observedDirectionalFacing)
+    }
+
+    func testScreenshotFixtureAutoplaysMenuPetFacing() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting",
+            "--screenshot-mode",
+            "--screenshot-screen=menu",
+            "--screenshot-theme=pixel",
+            "--screenshot-pet=foka",
+            "--screenshot-autoplay",
+            "--screenshot-seed=43",
+        ]
+        app.launch()
+
+        let pet = app.descendants(matching: .any)["menu-pet-foka"]
+        XCTAssertTrue(pet.waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(
+                            format: "value != 'front' AND value != 'Sleeping'"
+                        ),
+                        object: pet
+                    )
+                ],
+                timeout: 3
+            ),
+            .completed
+        )
+    }
+
+    func testScreenshotFixtureOpensSyntheticMarketingScreens() {
+        let app = XCUIApplication()
+
+        app.launchArguments = [
+            "--uitesting",
+            "--screenshot-mode",
+            "--screenshot-screen=leaderboard",
+            "--screenshot-theme=pixel",
+        ]
+        app.launch()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["leaderboard-results"]
+                .waitForExistence(timeout: 6)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["leaderboard-entry-ui-rank-1"]
+                .waitForExistence(timeout: 2)
+        )
+
+        app.terminate()
+        app.launchArguments = [
+            "--uitesting",
+            "--screenshot-mode",
+            "--screenshot-screen=profile",
+            "--screenshot-theme=pixel",
+        ]
+        app.launch()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["profile-apple-sign-in"]
+                .waitForExistence(timeout: 6)
+        )
+        XCTAssertFalse(app.buttons["Log out"].exists)
+
+        app.terminate()
+        app.launchArguments = [
+            "--uitesting",
+            "--screenshot-mode",
+            "--screenshot-screen=achievements",
+            "--screenshot-theme=pixel",
+        ]
+        app.launch()
+        let achievement =
+            app.descendants(matching: .any)["achievement-card-complete_arcade"]
+        XCTAssertTrue(achievement.waitForExistence(timeout: 6))
+        XCTAssertTrue((achievement.value as? String)?.contains("Ready to claim") == true)
+    }
+
     func testPetSelectHideAndShowActionsUpdateTheShop() throws {
         let app = launch(additionalArguments: ["--ui-test-pet-profile"])
         openMenuControl("open-pet-shop", in: app)

@@ -49,18 +49,26 @@ struct GameView: View {
             AppThemeBackground(theme: palette)
 
             GeometryReader { proxy in
-                let boardWidth = min(proxy.size.width - 24, 680)
-                let reservedHeight = GameplayLayoutMetrics.reservedHeight(
+                let layout = GameplayLayoutMetrics.resolve(
+                    availableSize: proxy.size,
                     hasPet: frozenPetID != nil
                 )
-                let boardSide = min(boardWidth, max(220, proxy.size.height - reservedHeight))
 
-                VStack(spacing: 8) {
+                VStack(spacing: 0) {
                     gameUtilityHeader
+                    Color.clear
+                        .frame(height: GameplayLayoutMetrics.headerToHUDSpacing)
+                        .accessibilityHidden(true)
                     gameplayHUD
-                    gameBoard(side: boardSide)
+                    Color.clear
+                        .frame(height: layout.boardTopSpacing)
+                        .accessibilityHidden(true)
+                    gameBoard(side: layout.boardSide)
+                    Color.clear
+                        .frame(height: layout.boardToSpeedBarSpacing)
+                        .accessibilityHidden(true)
+                    streakAndPet(width: layout.boardSide, screenWidth: proxy.size.width)
                     Spacer(minLength: 0)
-                    streakAndPet(width: boardSide, screenWidth: proxy.size.width)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
                 .preference(key: GameplayScreenWidthPreferenceKey.self, value: proxy.size.width)
@@ -106,6 +114,7 @@ struct GameView: View {
                     submitRankedRunIfNeeded()
                 }
             }
+            configureScreenshotAutoplayPetFollowing()
             await cosmetics.refresh()
             guard !Task.isCancelled else { return }
             freezePresentationIfNeeded()
@@ -118,6 +127,7 @@ struct GameView: View {
             coordinator.stop()
             coordinator.onSoundEvent = nil
             coordinator.onLifecycleEvent = nil
+            coordinator.onBoardTap = nil
             clearHitFeedback()
             abandonTicketIfNeeded()
             audio.setMusicContext(.menu)
@@ -549,6 +559,10 @@ struct GameView: View {
         .frame(width: side, height: side)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Reaction board")
+        .accessibilityValue(
+            "\(coordinator.snapshot.difficulty.gridDimension) by "
+                + "\(coordinator.snapshot.difficulty.gridDimension)"
+        )
         .accessibilityIdentifier("reaction-board")
     }
 
@@ -579,28 +593,23 @@ struct GameView: View {
 
     private var streakMeter: some View {
         let trackShape = palette.isPixel ? AnyShape(Rectangle()) : AnyShape(Capsule())
+        let presentation = SpeedBarPresentation.resolve(
+            multiplier: coordinator.snapshot.multiplier,
+            progress: coordinator.snapshot.streakProgress,
+            target: coordinator.snapshot.streakTarget
+        )
 
         return HStack(spacing: 7) {
-            GeometryReader { proxy in
-                let progressWidth = proxy.size.width * streakProgressFraction
+            GeometryReader { _ in
                 ZStack(alignment: .leading) {
                     trackShape
                         .fill(streakTierColor.opacity(coordinator.snapshot.multiplier == 1 ? 0.10 : 0.28))
-                    trackShape
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: "#7657ff"),
-                                    Color(hex: "#c658ff"),
-                                    Color(hex: "#ffd84d"),
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: progressWidth)
-                        .clipShape(trackShape)
-                        .animation(.easeOut(duration: 0.45), value: streakProgressFraction)
+
+                    SpeedBarLayeredFill(
+                        presentation: presentation,
+                        isPixel: palette.isPixel
+                    )
+
                     if palette.isPixel {
                         HStack(spacing: 0) {
                             ForEach(0..<5, id: \.self) { index in
@@ -660,19 +669,6 @@ struct GameView: View {
             "Multiplier \(coordinator.snapshot.multiplier), \(coordinator.snapshot.streakProgress) of \(coordinator.snapshot.streakTarget)"
         )
         .accessibilityIdentifier("speed-streak")
-    }
-
-    private var streakProgressFraction: CGFloat {
-        guard coordinator.snapshot.streakTarget > 0 else { return 0 }
-        if coordinator.snapshot.multiplier >= 5 { return 1 }
-        return min(
-            1,
-            max(
-                0,
-                CGFloat(coordinator.snapshot.streakProgress)
-                    / CGFloat(coordinator.snapshot.streakTarget)
-            )
-        )
     }
 
     private var streakTierColor: Color {
@@ -1099,6 +1095,26 @@ struct GameView: View {
         gameplayPetActivity += 1
     }
 
+    private func configureScreenshotAutoplayPetFollowing() {
+        #if DEBUG
+            guard
+                ScreenshotFixture.resolve(arguments: ProcessInfo.processInfo.arguments)?
+                    .autoplayEnabled == true
+            else {
+                return
+            }
+            coordinator.onBoardTap = { normalizedLocation in
+                guard frozenPetID != nil, gameplayScreenWidth > 0 else { return }
+                gameplayPetFacing = PetTapFollow.resolveGameplay(
+                    normalizedPointerX: normalizedLocation.x,
+                    screenWidth: gameplayScreenWidth,
+                    current: gameplayPetFacing
+                )
+                gameplayPetActivity += 1
+            }
+        #endif
+    }
+
     private func showHitFeedback(_ event: GameplayHitFeedbackEvent) {
         if hitFeedbackPresentations.count >= 8,
             let oldest = hitFeedbackPresentations.first
@@ -1382,12 +1398,221 @@ enum GameColorHeroPresentation {
     }
 }
 
+struct GameplayLayoutPlan: Equatable, Sendable {
+    let boardSide: CGFloat
+    let boardTopSpacing: CGFloat
+    let boardToSpeedBarSpacing: CGFloat
+}
+
 enum GameplayLayoutMetrics {
     static let footerLift: CGFloat = 8
     static let adBannerHeight: CGFloat = 50
+    static let horizontalInset: CGFloat = 12
+    static let maximumBoardSide: CGFloat = 680
+    static let minimumBoardSide: CGFloat = 220
+    static let utilityHeaderHeight: CGFloat = 44
+    static let hudHeight: CGFloat = 90
+    static let headerToHUDSpacing: CGFloat = 8
+    static let minimumBoardTopSpacing: CGFloat = 8
+    static let maximumAdditionalBoardTopSpacing: CGFloat = 44
+    static let boardToSpeedBarSpacing: CGFloat = 14
+    static let speedBarHeight: CGFloat = 50
+    static let bottomClearance: CGFloat = 4
 
     static func reservedHeight(hasPet _: Bool) -> CGFloat {
-        218 + footerLift
+        utilityHeaderHeight
+            + headerToHUDSpacing
+            + hudHeight
+            + minimumBoardTopSpacing
+            + boardToSpeedBarSpacing
+            + speedBarHeight
+            + footerLift
+            + bottomClearance
+    }
+
+    static func resolve(
+        availableSize: CGSize,
+        hasPet: Bool
+    ) -> GameplayLayoutPlan {
+        let boardWidth = min(
+            max(0, availableSize.width - horizontalInset * 2),
+            maximumBoardSide
+        )
+        let boardSide = min(
+            boardWidth,
+            max(
+                minimumBoardSide,
+                availableSize.height - reservedHeight(hasPet: hasPet)
+            )
+        )
+        let remainingHeight = max(
+            0,
+            availableSize.height - reservedHeight(hasPet: hasPet) - boardSide
+        )
+        let additionalTopSpacing = min(
+            maximumAdditionalBoardTopSpacing,
+            remainingHeight * 0.30
+        )
+
+        return GameplayLayoutPlan(
+            boardSide: boardSide,
+            boardTopSpacing: minimumBoardTopSpacing + additionalTopSpacing,
+            boardToSpeedBarSpacing: boardToSpeedBarSpacing
+        )
+    }
+}
+
+struct SpeedBarPresentation: Equatable, Hashable, Sendable {
+    static let maximumMultiplier = 5
+    static let completedTierOpacity = 0.60
+
+    let multiplier: Int
+    let completedOpacity: Double
+    let activeFraction: CGFloat
+
+    static func resolve(
+        multiplier: Int,
+        progress: Int,
+        target: Int
+    ) -> Self {
+        let safeMultiplier = max(1, multiplier)
+        let safeTarget = max(1, target)
+        let activeFraction =
+            safeMultiplier >= maximumMultiplier
+            ? CGFloat(1)
+            : min(1, max(0, CGFloat(progress) / CGFloat(safeTarget)))
+
+        return Self(
+            multiplier: safeMultiplier,
+            completedOpacity: safeMultiplier > 1 ? completedTierOpacity : 0,
+            activeFraction: activeFraction
+        )
+    }
+}
+
+struct SpeedBarTransitionPlan: Equatable, Sendable {
+    let completesOutgoingTier: Bool
+    let outgoingCompletionFraction: CGFloat
+    let carriedActiveFraction: CGFloat
+
+    static func resolve(
+        from current: SpeedBarPresentation,
+        to next: SpeedBarPresentation
+    ) -> Self {
+        let promotes = next.multiplier > current.multiplier
+        return Self(
+            completesOutgoingTier: promotes,
+            outgoingCompletionFraction: promotes ? 1 : next.activeFraction,
+            carriedActiveFraction: next.activeFraction
+        )
+    }
+}
+
+private struct SpeedBarLayeredFill: View {
+    let presentation: SpeedBarPresentation
+    let isPixel: Bool
+
+    @State private var renderedMultiplier: Int
+    @State private var renderedCompletedOpacity: Double
+    @State private var renderedActiveFraction: CGFloat
+    @State private var renderedActiveOpacity: Double
+
+    init(presentation: SpeedBarPresentation, isPixel: Bool) {
+        self.presentation = presentation
+        self.isPixel = isPixel
+        _renderedMultiplier = State(initialValue: presentation.multiplier)
+        _renderedCompletedOpacity = State(initialValue: presentation.completedOpacity)
+        _renderedActiveFraction = State(initialValue: presentation.activeFraction)
+        _renderedActiveOpacity = State(initialValue: 1)
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let shape = isPixel ? AnyShape(Rectangle()) : AnyShape(Capsule())
+
+            ZStack(alignment: .leading) {
+                if renderedCompletedOpacity > 0 {
+                    shape
+                        .fill(fillGradient)
+                        .opacity(renderedCompletedOpacity)
+                }
+
+                shape
+                    .fill(fillGradient)
+                    .frame(width: proxy.size.width * renderedActiveFraction)
+                    .clipShape(shape)
+                    .opacity(renderedActiveOpacity)
+            }
+        }
+        .task(id: presentation) {
+            await animate(to: presentation)
+        }
+    }
+
+    private var fillGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(hex: "#7657ff"),
+                Color(hex: "#c658ff"),
+                Color(hex: "#ffd84d"),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    @MainActor
+    private func animate(to next: SpeedBarPresentation) async {
+        let current = SpeedBarPresentation(
+            multiplier: renderedMultiplier,
+            completedOpacity: renderedCompletedOpacity,
+            activeFraction: renderedActiveFraction
+        )
+        let plan = SpeedBarTransitionPlan.resolve(from: current, to: next)
+
+        guard plan.completesOutgoingTier else {
+            renderedMultiplier = next.multiplier
+            withAnimation(.easeOut(duration: 0.35)) {
+                renderedCompletedOpacity = next.completedOpacity
+                renderedActiveFraction = next.activeFraction
+                renderedActiveOpacity = 1
+            }
+            return
+        }
+
+        // A promotion can carry one Godlike step into the next tier. Finish
+        // the outgoing fifth segment before dimming it, then reveal the carry
+        // as a fresh bright layer instead of visually skipping completion.
+        withAnimation(.easeOut(duration: 0.18)) {
+            renderedActiveFraction = plan.outgoingCompletionFraction
+            renderedActiveOpacity = 1
+        }
+        guard await waitForAnimation(milliseconds: 180) else { return }
+
+        withAnimation(.easeInOut(duration: 0.16)) {
+            renderedCompletedOpacity = next.completedOpacity
+            renderedActiveOpacity = 0
+        }
+        guard await waitForAnimation(milliseconds: 160) else { return }
+
+        withTransaction(Transaction(animation: nil)) {
+            renderedMultiplier = next.multiplier
+            renderedActiveFraction = 0
+            renderedActiveOpacity = 1
+        }
+
+        withAnimation(.easeOut(duration: 0.28)) {
+            renderedActiveFraction = plan.carriedActiveFraction
+        }
+    }
+
+    private func waitForAnimation(milliseconds: Int) async -> Bool {
+        do {
+            try await Task.sleep(for: .milliseconds(milliseconds))
+            return !Task.isCancelled
+        } catch {
+            return false
+        }
     }
 }
 

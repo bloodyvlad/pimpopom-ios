@@ -89,22 +89,39 @@ enum GameGlyphGeometry {
         yAxis: GameGlyphYAxis
     ) -> CGPath {
         let rows = pixelRows[glyph] ?? pixelRows["■"]!
-        let grid = CGFloat(pixelGridSize)
+        let rowCount = rows.count
+        let columnCount = rows.map(\.count).max() ?? pixelGridSize
+        let gridSize = max(rowCount, columnCount)
+        let grid = CGFloat(gridSize)
         let cellSide = min(rect.width, rect.height) / grid
         let renderedSide = cellSide * grid
         let origin = CGPoint(
             x: rect.midX - renderedSide / 2,
             y: rect.midY - renderedSide / 2
         )
+        let columnOffset = (gridSize - columnCount) / 2
+        let rowOffset = (gridSize - rowCount) / 2
         let path = CGMutablePath()
         for (rowIndex, row) in rows.enumerated() {
-            for (columnIndex, value) in row.enumerated() where value == "#" {
-                let renderedRow = yAxis == .down ? rowIndex : pixelGridSize - 1 - rowIndex
+            var columnIndex = 0
+            while columnIndex < row.count {
+                guard row[columnIndex] == "#" else {
+                    columnIndex += 1
+                    continue
+                }
+                let runStart = columnIndex
+                while columnIndex < row.count, row[columnIndex] == "#" {
+                    columnIndex += 1
+                }
+                let renderedRow =
+                    yAxis == .down
+                    ? rowOffset + rowIndex
+                    : rowOffset + rowCount - 1 - rowIndex
                 path.addRect(
                     CGRect(
-                        x: origin.x + CGFloat(columnIndex) * cellSide,
+                        x: origin.x + CGFloat(columnOffset + runStart) * cellSide,
                         y: origin.y + CGFloat(renderedRow) * cellSide,
-                        width: cellSide,
+                        width: CGFloat(columnIndex - runStart) * cellSide,
                         height: cellSide
                     )
                 )
@@ -129,6 +146,44 @@ enum GameGlyphGeometry {
         return path.copy(using: &transform) ?? path
     }
 
+    // Exact 50×50 mask transcribed from the supplied 1200×1200 reference on
+    // its native 24-pixel construction grid. Horizontal runs keep the source's
+    // deliberate stepped shoulders and split lower points intact at every use.
+    private static let suppliedPixelStarRows: [[Character]] = {
+        let width = 50
+        let empty = Array(repeating: Character("."), count: width)
+        func row(_ ranges: [Range<Int>]) -> [Character] {
+            var result = empty
+            for range in ranges {
+                for index in range {
+                    result[index] = "#"
+                }
+            }
+            return result
+        }
+        func repeated(_ count: Int, _ ranges: [Range<Int>]) -> [[Character]] {
+            Array(repeating: row(ranges), count: count)
+        }
+
+        return Array(repeating: empty, count: 2)
+            + repeated(3, [24..<26])
+            + repeated(4, [22..<28])
+            + repeated(5, [20..<30])
+            + repeated(4, [18..<32])
+            + repeated(4, [0..<50])
+            + repeated(2, [2..<48])
+            + repeated(2, [6..<44])
+            + repeated(2, [10..<40])
+            + repeated(5, [14..<36])
+            + repeated(4, [12..<38])
+            + repeated(3, [10..<40])
+            + repeated(2, [10..<23, 27..<40])
+            + repeated(2, [8..<20, 30..<42])
+            + repeated(2, [8..<16, 34..<42])
+            + repeated(2, [8..<13, 37..<42])
+            + Array(repeating: empty, count: 2)
+    }()
+
     private static let pixelRows: [String: [[Character]]] = [
         "●": [
             "...###...", "..#####..", ".#######.", "#########", "#########",
@@ -147,11 +202,13 @@ enum GameGlyphGeometry {
             "...###...", "...###...", "...###...", "#########", "#########",
             "#########", "...###...", "...###...", "...###...",
         ].map(Array.init),
-        "★": [
-            "....#....", "...###...", "...###...", "#########", ".#######.",
-            "..#####..", ".##...##.", "##.....##", "#.......#",
-        ].map(Array.init),
+        "★": suppliedPixelStarRows,
     ]
+
+    static func pixelMask(for glyph: String) -> [String]? {
+        guard let rows = pixelRows[glyph] else { return nil }
+        return rows.map { row in String(row) }
+    }
 }
 
 struct PixelNoiseSample: Equatable, Sendable {

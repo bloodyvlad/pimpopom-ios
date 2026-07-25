@@ -7,10 +7,24 @@ struct GameCenterPlayerIdentity: Equatable, Sendable {
     let displayName: String
     let gamePlayerID: String
     let teamPlayerID: String
+    let scopedIDsArePersistent: Bool
+
+    init(
+        displayName: String,
+        gamePlayerID: String,
+        teamPlayerID: String,
+        scopedIDsArePersistent: Bool = true
+    ) {
+        self.displayName = displayName
+        self.gamePlayerID = gamePlayerID
+        self.teamPlayerID = teamPlayerID
+        self.scopedIDsArePersistent = scopedIDsArePersistent
+    }
 }
 
 struct GameCenterIdentityVerification: Equatable, Sendable {
     let signedTeamPlayerID: String
+    let gamePlayerID: String
     let bundleIdentifier: String
     let publicKeyURL: URL
     let signature: Data
@@ -26,9 +40,89 @@ enum GameCenterConnectionState: Equatable {
     case unavailable(String)
 }
 
+enum GameCenterLinkIssue: Equatable {
+    case primaryReauthenticationRequired
+    case conflict(String)
+    case unavailable(String)
+}
+
+enum GameCenterProfileState: Equatable {
+    case gameCenterSignedOut
+    case gameCenterUnavailable(String)
+    case primaryProfileRequired
+    case primaryReauthenticationRequired
+    case scopedIDsTransient
+    case unlinked
+    case linkedIdentityOnly
+    case publicationQueued(Int)
+    case mirrorReady
+    case publicationHeld(Int)
+    case conflict(String)
+    case resetNeedsSupport
+}
+
+enum GameCenterProfileStateResolver {
+    static func resolve(
+        connection: GameCenterConnectionState,
+        primaryProfileAuthenticated: Bool,
+        identityBinding: Bool,
+        serverStatus: GameCenterServerStatus?,
+        issue: GameCenterLinkIssue?
+    ) -> GameCenterProfileState {
+        switch connection {
+        case .disabled, .idle, .authenticating:
+            return .gameCenterSignedOut
+        case .unavailable(let message):
+            return .gameCenterUnavailable(message)
+        case .authenticated(let player):
+            guard primaryProfileAuthenticated else {
+                return .primaryProfileRequired
+            }
+            if issue == .primaryReauthenticationRequired {
+                return .primaryReauthenticationRequired
+            }
+            guard player.scopedIDsArePersistent else {
+                return .scopedIDsTransient
+            }
+            if case .conflict(let message) = issue {
+                return .conflict(message)
+            }
+            if case .unavailable(let message) = issue {
+                return .gameCenterUnavailable(message)
+            }
+
+            if let serverStatus {
+                if serverStatus.heldJobs > 0 {
+                    return .publicationHeld(serverStatus.heldJobs)
+                }
+                if serverStatus.needsReset {
+                    return .resetNeedsSupport
+                }
+                guard serverStatus.identityLinked, identityBinding else {
+                    return .unlinked
+                }
+                guard serverStatus.publicationEnabled,
+                    serverStatus.serverPublicationAvailable
+                else {
+                    return .linkedIdentityOnly
+                }
+                if serverStatus.pendingJobs > 0 {
+                    return .publicationQueued(serverStatus.pendingJobs)
+                }
+                if serverStatus.mirrorReady {
+                    return .mirrorReady
+                }
+                return .linkedIdentityOnly
+            }
+            return identityBinding ? .linkedIdentityOnly : .unlinked
+        }
+    }
+}
+
 enum GameCenterServiceError: LocalizedError, Equatable {
     case notAuthenticated
     case incompleteIdentity
+    case scopedIDsTransient
     case incompleteVerification
     case identityChanged
     case verificationFailed(String)
@@ -39,6 +133,8 @@ enum GameCenterServiceError: LocalizedError, Equatable {
             "Sign in to Game Center before verifying this player."
         case .incompleteIdentity:
             "Game Center returned an incomplete player identity."
+        case .scopedIDsTransient:
+            "Game Center has not provided persistent player IDs yet. Try again later."
         case .incompleteVerification:
             "Game Center returned an incomplete identity signature."
         case .identityChanged:
@@ -60,6 +156,7 @@ struct GameCenterClient {
     let displayName: () -> String
     let gamePlayerID: () -> String
     let teamPlayerID: () -> String
+    let scopedIDsArePersistent: () -> Bool
     let fetchIdentityVerification: (@escaping VerificationCallback) -> Void
 
     static let live = GameCenterClient(
@@ -75,6 +172,7 @@ struct GameCenterClient {
         displayName: { GKLocalPlayer.local.displayName },
         gamePlayerID: { GKLocalPlayer.local.gamePlayerID },
         teamPlayerID: { GKLocalPlayer.local.teamPlayerID },
+        scopedIDsArePersistent: { GKLocalPlayer.local.scopedIDsArePersistent() },
         fetchIdentityVerification: { callback in
             GKLocalPlayer.local.fetchItems(forIdentityVerificationSignature: {
                 publicKeyURL,
@@ -166,7 +264,11 @@ final class GameCenterService: ObservableObject {
         guard case .authenticated(let player) = state, client.isAuthenticated() else {
             throw GameCenterServiceError.notAuthenticated
         }
+        guard player.scopedIDsArePersistent, client.scopedIDsArePersistent() else {
+            throw GameCenterServiceError.scopedIDsTransient
+        }
         let signedTeamPlayerID = player.teamPlayerID
+        let gamePlayerID = player.gamePlayerID
 
         return try await withCheckedThrowingContinuation { continuation in
             client.fetchIdentityVerification { publicKeyURL, signature, salt, timestamp, error in
@@ -181,6 +283,12 @@ final class GameCenterService: ObservableObject {
                     return
                 }
                 guard self.client.teamPlayerID() == signedTeamPlayerID else {
+                    continuation.resume(throwing: GameCenterServiceError.identityChanged)
+                    return
+                }
+                guard self.client.gamePlayerID() == gamePlayerID,
+                    self.client.scopedIDsArePersistent()
+                else {
                     continuation.resume(throwing: GameCenterServiceError.identityChanged)
                     return
                 }
@@ -199,6 +307,7 @@ final class GameCenterService: ObservableObject {
                 continuation.resume(
                     returning: GameCenterIdentityVerification(
                         signedTeamPlayerID: signedTeamPlayerID,
+                        gamePlayerID: gamePlayerID,
                         bundleIdentifier: self.bundleIdentifier,
                         publicKeyURL: publicKeyURL,
                         signature: signature,
@@ -245,7 +354,8 @@ final class GameCenterService: ObservableObject {
             let identity = GameCenterPlayerIdentity(
                 displayName: client.displayName(),
                 gamePlayerID: client.gamePlayerID(),
-                teamPlayerID: client.teamPlayerID()
+                teamPlayerID: client.teamPlayerID(),
+                scopedIDsArePersistent: client.scopedIDsArePersistent()
             )
             guard !identity.gamePlayerID.isEmpty, !identity.teamPlayerID.isEmpty else {
                 state = .unavailable(

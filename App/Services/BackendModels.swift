@@ -85,15 +85,54 @@ struct GameCenterLinkChallengeResponse: Codable, Equatable, Sendable {
     let gameCenter: GameCenterLinkChallenge
 }
 
-struct GameCenterLinkResult: Codable, Equatable, Sendable {
-    let linked: Bool
-    let newlyLinked: Bool
+struct GameCenterServerStatus: Codable, Equatable, Sendable {
+    let serverPublicationAvailable: Bool
+    let preReleased: Bool?
+    let identityLinked: Bool
+    let publicationEnabled: Bool
+    let mirrorReady: Bool
+    let pendingJobs: Int
+    let heldJobs: Int
+    let needsReset: Bool
+    let newlyLinked: Bool?
+    let gamePlayerIdNewlyBound: Bool?
+    let disabled: Bool?
+
+    init(
+        serverPublicationAvailable: Bool,
+        preReleased: Bool?,
+        identityLinked: Bool,
+        publicationEnabled: Bool,
+        mirrorReady: Bool,
+        pendingJobs: Int,
+        heldJobs: Int,
+        needsReset: Bool,
+        newlyLinked: Bool? = nil,
+        gamePlayerIdNewlyBound: Bool? = nil,
+        disabled: Bool? = nil
+    ) {
+        self.serverPublicationAvailable = serverPublicationAvailable
+        self.preReleased = preReleased
+        self.identityLinked = identityLinked
+        self.publicationEnabled = publicationEnabled
+        self.mirrorReady = mirrorReady
+        self.pendingJobs = pendingJobs
+        self.heldJobs = heldJobs
+        self.needsReset = needsReset
+        self.newlyLinked = newlyLinked
+        self.gamePlayerIdNewlyBound = gamePlayerIdNewlyBound
+        self.disabled = disabled
+    }
 }
 
 struct GameCenterLinkResponse: Codable, Equatable {
     let profile: PlayerProfile
     let identityBindings: IdentityBindings
-    let gameCenter: GameCenterLinkResult
+    let gameCenter: GameCenterServerStatus
+}
+
+struct GameCenterPublicationResponse: Codable, Equatable {
+    let gameCenter: GameCenterServerStatus
 }
 
 struct SessionResponse: Codable, Equatable {
@@ -104,6 +143,7 @@ struct SessionResponse: Codable, Equatable {
     let season: Season
     let profile: PlayerProfile?
     let identityBindings: IdentityBindings?
+    let gameCenter: GameCenterServerStatus?
     let wallet: StoreWalletSummary?
     let adFree: Bool?
     let storeKit: StoreKitBindingResponse?
@@ -117,6 +157,7 @@ struct SessionResponse: Codable, Equatable {
         season: Season,
         profile: PlayerProfile?,
         identityBindings: IdentityBindings? = nil,
+        gameCenter: GameCenterServerStatus? = nil,
         wallet: StoreWalletSummary? = nil,
         adFree: Bool? = nil,
         storeKit: StoreKitBindingResponse? = nil,
@@ -129,6 +170,7 @@ struct SessionResponse: Codable, Equatable {
         self.season = season
         self.profile = profile
         self.identityBindings = identityBindings
+        self.gameCenter = gameCenter
         self.wallet = wallet
         self.adFree = adFree
         self.storeKit = storeKit
@@ -177,6 +219,7 @@ struct LeaderboardResponse: Codable, Equatable {
 struct ProfileResponse: Codable, Equatable {
     let profile: PlayerProfile
     let identityBindings: IdentityBindings?
+    let gameCenter: GameCenterServerStatus?
     let wallet: StoreWalletSummary?
     let adFree: Bool?
     let storeKit: StoreKitBindingResponse?
@@ -186,6 +229,7 @@ struct ProfileResponse: Codable, Equatable {
     init(
         profile: PlayerProfile,
         identityBindings: IdentityBindings? = nil,
+        gameCenter: GameCenterServerStatus? = nil,
         wallet: StoreWalletSummary? = nil,
         adFree: Bool? = nil,
         storeKit: StoreKitBindingResponse? = nil,
@@ -194,6 +238,7 @@ struct ProfileResponse: Codable, Equatable {
     ) {
         self.profile = profile
         self.identityBindings = identityBindings
+        self.gameCenter = gameCenter
         self.wallet = wallet
         self.adFree = adFree
         self.storeKit = storeKit

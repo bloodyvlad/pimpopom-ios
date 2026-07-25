@@ -63,17 +63,21 @@ final class GameCoordinator: ObservableObject {
     private let engine: GameEngine
     private var targetTask: Task<Void, Never>?
     private var decoyTask: Task<Void, Never>?
+    private var screenshotAutoplayTask: Task<Void, Never>?
     private var pendingDeadlineCommit: PendingDeadlineCommit?
     private var lastDeadlineResolutionAt: Double?
     private var generation = 0
     private var lastPublishedAt = 0.0
     private var started = false
     private var hitFeedbackSequence = 0
+    private let screenshotAutoplayEnabled: Bool
+    private var screenshotAutoplayRandom: ScreenshotAutoplayRandom
 
     init(mode: GameMode) {
         self.mode = mode
         #if DEBUG
             let arguments = ProcessInfo.processInfo.arguments
+            let screenshotFixture = ScreenshotFixture.resolve(arguments: arguments)
             let configuration =
                 arguments.contains("--uitesting")
                 ? GameConfiguration.standard.overridingComfortableResponseWindow(milliseconds: 5_000)
@@ -82,8 +86,14 @@ final class GameCoordinator: ObservableObject {
                 arguments.contains("--deterministic-game")
                 ? GameEngine(configuration: configuration, random: { 0 })
                 : GameEngine(configuration: configuration)
+            screenshotAutoplayEnabled = screenshotFixture?.autoplayEnabled == true
+            screenshotAutoplayRandom = ScreenshotAutoplayRandom(
+                seed: screenshotFixture?.autoplaySeed ?? 0
+            )
         #else
             let engine = GameEngine()
+            screenshotAutoplayEnabled = false
+            screenshotAutoplayRandom = ScreenshotAutoplayRandom(seed: 0)
         #endif
         self.engine = engine
         scene = GameScene()
@@ -95,6 +105,7 @@ final class GameCoordinator: ObservableObject {
     deinit {
         targetTask?.cancel()
         decoyTask?.cancel()
+        screenshotAutoplayTask?.cancel()
     }
 
     func startIfNeeded() {
@@ -215,6 +226,7 @@ final class GameCoordinator: ObservableObject {
         case .roundActive:
             setRoundPresentationExpired(false)
             feedback = "Tap \(snapshot.playerColor.name) \(snapshot.playerColor.glyph)"
+            scheduleScreenshotAutoplayIfNeeded()
         case .zenEnded:
             setRoundPresentationExpired(false)
             feedback = "Zen complete"
@@ -234,8 +246,10 @@ final class GameCoordinator: ObservableObject {
     private func cancelScheduling() {
         targetTask?.cancel()
         decoyTask?.cancel()
+        screenshotAutoplayTask?.cancel()
         targetTask = nil
         decoyTask = nil
+        screenshotAutoplayTask = nil
         pendingDeadlineCommit = nil
         scene.cancelQueuedActivations()
         setRoundPresentationExpired(false)
@@ -250,6 +264,52 @@ final class GameCoordinator: ObservableObject {
 
     private func monotonicMilliseconds() -> Double {
         ProcessInfo.processInfo.systemUptime * 1_000
+    }
+
+    private func scheduleScreenshotAutoplayIfNeeded() {
+        guard screenshotAutoplayEnabled,
+            engine.state == .active,
+            let activeAt = engine.activeAt,
+            let targetIndex = engine.targetIndex
+        else {
+            return
+        }
+
+        screenshotAutoplayTask?.cancel()
+        let scheduledGeneration = generation
+        let gridDimension = snapshot.difficulty.gridDimension
+        let reactionMilliseconds = screenshotAutoplayRandom.nextReactionMilliseconds(
+            forGridDimension: gridDimension
+        )
+        let tapLocation = screenshotAutoplayRandom.nextTapLocation()
+        guard
+            let sceneLocation = scene.tapPoint(
+                forCellAt: targetIndex,
+                horizontalFraction: tapLocation.horizontalFraction,
+                verticalFraction: tapLocation.verticalFraction
+            )
+        else {
+            return
+        }
+        screenshotAutoplayTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(for: .milliseconds(Int64(reactionMilliseconds)))
+            guard !Task.isCancelled,
+                scheduledGeneration == generation,
+                engine.state == .active,
+                engine.activeAt == activeAt,
+                engine.targetIndex == targetIndex
+            else {
+                return
+            }
+            screenshotAutoplayTask = nil
+            let handledAt = monotonicMilliseconds()
+            scene.handleBoardTouch(
+                at: sceneLocation,
+                inputAt: activeAt + Double(reactionMilliseconds),
+                handledAt: handledAt
+            )
+        }
     }
 }
 

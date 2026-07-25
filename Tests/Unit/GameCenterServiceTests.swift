@@ -144,6 +144,7 @@ final class GameCenterServiceTests: XCTestCase {
         let verification = try await service.fetchIdentityVerification()
 
         XCTAssertEqual(verification.signedTeamPlayerID, "team-player-1")
+        XCTAssertEqual(verification.gamePlayerID, "game-player-1")
         XCTAssertEqual(verification.bundleIdentifier, "com.otcsoftware.pimpopom")
         XCTAssertEqual(verification.signature, Data([1, 2, 3]))
         XCTAssertEqual(verification.salt, Data([4, 5, 6]))
@@ -179,6 +180,65 @@ final class GameCenterServiceTests: XCTestCase {
         } catch {
             XCTAssertEqual(error as? GameCenterServiceError, .identityChanged)
         }
+    }
+
+    func testIdentityVerificationRejectsAGamePlayerChangeBeforeCompletion() async {
+        let harness = GameCenterClientHarness()
+        harness.authenticated = true
+        harness.verification = (
+            URL(string: "https://static.gc.apple.com/public-key")!,
+            Data([1]),
+            Data([2]),
+            1
+        )
+        harness.beforeVerificationCallback = {
+            harness.gamePlayerID = "different-game-player"
+        }
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        harness.authenticationCallback?(nil, nil)
+
+        do {
+            _ = try await service.fetchIdentityVerification()
+            XCTFail("Expected an identity-change error")
+        } catch {
+            XCTAssertEqual(error as? GameCenterServiceError, .identityChanged)
+        }
+    }
+
+    func testTransientScopedIDsAreVisibleAndRefusedBeforeSignatureFetch() async {
+        let harness = GameCenterClientHarness()
+        harness.authenticated = true
+        harness.scopedIDsArePersistent = false
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        harness.authenticationCallback?(nil, nil)
+
+        guard case .authenticated(let player) = service.state else {
+            return XCTFail("Expected an authenticated Game Center player.")
+        }
+        XCTAssertFalse(player.scopedIDsArePersistent)
+        do {
+            _ = try await service.fetchIdentityVerification()
+            XCTFail("Transient scoped IDs must never produce a proof.")
+        } catch {
+            XCTAssertEqual(error as? GameCenterServiceError, .scopedIDsTransient)
+        }
+        XCTAssertEqual(harness.verificationFetchCount, 0)
     }
 
     func testIdentityVerificationRejectsEmptySignatureMaterial() async {
@@ -309,6 +369,178 @@ final class GameCenterServiceTests: XCTestCase {
         XCTAssertEqual(harness.removeCount, 1)
         XCTAssertNil(harness.authenticationCallback)
     }
+
+    func testProfileStateResolverExposesEveryServerPublicationState() {
+        let player = GameCenterPlayerIdentity(
+            displayName: "Arcade Tester",
+            gamePlayerID: "game-player-1",
+            teamPlayerID: "team-player-1"
+        )
+        let authenticated = GameCenterConnectionState.authenticated(player)
+        let base = GameCenterServerStatus(
+            serverPublicationAvailable: true,
+            preReleased: true,
+            identityLinked: true,
+            publicationEnabled: true,
+            mirrorReady: true,
+            pendingJobs: 0,
+            heldJobs: 0,
+            needsReset: false
+        )
+
+        XCTAssertEqual(
+            GameCenterProfileStateResolver.resolve(
+                connection: .disabled,
+                primaryProfileAuthenticated: true,
+                identityBinding: true,
+                serverStatus: base,
+                issue: nil
+            ),
+            .gameCenterSignedOut
+        )
+        XCTAssertEqual(
+            resolved(authenticated, primary: false, binding: false, status: nil),
+            .primaryProfileRequired
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: false,
+                status: nil,
+                issue: .primaryReauthenticationRequired
+            ),
+            .primaryReauthenticationRequired
+        )
+        XCTAssertEqual(
+            resolved(
+                .authenticated(
+                    GameCenterPlayerIdentity(
+                        displayName: "Arcade Tester",
+                        gamePlayerID: "game-player-1",
+                        teamPlayerID: "team-player-1",
+                        scopedIDsArePersistent: false
+                    )
+                ),
+                primary: true,
+                binding: false,
+                status: nil
+            ),
+            .scopedIDsTransient
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: false,
+                status: status(base, identityLinked: false)
+            ),
+            .unlinked
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: true,
+                status: status(base, publicationEnabled: false, mirrorReady: false)
+            ),
+            .linkedIdentityOnly
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: true,
+                status: status(base, pendingJobs: 3)
+            ),
+            .publicationQueued(3)
+        )
+        XCTAssertEqual(
+            resolved(authenticated, primary: true, binding: true, status: base),
+            .mirrorReady
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: true,
+                status: status(base, pendingJobs: 2, heldJobs: 1)
+            ),
+            .publicationHeld(1)
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: true,
+                status: base,
+                issue: .conflict("Already linked")
+            ),
+            .conflict("Already linked")
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: true,
+                status: status(base, needsReset: true)
+            ),
+            .resetNeedsSupport
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: true,
+                status: status(
+                    base,
+                    serverPublicationAvailable: false,
+                    publicationEnabled: true,
+                    mirrorReady: false
+                )
+            ),
+            .linkedIdentityOnly
+        )
+    }
+
+    private func resolved(
+        _ connection: GameCenterConnectionState,
+        primary: Bool,
+        binding: Bool,
+        status: GameCenterServerStatus?,
+        issue: GameCenterLinkIssue? = nil
+    ) -> GameCenterProfileState {
+        GameCenterProfileStateResolver.resolve(
+            connection: connection,
+            primaryProfileAuthenticated: primary,
+            identityBinding: binding,
+            serverStatus: status,
+            issue: issue
+        )
+    }
+
+    private func status(
+        _ base: GameCenterServerStatus,
+        serverPublicationAvailable: Bool? = nil,
+        identityLinked: Bool? = nil,
+        publicationEnabled: Bool? = nil,
+        mirrorReady: Bool? = nil,
+        pendingJobs: Int? = nil,
+        heldJobs: Int? = nil,
+        needsReset: Bool? = nil
+    ) -> GameCenterServerStatus {
+        GameCenterServerStatus(
+            serverPublicationAvailable:
+                serverPublicationAvailable ?? base.serverPublicationAvailable,
+            preReleased: base.preReleased,
+            identityLinked: identityLinked ?? base.identityLinked,
+            publicationEnabled: publicationEnabled ?? base.publicationEnabled,
+            mirrorReady: mirrorReady ?? base.mirrorReady,
+            pendingJobs: pendingJobs ?? base.pendingJobs,
+            heldJobs: heldJobs ?? base.heldJobs,
+            needsReset: needsReset ?? base.needsReset
+        )
+    }
 }
 
 @MainActor
@@ -317,6 +549,9 @@ private final class GameCenterClientHarness {
     var removeCount = 0
     var authenticated = false
     var teamPlayerID = "team-player-1"
+    var gamePlayerID = "game-player-1"
+    var scopedIDsArePersistent = true
+    var verificationFetchCount = 0
     var authenticationCallback: GameCenterClient.AuthenticationCallback?
     var verification: (URL, Data, Data, UInt64)?
     var beforeVerificationCallback: (() -> Void)?
@@ -336,9 +571,13 @@ private final class GameCenterClientHarness {
             },
             isAuthenticated: { [weak self] in self?.authenticated == true },
             displayName: { "Arcade Tester" },
-            gamePlayerID: { "game-player-1" },
+            gamePlayerID: { [weak self] in self?.gamePlayerID ?? "" },
             teamPlayerID: { [weak self] in self?.teamPlayerID ?? "" },
+            scopedIDsArePersistent: {
+                [weak self] in self?.scopedIDsArePersistent == true
+            },
             fetchIdentityVerification: { [weak self] callback in
+                self?.verificationFetchCount += 1
                 guard let verification = self?.verification else {
                     callback(nil, nil, nil, 0, "Verification fixture unavailable")
                     return

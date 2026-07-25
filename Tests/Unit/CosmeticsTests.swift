@@ -145,6 +145,18 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(WebMenuMetrics.motivationHorizontalNudge, -10)
         XCTAssertEqual(WebMenuMetrics.motivationScale, 1.15)
         XCTAssertEqual(WebMenuMetrics.introRulesHorizontalOffset, 10)
+        XCTAssertEqual(WebMenuMetrics.largePhoneScale(screenWidth: 375), 1)
+        XCTAssertEqual(
+            WebMenuMetrics.largePhoneScale(screenWidth: 440),
+            440 / 375,
+            accuracy: 0.001
+        )
+        XCTAssertEqual(WebMenuMetrics.largePhoneScale(screenWidth: 500), 1.18)
+        XCTAssertEqual(
+            WebMenuMetrics.menuPetSize(screenWidth: 440),
+            64 * (440 / 375),
+            accuracy: 0.001
+        )
     }
 
     func testThemeVisualTokensMatchTheReviewedWebContract() {
@@ -278,13 +290,68 @@ final class CosmeticsTests: XCTestCase {
                         )
                         let bounds = path.boundingBoxOfPath
                         XCTAssertEqual(bounds.minX, target.minX, accuracy: 0.001, glyph)
-                        XCTAssertEqual(bounds.minY, target.minY, accuracy: 0.001, glyph)
                         XCTAssertEqual(bounds.width, target.width, accuracy: 0.001, glyph)
-                        XCTAssertEqual(bounds.height, target.height, accuracy: 0.001, glyph)
+                        if style == .pixel, glyph == "★" {
+                            let sourceMargin = side * 2 / 50
+                            XCTAssertEqual(
+                                bounds.minY,
+                                target.minY + sourceMargin,
+                                accuracy: 0.001,
+                                glyph
+                            )
+                            XCTAssertEqual(
+                                bounds.height,
+                                target.height - sourceMargin * 2,
+                                accuracy: 0.001,
+                                glyph
+                            )
+                        } else {
+                            XCTAssertEqual(bounds.minY, target.minY, accuracy: 0.001, glyph)
+                            XCTAssertEqual(bounds.height, target.height, accuracy: 0.001, glyph)
+                        }
                     }
                 }
             }
         }
+    }
+
+    func testPixelStarUsesTheExactSuppliedFiftyByFiftyMask() throws {
+        let mask = try XCTUnwrap(GameGlyphGeometry.pixelMask(for: "★"))
+        XCTAssertEqual(mask.count, 50)
+        XCTAssertTrue(mask.allSatisfy { $0.count == 50 })
+
+        func row(_ ranges: [Range<Int>]) -> String {
+            var characters = Array(repeating: Character("."), count: 50)
+            for range in ranges {
+                for index in range {
+                    characters[index] = "#"
+                }
+            }
+            return String(characters)
+        }
+        func repeated(_ count: Int, _ ranges: [Range<Int>]) -> [String] {
+            Array(repeating: row(ranges), count: count)
+        }
+        let expected =
+            Array(repeating: row([]), count: 2)
+            + repeated(3, [24..<26])
+            + repeated(4, [22..<28])
+            + repeated(5, [20..<30])
+            + repeated(4, [18..<32])
+            + repeated(4, [0..<50])
+            + repeated(2, [2..<48])
+            + repeated(2, [6..<44])
+            + repeated(2, [10..<40])
+            + repeated(5, [14..<36])
+            + repeated(4, [12..<38])
+            + repeated(3, [10..<40])
+            + repeated(2, [10..<23, 27..<40])
+            + repeated(2, [8..<20, 30..<42])
+            + repeated(2, [8..<16, 34..<42])
+            + repeated(2, [8..<13, 37..<42])
+            + Array(repeating: row([]), count: 2)
+
+        XCTAssertEqual(mask, expected)
     }
 
     func testSmoothCrossIsOneSolidShapeWithNoCenterHole() throws {
@@ -471,6 +538,28 @@ final class CosmeticsTests: XCTestCase {
             AudioOutputPolicy.isSuppressed(
                 arguments: ["PimPoPom"],
                 environment: ["XCTestConfigurationFilePath": "/tmp/tests.xctestconfiguration"]
+            )
+        )
+        XCTAssertFalse(
+            AudioOutputPolicy.isSuppressed(
+                arguments: [
+                    "PimPoPom",
+                    "--uitesting",
+                    "--screenshot-mode",
+                    "--screenshot-record-audio",
+                ],
+                environment: [:]
+            )
+        )
+        XCTAssertTrue(
+            AudioOutputPolicy.isSuppressed(
+                arguments: [
+                    "PimPoPom",
+                    "--uitesting",
+                    "--screenshot-mode",
+                    "--screenshot-record-audio",
+                ],
+                environment: ["XCTestSessionIdentifier": "fixture-test"]
             )
         )
         XCTAssertFalse(AudioOutputPolicy.isSuppressed(arguments: ["PimPoPom"], environment: [:]))

@@ -188,6 +188,74 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(GameplayLayoutMetrics.adBannerHeight, 50)
         XCTAssertEqual(GameplayLayoutMetrics.reservedHeight(hasPet: false), 226)
         XCTAssertEqual(GameplayLayoutMetrics.reservedHeight(hasPet: true), 226)
+        XCTAssertEqual(GameplayLayoutMetrics.boardToSpeedBarSpacing, 14)
+
+        let compact = GameplayLayoutMetrics.resolve(
+            availableSize: CGSize(width: 375, height: 600),
+            hasPet: false
+        )
+        let large = GameplayLayoutMetrics.resolve(
+            availableSize: CGSize(width: 440, height: 900),
+            hasPet: true
+        )
+        XCTAssertEqual(compact.boardSide, 351)
+        XCTAssertEqual(compact.boardTopSpacing, 14.9, accuracy: 0.001)
+        XCTAssertEqual(compact.boardToSpeedBarSpacing, 14)
+        XCTAssertEqual(large.boardSide, 416)
+        XCTAssertEqual(large.boardTopSpacing, 52)
+        XCTAssertEqual(large.boardToSpeedBarSpacing, 14)
+
+        let firstTier = SpeedBarPresentation.resolve(
+            multiplier: 1,
+            progress: 4,
+            target: 5
+        )
+        XCTAssertEqual(firstTier.completedOpacity, 0)
+        XCTAssertEqual(firstTier.activeFraction, 0.8, accuracy: 0.001)
+
+        let promoted = SpeedBarPresentation.resolve(
+            multiplier: 2,
+            progress: 0,
+            target: 5
+        )
+        XCTAssertEqual(promoted.completedOpacity, 0.60)
+        XCTAssertEqual(promoted.activeFraction, 0)
+
+        let growingNextTier = SpeedBarPresentation.resolve(
+            multiplier: 2,
+            progress: 2,
+            target: 5
+        )
+        XCTAssertEqual(growingNextTier.completedOpacity, 0.60)
+        XCTAssertEqual(growingNextTier.activeFraction, 0.4, accuracy: 0.001)
+
+        let maximum = SpeedBarPresentation.resolve(
+            multiplier: 5,
+            progress: 0,
+            target: 5
+        )
+        XCTAssertEqual(maximum.completedOpacity, 0.60)
+        XCTAssertEqual(maximum.activeFraction, 1)
+
+        let godlikePromotion = SpeedBarTransitionPlan.resolve(
+            from: firstTier,
+            to: SpeedBarPresentation.resolve(
+                multiplier: 2,
+                progress: 1,
+                target: 5
+            )
+        )
+        XCTAssertTrue(godlikePromotion.completesOutgoingTier)
+        XCTAssertEqual(godlikePromotion.outgoingCompletionFraction, 1)
+        XCTAssertEqual(godlikePromotion.carriedActiveFraction, 0.2, accuracy: 0.001)
+
+        let ordinaryProgress = SpeedBarTransitionPlan.resolve(
+            from: promoted,
+            to: growingNextTier
+        )
+        XCTAssertFalse(ordinaryProgress.completesOutgoingTier)
+        XCTAssertEqual(ordinaryProgress.outgoingCompletionFraction, 0.4, accuracy: 0.001)
+        XCTAssertEqual(ordinaryProgress.carriedActiveFraction, 0.4, accuracy: 0.001)
         XCTAssertEqual(ZenAnyCellTokens.previewSide, 40)
         XCTAssertEqual(
             ZenAnyCellTokens.horizontalLogoGradientHexes,

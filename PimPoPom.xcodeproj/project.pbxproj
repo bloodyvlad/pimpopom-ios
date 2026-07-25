@@ -55,6 +55,7 @@
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
+		90D6A66A2314920DACE7DF01 /* ScreenshotFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */; };
 		9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */; };
 		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
 		97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */; };
@@ -69,6 +70,7 @@
 		AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */; };
 		B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */; };
 		B356FCCA35545B44F4D3A1AC /* AdsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */; };
+		B46953E8B2A2F8158BF74A06 /* ScreenshotFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */; };
 		B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9648B3C4989B1B1FF9557057 /* GameScene.swift */; };
 		B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */; };
 		B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */; };
@@ -160,9 +162,11 @@
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
 		86EABB78532A8A66E0E421C5 /* PimPoPom.storekit */ = {isa = PBXFileReference; path = PimPoPom.storekit; sourceTree = "<group>"; };
+		896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixtureTests.swift; sourceTree = "<group>"; };
 		8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayLifecycleTests.swift; sourceTree = "<group>"; };
 		905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeQuickActionController.swift; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixture.swift; sourceTree = "<group>"; };
 		9648B3C4989B1B1FF9557057 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
 		A094CABC4F0AA44F4126624B /* kesha-perch.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-perch.png"; sourceTree = "<group>"; };
 		A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-ice-floe.png"; sourceTree = "<group>"; };
@@ -240,6 +244,7 @@
 				EBEF85AB212E22ED8DE20E6C /* Gameplay */,
 				E5632A3555BEBB5AA3B9681F /* Resources */,
 				E1F73E23574CABE39BBD1F87 /* Services */,
+				D6573CA6840E9FC89305445B /* Testing */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -374,6 +379,7 @@
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
 				6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */,
+				896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */,
 				EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */,
 			);
 			path = Unit;
@@ -400,6 +406,14 @@
 				6FF762CE49FF020FD9A3F626 /* Staging.xcconfig */,
 			);
 			path = Config;
+			sourceTree = "<group>";
+		};
+		D6573CA6840E9FC89305445B /* Testing */ = {
+			isa = PBXGroup;
+			children = (
+				937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */,
+			);
+			path = Testing;
 			sourceTree = "<group>";
 		};
 		E1F73E23574CABE39BBD1F87 /* Services */ = {
@@ -633,6 +647,7 @@
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
 				2BC9C266D38E20EC72551C54 /* PurchaseControllerTests.swift in Sources */,
+				B46953E8B2A2F8158BF74A06 /* ScreenshotFixtureTests.swift in Sources */,
 				E359484EDDD010BB1C4A60B7 /* StoreKitConfigurationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -672,6 +687,7 @@
 				5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */,
 				066C6CBA43656DC6D7BA87F3 /* PurchaseController.swift in Sources */,
 				8A9091375A080E76B3131D5B /* RootView.swift in Sources */,
+				90D6A66A2314920DACE7DF01 /* ScreenshotFixture.swift in Sources */,
 				03528CE7275198A4BEB75E9B /* SettingsView.swift in Sources */,
 				A8C18C383224F6F97F475FB5 /* StoreKitModels.swift in Sources */,
 				9BE6F4395E1981A42564EE35 /* StoreKitService.swift in Sources */,

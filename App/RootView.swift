@@ -24,6 +24,9 @@ struct RootView: View {
     @State private var showsCoinStore = false
     @State private var showsRemoveAdsStore = false
     @State private var showsIconSettings = false
+    @State private var showsScreenshotThemeShop = false
+    @State private var showsScreenshotPetShop = false
+    @State private var showsScreenshotLeaderboard = false
     @State private var motivationIndex: Int?
     @State private var hasCompletedGameThisLaunch = false
     @State private var isMenuSurfaceVisible = true
@@ -93,6 +96,15 @@ struct RootView: View {
                     hasCompletedGameThisLaunch = true
                     advanceMotivation()
                 }
+            }
+            .navigationDestination(isPresented: $showsScreenshotThemeShop) {
+                ThemeShopView()
+            }
+            .navigationDestination(isPresented: $showsScreenshotPetShop) {
+                PetShopView()
+            }
+            .navigationDestination(isPresented: $showsScreenshotLeaderboard) {
+                LeaderboardView()
             }
         }
         .tint(Color(hex: palette.foreground))
@@ -207,7 +219,10 @@ struct RootView: View {
         screenWidth: CGFloat,
         usesCompactRemoveAds: Bool
     ) -> some View {
-        ZStack(alignment: .topTrailing) {
+        let largePhoneScale = WebMenuMetrics.largePhoneScale(screenWidth: screenWidth)
+        let menuPetSize = WebMenuMetrics.menuPetSize(screenWidth: screenWidth)
+
+        return ZStack(alignment: .topTrailing) {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityElement(children: .ignore)
@@ -227,7 +242,7 @@ struct RootView: View {
             if let petID = cosmetics.displayedPetID {
                 PetCompanionView(
                     petID: petID,
-                    size: 64,
+                    size: menuPetSize,
                     placement: .menu,
                     animationTrigger: menuPetActivity,
                     facing: menuPetFacing,
@@ -236,7 +251,7 @@ struct RootView: View {
                 .offset(
                     x: WebMenuMetrics.menuPetBaseHorizontalOffset
                         - screenWidth * WebMenuMetrics.menuPetHorizontalShiftFraction,
-                    y: WebMenuMetrics.headerHeight + 17
+                    y: WebMenuMetrics.headerHeight + 17 * largePhoneScale
                 )
                 .task(id: "\(petID)-\(menuPetActivity)-\(scenePhase)") {
                     menuPetSleeping = false
@@ -251,6 +266,9 @@ struct RootView: View {
         }
         .foregroundStyle(Color(hex: palette.foreground))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .task(id: "\(cosmetics.displayedPetID ?? "none")-\(scenePhase)") {
+            await runScreenshotMenuAutoplay(screenWidth: screenWidth)
+        }
     }
 
     private func utilityHeader(usesCompactRemoveAds: Bool) -> some View {
@@ -377,7 +395,10 @@ struct RootView: View {
     }
 
     private func hintStage(screenWidth: CGFloat) -> some View {
-        Group {
+        let largePhoneScale = WebMenuMetrics.largePhoneScale(screenWidth: screenWidth)
+        let menuPetSize = WebMenuMetrics.menuPetSize(screenWidth: screenWidth)
+
+        return Group {
             if motivationIsVisible {
                 Button {
                     advanceMotivation()
@@ -389,9 +410,9 @@ struct RootView: View {
                         tilt: MenuMotivation.tilts[
                             currentMotivationIndex % MenuMotivation.tilts.count
                         ],
-                        size: 16 * WebMenuMetrics.motivationScale,
-                        horizontalPadding: 10,
-                        verticalPadding: 5
+                        size: 16 * WebMenuMetrics.motivationScale * largePhoneScale,
+                        horizontalPadding: 10 * largePhoneScale,
+                        verticalPadding: 5 * largePhoneScale
                     )
                 }
                 .buttonStyle(.plain)
@@ -421,9 +442,9 @@ struct RootView: View {
                             tilt: MenuMotivation.tilts[
                                 (introStampSeed + index) % MenuMotivation.tilts.count
                             ],
-                            size: 12,
-                            horizontalPadding: 9,
-                            verticalPadding: 4
+                            size: 12 * largePhoneScale,
+                            horizontalPadding: 9 * largePhoneScale,
+                            verticalPadding: 4 * largePhoneScale
                         )
                     }
                 }
@@ -434,7 +455,7 @@ struct RootView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: WebMenuMetrics.hintHeight, alignment: .leading)
-        .padding(.trailing, cosmetics.displayedPetID == nil ? 0 : 76)
+        .padding(.trailing, cosmetics.displayedPetID == nil ? 0 : menuPetSize + 12)
         .padding(.top, 8)
         .padding(.bottom, 14)
     }
@@ -747,7 +768,7 @@ struct RootView: View {
             pointerX: location.x,
             petCenterX: PetTapFollow.resolveMenuPetCenterX(
                 screenWidth: screenWidth,
-                canvasWidth: 64,
+                canvasWidth: WebMenuMetrics.menuPetSize(screenWidth: screenWidth),
                 maximumPanelWidth: WebMenuMetrics.maximumPanelWidth,
                 horizontalPadding: 12,
                 horizontalOffset: WebMenuMetrics.menuPetBaseHorizontalOffset
@@ -757,6 +778,41 @@ struct RootView: View {
             current: menuPetFacing
         )
         menuPetActivity += 1
+    }
+
+    private func runScreenshotMenuAutoplay(screenWidth: CGFloat) async {
+        #if DEBUG
+            guard
+                let fixture = ScreenshotFixture.resolve(
+                    arguments: ProcessInfo.processInfo.arguments
+                ),
+                fixture.destination == .menu,
+                fixture.autoplayEnabled,
+                fixture.petID != nil
+            else {
+                return
+            }
+
+            var pointsRight = true
+            while !Task.isCancelled {
+                if navigationPath.isEmpty, cosmetics.displayedPetID != nil {
+                    handleMenuTap(
+                        at: CGPoint(
+                            x: screenWidth * (pointsRight ? 0.95 : 0.05),
+                            y: 0
+                        ),
+                        screenWidth: screenWidth
+                    )
+                    pointsRight.toggle()
+                }
+
+                do {
+                    try await Task.sleep(for: .seconds(3))
+                } catch {
+                    return
+                }
+            }
+        #endif
     }
 
     private func restoreSession() async {
@@ -786,6 +842,30 @@ struct RootView: View {
                 navigationPath = [.arcade]
             } else if arguments.contains("--play-zen") {
                 navigationPath = [.zen]
+            }
+
+            if let fixture = ScreenshotFixture.resolve(arguments: arguments) {
+                preferences.glyphsEnabled = true
+                preferences.soundEffectsEnabled = true
+                preferences.musicEnabled = true
+                switch fixture.destination {
+                case .menu:
+                    break
+                case .themeShop:
+                    showsScreenshotThemeShop = true
+                case .petShop:
+                    showsScreenshotPetShop = true
+                case .leaderboard:
+                    showsScreenshotLeaderboard = true
+                case .profile:
+                    showsProfile = true
+                case .achievements:
+                    showsAchievements = true
+                case .arcade:
+                    navigationPath = [.arcade]
+                case .zen:
+                    navigationPath = [.zen]
+                }
             }
         #endif
     }
