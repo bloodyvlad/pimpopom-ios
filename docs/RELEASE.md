@@ -103,6 +103,22 @@ iOS binaries cannot be instantly rolled back on every installed device. Prepare 
 
 Never break the previous live client merely to simplify a new release.
 
+## TestFlight release records
+
+### PimPoPom 1.02 (10) — 2026-07-25
+
+- **Git source:** `68ad4d25e83ec98f4127e848c53543be1294f23e` on `codex/testflight-1-02-build-10`.
+- **Toolchain:** Xcode 26.6 (`17F113`), Apple Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2.
+- **Identity:** bundle `com.otcsoftware.pimpopom`; Apple Distribution team `APX2925X66`; Apple Sign In and Game Center entitlements; `get-task-allow = false`; marketing version/build `1.02 (10)`.
+- **Verification:** `Scripts/check.sh` passed 29 deterministic core plus 213 native/unit/UI tests on the named iPhone SE (3rd generation) Simulator, 242 total with zero failures, skips, or expected failures. `git diff --check` and App Store archive validation passed.
+- **Archive:** `/Users/vlad/Documents/PimPoPom-release-artifacts/1.02-10/PimPoPom-1.02-10-68ad4d2.xcarchive`; deterministic sorted-file manifest SHA-256 `9487ac2c5d9f43e0dd698177df1c405e652c0bafa2d7d8b1c4a69342eb0bcfa2`.
+- **Export:** `/Users/vlad/Documents/PimPoPom-release-artifacts/1.02-10/upload/PimPoPom.ipa`; SHA-256 `f61c09b5c90b36ff813983abd4c432eed5e3135ff1df67daa04361810d2186da`.
+- **App Store Connect:** build `0e6f59d9-0cf2-4282-8f94-9d2ddbab2ca0` processed `VALID`; icon present; `usesNonExemptEncryption = false`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING` with automatic notification.
+- **Runtime contracts:** current Hostinger identity/Game Center response shape is compatible. PHP remains authoritative for protocol-verified Arcade ranking and achievement publication. StoreKit remains the accepted five-product catalog with server acknowledgement; Staging retains Google Mobile Ads 13.6.0, UMP 3.1.0, committed demo defaults, and owner-split Test mode routing.
+- **Corrections:** primary sign-in now gates Game Center, retained GameKit authentication cannot leave Connect hanging, Connecting can be cancelled, ownership conflicts are explicit and non-merging, and enabled audio resumes after ordinary foreground restoration without bypassing genuine route/interruption gates.
+- **Known limitation:** identities already owned by another internal UUID remain server conflicts, and stats cannot backfill until Game Center is linked to the exact owning primary profile or an audited server-side transfer/reset occurs. Physical TestFlight verification remains required for that recovery, Apple propagation, and audible app-switch behavior.
+- **Prior compatible build:** TestFlight 1.02 (9). The owner can expire a faulty TestFlight build while retaining the prior compatible backend and shipping a corrective binary.
+
 ## Release record template
 
 ```text

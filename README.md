@@ -19,9 +19,7 @@ Codex also supported the Swift/SwiftUI/SpriteKit architecture, PHP API integrati
 
 This repository is intentionally independent from the legacy web implementation. It now contains a playable native Arcade/Zen alpha, a pure Swift rules engine, SpriteKit rendering, SwiftUI app surfaces, and an internal integration with the existing Hostinger PHP service.
 
-The current named-cohort TestFlight build is **1.02 (9)** from source commit `5be2f05b09d171cb169ab15eba1f034f2a9aedf0`. App Store Connect accepted it as build `aa47097b-9ab5-45ec-85d0-096ea645e7f3`; it is in beta testing for both Internal QA and External QA. It adds server-authoritative Game Center score/achievement publication controls and the exact accepted Pixel-theme star without making GameKit authoritative for gameplay, ranking, achievements, or economy.
-
-Build **1.02 (10)** is the current unreleased candidate. It prevents Game Center authentication before a primary PimPoPom login, makes Connect/Turn Off recover when GameKit is already authenticated, exposes provider and Game Center ownership conflicts beside the relevant controls, and restores configured music/Sound FX after ordinary app background/foreground transitions without weakening route-loss user-action safeguards.
+The current named-cohort TestFlight build is **1.02 (10)** from source commit `68ad4d25e83ec98f4127e848c53543be1294f23e`. App Store Connect accepted it as build `0e6f59d9-0cf2-4282-8f94-9d2ddbab2ca0`; Apple approved its Beta App Review and it is in beta testing for both Internal QA and External QA. It prevents Game Center authentication before a primary PimPoPom login, makes Connect/Turn Off recover when GameKit is already authenticated, exposes provider and Game Center ownership conflicts beside the relevant controls, and restores configured music/Sound FX after ordinary app background/foreground transitions without weakening route-loss user-action safeguards. GameKit remains a server-fed mirror rather than an authority for gameplay, ranking, achievements, or economy.
 
 ## Migration baseline
 

@@ -2,7 +2,7 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
-## Current build-10 candidate evidence — 2026-07-25
+## Current TestFlight build-10 evidence — 2026-07-25
 
 - `Scripts/check.sh` passed project regeneration, strict Swift formatting, asset/source/licence hashes, Info/privacy/configuration guards, 29 deterministic core tests, the generic Swift 6 Simulator build, and 213 native unit/UI tests on the named iPhone SE (3rd generation, 2022) Simulator with iOS 26.5. Xcode reported zero failures, skips, or expected failures: 242 checks including the core package. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.25_22-25-39-+0200.xcresult`.
 - Focused coverage includes the supplied exact 50×50 Pixel star, GameKit persistent-scoped-ID refusal, challenge-after-persistence ordering, exact `gamePlayerId`/`publish: true` proof contract, nullable/additive status decoding, publication disable, conflict/reauthentication state resolution, retained session/economy state, already-authenticated reconnect without a second callback, immediate cancellation while Connecting, signed-out primary-profile gating, and audio recovery for ended-before-active, missing-end, late nonresumable-end, and route-loss sequences.
