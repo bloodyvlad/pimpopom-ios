@@ -158,7 +158,6 @@ struct RootView: View {
         .task {
             configureDebugLaunch()
             openPendingQuickAction()
-            gameCenter.resumeAuthenticationIfOptedIn()
             audio.setApplicationActive(scenePhase == .active)
             ads.setApplicationActive(scenePhase == .active)
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
@@ -169,6 +168,9 @@ struct RootView: View {
             // AdsController still waits for authoritative ad-free resolution before GMA starts.
             await ads.bootstrap(session: nil)
             await restoreSession()
+            if backend.isAuthenticated {
+                gameCenter.resumeAuthenticationIfOptedIn()
+            }
             await ads.updateSession(backend.sessionState)
             await ads.retryEligibilityIfNeeded()
             await purchases.loadProducts()
@@ -203,6 +205,14 @@ struct RootView: View {
             Task {
                 await ads.updateSession(backend.sessionState)
                 await purchases.reconcileOutstandingTransactions()
+            }
+        }
+        .onChange(of: backend.isAuthenticated) { wasAuthenticated, isAuthenticated in
+            guard wasAuthenticated != isAuthenticated else { return }
+            if isAuthenticated {
+                gameCenter.resumeAuthenticationIfOptedIn()
+            } else {
+                gameCenter.disableParticipation()
             }
         }
         .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
@@ -762,6 +772,7 @@ struct RootView: View {
     }
 
     private func handleMenuTap(at location: CGPoint, screenWidth: CGFloat) {
+        audio.resumeAfterUserAction()
         guard navigationPath.isEmpty, cosmetics.displayedPetID != nil else { return }
         menuPetSleeping = false
         menuPetFacing = PetTapFollow.resolve(

@@ -50,6 +50,8 @@ struct ProfileView: View {
     @State private var gameCenterLinkTask: Task<Void, Never>?
     @State private var gameCenterLinkGeneration = 0
     @State private var gameCenterLinkIssue: GameCenterLinkIssue?
+    @State private var identityLinkMessage: String?
+    @State private var identityLinkFailed = false
 
     private var palette: ThemePalette { cosmetics.theme }
     private var appleSignInEnabled: Bool {
@@ -128,6 +130,8 @@ struct ProfileView: View {
                     gameCenterLinking = false
                     gameCenterLinkIssue = nil
                     pendingGameCenterLink = false
+                    identityLinkMessage = nil
+                    identityLinkFailed = false
                 }
             }
             .onChange(of: gameCenter.state) { _, state in
@@ -412,6 +416,18 @@ struct ProfileView: View {
             .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
             .foregroundStyle(Color(hex: palette.muted))
             .fixedSize(horizontal: false, vertical: true)
+
+            if let identityLinkMessage {
+                Text(identityLinkMessage)
+                    .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
+                    .foregroundStyle(
+                        identityLinkFailed
+                            ? Color(hex: "#ff9c5b")
+                            : Color(hex: "#4dcc72")
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("profile-identity-link-status")
+            }
         }
         .webCardStyle(theme: palette, padding: 12)
         .accessibilityIdentifier("profile-identity-methods")
@@ -610,6 +626,9 @@ struct ProfileView: View {
             if case .authenticating = gameCenter.state {
                 return "Connecting… · PimPoPom play still works"
             }
+            if !backend.isAuthenticated {
+                return "Sign in with Apple or Google before connecting Game Center"
+            }
             if gameCenterServerStatus?.publicationEnabled == true {
                 return "Off locally · verified results still publish for the linked profile"
             }
@@ -639,7 +658,9 @@ struct ProfileView: View {
         case .publicationHeld:
             return "Apple delivery needs support · your PimPoPom progress is safe"
         case .conflict:
-            return "This Game Center account conflicts with an existing profile link"
+            return
+                "This Game Center account is linked to another PimPoPom profile. "
+                + "Sign in to that profile or use another Game Center account."
         case .resetNeedsSupport:
             return "Apple leaderboard reset needs support · PimPoPom play still works"
         }
@@ -656,13 +677,16 @@ struct ProfileView: View {
         switch gameCenterProfileState {
         case .gameCenterSignedOut:
             if case .authenticating = gameCenter.state {
-                return "Connecting…"
+                return "Turn Off"
             }
+            if !backend.isAuthenticated { return "Sign In First" }
             return "Connect"
         case .gameCenterUnavailable:
             return gameCenter.participationEnabled ? "Turn Off" : "Retry"
-        case .primaryProfileRequired, .scopedIDsTransient, .conflict:
+        case .primaryProfileRequired, .scopedIDsTransient:
             return "Turn Off"
+        case .conflict:
+            return "Turn Off Here"
         case .primaryReauthenticationRequired:
             return "Verify Sign-In"
         case .unlinked:
@@ -675,7 +699,7 @@ struct ProfileView: View {
     }
 
     private var isGameCenterActionDisabled: Bool {
-        if case .authenticating = gameCenter.state { return true }
+        if !backend.isAuthenticated { return true }
         return busy || gameCenterLinking
     }
 
@@ -688,7 +712,7 @@ struct ProfileView: View {
         guard gameCenter.participationEnabled else { return false }
         switch gameCenterProfileState {
         case .primaryProfileRequired, .scopedIDsTransient, .unlinked,
-            .linkedIdentityOnly, .conflict:
+            .linkedIdentityOnly:
             return true
         default:
             return false
@@ -712,9 +736,13 @@ struct ProfileView: View {
     private func handleGameCenterAction() {
         switch gameCenterProfileState {
         case .gameCenterSignedOut:
+            if case .authenticating = gameCenter.state {
+                turnOffGameCenterLocally()
+                return
+            }
+            guard backend.isAuthenticated else { return }
             pendingGameCenterLink =
-                backend.isAuthenticated
-                && gameCenterServerStatus?.mirrorReady != true
+                gameCenterServerStatus?.mirrorReady != true
             gameCenter.connect()
         case .gameCenterUnavailable:
             if gameCenter.participationEnabled {
@@ -725,8 +753,10 @@ struct ProfileView: View {
                     && gameCenterServerStatus?.mirrorReady != true
                 gameCenter.retryAuthentication()
             }
-        case .primaryProfileRequired, .scopedIDsTransient, .conflict:
+        case .primaryProfileRequired, .scopedIDsTransient:
             turnOffGameCenter()
+        case .conflict:
+            turnOffGameCenterLocally()
         case .primaryReauthenticationRequired, .unlinked, .linkedIdentityOnly:
             pendingGameCenterLink = true
             startGameCenterLinkIfNeeded()
@@ -736,6 +766,12 @@ struct ProfileView: View {
     }
 
     private func turnOffGameCenterLocally() {
+        let wasConflict: Bool
+        if case .conflict = gameCenterProfileState {
+            wasConflict = true
+        } else {
+            wasConflict = false
+        }
         gameCenterLinkGeneration += 1
         pendingGameCenterLink = false
         gameCenterLinkTask?.cancel()
@@ -743,6 +779,11 @@ struct ProfileView: View {
         gameCenterLinking = false
         gameCenterLinkIssue = nil
         gameCenter.disableParticipation()
+        if wasConflict {
+            status =
+                "Game Center is off on this device. The existing link to another "
+                + "PimPoPom profile was not changed."
+        }
     }
 
     private func turnOffGameCenter() {
@@ -947,34 +988,93 @@ struct ProfileView: View {
     private func linkApple(to profile: PlayerProfile) async {
         busy = true
         defer { busy = false }
+        identityLinkMessage = nil
+        identityLinkFailed = false
         do {
             try await reauthenticateCurrentProfile(profile.id)
-            _ = try await authorizeWithApple(
+        } catch {
+            identityLinkFailed = true
+            identityLinkMessage =
+                "Verify the sign-in already linked to this profile, then try again. "
+                + error.localizedDescription
+            status = nil
+            return
+        }
+
+        do {
+            let linked = try await authorizeWithApple(
                 intent: .link,
                 expectedPlayerID: profile.id
             )
-            status = "Apple is now linked to this profile."
+            guard linked.profile?.id == profile.id,
+                linked.identityBindings?.apple == true
+            else {
+                throw BackendError(
+                    status: 409,
+                    message: "Apple did not link to the current PimPoPom profile.",
+                    code: "apple-link-account-mismatch"
+                )
+            }
+            let refreshed = try await backend.loadSession()
+            guard refreshed.profile?.id == profile.id,
+                refreshed.identityBindings?.apple == true
+            else {
+                throw BackendError(
+                    status: 409,
+                    message: "Apple did not remain linked to the current PimPoPom profile.",
+                    code: "apple-link-not-confirmed"
+                )
+            }
+            identityLinkMessage = "Apple is linked to this profile."
+            status = nil
+        } catch let error as BackendError where error.status == 409 {
+            identityLinkFailed = true
+            identityLinkMessage =
+                "That Apple sign-in already belongs to another PimPoPom profile. "
+                + "Sign in to that profile to use it; accounts are not merged automatically."
+            status = nil
         } catch {
-            status = error.localizedDescription
+            identityLinkFailed = true
+            identityLinkMessage = error.localizedDescription
+            status = nil
         }
     }
 
     private func linkGoogle(to profile: PlayerProfile) async {
         busy = true
         defer { busy = false }
+        identityLinkMessage = nil
+        identityLinkFailed = false
         do {
             try await reauthenticateCurrentProfile(profile.id)
+        } catch {
+            identityLinkFailed = true
+            identityLinkMessage =
+                "Verify the sign-in already linked to this profile, then try again. "
+                + error.localizedDescription
+            status = nil
+            return
+        }
+
+        do {
             let token = try await googleIdentity.signIn()
             _ = try await backend.linkGoogle(
                 googleIDToken: token,
                 expectedPlayerID: profile.id
             )
-            status = "Google is now linked to this profile."
+            identityLinkMessage = "Google is linked to this profile."
+            status = nil
         } catch let error as BackendError where error.status == 409 {
             googleIdentity.signOut()
-            status = error.localizedDescription
+            identityLinkFailed = true
+            identityLinkMessage =
+                "That Google sign-in already belongs to another PimPoPom profile. "
+                + "Sign in to that profile to use it; accounts are not merged automatically."
+            status = nil
         } catch {
-            status = error.localizedDescription
+            identityLinkFailed = true
+            identityLinkMessage = error.localizedDescription
+            status = nil
         }
     }
 
@@ -1147,6 +1247,8 @@ struct ProfileView: View {
             response = nil
             nickname = ""
             status = nil
+            identityLinkMessage = nil
+            identityLinkFailed = false
             resetAccountDeletionForm()
             await cosmetics.refresh()
         } catch {

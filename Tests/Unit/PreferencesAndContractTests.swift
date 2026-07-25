@@ -107,6 +107,83 @@ final class PreferencesAndContractTests: XCTestCase {
         XCTAssertEqual(preferences.musicVolume, 0)
     }
 
+    func testAudioAutomaticallyResumesWhenInterruptionEndsBeforeForeground() {
+        var state = AudioResumeState()
+        XCTAssertTrue(state.setApplicationActive(true))
+        state.interruptionBegan()
+        XCTAssertFalse(state.canProduceOutput)
+        XCTAssertFalse(state.setApplicationActive(false))
+        XCTAssertFalse(state.interruptionEnded(shouldResume: true))
+
+        XCTAssertTrue(state.setApplicationActive(true))
+        XCTAssertTrue(state.canProduceOutput)
+        XCTAssertFalse(state.audioSessionIsInterrupted)
+        XCTAssertFalse(state.outputRequiresUserResume)
+    }
+
+    func testAudioForegroundRecoversALifecycleInterruptionMissingItsEndNotification() {
+        var state = AudioResumeState()
+        XCTAssertTrue(state.setApplicationActive(true))
+        state.interruptionBegan()
+        XCTAssertFalse(state.setApplicationActive(false))
+
+        XCTAssertTrue(state.setApplicationActive(true))
+        XCTAssertTrue(state.canProduceOutput)
+        XCTAssertFalse(state.audioSessionIsInterrupted)
+    }
+
+    func testAudioRouteLossStillRequiresATrustedUserActionAfterForeground() {
+        var state = AudioResumeState()
+        XCTAssertTrue(state.setApplicationActive(true))
+        state.routeBecameUnavailable()
+        XCTAssertFalse(state.canProduceOutput)
+        XCTAssertFalse(state.setApplicationActive(false))
+        XCTAssertFalse(state.setApplicationActive(true))
+        XCTAssertTrue(state.outputRequiresUserResume)
+
+        XCTAssertTrue(state.trustedUserAction())
+        XCTAssertTrue(state.canProduceOutput)
+    }
+
+    func testAudioExternalInterruptionWithoutResumeRecommendationStaysUserGated() {
+        var state = AudioResumeState()
+        XCTAssertTrue(state.setApplicationActive(true))
+        state.interruptionBegan()
+        XCTAssertFalse(state.interruptionEnded(shouldResume: false))
+        XCTAssertFalse(state.canProduceOutput)
+        XCTAssertTrue(state.outputRequiresUserResume)
+
+        XCTAssertTrue(state.trustedUserAction())
+        XCTAssertTrue(state.canProduceOutput)
+    }
+
+    func testAudioNonresumableInterruptionEndingInBackgroundStaysUserGated() {
+        var state = AudioResumeState()
+        XCTAssertTrue(state.setApplicationActive(true))
+        state.interruptionBegan()
+        XCTAssertFalse(state.setApplicationActive(false))
+        XCTAssertFalse(state.interruptionEnded(shouldResume: false))
+
+        XCTAssertFalse(state.setApplicationActive(true))
+        XCTAssertFalse(state.canProduceOutput)
+        XCTAssertTrue(state.outputRequiresUserResume)
+
+        XCTAssertTrue(state.trustedUserAction())
+        XCTAssertTrue(state.canProduceOutput)
+    }
+
+    func testAudioLateNonresumableInterruptionEndOverridesEarlyForegroundRecovery() {
+        var state = AudioResumeState()
+        XCTAssertTrue(state.setApplicationActive(true))
+        state.interruptionBegan()
+        XCTAssertFalse(state.setApplicationActive(false))
+        XCTAssertTrue(state.setApplicationActive(true))
+
+        XCTAssertFalse(state.interruptionEnded(shouldResume: false))
+        XCTAssertFalse(state.canProduceOutput)
+        XCTAssertTrue(state.outputRequiresUserResume)
+    }
+
     func testMusicTransitionDoesNotInvalidateInFlightLoad() {
         var generations = AudioTaskGenerations()
         let loadGeneration = generations.beginLoad()

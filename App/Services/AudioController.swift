@@ -100,6 +100,69 @@ struct AudioOutputPolicy: Equatable, Sendable {
     }
 }
 
+struct AudioResumeState: Equatable, Sendable {
+    private(set) var applicationIsActive = false
+    private(set) var audioSessionIsInterrupted = false
+    private(set) var outputRequiresUserResume = false
+    private(set) var pendingAutomaticResume = false
+
+    var canProduceOutput: Bool {
+        applicationIsActive
+            && !audioSessionIsInterrupted
+            && !outputRequiresUserResume
+    }
+
+    mutating func setApplicationActive(_ active: Bool) -> Bool {
+        guard active != applicationIsActive else {
+            return active && canProduceOutput
+        }
+        applicationIsActive = active
+        guard active else {
+            pendingAutomaticResume = true
+            return false
+        }
+
+        // Scene lifecycle notifications and AVAudioSession interruption
+        // notifications can arrive in either order. Returning to the active
+        // scene is sufficient to clear a lifecycle interruption, but it must
+        // not clear a route-loss/user-action gate.
+        if pendingAutomaticResume {
+            pendingAutomaticResume = false
+            audioSessionIsInterrupted = false
+        }
+        return canProduceOutput
+    }
+
+    mutating func interruptionBegan() {
+        audioSessionIsInterrupted = true
+    }
+
+    mutating func interruptionEnded(shouldResume: Bool) -> Bool {
+        audioSessionIsInterrupted = false
+        guard shouldResume else {
+            pendingAutomaticResume = false
+            outputRequiresUserResume = true
+            return false
+        }
+        guard applicationIsActive else {
+            pendingAutomaticResume = true
+            return false
+        }
+        return canProduceOutput
+    }
+
+    mutating func routeBecameUnavailable() {
+        pendingAutomaticResume = false
+        outputRequiresUserResume = true
+    }
+
+    mutating func trustedUserAction() -> Bool {
+        guard applicationIsActive, !audioSessionIsInterrupted else { return false }
+        outputRequiresUserResume = false
+        return true
+    }
+}
+
 @MainActor
 final class AudioController: NSObject, ObservableObject {
     @Published private(set) var statusMessage: String?
@@ -114,9 +177,10 @@ final class AudioController: NSObject, ObservableObject {
     private var selectedThemeID = "classic"
     private var pendingThemeID: String?
     private var requestedMusicContext = MusicContext.menu
-    private var applicationIsActive = false
-    private var audioSessionIsInterrupted = false
-    private var outputRequiresUserResume = false
+    private var resumeState = AudioResumeState()
+    private var applicationIsActive: Bool { resumeState.applicationIsActive }
+    private var audioSessionIsInterrupted: Bool { resumeState.audioSessionIsInterrupted }
+    private var outputRequiresUserResume: Bool { resumeState.outputRequiresUserResume }
     private var hasConfiguration = false
     private let outputIsSuppressed: Bool
 
@@ -301,40 +365,20 @@ final class AudioController: NSObject, ObservableObject {
 
     func resumeAfterUserAction() {
         guard !outputIsSuppressed else { return }
-        guard outputRequiresUserResume,
-            !audioSessionIsInterrupted,
-            applicationIsActive,
-            hasConfiguration
+        guard outputRequiresUserResume, hasConfiguration,
+            resumeState.trustedUserAction()
         else { return }
-        outputRequiresUserResume = false
-        if soundEffectsEnabled || musicEnabled {
-            _ = ensureEngineRunning()
-        }
-        if soundEffectsEnabled, soundSuite?.themeID != selectedThemeID {
-            loadSoundSuite()
-        }
-        if musicEnabled, musicSuite?.themeID != selectedThemeID {
-            loadMusicSuite()
-        } else {
-            transitionToRequestedMusicIfReady(forceRestart: true)
-        }
+        restoreConfiguredOutput(forceMusicRestart: true)
     }
 
     func setApplicationActive(_ active: Bool) {
-        applicationIsActive = active
+        let wasActive = applicationIsActive
+        let shouldRestore = resumeState.setApplicationActive(active)
         guard !outputIsSuppressed else { return }
         guard hasConfiguration else { return }
         if active {
-            if soundEffectsEnabled || musicEnabled {
-                _ = ensureEngineRunning()
-            }
-            if soundEffectsEnabled, soundSuite?.themeID != selectedThemeID {
-                loadSoundSuite()
-            }
-            if musicEnabled, musicSuite?.themeID != selectedThemeID {
-                loadMusicSuite()
-            } else {
-                transitionToRequestedMusicIfReady()
+            if shouldRestore {
+                restoreConfiguredOutput(forceMusicRestart: true)
             }
             if launchStingAwaitingActivation {
                 launchStingAwaitingActivation = false
@@ -343,8 +387,27 @@ final class AudioController: NSObject, ObservableObject {
                 }
             }
             playLaunchStingIfReady()
+        } else if wasActive {
+            stopOutputImmediately(deactivateSession: !audioSessionIsInterrupted)
+        }
+    }
+
+    private func restoreConfiguredOutput(forceMusicRestart: Bool) {
+        guard resumeState.canProduceOutput, hasConfiguration else { return }
+        if soundEffectsEnabled || musicEnabled {
+            _ = ensureEngineRunning()
+        }
+        if soundEffectsEnabled {
+            if soundSuite?.themeID != selectedThemeID {
+                loadSoundSuite()
+            }
+            rampSoundVolume()
+        }
+        guard musicEnabled else { return }
+        if musicSuite?.themeID != selectedThemeID {
+            loadMusicSuite()
         } else {
-            stopOutputImmediately()
+            transitionToRequestedMusicIfReady(forceRestart: forceMusicRestart)
         }
     }
 
@@ -699,7 +762,7 @@ final class AudioController: NSObject, ObservableObject {
         }
     }
 
-    private func stopOutputImmediately() {
+    private func stopOutputImmediately(deactivateSession: Bool = true) {
         musicGenerations.invalidateTransition()
         musicTransitionTask?.cancel()
         musicNode?.stop()
@@ -715,7 +778,12 @@ final class AudioController: NSObject, ObservableObject {
         playingMusicContext = nil
         playingMusicThemeID = nil
         engine?.pause()
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        if deactivateSession {
+            try? AVAudioSession.sharedInstance().setActive(
+                false,
+                options: [.notifyOthersOnDeactivation]
+            )
+        }
     }
 
     private func tearDownAudio() {
@@ -756,28 +824,16 @@ final class AudioController: NSObject, ObservableObject {
     private func processInterruption(typeRawValue: UInt, optionsRawValue: UInt) {
         guard let type = AVAudioSession.InterruptionType(rawValue: typeRawValue) else { return }
         if type == .began {
-            audioSessionIsInterrupted = true
-            stopOutputImmediately()
+            resumeState.interruptionBegan()
+            stopOutputImmediately(deactivateSession: false)
             return
         }
 
-        audioSessionIsInterrupted = false
         let options = AVAudioSession.InterruptionOptions(rawValue: optionsRawValue)
-        guard options.contains(.shouldResume), applicationIsActive else {
-            outputRequiresUserResume = true
-            return
-        }
-        outputRequiresUserResume = false
-        if soundEffectsEnabled || musicEnabled {
-            _ = ensureEngineRunning()
-        }
-        if soundEffectsEnabled, soundSuite?.themeID != selectedThemeID {
-            loadSoundSuite()
-        }
-        if musicEnabled, musicSuite?.themeID != selectedThemeID {
-            loadMusicSuite()
-        } else {
-            transitionToRequestedMusicIfReady(forceRestart: true)
+        if resumeState.interruptionEnded(shouldResume: options.contains(.shouldResume)) {
+            restoreConfiguredOutput(forceMusicRestart: true)
+        } else if outputRequiresUserResume {
+            stopOutputImmediately(deactivateSession: false)
         }
     }
 
@@ -785,7 +841,7 @@ final class AudioController: NSObject, ObservableObject {
         guard let reason = AVAudioSession.RouteChangeReason(rawValue: reasonRawValue),
             reason == .oldDeviceUnavailable
         else { return }
-        outputRequiresUserResume = true
+        resumeState.routeBecameUnavailable()
         stopOutputImmediately()
     }
 }

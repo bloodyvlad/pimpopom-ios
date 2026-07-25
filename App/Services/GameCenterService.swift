@@ -337,6 +337,9 @@ final class GameCenterService: ObservableObject {
             guard self?.authenticationGeneration == generation else { return }
             self?.handleAuthentication(viewController: viewController, error: error)
         }
+        if authenticationGeneration == generation, client.isAuthenticated() {
+            publishAuthenticatedPlayer()
+        }
     }
 
     private func handleAuthentication(viewController: UIViewController?, error: String?) {
@@ -351,26 +354,30 @@ final class GameCenterService: ObservableObject {
         }
 
         if client.isAuthenticated() {
-            let identity = GameCenterPlayerIdentity(
-                displayName: client.displayName(),
-                gamePlayerID: client.gamePlayerID(),
-                teamPlayerID: client.teamPlayerID(),
-                scopedIDsArePersistent: client.scopedIDsArePersistent()
-            )
-            guard !identity.gamePlayerID.isEmpty, !identity.teamPlayerID.isEmpty else {
-                state = .unavailable(
-                    GameCenterServiceError.incompleteIdentity.localizedDescription
-                )
-                return
-            }
-            setParticipationEnabled(true)
-            state = .authenticated(identity)
+            publishAuthenticatedPlayer()
             return
         }
 
         client.removeAuthenticationHandler()
         hasInstalledAuthenticationHandler = false
         state = .unavailable(error ?? "Game Center is unavailable. PimPoPom still works normally.")
+    }
+
+    private func publishAuthenticatedPlayer() {
+        let identity = GameCenterPlayerIdentity(
+            displayName: client.displayName(),
+            gamePlayerID: client.gamePlayerID(),
+            teamPlayerID: client.teamPlayerID(),
+            scopedIDsArePersistent: client.scopedIDsArePersistent()
+        )
+        guard !identity.gamePlayerID.isEmpty, !identity.teamPlayerID.isEmpty else {
+            state = .unavailable(
+                GameCenterServiceError.incompleteIdentity.localizedDescription
+            )
+            return
+        }
+        setParticipationEnabled(true)
+        state = .authenticated(identity)
     }
 
     private func setParticipationEnabled(_ enabled: Bool) {

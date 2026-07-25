@@ -370,6 +370,60 @@ final class GameCenterServiceTests: XCTestCase {
         XCTAssertNil(harness.authenticationCallback)
     }
 
+    func testReconnectAdoptsAnAlreadyAuthenticatedPlayerWithoutWaitingForCallback() {
+        let harness = GameCenterClientHarness()
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        harness.authenticated = true
+        harness.authenticationCallback?(nil, nil)
+        service.disableParticipation()
+
+        service.connect()
+
+        XCTAssertEqual(harness.installCount, 2)
+        XCTAssertEqual(
+            service.state,
+            .authenticated(
+                GameCenterPlayerIdentity(
+                    displayName: "Arcade Tester",
+                    gamePlayerID: "game-player-1",
+                    teamPlayerID: "team-player-1"
+                )
+            )
+        )
+        XCTAssertTrue(service.participationEnabled)
+    }
+
+    func testTurningOffWhileAuthenticationIsPendingCancelsImmediately() {
+        let harness = GameCenterClientHarness()
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        let staleCallback = harness.authenticationCallback
+        XCTAssertEqual(service.state, .authenticating)
+
+        service.disableParticipation()
+        harness.authenticated = true
+        staleCallback?(nil, nil)
+
+        XCTAssertEqual(service.state, .disabled)
+        XCTAssertFalse(service.participationEnabled)
+        XCTAssertNil(harness.authenticationCallback)
+    }
+
     func testProfileStateResolverExposesEveryServerPublicationState() {
         let player = GameCenterPlayerIdentity(
             displayName: "Arcade Tester",

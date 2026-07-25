@@ -723,3 +723,31 @@ PHP alone publishes the protocol-verified Arcade all-time best and the five allo
 Consequences: Apple visibility is optional and eventually consistent while local play, PimPoPom login, PHP ranking, achievements, StoreKit, cosmetics, and account deletion remain operational without it. Pending jobs are owned by PHP retries; held jobs and reset-needed state remain visible instead of causing relink loops. Physical TestFlight validation is still required for scoped-ID persistence, live backfill, later result delivery, achievement delivery, disable, conflicts, and Apple propagation delay.
 
 Revisit when: Apple changes GameKit identity/signature semantics, adds supported per-player leaderboard/achievement deletion, or PHP publication policy changes.
+
+## P-049 — Require a primary profile before Game Center and make conflicts locally recoverable
+
+- Date: 2026-07-25
+- Status: Accepted for TestFlight build `1.02 (10)`; refines P-041/P-043/P-048
+
+Context: Physical build-9 testing exposed three related states. A retained local opt-in could install GameKit authentication before PHP restored an Apple/Google profile. Turning local participation off did not sign the Apple player out, so reconnect could wait forever for an authentication callback that GameKit was not required to repeat. A legitimate server `409` was presented as two ambiguous Turn Off actions even though the conflicting Game Center identity belonged to a different PimPoPom UUID. The rejected link consequently queued no score or achievement backfill.
+
+Decision: Restore the primary PimPoPom session first. Install or resume GameKit authentication only while that session is authenticated; a signed-out Profile shows a disabled **Sign In First** control, and logout clears local participation without changing retained server consent for another session. When `GKLocalPlayer` is already authenticated, adopt its complete persistent identity immediately after installing the observation handler instead of waiting for a redundant callback. Keep Connecting cancellable and generation-guard late callbacks.
+
+Render one conflict-specific local stop action. Explain beside the control that the Game Center identity already belongs to another PimPoPom profile; never retry, rebind, unlink, move value, or merge profiles automatically. Apply the same immediately visible ownership explanation when an Apple or Google link returns `409`, and confirm a successful Apple link through a fresh session read before showing it as linked.
+
+Consequences: Game Center cannot precede primary authentication, reconnect cannot remain indefinitely in Connecting merely because GameKit retained authentication, and a conflict cannot accidentally disable publication for the wrong profile. Server-authoritative score/achievement backfill still begins only after a successful one-to-one link; a rejected conflict produces no outbox work and therefore cannot make Apple Games show existing PimPoPom statistics. Resolving an already-owned identity requires signing into its owning profile, using another Game Center account, or a separately audited backend support/reset workflow.
+
+Revisit when: PHP adds an explicit audited identity-transfer/reset flow, GameKit adds app-scoped sign-out, or product policy permits a user-confirmed cross-profile merge with paid-value reconciliation.
+
+## P-050 — Automatically restore configured audio after app lifecycle suspension
+
+- Date: 2026-07-25
+- Status: Accepted for TestFlight build `1.02 (10)`; refines the lifecycle portion of P-004/P-020
+
+Context: SwiftUI scene-phase changes and AVAudioSession interruption notifications can arrive in either order. Build 9 treated an interruption ending while the scene was still inactive as a permanent user-resume gate. The later active event could not clear that latch, leaving both enabled music and Sound FX silent after switching away from and back to PimPoPom. A menu without a visible pet also had no global trusted-tap recovery path.
+
+Decision: Track foreground state, active interruption, deferred automatic resume, and route/user-action gating independently. An ordinary inactive/background transition stops output, and the next active transition reconstructs the requested menu/gameplay output even when the matching interruption-end notification arrived early or was omitted. An interruption that explicitly does not recommend resume and an unavailable old audio route remain gated until a trusted user action. System-owned interruption handling stops nodes without trying to deactivate a session already controlled by the system. Every menu tap reaches audio recovery before optional pet-follow behavior.
+
+Consequences: Persisted Music and Sound FX choices remain unchanged, ordinary app switching automatically restores the selected theme loop and prepared effects, and headphone/Bluetooth route loss remains conservative. Deterministic state tests cover ended-before-active, missing-end lifecycle recovery, late nonresumable end, and route-loss recovery. Physical testing is still required for audible menu/gameplay return, lock/unlock, Control Center, calls/Siri, and wired/Bluetooth route changes.
+
+Revisit when: physical evidence exposes an AVAudioEngine graph reset, media-services reset, or route-specific recovery case that requires a dedicated rebuild path.

@@ -999,6 +999,22 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertFalse(app.otherElements["profile-danger-zone"].exists)
     }
 
+    func testSignedOutProfileRequiresPrimarySignInBeforeGameCenter() throws {
+        let app = launch()
+        openMenuControl("open-profile", in: app)
+        XCTAssertTrue(app.navigationBars["My Profile"].waitForExistence(timeout: 3))
+
+        let gameCenter = app.buttons["profile-game-center"]
+        XCTAssertTrue(gameCenter.waitForExistence(timeout: 3))
+        XCTAssertEqual(gameCenter.label, "Sign In First")
+        XCTAssertFalse(gameCenter.isEnabled)
+        XCTAssertTrue(
+            app.staticTexts[
+                "Sign in with Apple or Google before connecting Game Center"
+            ].exists
+        )
+    }
+
     func testEveryThemeHasADeterministicVisualFixture() throws {
         for themeID in ["classic", "disco", "light", "pixel"] {
             let app = launch(additionalArguments: ["--ui-test-theme", themeID])
