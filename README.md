@@ -19,11 +19,13 @@ Codex also supported the Swift/SwiftUI/SpriteKit architecture, PHP API integrati
 
 This repository is intentionally independent from the legacy web implementation. It now contains a playable native Arcade/Zen alpha, a pure Swift rules engine, SpriteKit rendering, SwiftUI app surfaces, and an internal integration with the existing Hostinger PHP service.
 
+The current named-cohort TestFlight build is **1.02 (9)** from source commit `5be2f05b09d171cb169ab15eba1f034f2a9aedf0`. App Store Connect accepted it as build `aa47097b-9ab5-45ec-85d0-096ea645e7f3`; it is in beta testing for both Internal QA and External QA. It adds server-authoritative Game Center score/achievement publication controls and the exact accepted Pixel-theme star without making GameKit authoritative for gameplay, ranking, achievements, or economy.
+
 ## Migration baseline
 
 - Behavioral source reviewed: legacy web repository commit `675551adc715942ce2512c14d396d5d14e763f02` on 2026-07-14.
 - That commit is a migration baseline, not evidence of what is currently deployed.
-- The current PHP client contract was most recently audited at legacy repository release commit `1debeaf16210bc6d2fbe9fd406adc158c9e4aa80` on 2026-07-20. Live health and signed-out session probes confirmed Hostinger Season 1, Apple identity enabled for `com.otcsoftware.pimpopom`, and the identity/wallet/ad-free/StoreKit response shape, matching retained annotated deployment tag `hostinger-20260720-1`. That release explicitly retains the native client's `20260719-1` ranked-proof compatibility window; this still does not prove an unrecorded future deployment.
+- The current PHP client contract was most recently audited at legacy repository release commit `1debeaf16210bc6d2fbe9fd406adc158c9e4aa80` on 2026-07-20. Live health and signed-out session probes confirmed Hostinger Season 1, Apple identity enabled for `com.otcsoftware.pimpopom`, and the identity/wallet/ad-free/StoreKit response shape, matching retained annotated deployment tag `hostinger-20260720-1`. A fresh 2026-07-25 signed-out probe additionally confirmed the deployed additive Game Center publication shape (`serverPublicationAvailable`, prerelease routing, publication/mirror state, pending/held job counts, and reset state) consumed by build 9. Hostinger does not expose the exact backend commit in that response, so this is compatibility evidence rather than a claim about an unrecorded deployment SHA.
 - Copy only reviewed behavior, deterministic fixtures, and assets with documented redistribution rights.
 - Do not modify the legacy repository to implement PimPoPom. Backend changes needed by both clients require their own reviewed task in the repository that owns the backend.
 
