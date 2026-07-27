@@ -779,3 +779,18 @@ Decision: Provision and retain only the named `PimPoPom iPhone 17` device on the
 Consequences: Routine local validation uses one modern Simulator and avoids duplicated device data. This policy does not claim compact iPhone, 60 Hz/120 Hz, audio, touch, ads, StoreKit, or TestFlight coverage; those remain explicit physical-device or release-specific checks when required.
 
 Revisit when: a supported-device regression cannot be reproduced on iPhone 17, Apple changes the required runtime, or a release needs a temporary additional Simulator for focused compatibility evidence.
+
+## P-053 — Make Game Center connection durable and dashboard access repeatable
+
+- Date: 2026-07-27
+- Status: Accepted for the next TestFlight build; supersedes the Apple registration-confirmation and user-visible current-player verification portions of P-043, plus the Profile gate and `GKAccessPoint` portions of P-051
+
+Context: Physical build-11 testing proved that a fresh challenge and GameKit proof reached PHP, linked the intended profile, and created score/achievement outbox work. Requiring the same proof again after every process launch nevertheless exposed a confusing **Verify Player** button even though the durable server binding remained authoritative. `GKAccessPoint.trigger` also completed its callback on presentation rather than reliably representing dashboard dismissal, leaving the Profile's one-at-a-time latch stuck and making **See Stats** work only once.
+
+Decision: Keep fresh GameKit proof mandatory for every explicit **Connect** operation, but do not make a memory-only proof from the current process a second user-visible readiness gate after PHP confirms the durable identity binding. Remove **Verify Player**. Once connected, replace the primary action with a compact **Stats** button and show **Disable Game Center** below it. Present a retained `GKGameCenterViewController(state: .dashboard)` with a real `GKGameCenterControllerDelegate`; clear the presentation latch only when the controller is dismissed so Stats can be opened repeatedly. Keep PHP as the only score/achievement publisher and retain concise queued, delayed, conflict, and reset states without exposing operator copy.
+
+Signed-out Apple entry uses the backend's idempotent `register` intent as login-or-create in one native authorization. Existing Apple subjects return their existing PimPoPom UUID; unknown subjects create one immediately. Google retains its explicit new-profile confirmation. Linked Apple and Google rows display **Linked** and never retain a second Link action.
+
+Consequences: A durable Game Center link no longer looks unverified after every launch, Stats is a normal repeatable action, and disabling remains separate from Apple's system account. This does not make the client authoritative or hide server delivery health. A physical connected-iPhone test must open, dismiss, and reopen the dashboard before release. Server-held Apple delivery failures remain backend/App Store Connect work and are recorded separately in `docs/GAME_CENTER_BACKEND_BUG_REPORT.md`.
+
+Revisit when: PHP adds an explicit current-player comparison endpoint, GameKit changes dashboard presentation APIs, or product policy changes provider registration confirmation.

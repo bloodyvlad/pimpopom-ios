@@ -53,7 +53,6 @@ enum GameCenterProfileState: Equatable {
     case primaryReauthenticationRequired
     case scopedIDsTransient
     case unlinked
-    case runtimeVerificationRequired
     case linkedIdentityOnly
     case publicationQueued(Int)
     case mirrorReady
@@ -67,7 +66,6 @@ enum GameCenterProfileStateResolver {
         connection: GameCenterConnectionState,
         primaryProfileAuthenticated: Bool,
         identityBinding: Bool,
-        runtimeIdentityVerified: Bool,
         serverStatus: GameCenterServerStatus?,
         issue: GameCenterLinkIssue?
     ) -> GameCenterProfileState {
@@ -97,9 +95,6 @@ enum GameCenterProfileStateResolver {
                 guard serverStatus.identityLinked, identityBinding else {
                     return .unlinked
                 }
-                guard runtimeIdentityVerified else {
-                    return .runtimeVerificationRequired
-                }
                 if serverStatus.heldJobs > 0 {
                     return .publicationHeld(serverStatus.heldJobs)
                 }
@@ -121,6 +116,64 @@ enum GameCenterProfileStateResolver {
             }
             return identityBinding ? .linkedIdentityOnly : .unlinked
         }
+    }
+}
+
+@MainActor
+private final class GameCenterDashboardPresenter:
+    NSObject, @preconcurrency GKGameCenterControllerDelegate,
+    UIAdaptivePresentationControllerDelegate
+{
+    static let shared = GameCenterDashboardPresenter()
+
+    private weak var dashboard: GKGameCenterViewController?
+    private var completion: (@MainActor @Sendable () -> Void)?
+
+    func present(completion: @escaping @MainActor @Sendable () -> Void) -> Bool {
+        guard GKLocalPlayer.local.isAuthenticated,
+            self.completion == nil,
+            let presenter = Self.activePresenter()
+        else { return false }
+
+        let dashboard = GKGameCenterViewController(state: .dashboard)
+        dashboard.gameCenterDelegate = self
+        self.dashboard = dashboard
+        self.completion = completion
+        presenter.present(dashboard, animated: true) {
+            dashboard.presentationController?.delegate = self
+        }
+        return true
+    }
+
+    func gameCenterViewControllerDidFinish(
+        _ gameCenterViewController: GKGameCenterViewController
+    ) {
+        let completion = takeCompletion()
+        gameCenterViewController.dismiss(animated: true) {
+            completion?()
+        }
+    }
+
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        takeCompletion()?()
+    }
+
+    private func takeCompletion() -> (@MainActor @Sendable () -> Void)? {
+        let pendingCompletion = completion
+        self.completion = nil
+        dashboard = nil
+        return pendingCompletion
+    }
+
+    private static func activePresenter() -> UIViewController? {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        var presenter = scene?.windows.first { $0.isKeyWindow }?.rootViewController
+        while let presented = presenter?.presentedViewController {
+            presenter = presented
+        }
+        return presenter
     }
 }
 
@@ -200,11 +253,7 @@ struct GameCenterClient {
             })
         },
         showDashboard: { completion in
-            guard GKLocalPlayer.local.isAuthenticated else { return false }
-            GKAccessPoint.shared.trigger(state: .dashboard) {
-                Task { @MainActor in completion() }
-            }
-            return true
+            GameCenterDashboardPresenter.shared.present(completion: completion)
         }
     )
 }

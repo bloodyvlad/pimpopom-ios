@@ -1496,7 +1496,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 appleSignIn: uiTestAppleConfiguration,
                 season: Season(id: "screenshot-fixture", name: "Screenshot Fixture"),
                 profile: profile,
-                identityBindings: uiTestGoogleBindings,
+                identityBindings: uiTestPrimaryBindings,
                 wallet: StoreWalletSummary(
                     earned: 999,
                     purchased: 0,
@@ -1533,6 +1533,13 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         gameCenter: false
     )
 
+    private static var uiTestPrimaryBindings: IdentityBindings {
+        if ProcessInfo.processInfo.arguments.contains("--ui-test-both-linked") {
+            return IdentityBindings(google: true, apple: true, gameCenter: false)
+        }
+        return uiTestGoogleBindings
+    }
+
     private static let uiTestSignedOutSession = SessionResponse(
         authenticated: false,
         csrfToken: "ui-test-offline",
@@ -1567,7 +1574,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 createdAt: "2026-07-19T00:00:00Z",
                 updatedAt: "2026-07-19T00:00:00Z"
             ),
-            identityBindings: uiTestGoogleBindings,
+            identityBindings: uiTestPrimaryBindings,
             wallet: StoreWalletSummary(
                 earned: 75,
                 purchased: 0,
@@ -1627,7 +1634,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         ),
-        identityBindings: uiTestGoogleBindings,
+        identityBindings: uiTestPrimaryBindings,
         ranks: [
             GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
             GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
@@ -1657,7 +1664,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         ),
-        identityBindings: uiTestGoogleBindings,
+        identityBindings: uiTestPrimaryBindings,
         ranks: [
             GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
             GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),
@@ -1687,7 +1694,7 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             createdAt: "2026-07-15T00:00:00Z",
             updatedAt: "2026-07-15T00:00:00Z"
         ),
-        identityBindings: uiTestGoogleBindings,
+        identityBindings: uiTestPrimaryBindings,
         ranks: [
             GameMode.arcade.rawValue: RankInfo(rank: 6, totalEntries: 30, topPercent: 20),
             GameMode.zen.rawValue: RankInfo(rank: nil, totalEntries: 0, topPercent: nil),

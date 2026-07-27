@@ -103,15 +103,19 @@ struct SettingsView: View {
                             Button {
                                 Task { await ads.presentPrivacyChoices() }
                             } label: {
-                                HStack {
+                                HStack(spacing: 12) {
                                     Text("Privacy choices")
                                     Spacer()
                                     if ads.isPresentingPrivacyOptions {
                                         ProgressView()
                                     } else {
                                         Image(systemName: "chevron.right")
+                                            .accessibilityIdentifier(
+                                                "privacy-choices-disclosure"
+                                            )
                                     }
                                 }
+                                .padding(.horizontal, 16)
                             }
                             .buttonStyle(
                                 WebSecondaryButtonStyle(

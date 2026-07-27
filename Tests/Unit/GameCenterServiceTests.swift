@@ -588,7 +588,6 @@ final class GameCenterServiceTests: XCTestCase {
                 connection: .disabled,
                 primaryProfileAuthenticated: true,
                 identityBinding: true,
-                runtimeIdentityVerified: true,
                 serverStatus: base,
                 issue: nil
             ),
@@ -632,16 +631,6 @@ final class GameCenterServiceTests: XCTestCase {
                 status: status(base, identityLinked: false)
             ),
             .unlinked
-        )
-        XCTAssertEqual(
-            resolved(
-                authenticated,
-                primary: true,
-                binding: true,
-                runtimeVerified: false,
-                status: status(base, heldJobs: 1, needsReset: true)
-            ),
-            .runtimeVerificationRequired
         )
         XCTAssertEqual(
             resolved(
@@ -713,7 +702,6 @@ final class GameCenterServiceTests: XCTestCase {
         _ connection: GameCenterConnectionState,
         primary: Bool,
         binding: Bool,
-        runtimeVerified: Bool = true,
         status: GameCenterServerStatus?,
         issue: GameCenterLinkIssue? = nil
     ) -> GameCenterProfileState {
@@ -721,7 +709,6 @@ final class GameCenterServiceTests: XCTestCase {
             connection: connection,
             primaryProfileAuthenticated: primary,
             identityBinding: binding,
-            runtimeIdentityVerified: runtimeVerified,
             serverStatus: status,
             issue: issue
         )

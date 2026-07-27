@@ -2,6 +2,14 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## Current build-12 candidate evidence — 2026-07-27
+
+- `Scripts/check.sh` passed project regeneration, strict Swift formatting, asset/source/licence hashes, Info/privacy/ad-configuration guards, 29 deterministic core tests, the generic Swift 6 Simulator build, and 220 native unit/UI tests on the named iPhone 17 Simulator with iOS 26.5. Xcode reported 220 passed with zero failures or skips: 249 checks including the core package. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.27_23-07-55-+0200.xcresult`.
+- Focused signed-device automation on the connected iPhone SE (3rd generation) with iOS 26.3 opened the Profile's compact **Stats** action, dismissed Apple's dashboard, reopened it, and dismissed it again in one PimPoPom process. The temporary physical-only test hook was removed after this evidence; the release source retains no device bypass.
+- Focused unit/UI coverage confirms Apple's one-authorization login-or-create entry policy, both linked provider rows without residual Link actions, durable-link state resolution when server publication is disabled, delegate-managed dashboard dismissal, and the corrected Privacy Choices inset.
+- Live production diagnosis confirmed a durable Game Center binding, publication consent, queued Arcade/achievement work, and the active minute publisher. Apple held the leaderboard row with HTTP `409` / `ENTITY_ERROR.ATTRIBUTE.TYPE` and four achievement rows with HTTP `403` / `FORBIDDEN_ERROR`; no iOS fallback was added. The sanitized backend handoff and safe retry order are in [`GAME_CENTER_BACKEND_BUG_REPORT.md`](GAME_CENTER_BACKEND_BUG_REPORT.md).
+- Still required before claiming end-to-end Game Center delivery: the backend developer must deploy the leaderboard score-type correction, retain Apple's full sanitized achievement error detail, resolve the indicated permission/review association, requeue held work in the documented order, and confirm the entries appear in Apple's dashboard.
+
 ## Current TestFlight build-11 evidence — 2026-07-27
 
 - `Scripts/check.sh` passed project regeneration, strict Swift formatting, asset/source/licence hashes, Info/privacy/configuration guards, 29 deterministic core tests, the generic Swift 6 Simulator build, and 219 native unit/UI tests on the named iPhone SE (3rd generation, 2022) Simulator with iOS 26.5. Xcode reported zero failures, skips, or expected failures: 248 checks including the core package. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.27_15-37-28-+0200.xcresult`.

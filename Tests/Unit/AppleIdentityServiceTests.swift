@@ -5,6 +5,10 @@ import XCTest
 
 @MainActor
 final class AppleIdentityServiceTests: XCTestCase {
+    func testProfileAppleEntryUsesLoginOrCreateIntentWithoutASecondPrompt() {
+        XCTAssertEqual(ProfileAuthenticationPolicy.appleEntryIntent, .register)
+    }
+
     func testAuthorizationUsesExactChallengeAndReturnsUTF8Proof() async throws {
         var receivedChallenge: AppleSignInChallenge?
         let service = AppleIdentityService { challenge in

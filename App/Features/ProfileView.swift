@@ -14,8 +14,11 @@ private enum ProfileAccountDeletionError: LocalizedError {
 }
 
 private enum PendingProfileRegistration {
-    case apple
     case google(idToken: String)
+}
+
+enum ProfileAuthenticationPolicy {
+    static let appleEntryIntent: PrimaryAuthenticationIntent = .register
 }
 
 private enum ProfileReauthenticationProvider {
@@ -74,9 +77,6 @@ struct ProfileView: View {
             connection: gameCenter.state,
             primaryProfileAuthenticated: backend.isAuthenticated,
             identityBinding: identityBindings.gameCenter,
-            runtimeIdentityVerified: backend.profile.map {
-                gameCenter.isCurrentRuntimePlayerVerified(for: $0.id)
-            } ?? false,
             serverStatus: gameCenterServerStatus,
             issue: gameCenterLinkIssue
         )
@@ -248,7 +248,7 @@ struct ProfileView: View {
                     style: palette.isLight ? .black : .white,
                     accessibilityIdentifier: "profile-apple-sign-in"
                 ) {
-                    Task { await signInWithApple() }
+                    Task { await continueWithApple() }
                 }
                 .id(palette.isLight ? "apple-black" : "apple-white")
                 .frame(height: 50)
@@ -456,12 +456,16 @@ struct ProfileView: View {
                 Text(linked ? "Linked" : "Not linked")
                     .font(palette.appFont(size: 9, weight: .bold, relativeTo: .caption2))
                     .foregroundStyle(Color(hex: linked ? "#4dcc72" : palette.muted))
+                    .accessibilityIdentifier(
+                        "profile-\(title.lowercased())-binding-status"
+                    )
             }
             Spacer()
             if linked {
                 Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Color(hex: "#4dcc72"))
-                    .accessibilityLabel("Linked")
+                    .accessibilityLabel("\(title) linked")
             } else {
                 Button(linkTitle, action: action)
                     .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption))
@@ -501,49 +505,31 @@ struct ProfileView: View {
                             minimumHeight: 40
                         )
                     )
-                    .frame(width: 118)
+                    .frame(width: gameCenterPrimaryButtonWidth)
                     .disabled(isGameCenterActionDisabled)
                     .accessibilityIdentifier("profile-game-center")
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(
-                    "Game Center is optional. PimPoPom stays authoritative and publishes only protocol-verified Arcade bests and unlocked achievements after you enable it. It never grants profile, wallet, or purchase access."
-                )
-                .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
-                .foregroundStyle(Color(hex: palette.muted))
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("profile-game-center-explanation")
+            Text(
+                "Game Center is optional. Arcade scores and achievements sync from your "
+                    + "verified PimPoPom profile; it never grants wallet or purchase access."
+            )
+            .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
+            .foregroundStyle(Color(hex: palette.muted))
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("profile-game-center-explanation")
 
-                if showsGameCenterSecondaryAction {
-                    Button(gameCenterSecondaryActionTitle) {
-                        handleGameCenterSecondaryAction()
-                    }
-                    .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
-                    .foregroundStyle(Color(hex: palette.accent))
-                    .disabled(gameCenterLinking)
-                    .accessibilityIdentifier("profile-game-center-turn-off")
+            if showsGameCenterSecondaryAction {
+                Button(gameCenterSecondaryActionTitle) {
+                    handleGameCenterSecondaryAction()
                 }
+                .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                .foregroundStyle(Color(hex: palette.accent))
+                .disabled(gameCenterLinking)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .accessibilityIdentifier("profile-game-center-turn-off")
             }
 
-            if case .authenticated = gameCenter.state {
-                Button {
-                    if !gameCenter.showStats() {
-                        status = "Game Center could not open its stats dashboard."
-                    }
-                } label: {
-                    Label("See Stats", systemImage: "chart.bar.fill")
-                }
-                .buttonStyle(
-                    WebSecondaryButtonStyle(
-                        theme: palette,
-                        accent: Color(hex: palette.accent),
-                        minimumHeight: 40
-                    )
-                )
-                .disabled(accountOperationBusy || gameCenter.isOpeningStats)
-                .accessibilityIdentifier("profile-game-center-see-stats")
-            }
         }
         .webCardStyle(theme: palette, padding: 12)
     }
@@ -653,10 +639,10 @@ struct ProfileView: View {
                 return "Sign in with Apple or Google before connecting Game Center"
             }
             if gameCenterServerStatus?.publicationEnabled == true {
-                return "Off locally · verified results still publish for the linked profile"
+                return "Off on this device · linked to this profile"
             }
             return identityBindings.gameCenter
-                ? "Linked to this profile · publishing is off"
+                ? "Linked to this profile · off on this device"
                 : "Off · no Game Center data shared"
         case .gameCenterUnavailable:
             return "Unavailable · PimPoPom play still works"
@@ -667,29 +653,25 @@ struct ProfileView: View {
         case .scopedIDsTransient:
             return "Game Center player IDs are temporary · try again later"
         case .unlinked:
-            return "Connected as \(currentGameCenterDisplayName) · link and enable publishing"
-        case .runtimeVerificationRequired:
-            return
-                "Connected as \(currentGameCenterDisplayName) · verify this player "
-                + "before showing publication as ready"
+            return "Connected as \(currentGameCenterDisplayName) · finish connecting"
         case .linkedIdentityOnly:
             if gameCenterServerStatus?.serverPublicationAvailable == false {
-                return "Identity linked · server publishing is temporarily unavailable"
+                return "Linked to this profile · sync temporarily unavailable"
             } else {
-                return "Identity linked · publishing is off"
+                return "Linked to this profile · connect to sync"
             }
-        case .publicationQueued(let count):
-            return "Publishing enabled · \(count) Game Center update\(count == 1 ? "" : "s") queued"
+        case .publicationQueued:
+            return "Game Center connected · syncing results"
         case .mirrorReady:
-            return "Ready · verified Arcade bests and achievements mirror automatically"
+            return "Game Center connected"
         case .publicationHeld:
-            return "Apple delivery needs support · your PimPoPom progress is safe"
+            return "Game Center connected · sync delayed"
         case .conflict:
             return
                 "This Game Center account is linked to another PimPoPom profile. "
                 + "Sign in to that profile or use another Game Center account."
         case .resetNeedsSupport:
-            return "Apple leaderboard reset needs support · PimPoPom play still works"
+            return "Game Center connected · stats refresh pending"
         }
     }
 
@@ -717,19 +699,21 @@ struct ProfileView: View {
         case .primaryReauthenticationRequired:
             return "Verify Sign-In"
         case .unlinked:
-            return "Link & Publish"
-        case .runtimeVerificationRequired:
-            return "Verify Player"
+            return "Connect"
         case .linkedIdentityOnly:
-            return "Enable"
+            return "Connect"
         case .publicationQueued, .mirrorReady, .publicationHeld, .resetNeedsSupport:
-            return "Turn Off"
+            return "Stats"
         }
+    }
+
+    private var gameCenterPrimaryButtonWidth: CGFloat {
+        gameCenterButtonTitle == "Stats" ? 84 : 118
     }
 
     private var isGameCenterActionDisabled: Bool {
         if !backend.isAuthenticated { return true }
-        return busy || gameCenterLinking
+        return busy || gameCenterLinking || gameCenter.isOpeningStats
     }
 
     private var showsGameCenterSecondaryAction: Bool {
@@ -741,7 +725,8 @@ struct ProfileView: View {
         guard gameCenter.participationEnabled else { return false }
         switch gameCenterProfileState {
         case .primaryProfileRequired, .scopedIDsTransient, .unlinked,
-            .runtimeVerificationRequired, .linkedIdentityOnly:
+            .linkedIdentityOnly, .publicationQueued, .mirrorReady, .publicationHeld,
+            .resetNeedsSupport:
             return true
         default:
             return false
@@ -749,9 +734,7 @@ struct ProfileView: View {
     }
 
     private var gameCenterSecondaryActionTitle: String {
-        gameCenterServerStatus?.publicationEnabled == true
-            ? "Stop publishing"
-            : "Turn Off locally"
+        "Disable Game Center"
     }
 
     private func handleGameCenterSecondaryAction() {
@@ -783,12 +766,17 @@ struct ProfileView: View {
             turnOffGameCenter()
         case .conflict:
             turnOffGameCenterLocally()
-        case .primaryReauthenticationRequired, .unlinked,
-            .runtimeVerificationRequired, .linkedIdentityOnly:
+        case .primaryReauthenticationRequired, .unlinked, .linkedIdentityOnly:
             pendingGameCenterLink = true
             startGameCenterLinkIfNeeded()
         case .publicationQueued, .mirrorReady, .publicationHeld, .resetNeedsSupport:
-            turnOffGameCenter()
+            openGameCenterStats()
+        }
+    }
+
+    private func openGameCenterStats() {
+        if !gameCenter.showStats() {
+            status = "Game Center could not open its stats dashboard."
         }
     }
 
@@ -842,7 +830,7 @@ struct ProfileView: View {
                     allowsReauthentication: true
                 )
                 guard generation == gameCenterLinkGeneration else { return }
-                status = "Game Center publishing is off. The verified identity link is retained."
+                status = "Game Center is disabled on this device. The verified profile link is retained."
                 turnOffGameCenterLocally()
             } catch is CancellationError {
                 return
@@ -953,16 +941,14 @@ struct ProfileView: View {
         }
     }
 
-    private func signInWithApple() async {
+    private func continueWithApple() async {
         busy = true
         defer { busy = false }
         do {
-            let session = try await authorizeWithApple(intent: .login)
+            let session = try await authorizeWithApple(
+                intent: ProfileAuthenticationPolicy.appleEntryIntent
+            )
             await finishAuthentication(session)
-        } catch let error as BackendError where error.status == 409 && !backend.isAuthenticated {
-            status = error.localizedDescription
-            pendingRegistration = .apple
-            showsRegistrationConfirmation = true
         } catch {
             status = error.localizedDescription
         }
@@ -974,14 +960,11 @@ struct ProfileView: View {
         busy = true
         defer { busy = false }
         do {
-            let session: SessionResponse
             switch pendingRegistration {
-            case .apple:
-                session = try await authorizeWithApple(intent: .register)
             case .google(let idToken):
-                session = try await backend.registerWithGoogle(googleIDToken: idToken)
+                let session = try await backend.registerWithGoogle(googleIDToken: idToken)
+                await finishAuthentication(session)
             }
-            await finishAuthentication(session)
         } catch let error as BackendError where error.status == 409 {
             if case .google = pendingRegistration {
                 googleIdentity.signOut()
@@ -1170,10 +1153,10 @@ struct ProfileView: View {
                     let pending = backend.sessionState?.gameCenter?.pendingJobs ?? 0
                     status =
                         pending > 0
-                        ? "Game Center publishing is enabled. \(pending) update\(pending == 1 ? "" : "s") queued."
-                        : "Game Center publishing is enabled."
+                        ? "Game Center connected. Syncing \(pending) update\(pending == 1 ? "" : "s")."
+                        : "Game Center connected."
                 } else {
-                    status = "Game Center publishing is already ready."
+                    status = "Game Center is connected."
                 }
             } catch is CancellationError {
                 return

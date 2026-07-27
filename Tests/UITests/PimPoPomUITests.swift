@@ -393,6 +393,12 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(privacyChoices.exists)
         XCTAssertEqual(privacyChoices.label, "Privacy choices")
         XCTAssertTrue(privacyChoices.isHittable)
+        let privacyDisclosure = app.images["privacy-choices-disclosure"]
+        XCTAssertTrue(privacyDisclosure.exists)
+        XCTAssertGreaterThanOrEqual(
+            privacyChoices.frame.maxX - privacyDisclosure.frame.maxX,
+            12
+        )
         XCTAssertFalse(app.descendants(matching: .any)["ad-slot-menu"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["fake-ad-banner"].exists)
         privacyChoices.tap()
@@ -886,7 +892,11 @@ final class PimPoPomUITests: XCTestCase {
 
     func testLeaderboardAndProfileExposeWebParityContext() throws {
         let app = launch(
-            additionalArguments: ["--ui-test-pet-profile", "--ui-test-leaderboard-fixture"]
+            additionalArguments: [
+                "--ui-test-pet-profile",
+                "--ui-test-leaderboard-fixture",
+                "--ui-test-both-linked",
+            ]
         )
 
         let leaderboardButton = app.buttons["open-leaderboard"]
@@ -918,6 +928,12 @@ final class PimPoPomUITests: XCTestCase {
         let gameCenterCard = app.staticTexts["profile-game-center-card"]
         XCTAssertTrue(gameCenterCard.waitForExistence(timeout: 3))
         XCTAssertLessThan(gameCenterCard.frame.minY, rankCard.frame.minY)
+        XCTAssertEqual(
+            app.staticTexts.matching(NSPredicate(format: "label == 'Linked'")).count,
+            2
+        )
+        XCTAssertFalse(app.buttons["Link Apple"].exists)
+        XCTAssertFalse(app.buttons["Link Google"].exists)
         let gameCenter = app.buttons["profile-game-center"]
         for _ in 0..<3 where !gameCenter.exists {
             app.swipeUp()
