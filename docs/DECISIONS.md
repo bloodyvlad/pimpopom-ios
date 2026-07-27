@@ -751,3 +751,18 @@ Decision: Track foreground state, active interruption, deferred automatic resume
 Consequences: Persisted Music and Sound FX choices remain unchanged, ordinary app switching automatically restores the selected theme loop and prepared effects, and headphone/Bluetooth route loss remains conservative. Deterministic state tests cover ended-before-active, missing-end lifecycle recovery, late nonresumable end, and route-loss recovery. Physical testing is still required for audible menu/gameplay return, lock/unlock, Control Center, calls/Siri, and wired/Bluetooth route changes.
 
 Revisit when: physical evidence exposes an AVAudioEngine graph reset, media-services reset, or route-specific recovery case that requires a dedicated rebuild path.
+
+## P-051 — Reverify the active Game Center player and expose Apple statistics
+
+- Date: 2026-07-27
+- Status: Accepted implementation candidate; physical TestFlight verification pending
+
+Context: Build 10 could accept a server `mirrorReady` status from the authenticated PimPoPom profile without proving that the Game Center player currently active on the device was the same scoped player previously bound to that profile. After an Apple account change or stale internal-alpha binding, Profile could therefore look ready while Apple's dashboard showed zero leaderboard and achievement progress. The launch notification was also the only convenient route into that dashboard.
+
+Decision: Treat server binding/publication state and current-device player verification as separate facts. Every explicit Connect or Verify obtains a new PHP challenge, then fresh GameKit signature material, submits the exact current persistent `teamPlayerID`/`gamePlayerID` pair, reloads the session, and only then records a memory-only verification for the current PimPoPom UUID and current scoped IDs. Never short-circuit this flow because `mirrorReady` is already true. Clear the runtime verification on logout, profile change, Game Center player change, transient scoped IDs, failed authentication, or local Turn Off. Require it before presenting queued, ready, held, or reset-needed publication states.
+
+Add a **See Stats** action to the Profile Game Center card whenever GameKit is authenticated. Open Apple's dashboard with `GKAccessPoint` and keep the existing server-fed mirror architecture: the native client still never calls `GKLeaderboard.submitScore` or `GKAchievement.report`.
+
+Consequences: A stale binding cannot make a different Apple player appear verified, explicit verification is idempotent but always cryptographically fresh, and players can inspect Apple's leaderboard and achievements without waiting for a launch banner. A genuine one-to-one conflict still returns `409` and is never stolen or merged. PHP publication and Apple propagation remain eventually consistent, so the dashboard can remain empty until a successful fresh link creates outbox work and the Hostinger publisher delivers it. Physical TestFlight validation must cover fresh clean-state linking, one accepted Arcade run, queued/delivered status, dashboard visibility, Apple account switching, Turn Off, and relaunch.
+
+Revisit when: Apple provides a directly signed mapping between `teamPlayerID` and `gamePlayerID`, GameKit exposes an app-level sign-out, the server adds an audited transfer flow, or dashboard presentation APIs change.

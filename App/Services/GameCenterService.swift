@@ -53,6 +53,7 @@ enum GameCenterProfileState: Equatable {
     case primaryReauthenticationRequired
     case scopedIDsTransient
     case unlinked
+    case runtimeVerificationRequired
     case linkedIdentityOnly
     case publicationQueued(Int)
     case mirrorReady
@@ -66,6 +67,7 @@ enum GameCenterProfileStateResolver {
         connection: GameCenterConnectionState,
         primaryProfileAuthenticated: Bool,
         identityBinding: Bool,
+        runtimeIdentityVerified: Bool,
         serverStatus: GameCenterServerStatus?,
         issue: GameCenterLinkIssue?
     ) -> GameCenterProfileState {
@@ -92,14 +94,17 @@ enum GameCenterProfileStateResolver {
             }
 
             if let serverStatus {
+                guard serverStatus.identityLinked, identityBinding else {
+                    return .unlinked
+                }
+                guard runtimeIdentityVerified else {
+                    return .runtimeVerificationRequired
+                }
                 if serverStatus.heldJobs > 0 {
                     return .publicationHeld(serverStatus.heldJobs)
                 }
                 if serverStatus.needsReset {
                     return .resetNeedsSupport
-                }
-                guard serverStatus.identityLinked, identityBinding else {
-                    return .unlinked
                 }
                 guard serverStatus.publicationEnabled,
                     serverStatus.serverPublicationAvailable
@@ -149,6 +154,7 @@ enum GameCenterServiceError: LocalizedError, Equatable {
 struct GameCenterClient {
     typealias AuthenticationCallback = @MainActor (UIViewController?, String?) -> Void
     typealias VerificationCallback = @MainActor (URL?, Data?, Data?, UInt64, String?) -> Void
+    typealias DashboardCompletion = @MainActor () -> Void
 
     let installAuthenticationHandler: (@escaping AuthenticationCallback) -> Void
     let removeAuthenticationHandler: () -> Void
@@ -158,6 +164,7 @@ struct GameCenterClient {
     let teamPlayerID: () -> String
     let scopedIDsArePersistent: () -> Bool
     let fetchIdentityVerification: (@escaping VerificationCallback) -> Void
+    let showDashboard: (@escaping DashboardCompletion) -> Bool
 
     static let live = GameCenterClient(
         installAuthenticationHandler: { callback in
@@ -191,6 +198,13 @@ struct GameCenterClient {
                     )
                 }
             })
+        },
+        showDashboard: { completion in
+            guard GKLocalPlayer.local.isAuthenticated else { return false }
+            GKAccessPoint.shared.trigger(state: .dashboard) {
+                Task { @MainActor in completion() }
+            }
+            return true
         }
     )
 }
@@ -201,6 +215,8 @@ final class GameCenterService: ObservableObject {
 
     @Published private(set) var state: GameCenterConnectionState
     @Published private(set) var participationEnabled: Bool
+    @Published private(set) var runtimeVerifiedProfileID: String?
+    @Published private(set) var isOpeningStats = false
 
     private let client: GameCenterClient
     private let defaults: UserDefaults
@@ -210,6 +226,13 @@ final class GameCenterService: ObservableObject {
     private let presentAuthenticationViewController: @MainActor (UIViewController) -> Bool
     private var hasInstalledAuthenticationHandler = false
     private var authenticationGeneration = 0
+    private var runtimeVerification: RuntimeVerification?
+
+    private struct RuntimeVerification: Equatable {
+        let profileID: String
+        let gamePlayerID: String
+        let teamPlayerID: String
+    }
 
     init(
         client: GameCenterClient = .live,
@@ -228,6 +251,7 @@ final class GameCenterService: ObservableObject {
         self.presentAuthenticationViewController = presentAuthenticationViewController
         let savedParticipation = defaults.bool(forKey: Self.participationPreferenceKey)
         participationEnabled = savedParticipation
+        runtimeVerifiedProfileID = nil
         state = savedParticipation ? .idle : .disabled
     }
 
@@ -256,8 +280,72 @@ final class GameCenterService: ObservableObject {
         authenticationGeneration += 1
         client.removeAuthenticationHandler()
         hasInstalledAuthenticationHandler = false
+        clearRuntimeVerification()
         setParticipationEnabled(false)
         state = .disabled
+    }
+
+    @discardableResult
+    func showStats() -> Bool {
+        guard case .authenticated = state,
+            client.isAuthenticated(),
+            !isOpeningStats
+        else { return false }
+
+        isOpeningStats = true
+        let presented = client.showDashboard { [weak self] in
+            self?.isOpeningStats = false
+        }
+        if !presented {
+            isOpeningStats = false
+        }
+        return presented
+    }
+
+    func markRuntimeVerification(
+        profileID: String,
+        verification: GameCenterIdentityVerification
+    ) throws {
+        guard case .authenticated(let player) = state,
+            client.isAuthenticated(),
+            player.scopedIDsArePersistent,
+            client.scopedIDsArePersistent(),
+            verification.bundleIdentifier == bundleIdentifier,
+            player.gamePlayerID == verification.gamePlayerID,
+            player.teamPlayerID == verification.signedTeamPlayerID,
+            client.gamePlayerID() == verification.gamePlayerID,
+            client.teamPlayerID() == verification.signedTeamPlayerID
+        else {
+            clearRuntimeVerification()
+            throw GameCenterServiceError.identityChanged
+        }
+
+        runtimeVerification = RuntimeVerification(
+            profileID: profileID,
+            gamePlayerID: verification.gamePlayerID,
+            teamPlayerID: verification.signedTeamPlayerID
+        )
+        runtimeVerifiedProfileID = profileID
+    }
+
+    func clearRuntimeVerification() {
+        runtimeVerification = nil
+        runtimeVerifiedProfileID = nil
+    }
+
+    func isCurrentRuntimePlayerVerified(for profileID: String) -> Bool {
+        guard let runtimeVerification,
+            runtimeVerification.profileID == profileID,
+            case .authenticated(let player) = state,
+            player.gamePlayerID == runtimeVerification.gamePlayerID,
+            player.teamPlayerID == runtimeVerification.teamPlayerID,
+            player.scopedIDsArePersistent,
+            client.isAuthenticated(),
+            client.scopedIDsArePersistent(),
+            client.gamePlayerID() == runtimeVerification.gamePlayerID,
+            client.teamPlayerID() == runtimeVerification.teamPlayerID
+        else { return false }
+        return true
     }
 
     func fetchIdentityVerification() async throws -> GameCenterIdentityVerification {
@@ -360,6 +448,7 @@ final class GameCenterService: ObservableObject {
 
         client.removeAuthenticationHandler()
         hasInstalledAuthenticationHandler = false
+        clearRuntimeVerification()
         state = .unavailable(error ?? "Game Center is unavailable. PimPoPom still works normally.")
     }
 
@@ -371,10 +460,18 @@ final class GameCenterService: ObservableObject {
             scopedIDsArePersistent: client.scopedIDsArePersistent()
         )
         guard !identity.gamePlayerID.isEmpty, !identity.teamPlayerID.isEmpty else {
+            clearRuntimeVerification()
             state = .unavailable(
                 GameCenterServiceError.incompleteIdentity.localizedDescription
             )
             return
+        }
+        if let runtimeVerification,
+            !identity.scopedIDsArePersistent
+                || runtimeVerification.gamePlayerID != identity.gamePlayerID
+                || runtimeVerification.teamPlayerID != identity.teamPlayerID
+        {
+            clearRuntimeVerification()
         }
         setParticipationEnabled(true)
         state = .authenticated(identity)

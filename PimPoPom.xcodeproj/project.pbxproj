@@ -29,6 +29,7 @@
 		339BFE056EAC7EFF394CC904 /* audio-pimpopom-sting.wav in Resources */ = {isa = PBXBuildFile; fileRef = 36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */; };
 		33CE829944CE88CF56F940A8 /* foka-ice-floe.png in Resources */ = {isa = PBXBuildFile; fileRef = A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */; };
 		36B37175BB6E0CBFE6607C34 /* muse-floor.png in Resources */ = {isa = PBXBuildFile; fileRef = AE0A4CFFE2AEF83863978D0D /* muse-floor.png */; };
+		37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */; };
 		3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */; };
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
@@ -87,6 +88,7 @@
 		E359484EDDD010BB1C4A60B7 /* StoreKitConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */; };
 		E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */ = {isa = PBXBuildFile; fileRef = 86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */; };
 		E8E636A718E81A60D4C7A612 /* disco-tile-overlay.png in Resources */ = {isa = PBXBuildFile; fileRef = F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */; };
+		E9F9F54A8AF784EBFB0BAD83 /* GameCenterLinkWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */; };
 		EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E26897A668D55114A2D880 /* AudioResourceTests.swift */; };
 		EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */; };
 		EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */; };
@@ -159,6 +161,7 @@
 		7A7AAB5003782A88EC74437A /* audio-light-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-light-tones.wav"; sourceTree = "<group>"; };
 		7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */ = {isa = PBXFileReference; path = "audio-pixel-menu.m4a"; sourceTree = "<group>"; };
 		7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsController.swift; sourceTree = "<group>"; };
+		81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflow.swift; sourceTree = "<group>"; };
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
 		86EABB78532A8A66E0E421C5 /* PimPoPom.storekit */ = {isa = PBXFileReference; path = PimPoPom.storekit; sourceTree = "<group>"; };
@@ -206,6 +209,7 @@
 		EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitConfigurationTests.swift; sourceTree = "<group>"; };
 		F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-tile-overlay.png"; sourceTree = "<group>"; };
 		FA9F840B4895429C17E7AA09 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflowTests.swift; sourceTree = "<group>"; };
 		FF525ACA8A69F39145C25A62 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */ = {isa = PBXFileReference; path = "audio-classic-run.m4a"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -375,6 +379,7 @@
 				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
 				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
 				14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */,
+				FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */,
 				E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */,
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
@@ -427,6 +432,7 @@
 				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
 				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
 				DA2E75B83D2198FB2E99E518 /* BackendModels.swift */,
+				81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */,
 				1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */,
 				255214BC89EC4CEFF34C4C55 /* GoogleAdsServices.swift */,
 				CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */,
@@ -643,6 +649,7 @@
 				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
 				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
 				EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */,
+				37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */,
 				5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */,
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
@@ -670,6 +677,7 @@
 				67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */,
 				B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */,
 				A19D6210497A3D375CDC07BE /* GameCellArtwork.swift in Sources */,
+				E9F9F54A8AF784EBFB0BAD83 /* GameCenterLinkWorkflow.swift in Sources */,
 				865CDEB8D47E9E99AF4CD2BF /* GameCenterService.swift in Sources */,
 				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,

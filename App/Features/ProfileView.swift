@@ -74,6 +74,9 @@ struct ProfileView: View {
             connection: gameCenter.state,
             primaryProfileAuthenticated: backend.isAuthenticated,
             identityBinding: identityBindings.gameCenter,
+            runtimeIdentityVerified: backend.profile.map {
+                gameCenter.isCurrentRuntimePlayerVerified(for: $0.id)
+            } ?? false,
             serverStatus: gameCenterServerStatus,
             issue: gameCenterLinkIssue
         )
@@ -123,6 +126,7 @@ struct ProfileView: View {
             }
             .onChange(of: backend.profile?.id) { oldPlayerID, newPlayerID in
                 if oldPlayerID != newPlayerID {
+                    gameCenter.clearRuntimeVerification()
                     resetAccountDeletionForm()
                     gameCenterLinkGeneration += 1
                     gameCenterLinkTask?.cancel()
@@ -521,6 +525,25 @@ struct ProfileView: View {
                     .accessibilityIdentifier("profile-game-center-turn-off")
                 }
             }
+
+            if case .authenticated = gameCenter.state {
+                Button {
+                    if !gameCenter.showStats() {
+                        status = "Game Center could not open its stats dashboard."
+                    }
+                } label: {
+                    Label("See Stats", systemImage: "chart.bar.fill")
+                }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.accent),
+                        minimumHeight: 40
+                    )
+                )
+                .disabled(accountOperationBusy || gameCenter.isOpeningStats)
+                .accessibilityIdentifier("profile-game-center-see-stats")
+            }
         }
         .webCardStyle(theme: palette, padding: 12)
     }
@@ -645,6 +668,10 @@ struct ProfileView: View {
             return "Game Center player IDs are temporary · try again later"
         case .unlinked:
             return "Connected as \(currentGameCenterDisplayName) · link and enable publishing"
+        case .runtimeVerificationRequired:
+            return
+                "Connected as \(currentGameCenterDisplayName) · verify this player "
+                + "before showing publication as ready"
         case .linkedIdentityOnly:
             if gameCenterServerStatus?.serverPublicationAvailable == false {
                 return "Identity linked · server publishing is temporarily unavailable"
@@ -691,6 +718,8 @@ struct ProfileView: View {
             return "Verify Sign-In"
         case .unlinked:
             return "Link & Publish"
+        case .runtimeVerificationRequired:
+            return "Verify Player"
         case .linkedIdentityOnly:
             return "Enable"
         case .publicationQueued, .mirrorReady, .publicationHeld, .resetNeedsSupport:
@@ -712,7 +741,7 @@ struct ProfileView: View {
         guard gameCenter.participationEnabled else { return false }
         switch gameCenterProfileState {
         case .primaryProfileRequired, .scopedIDsTransient, .unlinked,
-            .linkedIdentityOnly:
+            .runtimeVerificationRequired, .linkedIdentityOnly:
             return true
         default:
             return false
@@ -741,23 +770,21 @@ struct ProfileView: View {
                 return
             }
             guard backend.isAuthenticated else { return }
-            pendingGameCenterLink =
-                gameCenterServerStatus?.mirrorReady != true
+            pendingGameCenterLink = true
             gameCenter.connect()
         case .gameCenterUnavailable:
             if gameCenter.participationEnabled {
                 turnOffGameCenter()
             } else {
-                pendingGameCenterLink =
-                    backend.isAuthenticated
-                    && gameCenterServerStatus?.mirrorReady != true
+                pendingGameCenterLink = backend.isAuthenticated
                 gameCenter.retryAuthentication()
             }
         case .primaryProfileRequired, .scopedIDsTransient:
             turnOffGameCenter()
         case .conflict:
             turnOffGameCenterLocally()
-        case .primaryReauthenticationRequired, .unlinked, .linkedIdentityOnly:
+        case .primaryReauthenticationRequired, .unlinked,
+            .runtimeVerificationRequired, .linkedIdentityOnly:
             pendingGameCenterLink = true
             startGameCenterLinkIfNeeded()
         case .publicationQueued, .mirrorReady, .publicationHeld, .resetNeedsSupport:
@@ -1177,47 +1204,41 @@ struct ProfileView: View {
     }
 
     private func performSingleGameCenterLink(playerID: String) async throws -> Bool {
-        let session = try await backend.loadSession()
-        guard session.authenticated, session.profile?.id == playerID else {
-            throw BackendError(
-                status: 401,
-                message: "Sign in to the intended PimPoPom profile before linking Game Center.",
-                code: "primary-profile-required"
-            )
-        }
-        if session.gameCenter?.mirrorReady == true,
-            session.gameCenter?.publicationEnabled == true
-        {
-            return false
-        }
-        guard pendingGameCenterLink,
-            gameCenter.participationEnabled,
-            backend.profile?.id == playerID,
-            case .authenticated(let player) = gameCenter.state
-        else { throw CancellationError() }
-        guard player.scopedIDsArePersistent else {
-            throw GameCenterServiceError.scopedIDsTransient
-        }
-
-        let challenge = try await backend.issueGameCenterLinkChallenge(
-            expectedPlayerID: playerID
+        let workflow = GameCenterLinkWorkflow(
+            loadSession: {
+                try await backend.loadSession()
+            },
+            contextIsActive: {
+                guard pendingGameCenterLink,
+                    gameCenter.participationEnabled,
+                    backend.profile?.id == playerID,
+                    case .authenticated(let player) = gameCenter.state
+                else { return false }
+                return player.scopedIDsArePersistent
+            },
+            issueChallenge: { playerID in
+                try await backend.issueGameCenterLinkChallenge(
+                    expectedPlayerID: playerID
+                )
+            },
+            fetchVerification: {
+                try await gameCenter.fetchIdentityVerification()
+            },
+            submit: { challenge, verification, playerID in
+                try await backend.linkGameCenter(
+                    challenge: challenge,
+                    verification: verification,
+                    expectedPlayerID: playerID
+                )
+            },
+            markRuntimeVerification: { playerID, verification in
+                try gameCenter.markRuntimeVerification(
+                    profileID: playerID,
+                    verification: verification
+                )
+            }
         )
-        try Task.checkCancellation()
-        guard pendingGameCenterLink,
-            gameCenter.participationEnabled,
-            backend.profile?.id == playerID,
-            case .authenticated(let currentPlayer) = gameCenter.state,
-            currentPlayer.scopedIDsArePersistent
-        else { throw CancellationError() }
-
-        let proof = try await gameCenter.fetchIdentityVerification()
-        try Task.checkCancellation()
-        _ = try await backend.linkGameCenter(
-            challenge: challenge,
-            verification: proof,
-            expectedPlayerID: playerID
-        )
-        _ = try await backend.loadSession()
+        try await workflow.perform(playerID: playerID)
         return true
     }
 

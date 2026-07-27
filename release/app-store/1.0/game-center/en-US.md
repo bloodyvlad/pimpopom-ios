@@ -1,6 +1,6 @@
 # Game Center metadata — English (U.S.)
 
-Status: copy-ready proposal. Do not attach these components to an app-version submission until the verified PimPoPom/Game Center binding, server publication consent, outbox, prerelease routing, and Turn Off behavior are implemented.
+Status: configured for prerelease testing. The verified PimPoPom/Game Center binding, server publication consent, durable outbox, prerelease routing, and Turn Off behavior are implemented; physical delivery verification remains required before production release.
 
 ## Leaderboard
 
@@ -9,7 +9,7 @@ Status: copy-ready proposal. Do not attach these components to an app-version su
 - Display name: `Arcade`
 - Description: `Global Arcade high scores.`
 - Score format: integer, high to low
-- Submission model: future Hostinger-owned mirror of the player's accepted all-time Arcade best; never a direct iOS submission
+- Submission model: Hostinger-owned mirror of the player's accepted all-time Arcade best; never a direct iOS submission
 
 Apple owns the **Prerelease** panel shown before a Game Center component is submitted and live. Changing the description does not remove that panel.
 

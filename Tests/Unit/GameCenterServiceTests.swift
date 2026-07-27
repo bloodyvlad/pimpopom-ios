@@ -59,6 +59,47 @@ final class GameCenterServiceTests: XCTestCase {
         XCTAssertEqual(service.state, .authenticating)
     }
 
+    func testStatsDashboardRequiresAnAuthenticatedGameCenterPlayer() {
+        let harness = GameCenterClientHarness()
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+
+        XCTAssertFalse(service.showStats())
+        XCTAssertEqual(harness.dashboardTriggerCount, 0)
+        XCTAssertFalse(service.isOpeningStats)
+    }
+
+    func testStatsDashboardOpensOnceUntilAppleReportsPresentation() {
+        let harness = GameCenterClientHarness()
+        harness.authenticated = true
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+
+        XCTAssertTrue(service.showStats())
+        XCTAssertFalse(service.showStats())
+        XCTAssertEqual(harness.dashboardTriggerCount, 1)
+        XCTAssertTrue(service.isOpeningStats)
+
+        harness.dashboardCompletion?()
+
+        XCTAssertFalse(service.isOpeningStats)
+        XCTAssertTrue(service.showStats())
+        XCTAssertEqual(harness.dashboardTriggerCount, 2)
+    }
+
     func testUnavailableGameCenterCanRetryWithoutAffectingPimPoPomState() {
         let harness = GameCenterClientHarness()
         let service = GameCenterService(
@@ -149,6 +190,106 @@ final class GameCenterServiceTests: XCTestCase {
         XCTAssertEqual(verification.signature, Data([1, 2, 3]))
         XCTAssertEqual(verification.salt, Data([4, 5, 6]))
         XCTAssertEqual(verification.timestamp, 1_721_234_567)
+    }
+
+    func testRuntimeServerVerificationIsMemoryOnlyAndBoundToTheCurrentPlayer() throws {
+        let harness = GameCenterClientHarness()
+        harness.authenticated = true
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        let verification = GameCenterIdentityVerification(
+            signedTeamPlayerID: harness.teamPlayerID,
+            gamePlayerID: harness.gamePlayerID,
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            publicKeyURL: URL(string: "https://static.gc.apple.com/public-key")!,
+            signature: Data([1]),
+            salt: Data([2]),
+            timestamp: 1
+        )
+
+        try service.markRuntimeVerification(
+            profileID: "profile-1",
+            verification: verification
+        )
+
+        XCTAssertTrue(service.isCurrentRuntimePlayerVerified(for: "profile-1"))
+        XCTAssertFalse(service.isCurrentRuntimePlayerVerified(for: "profile-2"))
+        XCTAssertEqual(service.runtimeVerifiedProfileID, "profile-1")
+
+        harness.scopedIDsArePersistent = false
+        harness.authenticationCallback?(nil, nil)
+        XCTAssertFalse(service.isCurrentRuntimePlayerVerified(for: "profile-1"))
+        XCTAssertNil(service.runtimeVerifiedProfileID)
+
+        harness.scopedIDsArePersistent = true
+        harness.authenticationCallback?(nil, nil)
+        XCTAssertFalse(service.isCurrentRuntimePlayerVerified(for: "profile-1"))
+
+        harness.gamePlayerID = "game-player-2"
+        harness.teamPlayerID = "team-player-2"
+        harness.authenticationCallback?(nil, nil)
+
+        XCTAssertFalse(service.isCurrentRuntimePlayerVerified(for: "profile-1"))
+        XCTAssertNil(service.runtimeVerifiedProfileID)
+    }
+
+    func testRuntimeVerificationRejectsTransientIDsAndAnotherBundle() {
+        let harness = GameCenterClientHarness()
+        harness.authenticated = true
+        let service = GameCenterService(
+            client: harness.client,
+            arguments: [],
+            environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            defaults: harness.defaults,
+            presentAuthenticationViewController: { _ in true }
+        )
+        service.connect()
+        var verification = GameCenterIdentityVerification(
+            signedTeamPlayerID: harness.teamPlayerID,
+            gamePlayerID: harness.gamePlayerID,
+            bundleIdentifier: "com.example.another-game",
+            publicKeyURL: URL(string: "https://static.gc.apple.com/public-key")!,
+            signature: Data([1]),
+            salt: Data([2]),
+            timestamp: 1
+        )
+
+        XCTAssertThrowsError(
+            try service.markRuntimeVerification(
+                profileID: "profile-1",
+                verification: verification
+            )
+        ) { error in
+            XCTAssertEqual(error as? GameCenterServiceError, .identityChanged)
+        }
+
+        verification = GameCenterIdentityVerification(
+            signedTeamPlayerID: harness.teamPlayerID,
+            gamePlayerID: harness.gamePlayerID,
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            publicKeyURL: URL(string: "https://static.gc.apple.com/public-key")!,
+            signature: Data([1]),
+            salt: Data([2]),
+            timestamp: 1
+        )
+        harness.scopedIDsArePersistent = false
+        XCTAssertThrowsError(
+            try service.markRuntimeVerification(
+                profileID: "profile-1",
+                verification: verification
+            )
+        ) { error in
+            XCTAssertEqual(error as? GameCenterServiceError, .identityChanged)
+        }
+        XCTAssertFalse(service.isCurrentRuntimePlayerVerified(for: "profile-1"))
     }
 
     func testIdentityVerificationRejectsAPlayerChangeBeforeCompletion() async {
@@ -447,6 +588,7 @@ final class GameCenterServiceTests: XCTestCase {
                 connection: .disabled,
                 primaryProfileAuthenticated: true,
                 identityBinding: true,
+                runtimeIdentityVerified: true,
                 serverStatus: base,
                 issue: nil
             ),
@@ -490,6 +632,16 @@ final class GameCenterServiceTests: XCTestCase {
                 status: status(base, identityLinked: false)
             ),
             .unlinked
+        )
+        XCTAssertEqual(
+            resolved(
+                authenticated,
+                primary: true,
+                binding: true,
+                runtimeVerified: false,
+                status: status(base, heldJobs: 1, needsReset: true)
+            ),
+            .runtimeVerificationRequired
         )
         XCTAssertEqual(
             resolved(
@@ -561,6 +713,7 @@ final class GameCenterServiceTests: XCTestCase {
         _ connection: GameCenterConnectionState,
         primary: Bool,
         binding: Bool,
+        runtimeVerified: Bool = true,
         status: GameCenterServerStatus?,
         issue: GameCenterLinkIssue? = nil
     ) -> GameCenterProfileState {
@@ -568,6 +721,7 @@ final class GameCenterServiceTests: XCTestCase {
             connection: connection,
             primaryProfileAuthenticated: primary,
             identityBinding: binding,
+            runtimeIdentityVerified: runtimeVerified,
             serverStatus: status,
             issue: issue
         )
@@ -606,7 +760,9 @@ private final class GameCenterClientHarness {
     var gamePlayerID = "game-player-1"
     var scopedIDsArePersistent = true
     var verificationFetchCount = 0
+    var dashboardTriggerCount = 0
     var authenticationCallback: GameCenterClient.AuthenticationCallback?
+    var dashboardCompletion: GameCenterClient.DashboardCompletion?
     var verification: (URL, Data, Data, UInt64)?
     var beforeVerificationCallback: (() -> Void)?
     let defaults = UserDefaults(
@@ -644,6 +800,12 @@ private final class GameCenterClientHarness {
                     verification.3,
                     nil
                 )
+            },
+            showDashboard: { [weak self] completion in
+                guard let self, authenticated else { return false }
+                dashboardTriggerCount += 1
+                dashboardCompletion = completion
+                return true
             }
         )
     }

@@ -21,6 +21,8 @@ This repository is intentionally independent from the legacy web implementation.
 
 The current named-cohort TestFlight build is **1.02 (10)** from source commit `68ad4d25e83ec98f4127e848c53543be1294f23e`. App Store Connect accepted it as build `0e6f59d9-0cf2-4282-8f94-9d2ddbab2ca0`; Apple approved its Beta App Review and it is in beta testing for both Internal QA and External QA. It prevents Game Center authentication before a primary PimPoPom login, makes Connect/Turn Off recover when GameKit is already authenticated, exposes provider and Game Center ownership conflicts beside the relevant controls, and restores configured music/Sound FX after ordinary app background/foreground transitions without weakening route-loss user-action safeguards. GameKit remains a server-fed mirror rather than an authority for gameplay, ranking, achievements, or economy.
 
+The current unreleased Game Center correction never trusts a previously cached server `mirrorReady` flag as proof of the Apple player active on this device. Every explicit Connect/Verify performs a fresh server challenge plus GameKit signature round-trip and holds that verification only in memory for the current PimPoPom UUID and current persistent GameKit IDs. Profile also exposes **See Stats**, which opens Apple's Game Center dashboard through `GKAccessPoint`; the app still never submits scores or achievements directly.
+
 ## Migration baseline
 
 - Behavioral source reviewed: legacy web repository commit `675551adc715942ce2512c14d396d5d14e763f02` on 2026-07-14.
