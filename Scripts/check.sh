@@ -108,14 +108,14 @@ rg -Fq '"identity" : "swift-package-manager-google-user-messaging-platform"' Pim
 rg -Fq '"version" : "3.1.0"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 rg -Fq '"revision" : "13b248eaa73b7826f0efb1bcf455e251d65ecb1b"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
-if ! xcrun simctl list devices available | rg -Fq 'PimPoPom iPhone SE 2022 ('; then
-  printf '%s\n' 'Missing PimPoPom iPhone SE 2022 simulator. Run Scripts/create-alpha-simulators.sh first.' >&2
+if ! xcrun simctl list devices available | rg -Fq 'PimPoPom iPhone 17 ('; then
+  printf '%s\n' 'Missing PimPoPom iPhone 17 simulator. Run Scripts/create-alpha-simulators.sh first.' >&2
   exit 1
 fi
 
 xcodebuild -quiet \
   -project PimPoPom.xcodeproj \
   -scheme PimPoPom \
-  -destination 'platform=iOS Simulator,name=PimPoPom iPhone SE 2022' \
+  -destination 'platform=iOS Simulator,name=PimPoPom iPhone 17' \
   test
 git diff --check

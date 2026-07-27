@@ -766,3 +766,16 @@ Add a **See Stats** action to the Profile Game Center card whenever GameKit is a
 Consequences: A stale binding cannot make a different Apple player appear verified, explicit verification is idempotent but always cryptographically fresh, and players can inspect Apple's leaderboard and achievements without waiting for a launch banner. A genuine one-to-one conflict still returns `409` and is never stolen or merged. PHP publication and Apple propagation remain eventually consistent, so the dashboard can remain empty until a successful fresh link creates outbox work and the Hostinger publisher delivers it. Physical TestFlight validation must cover fresh clean-state linking, one accepted Arcade run, queued/delivered status, dashboard visibility, Apple account switching, Turn Off, and relaunch.
 
 Revisit when: Apple provides a directly signed mapping between `teamPlayerID` and `gamePlayerID`, GameKit exposes an app-level sign-out, the server adds an audited transfer flow, or dashboard presentation APIs change.
+
+## P-052 — Keep one named iPhone 17 development simulator
+
+- Date: 2026-07-27
+- Status: Accepted local-development policy
+
+Context: Retaining the earlier iPhone SE (2022), iPhone 13 mini, and iPhone 13 Pro Simulator profiles consumed limited local disk space and multiplied routine test destinations. Current development needs one persistent Simulator; compact-device and physical-device evidence remain separate release checks.
+
+Decision: Provision and retain only the named `PimPoPom iPhone 17` device on the installed iOS 26.5 Simulator runtime. Make it the destination for the normal full native check. Remove the named iPhone SE (2022) Simulator and stop provisioning the earlier three-device alpha matrix. Preserve historical test records that name older devices; they remain evidence of those earlier runs, not current setup instructions.
+
+Consequences: Routine local validation uses one modern Simulator and avoids duplicated device data. This policy does not claim compact iPhone, 60 Hz/120 Hz, audio, touch, ads, StoreKit, or TestFlight coverage; those remain explicit physical-device or release-specific checks when required.
+
+Revisit when: a supported-device regression cannot be reproduced on iPhone 17, Apple changes the required runtime, or a release needs a temporary additional Simulator for focused compatibility evidence.

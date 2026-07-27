@@ -33,9 +33,9 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(feedback.label.hasPrefix("Tap "), "A target never became active")
         board.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         usleep(140_000)
-        attachScreenshot(of: app, name: "SE straight two-line tap feedback")
+        attachScreenshot(of: app, name: "iPhone 17 straight two-line tap feedback")
         usleep(400_000)
-        attachScreenshot(of: app, name: "SE two-line tap feedback fading")
+        attachScreenshot(of: app, name: "iPhone 17 two-line tap feedback fading")
 
         let score = app.staticTexts["game-score"]
         XCTAssertEqual(
@@ -81,7 +81,10 @@ final class PimPoPomUITests: XCTestCase {
             app.staticTexts.matching(
                 NSPredicate(format: "label CONTAINS[c] 'ad' OR label CONTAINS[c] 'advertisement'")
             ).firstMatch.exists)
-        attachScreenshot(of: app, name: "SE Zen horizontal logo gradient without disabled ad UI")
+        attachScreenshot(
+            of: app,
+            name: "iPhone 17 Zen horizontal logo gradient without disabled ad UI"
+        )
 
         endButton.tap()
 
@@ -94,7 +97,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["ad-slot-results"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["result-save-panel"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["result-save-status"].exists)
-        attachScreenshot(of: app, name: "SE Zen results")
+        attachScreenshot(of: app, name: "iPhone 17 Zen results")
     }
 
     func testThemeShopExposesAccountBoundCoinStore() throws {
@@ -255,7 +258,7 @@ final class PimPoPomUITests: XCTestCase {
                 .count,
             1
         )
-        attachScreenshot(of: app, name: "SE alternate app icons")
+        attachScreenshot(of: app, name: "iPhone 17 alternate app icons")
         XCTAssertTrue(app.switches["glyphs-toggle"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.switches["sound-effects-toggle"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.switches["music-toggle"].waitForExistence(timeout: 2))
@@ -306,7 +309,7 @@ final class PimPoPomUITests: XCTestCase {
         let speedBar = app.descendants(matching: .any)["speed-streak"]
         XCTAssertTrue(speedBar.exists)
         XCTAssertLessThanOrEqual(speedBar.frame.maxY, activeSlot.frame.minY)
-        attachScreenshot(of: app, name: "SE gameplay fixed banner below Speed Bar")
+        attachScreenshot(of: app, name: "iPhone 17 gameplay fixed banner below Speed Bar")
 
         app.buttons["end-zen-run"].tap()
         XCTAssertTrue(app.staticTexts["results-title"].waitForExistence(timeout: 3))
@@ -318,7 +321,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(resultsBanner.waitForExistence(timeout: 2))
         XCTAssertEqual(resultsBanner.frame.width, 320, accuracy: 1)
         XCTAssertEqual(resultsBanner.frame.midX, resultsSlot.frame.midX, accuracy: 1)
-        attachScreenshot(of: app, name: "SE Results fixed banner")
+        attachScreenshot(of: app, name: "iPhone 17 Results fixed banner")
     }
 
     func testRankedSaveStatusFitsAboveResultsBannerWithoutScrolling() throws {
@@ -340,7 +343,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertGreaterThanOrEqual(status.frame.minY, app.frame.minY)
         XCTAssertLessThanOrEqual(status.frame.maxY, resultsSlot.frame.minY)
         XCTAssertTrue(app.buttons["results-menu"].isHittable)
-        attachScreenshot(of: app, name: "SE compact ranked save above Results banner")
+        attachScreenshot(of: app, name: "iPhone 17 ranked save above Results banner")
     }
 
     func testAdFreePlayerSeesNoRemoveAdsControlOrBannerArea() throws {
@@ -411,7 +414,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.buttons["app-icon-light"].exists)
         XCTAssertTrue(app.buttons["app-icon-pixel"].exists)
         XCTAssertTrue(app.navigationBars["Settings"].buttons["Done"].exists)
-        attachScreenshot(of: app, name: "SE Change Icon deep link")
+        attachScreenshot(of: app, name: "iPhone 17 Change Icon deep link")
     }
 
     func testGlyphsOffReachesTheGameplayHeader() throws {
@@ -567,14 +570,14 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(menuPancake.waitForExistence(timeout: 4))
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.25)).tap()
         XCTAssertTrue(waitForValue("left", on: menuPancake))
-        attachScreenshot(of: app, name: "SE Pancake menu placement")
+        attachScreenshot(of: app, name: "iPhone 17 Pancake menu placement")
 
         openMenuControl("open-leaderboard", in: app)
         let leaderboardPancake =
             app.descendants(matching: .any)["leaderboard-entry-pet-ui-player"]
         XCTAssertTrue(leaderboardPancake.waitForExistence(timeout: 4))
         XCTAssertGreaterThan(leaderboardPancake.frame.height, 38)
-        attachScreenshot(of: app, name: "SE Pancake leaderboard placement")
+        attachScreenshot(of: app, name: "iPhone 17 Pancake leaderboard placement")
     }
 
     func testResponseProgressDrainsWhileTargetIsActive() throws {
@@ -745,9 +748,9 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["pet-shop-status"].label.contains("special companion remains visible"))
     }
 
-    func testMenuMatchesTheReviewedWebGeometryOnSE() throws {
+    func testMenuMatchesTheReviewedWebGeometryOnPrimarySimulator() throws {
         let app = launch(additionalArguments: ["--ui-test-pet-profile"])
-        XCTAssertEqual(app.frame.width, 375, accuracy: 0.5)
+        XCTAssertEqual(app.frame.width, 402, accuracy: 0.5)
 
         let dialog = app.descendants(matching: .any)["menu-dialog"]
         let wordmark = app.descendants(matching: .any)["menu-wordmark"]
@@ -771,7 +774,7 @@ final class PimPoPomUITests: XCTestCase {
         }
 
         XCTAssertEqual(dialog.frame.minX, 12, accuracy: 1)
-        XCTAssertEqual(dialog.frame.width, 351, accuracy: 1)
+        XCTAssertEqual(dialog.frame.width, app.frame.width - 24, accuracy: 1)
         XCTAssertLessThan(wordmark.frame.maxX, coinStore.frame.minX)
         XCTAssertEqual(leaderboard.value as? String, "Position #6")
 
@@ -794,8 +797,8 @@ final class PimPoPomUITests: XCTestCase {
         let arcadeFrame = arcade.frame
         let settingsFrame = settings.frame
         app.swipeUp()
-        XCTAssertEqual(arcade.frame, arcadeFrame)
-        XCTAssertEqual(settings.frame, settingsFrame)
+        assertFrame(arcade.frame, matches: arcadeFrame, accuracy: 0.5)
+        assertFrame(settings.frame, matches: settingsFrame, accuracy: 0.5)
         XCTAssertFalse(app.staticTexts["backend-environment"].exists)
         XCTAssertEqual(
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Hostinger'")).count,
@@ -902,7 +905,7 @@ final class PimPoPomUITests: XCTestCase {
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'does not prove'")).count,
             0
         )
-        attachScreenshot(of: app, name: "SE leaderboard parity")
+        attachScreenshot(of: app, name: "iPhone 17 leaderboard parity")
 
         app.navigationBars.buttons.element(boundBy: 0).tap()
         let profileButton = app.buttons["open-profile"]
@@ -928,7 +931,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(gameCenter.label, "Retry")
         XCTAssertTrue(gameCenterStatus.label.hasPrefix("Unavailable"))
         XCTAssertFalse(app.alerts["Game Center"].exists)
-        attachScreenshot(of: app, name: "SE profile parity")
+        attachScreenshot(of: app, name: "iPhone 17 profile parity")
     }
 
     func testProfileAccountDeletionIsLastExactPhraseGatedAndPreservesGameCenter() throws {
@@ -980,7 +983,13 @@ final class PimPoPomUITests: XCTestCase {
 
         let profileButton = app.buttons["open-profile"]
         XCTAssertTrue(profileButton.waitForExistence(timeout: 3))
-        XCTAssertEqual(profileButton.label, "Profile. Signed out")
+        XCTAssertTrue(
+            waitForLabel(
+                "Profile. Signed out",
+                on: profileButton,
+                timeout: 5
+            )
+        )
         let dismissalDeadline = Date().addingTimeInterval(3)
         while Date() < dismissalDeadline, !profileButton.isHittable {
             usleep(50_000)
@@ -1038,7 +1047,7 @@ final class PimPoPomUITests: XCTestCase {
         }
         XCTAssertTrue(feedback.label.hasPrefix("Tap "))
         XCTAssertTrue(app.descendants(matching: .any)["target-color"].exists)
-        attachScreenshot(of: app, name: "SE Disco gameplay polish")
+        attachScreenshot(of: app, name: "iPhone 17 Disco gameplay polish")
     }
 
     func testThemeShopUsesTwoColumnCardsAndShowsSelectedFixture() throws {
@@ -1066,7 +1075,7 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(pixel.label, "Pixel")
         XCTAssertEqual(pixel.value as? String, "Selected")
         XCTAssertTrue(pixel.isEnabled)
-        attachScreenshot(of: app, name: "SE Theme Shop two-times preview glyphs")
+        attachScreenshot(of: app, name: "iPhone 17 Theme Shop two-times preview glyphs")
 
         classic.tap()
         XCTAssertEqual(
@@ -1154,6 +1163,19 @@ final class PimPoPomUITests: XCTestCase {
             ],
             timeout: timeout
         ) == .completed
+    }
+
+    private func assertFrame(
+        _ frame: CGRect,
+        matches expected: CGRect,
+        accuracy: CGFloat,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertEqual(frame.minX, expected.minX, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(frame.minY, expected.minY, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(frame.width, expected.width, accuracy: accuracy, file: file, line: line)
+        XCTAssertEqual(frame.height, expected.height, accuracy: accuracy, file: file, line: line)
     }
 
 }

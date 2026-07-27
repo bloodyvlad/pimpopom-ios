@@ -15,11 +15,5 @@ create_if_missing() {
 }
 
 create_if_missing \
-  "PimPoPom iPhone SE 2022" \
-  "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation"
-create_if_missing \
-  "PimPoPom iPhone 13 mini" \
-  "com.apple.CoreSimulator.SimDeviceType.iPhone-13-mini"
-create_if_missing \
-  "PimPoPom iPhone 13 Pro" \
-  "com.apple.CoreSimulator.SimDeviceType.iPhone-13-Pro"
+  "PimPoPom iPhone 17" \
+  "com.apple.CoreSimulator.SimDeviceType.iPhone-17"

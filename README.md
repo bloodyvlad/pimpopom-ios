@@ -45,7 +45,7 @@ The app currently uses SwiftUI, SpriteKit, `PimPoPomCore`, `URLSession`, Google 
 ## Start here
 
 1. Use Xcode 26.2 or newer and XcodeGen 2.45.4 (`brew install xcodegen`). Swift Package Manager resolves the pinned Google Sign-In, Google Mobile Ads, and UMP dependencies.
-2. Create the agreed simulator profiles once with `Scripts/create-alpha-simulators.sh`, then generate/build/test everything with `Scripts/check.sh`.
+2. Create the single named iPhone 17 simulator once with `Scripts/create-alpha-simulators.sh`, then generate/build/test everything with `Scripts/check.sh`.
 3. Open `PimPoPom.xcodeproj`, select an Apple Team under Signing & Capabilities, select the connected iPhone SE 2022, and Run. Local Arcade/Zen and public leaderboards need no Google setup.
 4. To enable Google, create an iOS OAuth client in the same Google Cloud project for bundle ID `com.otcsoftware.pimpopom`, copy `Config/Local.example.xcconfig` to ignored `Config/Local.xcconfig`, and replace its two example values. The existing Web server audience is committed as public build configuration; no client secret belongs in the app. An older iOS client registered for `com.otcsoft.pimpopom.alpha` does not match this app.
 5. For deterministic local purchase testing, run the **PimPoPom StoreKit Local** Debug scheme. It uses the committed `.storekit` catalog plus a clearly isolated in-memory credit fixture and never sends local test transactions to Hostinger.
