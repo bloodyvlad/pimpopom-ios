@@ -105,6 +105,19 @@ Never break the previous live client merely to simplify a new release.
 
 ## TestFlight release records
 
+### PimPoPom 1.2 (11) — 2026-07-27
+
+- **Git source:** `9b3c2b6e5ee6055f66e9cd22cc171127e6a3f1c2` on `codex/testflight-1-2-build-11`; the exact release commit is also on `origin/main`.
+- **Toolchain:** Xcode 26.6 (`17F113`), Apple Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2.
+- **Identity:** bundle `com.otcsoftware.pimpopom`; Apple Distribution team `APX2925X66`; Apple Sign In and Game Center entitlements; `get-task-allow = false`; marketing version/build `1.2 (11)`.
+- **Verification:** `Scripts/check.sh` passed 29 deterministic core plus 219 native/unit/UI tests on the named iPhone SE (3rd generation) Simulator, 248 total with zero failures, skips, or expected failures. `git diff --check`, strict code formatting, asset/configuration/privacy guards, distribution signature inspection, and Apple archive validation passed. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.27_15-37-28-+0200.xcresult`.
+- **Archive:** `/Users/vlad/Documents/PimPoPom-release-artifacts/1.2-11/PimPoPom-1.2-11-9b3c2b6.xcarchive`; deterministic sorted-file manifest SHA-256 `d151aadede93ca93a0c80dd9ac5e32b8ea1aaf195af58e4082db2674c710b91d`.
+- **Export:** `/Users/vlad/Documents/PimPoPom-release-artifacts/1.2-11/upload/PimPoPom.ipa`; SHA-256 `d23388f252688bd9f29dddc727ca079af653e11a4a574c33d151347af282becc`.
+- **App Store Connect:** build `3a77fe90-fb8f-43e9-a850-41f256a08f85` processed `VALID`; icon present; `usesNonExemptEncryption = false`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING` with automatic notification. The English beta description, per-build What to Test, and review notes were updated for the fresh Game Center verification and **See Stats** paths.
+- **Runtime contracts:** every explicit Connect/Verify uses a new server challenge and GameKit proof for the current persistent player IDs. Runtime verification is memory-only and profile/player-scoped. PHP remains authoritative for protocol-verified Arcade ranking and achievement publication; the client never calls GameKit score or achievement submission APIs.
+- **Known limitation:** physical TestFlight validation is still required for a successful clean Game Center link, asynchronous leaderboard/achievement delivery, Turn Off/reconnect/account switching, and the broader audio, ads, StoreKit, and accessibility matrix. Apple propagation can remain delayed after PHP accepts publication work.
+- **Prior compatible build:** TestFlight 1.02 (10). The owner can expire a faulty TestFlight build while retaining the prior compatible backend and shipping a corrective binary.
+
 ### PimPoPom 1.02 (10) — 2026-07-25
 
 - **Git source:** `68ad4d25e83ec98f4127e848c53543be1294f23e` on `codex/testflight-1-02-build-10`.
