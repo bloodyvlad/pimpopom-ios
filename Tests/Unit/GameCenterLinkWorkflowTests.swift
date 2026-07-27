@@ -101,6 +101,8 @@ final class GameCenterLinkWorkflowTests: XCTestCase {
             XCTFail("Expected cancellation after the profile/player context changed.")
         } catch is CancellationError {
             XCTAssertEqual(proofRequests, 0)
+        } catch {
+            XCTFail("Expected CancellationError, received \(error).")
         }
     }
 

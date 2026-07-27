@@ -119,6 +119,20 @@ Test banner visibility on the Main Menu, during Arcade and Zen gameplay, and on 
 
 Sign-in is optional and the app can be evaluated without reviewer-provided credentials. Purchases use Apple’s TestFlight Sandbox environment. Advertising uses Google AdMob behind Google UMP consent. This named QA build uses Google’s official demo inventory for ordinary testers; one registered owner test device may first exercise the app’s production ad units in Google Test mode and falls back to the official demo units after a no-fill response. The gameplay banner is fixed below the Speed Bar, and the interstitial becomes due after 3 eligible completed rounds and is attempted from Results. Sign in with Apple and Google are primary PimPoPom identity methods; accounts are never merged automatically. Game Center is optional and link-only, and does not create or access a PimPoPom wallet.
 
+## Build 11 / version 1.2 TestFlight copy
+
+**Beta App Description**
+
+PimPoPom is a reaction game with Arcade and Zen modes. Version 1.2 tests fresh Game Center player verification and direct access to Apple’s Game Center statistics while preserving optional signed-out play, StoreKit, account management, consent handling, and advertising.
+
+**What to Test**
+
+Create or sign in to a PimPoPom profile with Apple or Google, then open Profile and connect Game Center. Confirm that Connect/Verify completes against the Game Center player currently active on the device. Use **See Stats** to open Apple’s dashboard, complete a protocol-verified Arcade run, and confirm that the global Arcade leaderboard and unlocked achievements appear after server publication and Apple propagation. Also test Turn Off, reconnect, Apple account switching, Arcade and Zen gameplay, audio after background/foreground transitions, banner/interstitial ads, Sandbox coin purchases, ad removal and restoration, Privacy Choices, and account deletion. Report conflicts, missing statistics, hangs, crashes, silent audio, purchase errors, or ads shown to ad-free accounts.
+
+**Beta Review Notes**
+
+Sign-in is optional and the app can be evaluated without reviewer-provided credentials. Game Center requires a signed-in PimPoPom profile and explicit Connect; it cannot create or access a wallet. The app obtains fresh GameKit identity proof, while the PimPoPom PHP service asynchronously publishes only protocol-verified Arcade personal bests and authoritative achievement unlocks. The client never submits scores or achievements directly, so Apple’s dashboard may update after a short propagation delay. Purchases use Apple’s TestFlight Sandbox environment. Advertising uses Google AdMob behind Google UMP consent. The gameplay banner is fixed below the Speed Bar, and the interstitial becomes due after 3 eligible completed rounds and is attempted from Results.
+
 ## Production App Review notes draft
 
 PimPoPom can be evaluated without signing in: launch the app, choose Arcade or Zen, and play immediately. Arcade leaderboard submission, profile-bound cosmetics, achievements, and StoreKit value require a signed-in PimPoPom profile.
