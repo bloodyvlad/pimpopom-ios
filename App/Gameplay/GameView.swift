@@ -284,13 +284,18 @@ struct GameView: View {
             coordinator.snapshot.reactionProgress,
             isActive: coordinator.snapshot.state == .active && coordinator.mode == .arcade
         )
-        let colorIndex = coordinator.snapshot.playerColorIndex
-        let name = coordinator.mode == .zen ? "Any" : coordinator.snapshot.playerColor.name
+        let content = GameColorHeroPresentation.resolveContent(
+            mode: coordinator.mode,
+            hasLoadedRunColor: coordinator.snapshot.state != .idle,
+            colorIndex: coordinator.snapshot.playerColorIndex,
+            colorName: coordinator.snapshot.playerColor.name,
+            glyph: coordinator.snapshot.playerColor.glyph
+        )
         let outlineTone = Color(
             hex: GameColorHeroPresentation.outlineHex(
                 theme: palette,
                 mode: coordinator.mode,
-                colorIndex: colorIndex
+                colorIndex: content.colorIndex
             )
         )
         let outlineOpacity = GameColorHeroPresentation.outlineOpacity(
@@ -312,9 +317,9 @@ struct GameView: View {
                     } else {
                         GameCellPreview(
                             theme: palette,
-                            colorIndex: colorIndex,
-                            glyph: coordinator.snapshot.playerColor.glyph,
-                            showsGlyphs: frozenGlyphsEnabled,
+                            colorIndex: content.colorIndex,
+                            glyph: content.glyph,
+                            showsGlyphs: frozenGlyphsEnabled && content.colorIndex != nil,
                             isTarget: true,
                             glyphScale: GameCellVisualMetrics.previewGlyphScale
                         )
@@ -325,7 +330,7 @@ struct GameView: View {
                     height: ZenAnyCellTokens.previewSide
                 )
 
-                Text(name)
+                Text(content.name)
                     .font(palette.appFont(size: 18, weight: .black, relativeTo: .headline))
                     .foregroundStyle(Color(hex: palette.foreground))
                     .lineLimit(1)
@@ -364,8 +369,17 @@ struct GameView: View {
                     .padding(.bottom, 3)
             }
         }
+        .id(
+            "target-color-\(content.colorIndex.map(String.init) ?? "pending")-\(content.name)"
+        )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(targetAccessibilityLabel(name: name))
+        .accessibilityLabel(
+            GameColorHeroPresentation.accessibilityLabel(
+                mode: coordinator.mode,
+                showsGlyphs: frozenGlyphsEnabled,
+                content: content
+            )
+        )
         .accessibilityIdentifier("target-color")
     }
 
@@ -381,13 +395,6 @@ struct GameView: View {
             coordinator.feedback.hasPrefix("Tap ")
         else { return coordinator.feedback }
         return "Tap \(coordinator.snapshot.playerColor.name)"
-    }
-
-    private func targetAccessibilityLabel(name: String) -> String {
-        guard coordinator.mode == .arcade, frozenGlyphsEnabled else {
-            return "Target color \(name)"
-        }
-        return "Target color \(name), symbol \(coordinator.snapshot.playerColor.glyph)"
     }
 
     private func compactStat(
@@ -1382,19 +1389,58 @@ enum GameHUDMetrics {
 }
 
 enum GameColorHeroPresentation {
+    struct Content: Equatable, Sendable {
+        let colorIndex: Int?
+        let name: String
+        let glyph: String
+    }
+
+    static func resolveContent(
+        mode: GameMode,
+        hasLoadedRunColor: Bool,
+        colorIndex: Int,
+        colorName: String,
+        glyph: String
+    ) -> Content {
+        if mode == .zen {
+            return Content(colorIndex: nil, name: "Any", glyph: "")
+        }
+        guard hasLoadedRunColor else {
+            return Content(colorIndex: nil, name: "", glyph: "")
+        }
+        return Content(colorIndex: colorIndex, name: colorName, glyph: glyph)
+    }
+
     static func outlineHex(
         theme: ThemePalette,
         mode: GameMode,
-        colorIndex: Int
+        colorIndex: Int?
     ) -> String {
         if mode == .zen {
             return theme.isLight ? "#477694" : theme.accent
+        }
+        guard let colorIndex else {
+            return theme.isLight ? theme.muted : theme.foreground
         }
         return theme.tileColors[colorIndex % theme.tileColors.count]
     }
 
     static func outlineOpacity(theme: ThemePalette, mode: GameMode) -> Double {
         theme.isLight && mode == .zen ? 0.52 : 0.82
+    }
+
+    static func accessibilityLabel(
+        mode: GameMode,
+        showsGlyphs: Bool,
+        content: Content
+    ) -> String {
+        guard mode != .arcade || content.colorIndex != nil else {
+            return "Target color pending"
+        }
+        guard mode == .arcade, showsGlyphs else {
+            return "Target color \(content.name)"
+        }
+        return "Target color \(content.name), symbol \(content.glyph)"
     }
 }
 

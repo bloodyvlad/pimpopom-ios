@@ -11,6 +11,7 @@ struct RootView: View {
     @EnvironmentObject private var audio: AudioController
     @EnvironmentObject private var quickActions: HomeQuickActionController
     @EnvironmentObject private var gameCenter: GameCenterService
+    @EnvironmentObject private var gameCenterAutoLink: GameCenterAutoLinkController
     @EnvironmentObject private var purchases: PurchaseController
     @EnvironmentObject private var ads: AdsController
 
@@ -167,10 +168,11 @@ struct RootView: View {
             // Refresh/present consent before restoring or changing the player session;
             // AdsController still waits for authoritative ad-free resolution before GMA starts.
             await ads.bootstrap(session: nil)
+            // Install GameKit's standard authentication handler automatically
+            // after any required UMP form has left the presentation stack.
+            gameCenter.authenticateAtLaunch()
             await restoreSession()
-            if backend.isAuthenticated {
-                gameCenter.resumeAuthenticationIfOptedIn()
-            }
+            gameCenterAutoLink.reconcile()
             await ads.updateSession(backend.sessionState)
             await ads.retryEligibilityIfNeeded()
             await purchases.loadProducts()
@@ -195,6 +197,8 @@ struct RootView: View {
                 audio.setMusicContext(.menu)
             }
             if phase == .active {
+                gameCenter.authenticateAtLaunch()
+                gameCenterAutoLink.reconcile()
                 Task {
                     await ads.retryEligibilityIfNeeded()
                     await purchases.reconcileOutstandingTransactions()
@@ -202,6 +206,7 @@ struct RootView: View {
             }
         }
         .onChange(of: backend.sessionState) { _, _ in
+            gameCenterAutoLink.reconcile()
             Task {
                 await ads.updateSession(backend.sessionState)
                 await purchases.reconcileOutstandingTransactions()
@@ -209,11 +214,15 @@ struct RootView: View {
         }
         .onChange(of: backend.isAuthenticated) { wasAuthenticated, isAuthenticated in
             guard wasAuthenticated != isAuthenticated else { return }
-            if isAuthenticated {
-                gameCenter.resumeAuthenticationIfOptedIn()
-            } else {
-                gameCenter.disableParticipation()
-            }
+            gameCenterAutoLink.reconcile()
+        }
+        .onChange(of: backend.profile?.id) { oldPlayerID, newPlayerID in
+            guard oldPlayerID != newPlayerID else { return }
+            gameCenter.clearRuntimeVerification()
+            gameCenterAutoLink.reconcile()
+        }
+        .onChange(of: gameCenter.state) { _, _ in
+            gameCenterAutoLink.reconcile()
         }
         .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
             guard isEmpty, !wasEmpty else { return }
@@ -902,6 +911,11 @@ struct RootView: View {
     let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
     let achievements = AchievementsController(backend: backend)
     let purchases = PurchaseController(creditService: backend, startListeners: false)
+    let gameCenter = GameCenterService(arguments: ["--uitesting"])
+    let gameCenterAutoLink = GameCenterAutoLinkController(
+        backend: backend,
+        gameCenter: gameCenter
+    )
     let ads = AdsController(
         configuration: AdsConfiguration(
             mode: .disabled,
@@ -925,7 +939,8 @@ struct RootView: View {
     .environmentObject(AudioController())
     .environmentObject(AppIconController())
     .environmentObject(HomeQuickActionController.shared)
-    .environmentObject(GameCenterService(arguments: ["--uitesting"]))
+    .environmentObject(gameCenter)
+    .environmentObject(gameCenterAutoLink)
     .environmentObject(purchases)
     .environmentObject(ads)
 }

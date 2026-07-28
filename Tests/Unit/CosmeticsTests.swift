@@ -915,6 +915,72 @@ final class CosmeticsTests: XCTestCase {
         )
     }
 
+    func testArcadeColorHeroStaysEmptyUntilTheRunChoosesItsActualColor() {
+        let preparing = GameColorHeroPresentation.resolveContent(
+            mode: .arcade,
+            hasLoadedRunColor: false,
+            colorIndex: 0,
+            colorName: "Cyan",
+            glyph: "●"
+        )
+        XCTAssertEqual(
+            preparing,
+            GameColorHeroPresentation.Content(
+                colorIndex: nil,
+                name: "",
+                glyph: ""
+            )
+        )
+        XCTAssertEqual(
+            GameColorHeroPresentation.accessibilityLabel(
+                mode: .arcade,
+                showsGlyphs: true,
+                content: preparing
+            ),
+            "Target color pending"
+        )
+
+        let started = GameColorHeroPresentation.resolveContent(
+            mode: .arcade,
+            hasLoadedRunColor: true,
+            colorIndex: 4,
+            colorName: "Orange",
+            glyph: "✚"
+        )
+        XCTAssertEqual(
+            started,
+            GameColorHeroPresentation.Content(
+                colorIndex: 4,
+                name: "Orange",
+                glyph: "✚"
+            )
+        )
+        XCTAssertEqual(
+            GameColorHeroPresentation.accessibilityLabel(
+                mode: .arcade,
+                showsGlyphs: true,
+                content: started
+            ),
+            "Target color Orange, symbol ✚"
+        )
+
+        let zen = GameColorHeroPresentation.resolveContent(
+            mode: .zen,
+            hasLoadedRunColor: false,
+            colorIndex: 0,
+            colorName: "Cyan",
+            glyph: "●"
+        )
+        XCTAssertEqual(
+            zen,
+            GameColorHeroPresentation.Content(
+                colorIndex: nil,
+                name: "Any",
+                glyph: ""
+            )
+        )
+    }
+
     func testMenuMotivationUsesTheNativeTenSecondNonRepeatingContract() {
         XCTAssertEqual(MenuMotivation.rotationInterval, .seconds(10))
         XCTAssertEqual(MenuMotivation.hints.count, 26)

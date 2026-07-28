@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class GameCenterLinkWorkflowTests: XCTestCase {
-    func testExplicitVerificationAlwaysUsesFreshProofEvenWhenMirrorIsAlreadyReady() async throws {
+    func testVerificationAlwaysUsesFreshProofEvenWhenMirrorIsAlreadyReady() async throws {
         let profile = makeProfile()
         let serverStatus = makeStatus(mirrorReady: true)
         let session = makeSession(profile: profile, status: serverStatus)

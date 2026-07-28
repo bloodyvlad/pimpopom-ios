@@ -11,6 +11,7 @@ struct PimPoPomApp: App {
     @StateObject private var appIcons: AppIconController
     @StateObject private var quickActions: HomeQuickActionController
     @StateObject private var gameCenter: GameCenterService
+    @StateObject private var gameCenterAutoLink: GameCenterAutoLinkController
     @StateObject private var purchases: PurchaseController
     @StateObject private var ads: AdsController
     private let googleIdentity = GoogleIdentityService()
@@ -61,7 +62,14 @@ struct PimPoPomApp: App {
         _audio = StateObject(wrappedValue: AudioController())
         _appIcons = StateObject(wrappedValue: AppIconController())
         _quickActions = StateObject(wrappedValue: HomeQuickActionController.shared)
-        _gameCenter = StateObject(wrappedValue: GameCenterService())
+        let gameCenter = GameCenterService()
+        _gameCenter = StateObject(wrappedValue: gameCenter)
+        _gameCenterAutoLink = StateObject(
+            wrappedValue: GameCenterAutoLinkController(
+                backend: backend,
+                gameCenter: gameCenter
+            )
+        )
         _purchases = StateObject(
             wrappedValue: PurchaseController(storeKit: storeKit, creditService: backend)
         )
@@ -82,6 +90,7 @@ struct PimPoPomApp: App {
             .environmentObject(appIcons)
             .environmentObject(quickActions)
             .environmentObject(gameCenter)
+            .environmentObject(gameCenterAutoLink)
             .environmentObject(purchases)
             .environmentObject(ads)
             .onOpenURL {

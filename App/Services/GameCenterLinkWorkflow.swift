@@ -1,6 +1,6 @@
 import Foundation
 
-/// Executes one complete, explicit Game Center verification round-trip.
+/// Executes one complete Game Center verification round-trip.
 ///
 /// Server mirror state is intentionally never a shortcut: every invocation
 /// obtains a new server challenge and a new GameKit identity signature for the

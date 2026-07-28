@@ -26,11 +26,17 @@ final class PimPoPomUITests: XCTestCase {
             feedback.label == "Get ready" || feedback.label.hasPrefix("Tap "),
             "Unexpected start feedback: \(feedback.label)"
         )
+        let targetColor = app.descendants(matching: .any)["target-color"]
+        XCTAssertTrue(targetColor.waitForExistence(timeout: 2))
+        if feedback.label == "Get ready" {
+            XCTAssertEqual(targetColor.label, "Target color pending")
+        }
         let targetDeadline = Date().addingTimeInterval(5)
         while Date() < targetDeadline, !feedback.label.hasPrefix("Tap ") {
             usleep(20_000)
         }
         XCTAssertTrue(feedback.label.hasPrefix("Tap "), "A target never became active")
+        XCTAssertNotEqual(targetColor.label, "Target color pending")
         board.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
         usleep(140_000)
         attachScreenshot(of: app, name: "iPhone 17 straight two-line tap feedback")
@@ -939,13 +945,17 @@ final class PimPoPomUITests: XCTestCase {
             app.swipeUp()
         }
         XCTAssertTrue(gameCenter.waitForExistence(timeout: 3))
-        XCTAssertEqual(gameCenter.label, "Connect")
-        let gameCenterStatus = app.descendants(matching: .any)["profile-game-center-status"]
-        XCTAssertTrue(gameCenterStatus.waitForExistence(timeout: 2))
-        XCTAssertTrue(gameCenterStatus.label.hasPrefix("Off"))
-        gameCenter.tap()
-        XCTAssertEqual(gameCenter.label, "Retry")
-        XCTAssertTrue(gameCenterStatus.label.hasPrefix("Unavailable"))
+        XCTAssertEqual(gameCenter.label, "See stats")
+        XCTAssertFalse(gameCenter.isEnabled)
+        XCTAssertFalse(
+            app.descendants(matching: .any)["profile-game-center-status"].exists
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["profile-game-center-explanation"].exists
+        )
+        XCTAssertFalse(
+            app.buttons["profile-game-center-turn-off"].exists
+        )
         XCTAssertFalse(app.alerts["Game Center"].exists)
         attachScreenshot(of: app, name: "iPhone 17 profile parity")
     }
@@ -1024,19 +1034,23 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertFalse(app.otherElements["profile-danger-zone"].exists)
     }
 
-    func testSignedOutProfileRequiresPrimarySignInBeforeGameCenter() throws {
+    func testSignedOutProfileKeepsGameCenterStatsAsASimpleSystemAction() throws {
         let app = launch()
         openMenuControl("open-profile", in: app)
         XCTAssertTrue(app.navigationBars["My Profile"].waitForExistence(timeout: 3))
 
         let gameCenter = app.buttons["profile-game-center"]
         XCTAssertTrue(gameCenter.waitForExistence(timeout: 3))
-        XCTAssertEqual(gameCenter.label, "Sign In First")
+        XCTAssertEqual(gameCenter.label, "See stats")
         XCTAssertFalse(gameCenter.isEnabled)
-        XCTAssertTrue(
-            app.staticTexts[
-                "Sign in with Apple or Google before connecting Game Center"
-            ].exists
+        XCTAssertFalse(
+            app.descendants(matching: .any)["profile-game-center-status"].exists
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)["profile-game-center-explanation"].exists
+        )
+        XCTAssertFalse(
+            app.buttons["profile-game-center-turn-off"].exists
         )
     }
 

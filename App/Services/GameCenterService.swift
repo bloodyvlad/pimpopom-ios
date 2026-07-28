@@ -33,90 +33,10 @@ struct GameCenterIdentityVerification: Equatable, Sendable {
 }
 
 enum GameCenterConnectionState: Equatable {
-    case disabled
     case idle
     case authenticating
     case authenticated(GameCenterPlayerIdentity)
     case unavailable(String)
-}
-
-enum GameCenterLinkIssue: Equatable {
-    case primaryReauthenticationRequired
-    case conflict(String)
-    case unavailable(String)
-}
-
-enum GameCenterProfileState: Equatable {
-    case gameCenterSignedOut
-    case gameCenterUnavailable(String)
-    case primaryProfileRequired
-    case primaryReauthenticationRequired
-    case scopedIDsTransient
-    case unlinked
-    case linkedIdentityOnly
-    case publicationQueued(Int)
-    case mirrorReady
-    case publicationHeld(Int)
-    case conflict(String)
-    case resetNeedsSupport
-}
-
-enum GameCenterProfileStateResolver {
-    static func resolve(
-        connection: GameCenterConnectionState,
-        primaryProfileAuthenticated: Bool,
-        identityBinding: Bool,
-        serverStatus: GameCenterServerStatus?,
-        issue: GameCenterLinkIssue?
-    ) -> GameCenterProfileState {
-        switch connection {
-        case .disabled, .idle, .authenticating:
-            return .gameCenterSignedOut
-        case .unavailable(let message):
-            return .gameCenterUnavailable(message)
-        case .authenticated(let player):
-            guard primaryProfileAuthenticated else {
-                return .primaryProfileRequired
-            }
-            if issue == .primaryReauthenticationRequired {
-                return .primaryReauthenticationRequired
-            }
-            guard player.scopedIDsArePersistent else {
-                return .scopedIDsTransient
-            }
-            if case .conflict(let message) = issue {
-                return .conflict(message)
-            }
-            if case .unavailable(let message) = issue {
-                return .gameCenterUnavailable(message)
-            }
-
-            if let serverStatus {
-                guard serverStatus.identityLinked, identityBinding else {
-                    return .unlinked
-                }
-                if serverStatus.heldJobs > 0 {
-                    return .publicationHeld(serverStatus.heldJobs)
-                }
-                if serverStatus.needsReset {
-                    return .resetNeedsSupport
-                }
-                guard serverStatus.publicationEnabled,
-                    serverStatus.serverPublicationAvailable
-                else {
-                    return .linkedIdentityOnly
-                }
-                if serverStatus.pendingJobs > 0 {
-                    return .publicationQueued(serverStatus.pendingJobs)
-                }
-                if serverStatus.mirrorReady {
-                    return .mirrorReady
-                }
-                return .linkedIdentityOnly
-            }
-            return identityBinding ? .linkedIdentityOnly : .unlinked
-        }
-    }
 }
 
 @MainActor
@@ -260,15 +180,11 @@ struct GameCenterClient {
 
 @MainActor
 final class GameCenterService: ObservableObject {
-    static let participationPreferenceKey = "game-center.participation.enabled"
-
     @Published private(set) var state: GameCenterConnectionState
-    @Published private(set) var participationEnabled: Bool
     @Published private(set) var runtimeVerifiedProfileID: String?
     @Published private(set) var isOpeningStats = false
 
     private let client: GameCenterClient
-    private let defaults: UserDefaults
     private let arguments: [String]
     private let environment: [String: String]
     private let bundleIdentifier: String
@@ -288,7 +204,6 @@ final class GameCenterService: ObservableObject {
         arguments: [String] = ProcessInfo.processInfo.arguments,
         environment: [String: String] = ProcessInfo.processInfo.environment,
         bundleIdentifier: String = Bundle.main.bundleIdentifier ?? "",
-        defaults: UserDefaults = .standard,
         presentAuthenticationViewController: @escaping @MainActor (UIViewController) -> Bool =
             GameCenterService.presentAuthenticationViewController
     ) {
@@ -296,42 +211,23 @@ final class GameCenterService: ObservableObject {
         self.arguments = arguments
         self.environment = environment
         self.bundleIdentifier = bundleIdentifier
-        self.defaults = defaults
         self.presentAuthenticationViewController = presentAuthenticationViewController
-        let savedParticipation = defaults.bool(forKey: Self.participationPreferenceKey)
-        participationEnabled = savedParticipation
         runtimeVerifiedProfileID = nil
-        state = savedParticipation ? .idle : .disabled
+        state = .idle
     }
 
-    func resumeAuthenticationIfOptedIn() {
-        guard participationEnabled else {
-            state = .disabled
-            return
-        }
-        startAuthentication()
-    }
-
-    func connect() {
+    func authenticateAtLaunch() {
         startAuthentication()
     }
 
     private func startAuthentication() {
-        guard !hasInstalledAuthenticationHandler else { return }
+        if hasInstalledAuthenticationHandler {
+            if client.isAuthenticated() {
+                publishAuthenticatedPlayer()
+            }
+            return
+        }
         installAuthenticationHandler()
-    }
-
-    func retryAuthentication() {
-        installAuthenticationHandler()
-    }
-
-    func disableParticipation() {
-        authenticationGeneration += 1
-        client.removeAuthenticationHandler()
-        hasInstalledAuthenticationHandler = false
-        clearRuntimeVerification()
-        setParticipationEnabled(false)
-        state = .disabled
     }
 
     @discardableResult
@@ -522,13 +418,7 @@ final class GameCenterService: ObservableObject {
         {
             clearRuntimeVerification()
         }
-        setParticipationEnabled(true)
         state = .authenticated(identity)
-    }
-
-    private func setParticipationEnabled(_ enabled: Bool) {
-        participationEnabled = enabled
-        defaults.set(enabled, forKey: Self.participationPreferenceKey)
     }
 
     private static func presentAuthenticationViewController(

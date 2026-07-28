@@ -33,6 +33,7 @@
 		3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */; };
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
+		4A1A7251FF209E56E3291F35 /* GameCenterAutoLinkControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AA841A473D8AF5CD279A75 /* GameCenterAutoLinkControllerTests.swift */; };
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
 		54263429058B1AB2B2B01286 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 5BB5AC1A8B78187882559EA7 /* GoogleUserMessagingPlatform */; };
 		56603C4049290197D71E7DE7 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 8A3904134513421E1F894756 /* GoogleMobileAds */; };
@@ -56,6 +57,7 @@
 		8A9091375A080E76B3131D5B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0CD8335C4D1E08E4401607 /* RootView.swift */; };
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
+		8EEE97F8C4112AC5BF00051D /* GameCenterAutoLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */; };
 		90D6A66A2314920DACE7DF01 /* ScreenshotFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */; };
 		9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */; };
 		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
@@ -161,6 +163,7 @@
 		7A7AAB5003782A88EC74437A /* audio-light-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-light-tones.wav"; sourceTree = "<group>"; };
 		7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */ = {isa = PBXFileReference; path = "audio-pixel-menu.m4a"; sourceTree = "<group>"; };
 		7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsController.swift; sourceTree = "<group>"; };
+		7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterAutoLinkController.swift; sourceTree = "<group>"; };
 		81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflow.swift; sourceTree = "<group>"; };
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
@@ -207,6 +210,7 @@
 		EB365660F1E96C034ECE4A85 /* tauta-bed.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-bed.png"; sourceTree = "<group>"; };
 		EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "jersey-10-regular.ttf"; sourceTree = "<group>"; };
 		EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitConfigurationTests.swift; sourceTree = "<group>"; };
+		F1AA841A473D8AF5CD279A75 /* GameCenterAutoLinkControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterAutoLinkControllerTests.swift; sourceTree = "<group>"; };
 		F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-tile-overlay.png"; sourceTree = "<group>"; };
 		FA9F840B4895429C17E7AA09 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflowTests.swift; sourceTree = "<group>"; };
@@ -379,6 +383,7 @@
 				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
 				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
 				14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */,
+				F1AA841A473D8AF5CD279A75 /* GameCenterAutoLinkControllerTests.swift */,
 				FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */,
 				E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */,
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
@@ -432,6 +437,7 @@
 				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
 				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
 				DA2E75B83D2198FB2E99E518 /* BackendModels.swift */,
+				7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */,
 				81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */,
 				1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */,
 				255214BC89EC4CEFF34C4C55 /* GoogleAdsServices.swift */,
@@ -649,6 +655,7 @@
 				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
 				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
 				EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */,
+				4A1A7251FF209E56E3291F35 /* GameCenterAutoLinkControllerTests.swift in Sources */,
 				37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */,
 				5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */,
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
@@ -677,6 +684,7 @@
 				67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */,
 				B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */,
 				A19D6210497A3D375CDC07BE /* GameCellArtwork.swift in Sources */,
+				8EEE97F8C4112AC5BF00051D /* GameCenterAutoLinkController.swift in Sources */,
 				E9F9F54A8AF784EBFB0BAD83 /* GameCenterLinkWorkflow.swift in Sources */,
 				865CDEB8D47E9E99AF4CD2BF /* GameCenterService.swift in Sources */,
 				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,

@@ -48,11 +48,6 @@ struct ProfileView: View {
     @State private var showsRegistrationConfirmation = false
     @State private var pendingDeletionProfileID: String?
     @State private var showsDeletionProviderChoice = false
-    @State private var pendingGameCenterLink = false
-    @State private var gameCenterLinking = false
-    @State private var gameCenterLinkTask: Task<Void, Never>?
-    @State private var gameCenterLinkGeneration = 0
-    @State private var gameCenterLinkIssue: GameCenterLinkIssue?
     @State private var identityLinkMessage: String?
     @State private var identityLinkFailed = false
 
@@ -68,19 +63,7 @@ struct ProfileView: View {
                 gameCenter: false
             )
     }
-    private var accountOperationBusy: Bool { busy || gameCenterLinking }
-    private var gameCenterServerStatus: GameCenterServerStatus? {
-        backend.sessionState?.gameCenter
-    }
-    private var gameCenterProfileState: GameCenterProfileState {
-        GameCenterProfileStateResolver.resolve(
-            connection: gameCenter.state,
-            primaryProfileAuthenticated: backend.isAuthenticated,
-            identityBinding: identityBindings.gameCenter,
-            serverStatus: gameCenterServerStatus,
-            issue: gameCenterLinkIssue
-        )
-    }
+    private var accountOperationBusy: Bool { busy }
 
     var body: some View {
         NavigationStack {
@@ -105,7 +88,7 @@ struct ProfileView: View {
                 if accountOperationBusy {
                     WebLoadingOverlay(
                         theme: palette,
-                        label: gameCenterLinking ? "Verifying Game Center" : "Updating profile"
+                        label: "Updating profile"
                     )
                 }
             }
@@ -126,24 +109,10 @@ struct ProfileView: View {
             }
             .onChange(of: backend.profile?.id) { oldPlayerID, newPlayerID in
                 if oldPlayerID != newPlayerID {
-                    gameCenter.clearRuntimeVerification()
                     resetAccountDeletionForm()
-                    gameCenterLinkGeneration += 1
-                    gameCenterLinkTask?.cancel()
-                    gameCenterLinkTask = nil
-                    gameCenterLinking = false
-                    gameCenterLinkIssue = nil
-                    pendingGameCenterLink = false
                     identityLinkMessage = nil
                     identityLinkFailed = false
                 }
-            }
-            .onChange(of: gameCenter.state) { _, state in
-                gameCenterLinkIssue = nil
-                guard pendingGameCenterLink,
-                    case .authenticated = state
-                else { return }
-                startGameCenterLinkIfNeeded()
             }
             .confirmationDialog(
                 "Create a new PimPoPom profile?",
@@ -179,8 +148,6 @@ struct ProfileView: View {
                 Text("Choose a linked sign-in method to confirm that this profile is yours.")
             }
             .onDisappear {
-                gameCenterLinkTask?.cancel()
-                gameCenterLinkTask = nil
                 if pendingRegistration != nil {
                     cancelPendingRegistration()
                 }
@@ -476,62 +443,40 @@ struct ProfileView: View {
     }
 
     private var gameCenterCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                Image(systemName: "gamecontroller.fill")
-                    .font(.system(size: 23, weight: .black))
-                    .foregroundStyle(Color(hex: palette.accent))
-                    .frame(width: 34)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Game Center")
-                        .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
-                        .accessibilityIdentifier("profile-game-center-card")
-                    Text(gameCenterStatus)
-                        .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
-                        .foregroundStyle(Color(hex: palette.muted))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("profile-game-center-status")
-                }
-                .accessibilityElement(children: .contain)
-
-                Spacer(minLength: 8)
-
-                Button(gameCenterButtonTitle, action: handleGameCenterAction)
-                    .buttonStyle(
-                        WebSecondaryButtonStyle(
-                            theme: palette,
-                            accent: Color(hex: palette.accent),
-                            minimumHeight: 40
-                        )
-                    )
-                    .frame(width: gameCenterPrimaryButtonWidth)
-                    .disabled(isGameCenterActionDisabled)
-                    .accessibilityIdentifier("profile-game-center")
-            }
-
-            Text(
-                "Game Center is optional. Arcade scores and achievements sync from your "
-                    + "verified PimPoPom profile; it never grants wallet or purchase access."
-            )
-            .font(palette.appFont(size: 9, weight: .medium, relativeTo: .caption2))
-            .foregroundStyle(Color(hex: palette.muted))
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityIdentifier("profile-game-center-explanation")
-
-            if showsGameCenterSecondaryAction {
-                Button(gameCenterSecondaryActionTitle) {
-                    handleGameCenterSecondaryAction()
-                }
-                .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+        HStack(spacing: 12) {
+            Image(systemName: "gamecontroller.fill")
+                .font(.system(size: 23, weight: .black))
                 .foregroundStyle(Color(hex: palette.accent))
-                .disabled(gameCenterLinking)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .accessibilityIdentifier("profile-game-center-turn-off")
-            }
+                .frame(width: 34)
 
+            Text("Game Center")
+                .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
+                .accessibilityIdentifier("profile-game-center-card")
+
+            Spacer(minLength: 8)
+
+            Button("See stats", action: openGameCenterStats)
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.accent),
+                        minimumHeight: 40
+                    )
+                )
+                .frame(width: 104)
+                .disabled(!gameCenterCanOpenStats)
+                .accessibilityIdentifier("profile-game-center")
         }
         .webCardStyle(theme: palette, padding: 12)
+    }
+
+    private var gameCenterCanOpenStats: Bool {
+        guard case .authenticated = gameCenter.state else { return false }
+        return !gameCenter.isOpeningStats
+    }
+
+    private func openGameCenterStats() {
+        _ = gameCenter.showStats()
     }
 
     private func accountDeletionDangerZone(_ profile: PlayerProfile) -> some View {
@@ -627,240 +572,6 @@ struct ProfileView: View {
         .webCardStyle(theme: palette, selectedAccent: danger, padding: 14)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("profile-danger-zone")
-    }
-
-    private var gameCenterStatus: String {
-        switch gameCenterProfileState {
-        case .gameCenterSignedOut:
-            if case .authenticating = gameCenter.state {
-                return "Connecting… · PimPoPom play still works"
-            }
-            if !backend.isAuthenticated {
-                return "Sign in with Apple or Google before connecting Game Center"
-            }
-            if gameCenterServerStatus?.publicationEnabled == true {
-                return "Off on this device · linked to this profile"
-            }
-            return identityBindings.gameCenter
-                ? "Linked to this profile · off on this device"
-                : "Off · no Game Center data shared"
-        case .gameCenterUnavailable:
-            return "Unavailable · PimPoPom play still works"
-        case .primaryProfileRequired:
-            return "Connected as \(currentGameCenterDisplayName) · sign in to PimPoPom first"
-        case .primaryReauthenticationRequired:
-            return "Confirm your Apple or Google PimPoPom sign-in to continue"
-        case .scopedIDsTransient:
-            return "Game Center player IDs are temporary · try again later"
-        case .unlinked:
-            return "Connected as \(currentGameCenterDisplayName) · finish connecting"
-        case .linkedIdentityOnly:
-            if gameCenterServerStatus?.serverPublicationAvailable == false {
-                return "Linked to this profile · sync temporarily unavailable"
-            } else {
-                return "Linked to this profile · connect to sync"
-            }
-        case .publicationQueued:
-            return "Game Center connected · syncing results"
-        case .mirrorReady:
-            return "Game Center connected"
-        case .publicationHeld:
-            return "Game Center connected · sync delayed"
-        case .conflict:
-            return
-                "This Game Center account is linked to another PimPoPom profile. "
-                + "Sign in to that profile or use another Game Center account."
-        case .resetNeedsSupport:
-            return "Game Center connected · stats refresh pending"
-        }
-    }
-
-    private var currentGameCenterDisplayName: String {
-        guard case .authenticated(let player) = gameCenter.state else {
-            return "Game Center"
-        }
-        return player.displayName
-    }
-
-    private var gameCenterButtonTitle: String {
-        switch gameCenterProfileState {
-        case .gameCenterSignedOut:
-            if case .authenticating = gameCenter.state {
-                return "Turn Off"
-            }
-            if !backend.isAuthenticated { return "Sign In First" }
-            return "Connect"
-        case .gameCenterUnavailable:
-            return gameCenter.participationEnabled ? "Turn Off" : "Retry"
-        case .primaryProfileRequired, .scopedIDsTransient:
-            return "Turn Off"
-        case .conflict:
-            return "Turn Off Here"
-        case .primaryReauthenticationRequired:
-            return "Verify Sign-In"
-        case .unlinked:
-            return "Connect"
-        case .linkedIdentityOnly:
-            return "Connect"
-        case .publicationQueued, .mirrorReady, .publicationHeld, .resetNeedsSupport:
-            return "Stats"
-        }
-    }
-
-    private var gameCenterPrimaryButtonWidth: CGFloat {
-        gameCenterButtonTitle == "Stats" ? 84 : 118
-    }
-
-    private var isGameCenterActionDisabled: Bool {
-        if !backend.isAuthenticated { return true }
-        return busy || gameCenterLinking || gameCenter.isOpeningStats
-    }
-
-    private var showsGameCenterSecondaryAction: Bool {
-        if gameCenterServerStatus?.publicationEnabled == true,
-            case .gameCenterSignedOut = gameCenterProfileState
-        {
-            return true
-        }
-        guard gameCenter.participationEnabled else { return false }
-        switch gameCenterProfileState {
-        case .primaryProfileRequired, .scopedIDsTransient, .unlinked,
-            .linkedIdentityOnly, .publicationQueued, .mirrorReady, .publicationHeld,
-            .resetNeedsSupport:
-            return true
-        default:
-            return false
-        }
-    }
-
-    private var gameCenterSecondaryActionTitle: String {
-        "Disable Game Center"
-    }
-
-    private func handleGameCenterSecondaryAction() {
-        if gameCenterServerStatus?.publicationEnabled == true {
-            turnOffGameCenter()
-        } else {
-            turnOffGameCenterLocally()
-        }
-    }
-
-    private func handleGameCenterAction() {
-        switch gameCenterProfileState {
-        case .gameCenterSignedOut:
-            if case .authenticating = gameCenter.state {
-                turnOffGameCenterLocally()
-                return
-            }
-            guard backend.isAuthenticated else { return }
-            pendingGameCenterLink = true
-            gameCenter.connect()
-        case .gameCenterUnavailable:
-            if gameCenter.participationEnabled {
-                turnOffGameCenter()
-            } else {
-                pendingGameCenterLink = backend.isAuthenticated
-                gameCenter.retryAuthentication()
-            }
-        case .primaryProfileRequired, .scopedIDsTransient:
-            turnOffGameCenter()
-        case .conflict:
-            turnOffGameCenterLocally()
-        case .primaryReauthenticationRequired, .unlinked, .linkedIdentityOnly:
-            pendingGameCenterLink = true
-            startGameCenterLinkIfNeeded()
-        case .publicationQueued, .mirrorReady, .publicationHeld, .resetNeedsSupport:
-            openGameCenterStats()
-        }
-    }
-
-    private func openGameCenterStats() {
-        if !gameCenter.showStats() {
-            status = "Game Center could not open its stats dashboard."
-        }
-    }
-
-    private func turnOffGameCenterLocally() {
-        let wasConflict: Bool
-        if case .conflict = gameCenterProfileState {
-            wasConflict = true
-        } else {
-            wasConflict = false
-        }
-        gameCenterLinkGeneration += 1
-        pendingGameCenterLink = false
-        gameCenterLinkTask?.cancel()
-        gameCenterLinkTask = nil
-        gameCenterLinking = false
-        gameCenterLinkIssue = nil
-        gameCenter.disableParticipation()
-        if wasConflict {
-            status =
-                "Game Center is off on this device. The existing link to another "
-                + "PimPoPom profile was not changed."
-        }
-    }
-
-    private func turnOffGameCenter() {
-        guard backend.isAuthenticated,
-            let playerID = backend.profile?.id,
-            gameCenterServerStatus?.publicationEnabled == true
-        else {
-            turnOffGameCenterLocally()
-            return
-        }
-        startGameCenterPublicationDisable(playerID: playerID)
-    }
-
-    private func startGameCenterPublicationDisable(playerID: String) {
-        guard !gameCenterLinking, gameCenterLinkTask == nil else { return }
-        gameCenterLinkGeneration += 1
-        let generation = gameCenterLinkGeneration
-        gameCenterLinking = true
-        gameCenterLinkTask = Task { @MainActor in
-            defer {
-                if generation == gameCenterLinkGeneration {
-                    gameCenterLinking = false
-                    gameCenterLinkTask = nil
-                }
-            }
-            do {
-                try await disableGameCenterPublication(
-                    playerID: playerID,
-                    allowsReauthentication: true
-                )
-                guard generation == gameCenterLinkGeneration else { return }
-                status = "Game Center is disabled on this device. The verified profile link is retained."
-                turnOffGameCenterLocally()
-            } catch is CancellationError {
-                return
-            } catch {
-                guard generation == gameCenterLinkGeneration else { return }
-                recordGameCenterError(error)
-            }
-        }
-    }
-
-    private func disableGameCenterPublication(
-        playerID: String,
-        allowsReauthentication: Bool
-    ) async throws {
-        do {
-            _ = try await backend.disableGameCenterPublication(
-                expectedPlayerID: playerID
-            )
-        } catch let error as BackendError
-            where allowsReauthentication && (error.status == 401 || error.status == 403)
-        {
-            gameCenterLinkIssue = .primaryReauthenticationRequired
-            try await reauthenticateCurrentProfile(playerID)
-            try Task.checkCancellation()
-            _ = try await backend.loadSession()
-            gameCenterLinkIssue = nil
-            _ = try await backend.disableGameCenterPublication(
-                expectedPlayerID: playerID
-            )
-        }
     }
 
     private func rankCard(_ rank: RankInfo) -> some View {
@@ -1116,138 +827,12 @@ struct ProfileView: View {
         )
     }
 
-    private func startGameCenterLinkIfNeeded() {
-        guard pendingGameCenterLink,
-            !gameCenterLinking,
-            gameCenterLinkTask == nil,
-            let playerID = backend.profile?.id,
-            case .authenticated(let player) = gameCenter.state
-        else { return }
-        guard player.scopedIDsArePersistent else {
-            pendingGameCenterLink = false
-            gameCenterLinkIssue = .unavailable(
-                GameCenterServiceError.scopedIDsTransient.localizedDescription
-            )
-            return
-        }
-
-        gameCenterLinkGeneration += 1
-        let generation = gameCenterLinkGeneration
-        gameCenterLinking = true
-        gameCenterLinkTask = Task { @MainActor in
-            defer {
-                if generation == gameCenterLinkGeneration {
-                    gameCenterLinking = false
-                    gameCenterLinkTask = nil
-                }
-            }
-            do {
-                let linked = try await performGameCenterLink(
-                    playerID: playerID,
-                    allowsReauthentication: true
-                )
-                guard generation == gameCenterLinkGeneration else { return }
-                pendingGameCenterLink = false
-                gameCenterLinkIssue = nil
-                if linked {
-                    let pending = backend.sessionState?.gameCenter?.pendingJobs ?? 0
-                    status =
-                        pending > 0
-                        ? "Game Center connected. Syncing \(pending) update\(pending == 1 ? "" : "s")."
-                        : "Game Center connected."
-                } else {
-                    status = "Game Center is connected."
-                }
-            } catch is CancellationError {
-                return
-            } catch {
-                guard generation == gameCenterLinkGeneration else { return }
-                pendingGameCenterLink = false
-                recordGameCenterError(error)
-            }
-        }
-    }
-
-    private func performGameCenterLink(
-        playerID: String,
-        allowsReauthentication: Bool
-    ) async throws -> Bool {
-        do {
-            return try await performSingleGameCenterLink(playerID: playerID)
-        } catch let error as BackendError
-            where allowsReauthentication && (error.status == 401 || error.status == 403)
-        {
-            gameCenterLinkIssue = .primaryReauthenticationRequired
-            try await reauthenticateCurrentProfile(playerID)
-            try Task.checkCancellation()
-            _ = try await backend.loadSession()
-            gameCenterLinkIssue = nil
-            return try await performSingleGameCenterLink(playerID: playerID)
-        }
-    }
-
-    private func performSingleGameCenterLink(playerID: String) async throws -> Bool {
-        let workflow = GameCenterLinkWorkflow(
-            loadSession: {
-                try await backend.loadSession()
-            },
-            contextIsActive: {
-                guard pendingGameCenterLink,
-                    gameCenter.participationEnabled,
-                    backend.profile?.id == playerID,
-                    case .authenticated(let player) = gameCenter.state
-                else { return false }
-                return player.scopedIDsArePersistent
-            },
-            issueChallenge: { playerID in
-                try await backend.issueGameCenterLinkChallenge(
-                    expectedPlayerID: playerID
-                )
-            },
-            fetchVerification: {
-                try await gameCenter.fetchIdentityVerification()
-            },
-            submit: { challenge, verification, playerID in
-                try await backend.linkGameCenter(
-                    challenge: challenge,
-                    verification: verification,
-                    expectedPlayerID: playerID
-                )
-            },
-            markRuntimeVerification: { playerID, verification in
-                try gameCenter.markRuntimeVerification(
-                    profileID: playerID,
-                    verification: verification
-                )
-            }
-        )
-        try await workflow.perform(playerID: playerID)
-        return true
-    }
-
-    private func recordGameCenterError(_ error: Error) {
-        if let backendError = error as? BackendError {
-            switch backendError.status {
-            case 409:
-                gameCenterLinkIssue = .conflict(backendError.localizedDescription)
-            case 401, 403:
-                gameCenterLinkIssue = .primaryReauthenticationRequired
-            default:
-                gameCenterLinkIssue = .unavailable(backendError.localizedDescription)
-            }
-        } else {
-            gameCenterLinkIssue = .unavailable(error.localizedDescription)
-        }
-        status = error.localizedDescription
-    }
-
     private func signOut() async {
         busy = true
         defer { busy = false }
         do {
             _ = try await backend.logout()
             googleIdentity.signOut()
-            pendingGameCenterLink = false
             response = nil
             nickname = ""
             status = nil
