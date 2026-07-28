@@ -105,6 +105,18 @@ Never break the previous live client merely to simplify a new release.
 
 ## TestFlight release records
 
+### PimPoPom 1.2 (14) — 2026-07-28
+
+- **Git source:** `a84fe262f18777a4ac693bef1132ff0076f2db2c` on `codex/unique-player-names-build14`; the exact archived release commit is also on `origin/main`.
+- **Toolchain:** Xcode 26.6 (`17F113`), Apple Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2.
+- **Identity:** bundle `com.otcsoftware.pimpopom`; Apple Distribution team `APX2925X66`; Apple Sign In and Game Center entitlements; marketing version/build `1.2 (14)`.
+- **Verification:** project regeneration, strict formatting, asset/source/licence hashes, ad-configuration guards, Info/privacy lint, 29 deterministic core checks, `git diff --check`, a generic-iOS app build, and a compile-only generic-iOS test bundle passed. Per the owner's explicit instruction, no Simulator or physical-device test ran for this candidate; it is neither Simulator-tested nor device-tested.
+- **Archive and symbols:** uploaded from `/Users/vlad/Documents/PimPoPom-release-artifacts/1.2-14/PimPoPom-1.2-14-a84fe26.xcarchive`; deterministic sorted-file manifest SHA-256 `b97545739573494971aeb0881f5ee92c4aa49f1af0516b4226b038db109d4e86`. The local archive was removed after Apple accepted the build. Retained dSYM: `/Users/vlad/Documents/PimPoPom-symbols/1.2-14/PimPoPom-1.2-14-a84fe26-0D44DBB0-BA9E-351E-95D1-83748C9FBBA1.dSYM.zip`, SHA-256 `1407667f147fb87070db5730ad3d1c5fb618ec3252f4b135d1885c9725940b41`.
+- **App Store Connect:** build `0c92c8da-ff91-4c99-9a05-cf7f00984fdd` processed `VALID`; icon present; `usesNonExemptEncryption = false`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING` with automatic notification enabled. The English build localization asks testers to verify whitespace rejection, debounced availability, unchanged-current-name handling, unavailable fallback, and authoritative save-time conflicts.
+- **Runtime contract:** Profile performs a cancellable 400 ms authenticated availability check, rejects Unicode whitespace locally, disables Save while checking/taken, keeps authoritative Save available after validation transport failure, and maps save-time `409` to the exact same red taken notice. Availability is advisory and never reserves a name.
+- **Backend dependency:** the matching PHP endpoint, owner exclusion, normalization, and confirmed-name unique constraint remain a separately owned parent-repository deployment. This iOS release did not deploy or modify Hostinger and must not be described as end-to-end unique until that release is live.
+- **Prior compatible build:** TestFlight 1.2 (13).
+
 ### PimPoPom 1.2 (13) — 2026-07-28
 
 - **Git source:** `22a5dd115e22288ff5f4e2ff717280f2c6e2d952` on `codex/game-center-auto-link-build13`; the exact archived release commit is also on `origin/main`.

@@ -2,9 +2,9 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
-## Build 1.2 (14) nickname-validation release
+## TestFlight build 1.2 (14) nickname-validation evidence
 
-The owner explicitly requested no Simulator execution for this candidate. Release verification therefore consists of project regeneration, strict formatting, deterministic host-side core checks, asset/configuration/privacy guards, `git diff --check`, a clean signed generic-device archive, archive signature/entitlement/configuration inspection, and App Store Connect processing. This is not Simulator-tested or device-tested evidence.
+The owner explicitly requested no Simulator execution for this candidate. Project regeneration, strict formatting, deterministic host-side core checks, asset/configuration/privacy guards, `git diff --check`, a generic-iOS app build, a compile-only generic-iOS test bundle, a clean signed generic-device archive, archive signature/entitlement/configuration inspection, and App Store Connect processing passed. Apple accepted build `0c92c8da-ff91-4c99-9a05-cf7f00984fdd`, approved its Beta App Review, and placed it in both named QA groups. This is not Simulator-tested or device-tested evidence.
 
 The committed service tests cover the exact authenticated POST path, JSON/CSRF headers, Unicode non-space preservation, Unicode whitespace rejection without a network request, available/taken decoding, and an authoritative PATCH `409` after a successful availability result. Profile behavior additionally requires later physical/TestFlight acceptance for the 400 ms cancellation-aware debounce, inline exact taken notice, Save disabled while checking/taken, Save enabled after validation transport failure, unchanged-current-name availability, and a real two-client save race.
 
