@@ -23,7 +23,7 @@ Use semantic marketing versions once public. CI should own build-number allocati
 4. Validate `PrivacyInfo.xcprivacy`, aggregated SDK privacy report, App Store privacy labels, export compliance, age rating, ATT purpose if used, and required usage descriptions.
 5. Confirm public Privacy, Terms, Support, account deletion, and ad-report URLs work over HTTPS.
 6. Confirm Paid Apps Agreement, tax/banking, DSA trader status and EU published-contact verification where distributed, IAP availability/localization/review media, server notification endpoints, Sign in with Apple, Google OAuth audience, App Attest environment, and Game Center configuration.
-7. Verify backend deployment supports this API/ruleset/proof/build before archive distribution and remains compatible with the prior live app.
+7. Verify backend deployment supports this API/ruleset/proof/build before archive distribution and remains compatible with the prior live app. A P-054 candidate may be uploaded for isolated iOS review while the documented backend task is pending, but it must be described as compatibility-limited and cannot be promoted as end-to-end Game Center-ready until current-profile-wins reassignment is deployed and smoke-tested.
 8. Run the physical-device release matrix and document gaps explicitly.
 
 ### Advertising configuration gate
@@ -53,12 +53,12 @@ Before any ad-enabled archive, run the configuration validator and inspect the b
 - Do not export as **TestFlight Internal Only** because the same processed build serves the named internal and external groups.
 - Confirm the exported App Store payload is distribution-signed, has `com.apple.developer.game-center = true`, has no `get-task-allow`, contains no private key, and reports version/build `1.01 (4)` before upload.
 - Use direct email groups only: one internal owner group and one external QA group. Do not enable a public link. An internal tester must already be an App Store Connect user with app access; external tester access is limited to TestFlight.
-- For StoreKit/ad-enabled Staging builds, disclose that the app uses the live compatibility service and real shared player/ranking/purchase data, Google demo-labelled ads behind UMP consent, five Sandbox products, server acknowledgement before credit, and in-app deletion. From build `1.02 (9)`, also disclose that Game Center linking is optional and PHP asynchronously mirrors only protocol-verified Arcade personal bests and authoritative achievement unlocks; the client does not submit either directly. Do not describe queued work as already visible in Apple.
+- For StoreKit/ad-enabled Staging builds, disclose that the app uses the live compatibility service and real shared player/ranking/purchase data, Google demo-labelled ads behind UMP consent, five Sandbox products, server acknowledgement before credit, and in-app deletion. From build `1.02 (9)`, also disclose that PHP asynchronously mirrors only protocol-verified Arcade personal bests and authoritative achievement unlocks; the client does not submit either directly. For P-054 candidates, explain that iOS may present Apple's standard Game Center authentication at launch and silently associates the active Game Center player after primary PimPoPom sign-in. Do not describe queued work as already visible in Apple or current-profile reassignment as live before its separate PHP deployment.
 - Submission to TestFlight Beta App Review is not approval. Record processing, review, and invitation states independently.
 
 ### Internal
 
-- Smoke cold install/update/reinstall, both modes, identity/linking, ranked proof, leaderboard, explicit Game Center Connect/Turn Off without a cold-launch prompt, achievements, themes/pets, audio/haptics, consent/test or approved diagnostic ads, Remove Ads, coin purchase, restore, account deletion, and support URLs.
+- Smoke cold install/update/reinstall, both modes, identity/linking, ranked proof, leaderboard, automatic nonblocking Game Center launch authentication, later silent primary-profile reconciliation, repeated **See stats**, achievements, themes/pets, audio/haptics, consent/test or approved diagnostic ads, Remove Ads, coin purchase, restore, account deletion, and support URLs. Confirm Arcade Your Color remains empty through preparation/Get Ready and reveals only the actual run color.
 - Verify production-like server rate limits/alerts without using live ad clicks or uncontrolled real purchases.
 
 ### External
@@ -104,6 +104,17 @@ iOS binaries cannot be instantly rolled back on every installed device. Prepare 
 Never break the previous live client merely to simplify a new release.
 
 ## TestFlight release records
+
+### PimPoPom 1.2 (12) — 2026-07-27
+
+- **Git source:** `a87a1ea60ba364902e8d2da982b29c82bb6d55b9` on `codex/game-center-release-12`; the exact release commit is also on `origin/main`.
+- **Toolchain:** Xcode 26.6 (`17F113`), Apple Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2.
+- **Identity:** bundle `com.otcsoftware.pimpopom`; Apple Distribution team `APX2925X66`; Apple Sign In and Game Center entitlements; marketing version/build `1.2 (12)`.
+- **Verification:** `Scripts/check.sh` passed 29 deterministic core plus 220 native/unit/UI tests on the named iPhone 17 Simulator, 249 total with zero failures or skips. Project regeneration, strict formatting, asset/source/licence, Info/privacy/ad-configuration, generic Swift 6 Simulator build, and `git diff --check` gates passed.
+- **App Store Connect:** build `c454da74-ee58-48e9-ac49-2f3af2eb0b93` processed `VALID`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING`.
+- **Runtime contracts:** removes the user-visible Verify Player gate after durable linking, retains repeatable delegate-managed Game Center dashboard access and explicit Disable behavior, uses Apple's one-authorization Apple login-or-create path, hides redundant primary-provider Link actions, and fixes Privacy Choices spacing. PHP remains the only Game Center score/achievement publisher.
+- **Known limitation:** automatic launch authentication/current-player reconciliation and Arcade pre-run Your Color blanking are next-candidate work, not build-12 behavior. Current-profile-wins Game Center reassignment also requires the separate parent-PHP task before it can be described as end-to-end functional.
+- **Prior compatible build:** TestFlight 1.2 (11).
 
 ### PimPoPom 1.2 (11) — 2026-07-27
 

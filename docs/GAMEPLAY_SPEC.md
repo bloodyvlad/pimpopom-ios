@@ -159,6 +159,7 @@ Achievement claims are durable, idempotent server ledger credits. Initial active
 
 ## Themes and pets
 
+- Before an Arcade run actually starts, the Your Color swatch, name, glyph, fill, and color-specific outline remain empty throughout backend ticket preparation and the one-second Get Ready interval. Reveal only the player color selected by the engine's `start` transition. The presentation must never expose the reset/default color that exists before `start`; Zen keeps its intentional **Any** preview.
 - Themes affect presentation and audio identity, never rules, timing, score, hit regions, or target semantics. All live cells and their Theme Shop/Your Color previews use the same canonical glyph bounds; Light glass, Pixel grain/pixel paths, and Disco backlight/scratches remain clipped presentation layers and cannot alter the board geometry.
 - Stable baseline themes: Default (`classic`) and Disco are free; Light costs 50 coins; Pixel costs 100 coins.
 - Signed-out players may select Default or Disco locally. After authentication, a server-owned available selection takes precedence; paid ownership and selection remain server-authoritative.

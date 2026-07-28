@@ -2,6 +2,22 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## Next-candidate acceptance plan — P-054
+
+Do not describe automatic Game Center reconciliation or the Arcade preparation fix as validated until the exact candidate commit passes:
+
+- launch-time handler installation, already-authenticated adoption, authentication cancellation/restriction/unavailable paths, and repeated-launch idempotency;
+- no Game Center network mutation before a primary PimPoPom session exists;
+- one automatic challenge/proof/link for each new persistent profile/team/game context, no duplicate for an unchanged successful context, and bounded foreground retry after a deferred failure;
+- reset/reconciliation after PimPoPom profile or Game Center player change;
+- exact `gamePlayerId` plus `publish: true` contract and proof freshness, while retaining zero direct `GKLeaderboard.submitScore`/`GKAchievement.report` calls;
+- a Profile card containing only **Game Center** and **See stats**, with no Connect, Verify, Disable, conflict, reset, queued, held, or delivery-description surface;
+- repeatable Game Center dashboard presentation/dismissal;
+- Arcade preparation/Get Ready showing an empty Your Color swatch and no color name/glyph, followed by the engine-selected color only after run start; and
+- unchanged Zen **Any** presentation.
+
+Run the full check only on the single named iPhone 17 Simulator under P-052. Physical/TestFlight acceptance must then cover Apple's real launch authentication, signed-out play followed by primary login, player/account change, dashboard reopening, and asynchronous PHP/Apple delivery. End-to-end current-profile-wins reassignment cannot pass until the separate PHP task in [`GAME_CENTER_AUTOLINK_PHP_TASK.md`](GAME_CENTER_AUTOLINK_PHP_TASK.md) is reviewed and deployed.
+
 ## Current build-12 candidate evidence — 2026-07-27
 
 - `Scripts/check.sh` passed project regeneration, strict Swift formatting, asset/source/licence hashes, Info/privacy/ad-configuration guards, 29 deterministic core tests, the generic Swift 6 Simulator build, and 220 native unit/UI tests on the named iPhone 17 Simulator with iOS 26.5. Xcode reported 220 passed with zero failures or skips: 249 checks including the core package. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.27_23-07-55-+0200.xcresult`.
@@ -28,7 +44,7 @@ PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid
 - **Asset-tested:** 86 retained runtime/master/source/licence files pass committed SHA-256 checks; runtime audio format/duration, all approved pet sheet/habitat dimensions, Pancake runtime/source/chroma/alpha retention, Disco texture dimensions/copies, selectable-icon masters/runtime copies, and Jersey 10 registration/copy are validated.
 - **Live read-tested:** Hostinger health, HTML, and signed-out session bootstrap returned successfully on 2026-07-19, confirming Season 1, deployed build `20260719-2`, the retained `20260719-1` native ranked-proof compatibility window, and signed-out `wallet: null`, `adFree: false`, and `storeKit: null`. Ranked, StoreKit, deletion, and other authenticated paths are contract-tested without mutating production. No authenticated score, achievement, shop, profile, deletion, StoreKit, or economy write was performed during this checkpoint.
 - **Physical install checkpoints:** exact implementation commit `bab07090ccea2a42f34d2ebfc4a176d9bf3b3ef1`, using bundle ID `com.otcsoftware.pimpopom`, was development-signed with team `APX2925X66`, passed strict signature verification, installed, and launched successfully through CoreDevice on the owner's wired iPhone SE (3rd generation) with iOS 26.3. Device inventory reports installed name **PimPoPom**, version 0.1.0 (1). This confirms compilation, signing, packaging, installation, identity, and process launch only. The prior `d3ffd87958d1eba4ca175b2e0590c1b234063072` checkpoint used retired bundle ID `com.otcsoft.pimpopom.alpha`; earlier install/launch checkpoints remain historical evidence.
-- **Not yet validated:** direct automated mid-run entitlement-transition teardown, physical review of commit `f4f9be4`, measured 60/120 Hz touch timing, real UMP first-install/revocation flows, owner real-unit **Test mode**, banner/interstitial no-fill and exact third-result cadence on hardware/TestFlight, purchase/refund-driven ad removal, `app-ads.txt`, aggregate archive privacy report/App Store privacy answers, a real authenticated score or achievement claim, signed-in mutations, StoreKit Sandbox purchase/refund/Family Sharing, server notifications, the complete current-batch 13 mini/13 Pro matrix, physical Game Center Connect/Turn Off/account-change behavior, accessibility/Reduce Motion, audio routes/interruptions/Silent switch, haptics, and every live-ad path.
+- **Not yet validated:** direct automated mid-run entitlement-transition teardown, physical review of commit `f4f9be4`, measured 60/120 Hz touch timing, real UMP first-install/revocation flows, owner real-unit **Test mode**, banner/interstitial no-fill and exact third-result cadence on hardware/TestFlight, purchase/refund-driven ad removal, `app-ads.txt`, aggregate archive privacy report/App Store privacy answers, a real authenticated score or achievement claim, signed-in mutations, StoreKit Sandbox purchase/refund/Family Sharing, server notifications, the complete current-batch 13 mini/13 Pro matrix, physical automatic Game Center launch/authentication/current-player reassignment behavior, accessibility/Reduce Motion, audio routes/interruptions/Silent switch, haptics, and every live-ad path.
 
 These are implementation-time observations, not release truth. Record structured physical runs with device/iOS/build/commit before describing a feature slice as device-tested.
 
@@ -59,6 +75,7 @@ Use frozen cross-runtime JSON fixtures plus property-based/randomized transition
 - Original compatible `UITouch.timestamp` is used; fallback is covered deliberately.
 - Input exactly at the deadline is late.
 - Pre-presentation input is ignored.
+- Arcade preparation and Get Ready expose no reset/default target color; the Your Color name, glyph, fill, and color-specific outline appear only after the engine starts that run. Zen keeps its intentional **Any** preview.
 - Queued expiry plus input resolves once and cannot remove two lives.
 - Multitouch, simultaneous decoy/target input, rapid restart, background, interruption, and scene replacement cannot deliver stale commands.
 - Board hit regions match rendered geometry across safe areas, scale factors, Dynamic Type app chrome, and ad host states.
@@ -72,6 +89,8 @@ Use XCUITest for end-to-end paths and focused UIKit/SpriteKit harnesses or XCTes
 ### Service and contract tests
 
 - Apple/Google success, cancellation, nonce/state mismatch, wrong audience, expired token, provider revocation, explicit linking, account conflict, logout, refresh, and deletion.
+- Game Center launch authentication, already-authenticated adoption, cancellation/restrictions/unavailability, persistent-ID refusal, automatic primary-profile reconciliation, exact-context deduplication, profile/player reset, deferred foreground retry, and zero direct score/achievement submission.
+- Game Center API compatibility while the old PHP service can still return recent-auth/conflict errors, plus current-profile-wins reassignment, publication-lock ordering, stale-outbox invalidation, and idempotent authoritative backfill after the separate backend task deploys.
 - Keychain first install, update, lock state, restore, loss, reinstall, and account switch.
 - API schema, compatibility rejection, maintenance, rate limit, timeout, cancellation, response redaction, and safe retry.
 - Ranked start/abandon/finish, duplicate UUID, mismatched retry, cloned trace, review, idempotent completion, offline start, and background abandonment.
