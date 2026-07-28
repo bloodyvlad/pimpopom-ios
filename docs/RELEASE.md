@@ -105,6 +105,18 @@ Never break the previous live client merely to simplify a new release.
 
 ## TestFlight release records
 
+### PimPoPom 1.2 (13) — 2026-07-28
+
+- **Git source:** `22a5dd115e22288ff5f4e2ff717280f2c6e2d952` on `codex/game-center-auto-link-build13`; the exact archived release commit is also on `origin/main`.
+- **Toolchain:** Xcode 26.6 (`17F113`), Apple Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2.
+- **Identity:** bundle `com.otcsoftware.pimpopom`; Apple Distribution team `APX2925X66`; Apple Sign In and Game Center entitlements; marketing version/build `1.2 (13)`.
+- **Verification:** 29 deterministic core checks passed. The full native/unit/UI run passed 220 tests; its sole interrupted exact-phrase account-deletion case passed on immediate isolated rerun after the one-time iOS bilingual-keyboard onboarding overlay was consumed. Project regeneration, strict formatting, focused Game Center/Profile/Arcade UI paths, asset/source/licence, Info/privacy/ad-configuration, generic Swift 6 Simulator build, and `git diff --check` gates passed.
+- **Archive:** `/Users/vlad/Documents/PimPoPom-release-artifacts/1.2-13/PimPoPom-1.2-13-22a5dd1.xcarchive`; deterministic sorted-file manifest SHA-256 `ec5f8e86ceb29fcde0e6bc03467b0a7ac30a8503f4bc35e9bade500faf3d4029`.
+- **App Store Connect:** build `976da494-5c39-48bf-85a7-1521617aa2ac` processed `VALID`; icon present; `usesNonExemptEncryption = false`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING` with automatic notification enabled.
+- **Runtime contracts:** authenticates Game Center automatically through Apple's nonblocking system flow, silently reconciles the current persistent GameKit identity after primary PimPoPom login, retries on relevant foreground/session/player changes, exposes only repeatable **See stats**, and keeps Arcade **Your Color** empty until the actual run starts. PHP remains the only score/achievement publisher; the client never calls GameKit score or achievement submission APIs.
+- **Known limitation:** the current-profile-wins reassignment transaction is intentionally not part of this iOS archive. Until the separate parent-PHP task is deployed and smoke-tested, an identity already bound to another internal profile may still be rejected by the live backend; iOS defers that supplementary side effect without blocking gameplay.
+- **Prior compatible build:** TestFlight 1.2 (12).
+
 ### PimPoPom 1.2 (12) — 2026-07-27
 
 - **Git source:** `a87a1ea60ba364902e8d2da982b29c82bb6d55b9` on `codex/game-center-release-12`; the exact release commit is also on `origin/main`.

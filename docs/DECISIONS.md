@@ -798,7 +798,7 @@ Revisit when: PHP adds an explicit current-player comparison endpoint, GameKit c
 ## P-054 — Automatically reconcile the active Game Center player
 
 - Date: 2026-07-28
-- Status: Accepted for the next TestFlight candidate; backend reassignment is a separate required parent-repository task
+- Status: Accepted and shipped to named TestFlight QA in `1.2 (13)`; backend reassignment is a separate required parent-repository task
 
 Context: Explicit Connect, Verify, conflict, delivery-state, and Disable controls made a supplementary Apple surface feel like another account system. On a personal iPhone, the player already chooses the active Game Center account through Apple's system settings. The owner accepted publishing PHP-authoritative progress to that current Apple player without maintaining another local opt-in or exposing historical internal-profile conflicts. Arcade preparation also showed the engine's reset color before `start` selected the real run color, inviting a tap on a value that was about to change.
 
