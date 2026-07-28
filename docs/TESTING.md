@@ -2,6 +2,12 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## Build 1.2 (14) nickname-validation release
+
+The owner explicitly requested no Simulator execution for this candidate. Release verification therefore consists of project regeneration, strict formatting, deterministic host-side core checks, asset/configuration/privacy guards, `git diff --check`, a clean signed generic-device archive, archive signature/entitlement/configuration inspection, and App Store Connect processing. This is not Simulator-tested or device-tested evidence.
+
+The committed service tests cover the exact authenticated POST path, JSON/CSRF headers, Unicode non-space preservation, Unicode whitespace rejection without a network request, available/taken decoding, and an authoritative PATCH `409` after a successful availability result. Profile behavior additionally requires later physical/TestFlight acceptance for the 400 ms cancellation-aware debounce, inline exact taken notice, Save disabled while checking/taken, Save enabled after validation transport failure, unchanged-current-name availability, and a real two-client save race.
+
 ## Next-candidate acceptance plan — P-054
 
 Do not describe automatic Game Center reconciliation or the Arcade preparation fix as validated until the exact candidate commit passes:

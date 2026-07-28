@@ -50,6 +50,7 @@ struct ProfileView: View {
     @State private var showsDeletionProviderChoice = false
     @State private var identityLinkMessage: String?
     @State private var identityLinkFailed = false
+    @State private var nicknameAvailability = PlayerNameAvailabilityState.idle
 
     private var palette: ThemePalette { cosmetics.theme }
     private var appleSignInEnabled: Bool {
@@ -64,6 +65,23 @@ struct ProfileView: View {
             )
     }
     private var accountOperationBusy: Bool { busy }
+    private var canSaveNickname: Bool {
+        !accountOperationBusy
+            && PlayerNameValidation.localError(for: nickname) == nil
+            && nicknameAvailability.allowsSave
+    }
+    private var nicknameNoticeColor: Color {
+        switch nicknameAvailability.tone {
+        case .neutral:
+            Color(hex: palette.muted)
+        case .success:
+            Color(hex: "#2dbf6f")
+        case .warning:
+            .orange
+        case .error:
+            .red
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -101,7 +119,10 @@ struct ProfileView: View {
                 }
             }
             .task {
-                nickname = backend.profile?.nickname ?? ""
+                nickname = editableNickname(from: backend.profile)
+            }
+            .task(id: nickname) {
+                await validateNicknameAfterDebounce()
             }
             .task(id: mode) {
                 guard backend.isAuthenticated else { return }
@@ -112,6 +133,8 @@ struct ProfileView: View {
                     resetAccountDeletionForm()
                     identityLinkMessage = nil
                     identityLinkFailed = false
+                    nicknameAvailability = .idle
+                    nickname = editableNickname(from: backend.profile)
                 }
             }
             .confirmationDialog(
@@ -284,37 +307,52 @@ struct ProfileView: View {
                     .tracking(0.9)
                     .foregroundStyle(Color(hex: palette.muted))
 
-                HStack(spacing: 8) {
-                    TextField("Public nickname", text: $nickname)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .font(palette.appFont(size: 14, weight: .bold, relativeTo: .body))
-                        .padding(.horizontal, 12)
-                        .frame(height: 44)
-                        .background(
-                            Color.black.opacity(palette.isLight ? 0.05 : 0.24),
-                            in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
-                        )
-                        .overlay {
-                            RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
-                                .stroke(Color(hex: palette.foreground).opacity(0.14), lineWidth: 1)
-                        }
-                        .accessibilityIdentifier("profile-nickname")
-
-                    Button("Save") { Task { await saveNickname() } }
-                        .buttonStyle(
-                            WebSecondaryButtonStyle(
-                                theme: palette,
-                                accent: Color(hex: palette.chromeAccent),
-                                minimumHeight: 44
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        TextField("Public nickname", text: $nickname)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .font(palette.appFont(size: 14, weight: .bold, relativeTo: .body))
+                            .padding(.horizontal, 12)
+                            .frame(height: 44)
+                            .background(
+                                Color.black.opacity(palette.isLight ? 0.05 : 0.24),
+                                in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
                             )
-                        )
-                        .frame(width: 82)
-                        .disabled(
-                            accountOperationBusy
-                                || nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        )
-                        .accessibilityIdentifier("profile-save-nickname")
+                            .overlay {
+                                RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 12)
+                                    .stroke(
+                                        Color(hex: palette.foreground).opacity(0.14),
+                                        lineWidth: 1
+                                    )
+                            }
+                            .accessibilityIdentifier("profile-nickname")
+
+                        Button("Save") { Task { await saveNickname() } }
+                            .buttonStyle(
+                                WebSecondaryButtonStyle(
+                                    theme: palette,
+                                    accent: Color(hex: palette.chromeAccent),
+                                    minimumHeight: 44
+                                )
+                            )
+                            .frame(width: 82)
+                            .disabled(!canSaveNickname)
+                            .accessibilityIdentifier("profile-save-nickname")
+                    }
+
+                    if let notice = nicknameAvailability.notice {
+                        Text(notice)
+                            .font(
+                                palette.appFont(
+                                    size: 10,
+                                    weight: .bold,
+                                    relativeTo: .caption2
+                                )
+                            )
+                            .foregroundStyle(nicknameNoticeColor)
+                            .accessibilityIdentifier("profile-nickname-validation")
+                    }
                 }
             }
             .webCardStyle(theme: palette, padding: 14)
@@ -624,7 +662,7 @@ struct ProfileView: View {
             let loaded = try await backend.loadProfile(mode: requestedMode)
             guard !Task.isCancelled, mode == requestedMode, generation == loadGeneration else { return }
             response = loaded
-            nickname = loaded.profile.nickname
+            nickname = editableNickname(from: loaded.profile)
             status = nil
         } catch {
             guard !Task.isCancelled, generation == loadGeneration else { return }
@@ -687,7 +725,8 @@ struct ProfileView: View {
     }
 
     private func finishAuthentication(_ session: SessionResponse) async {
-        nickname = session.profile?.nicknameConfirmed == false ? "" : session.profile?.nickname ?? ""
+        nickname = editableNickname(from: session.profile)
+        nicknameAvailability = .idle
         status = nil
         await cosmetics.refresh()
         await loadProfile()
@@ -835,6 +874,7 @@ struct ProfileView: View {
             googleIdentity.signOut()
             response = nil
             nickname = ""
+            nicknameAvailability = .idle
             status = nil
             identityLinkMessage = nil
             identityLinkFailed = false
@@ -846,15 +886,59 @@ struct ProfileView: View {
     }
 
     private func saveNickname() async {
+        let candidate = nickname
         busy = true
         defer { busy = false }
         do {
-            _ = try await backend.updateNickname(nickname)
+            _ = try await backend.updateNickname(candidate)
+            guard candidate == nickname else { return }
+            nicknameAvailability = .available
             status = "Nickname saved."
             await loadProfile()
+        } catch let error as BackendError where error.status == 409 {
+            guard candidate == nickname else { return }
+            nicknameAvailability = .taken
+            status = nil
+        } catch let error as BackendError where error.status == 400 {
+            guard candidate == nickname else { return }
+            nicknameAvailability = .invalid(error.localizedDescription)
+            status = nil
         } catch {
             status = error.localizedDescription
         }
+    }
+
+    private func validateNicknameAfterDebounce() async {
+        let candidate = nickname
+        if let message = PlayerNameValidation.localError(for: candidate) {
+            nicknameAvailability = .invalid(message)
+            return
+        }
+
+        nicknameAvailability = .idle
+        do {
+            try await Task.sleep(for: .milliseconds(400))
+            try Task.checkCancellation()
+            guard candidate == nickname, backend.isAuthenticated else { return }
+            nicknameAvailability = .checking
+            let response = try await backend.checkNicknameAvailability(candidate)
+            try Task.checkCancellation()
+            guard candidate == nickname else { return }
+            nicknameAvailability = response.available ? .available : .taken
+        } catch is CancellationError {
+            return
+        } catch let error as BackendError where error.status == 400 {
+            guard candidate == nickname, !Task.isCancelled else { return }
+            nicknameAvailability = .invalid(error.localizedDescription)
+        } catch {
+            guard candidate == nickname, !Task.isCancelled else { return }
+            nicknameAvailability = .unavailable
+        }
+    }
+
+    private func editableNickname(from profile: PlayerProfile?) -> String {
+        guard let profile, profile.nicknameConfirmed else { return "" }
+        return profile.nickname
     }
 
     private func requestConfirmedDeletion(for profile: PlayerProfile) {

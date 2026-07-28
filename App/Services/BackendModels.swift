@@ -23,6 +23,11 @@ struct PlayerProfile: Codable, Equatable, Identifiable {
     let updatedAt: String
 }
 
+struct NicknameAvailabilityResponse: Codable, Equatable {
+    let nickname: String
+    let available: Bool
+}
+
 struct RankInfo: Codable, Equatable {
     let rank: Int?
     let totalEntries: Int

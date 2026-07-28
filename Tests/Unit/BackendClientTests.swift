@@ -89,6 +89,125 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(response.gameCenter?.identityLinked, false)
     }
 
+    func testNicknameAvailabilityUsesExactAuthenticatedContractAndDecodesTaken() async throws {
+        let recorder = RequestRecorder()
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let availabilityData = try JSONEncoder().encode(
+            NicknameAvailabilityResponse(
+                nickname: "Кот_猫-42",
+                available: false
+            )
+        )
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", "GET"):
+                return StubResponse(data: sessionData)
+            case ("/api/profile/nickname/availability", "POST"):
+                return StubResponse(data: availabilityData)
+            default:
+                return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        let availability = try await backend.checkNicknameAvailability("Кот_猫-42")
+
+        XCTAssertEqual(
+            availability,
+            NicknameAvailabilityResponse(nickname: "Кот_猫-42", available: false)
+        )
+        let request = try XCTUnwrap(
+            recorder.requests(forPath: "/api/profile/nickname/availability").first
+        )
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.header(named: "Content-Type"), "application/json")
+        XCTAssertEqual(request.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+        let body = try XCTUnwrap(request.body)
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: body) as? [String: String]
+        )
+        XCTAssertEqual(payload, ["nickname": "Кот_猫-42"])
+    }
+
+    func testPlayerNameValidationRejectsEveryUnicodeWhitespaceWithoutARequest() async {
+        let recorder = RequestRecorder()
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(data: Data("{}".utf8))
+        }
+        let backend = makeBackend()
+
+        for candidate in [
+            "Player One",
+            "Player\tOne",
+            "Player\nOne",
+            "Player\u{00A0}One",
+            "Player\u{2003}One",
+        ] {
+            do {
+                _ = try await backend.checkNicknameAvailability(candidate)
+                XCTFail("Unicode whitespace must be rejected locally.")
+            } catch let error as BackendError {
+                XCTAssertEqual(error.status, 400)
+                XCTAssertEqual(error.message, PlayerNameValidation.whitespaceMessage)
+            } catch {
+                XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        XCTAssertTrue(recorder.requests(forPath: "/api/session").isEmpty)
+        XCTAssertTrue(
+            recorder.requests(forPath: "/api/profile/nickname/availability").isEmpty
+        )
+        XCTAssertFalse(PlayerNameValidation.containsWhitespace("Кот_猫-42"))
+        XCTAssertTrue(PlayerNameAvailabilityState.unavailable.allowsSave)
+        XCTAssertFalse(PlayerNameAvailabilityState.taken.allowsSave)
+        XCTAssertEqual(
+            PlayerNameAvailabilityState.taken.notice,
+            "This player name is already taken."
+        )
+    }
+
+    func testNicknameSaveConflictRemainsAuthoritativeAfterAvailability() async throws {
+        let recorder = RequestRecorder()
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let availabilityData = try JSONEncoder().encode(
+            NicknameAvailabilityResponse(nickname: "Player9551", available: true)
+        )
+        let conflictData = Data(
+            #"{"error":"This player name is already taken."}"#.utf8
+        )
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", "GET"):
+                return StubResponse(data: sessionData)
+            case ("/api/profile/nickname/availability", "POST"):
+                return StubResponse(data: availabilityData)
+            case ("/api/profile", "PATCH"):
+                return StubResponse(data: conflictData, statusCode: 409)
+            default:
+                return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let availability = try await backend.checkNicknameAvailability("Player9551")
+        XCTAssertTrue(availability.available)
+
+        do {
+            _ = try await backend.updateNickname("Player9551")
+            XCTFail("The authoritative save race must surface as a conflict.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.status, 409)
+            XCTAssertEqual(error.message, "This player name is already taken.")
+        }
+        XCTAssertEqual(backend.profile?.nickname, Self.signedInSession.profile?.nickname)
+        XCTAssertEqual(recorder.requests(forPath: "/api/profile").count, 1)
+    }
+
     func testStoreKitCreditUsesExactNativeContractAndUpdatesAuthoritativeSession() async throws {
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.storeKitSession)

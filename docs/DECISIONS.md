@@ -817,3 +817,18 @@ Consequences: Game Center follows the Apple player already active on the device,
 This decision supersedes the explicit opt-in, recent-primary reauthentication, conflict/refusal UI, Turn Off, Connect/Verify, publication-confirmation, and publication-status portions of P-041, P-042, P-043, P-048, P-049, P-051, and P-053. It does not supersede provider-separated primary identity, no automatic Apple/Google profile merging, verified GameKit proof, PHP authority, the five-achievement allowlist, or the server-fed mirror selected by P-005/P-011/P-042.
 
 Revisit when: Game Center becomes a primary login/economy authority, Apple exposes a supported app-level sign-out or per-player history deletion, automatic system authentication causes unacceptable launch friction, or current-profile-wins reassignment creates a support burden.
+
+## P-055 — Make confirmed public player names unique and whitespace-free
+
+- Date: 2026-07-28
+- Status: Accepted for TestFlight candidate `1.2 (14)`; matching PHP enforcement is a separate parent-repository release gate
+
+Context: Public nicknames previously had no availability check in the native Profile and could contain collapsed spaces. A display-only client check would be insufficient because two players can choose the same candidate concurrently, the server may normalize Unicode, and only the database write can authoritatively reserve a name.
+
+Decision: Permit the existing Unicode letters, numbers, underscore, punctuation, emoji, and other supported non-space characters, but reject Unicode whitespace anywhere in a player name. After editing pauses for 400 ms, iOS posts the current candidate to the authenticated CSRF-protected `/api/profile/nickname/availability` route. A taken response disables Save and shows the exact red notice **This player name is already taken.** Checking and local-invalid states also disable Save. A failed availability request shows a temporary unavailable state, never a false success, and deliberately leaves Save enabled so the authoritative write can decide.
+
+Treat availability as advisory, cancellable, profile-scoped, and non-reserving. The PATCH remains serialized with account mutations. If it loses a race and returns `409`, iOS renders the same exact taken-name notice. The server owns NFKC normalization, owner exclusion for an unchanged name, confirmed-name uniqueness, migration safety, and the database constraint. Do not reserve names from unconfirmed anonymous placeholders.
+
+Consequences: Profile gives prompt feedback without trusting a stale check, every whitespace class is handled consistently, and save-time concurrency remains correct. The TestFlight binary can fail safely against an older backend—the check appears temporarily unavailable and PATCH remains authoritative—but uniqueness is not end-to-end until the parent PHP release is deployed. Physical/TestFlight validation remains required because this candidate intentionally skips Simulator execution at the owner's request.
+
+Revisit when: product policy adds case-sensitive names, confusable-character moderation, a server-issued reservation token, locale-specific normalization, or rename cooldowns.

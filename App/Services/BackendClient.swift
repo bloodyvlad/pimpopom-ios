@@ -815,7 +815,45 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
     }
 
     @discardableResult
+    func checkNicknameAvailability(_ nickname: String) async throws
+        -> NicknameAvailabilityResponse
+    {
+        try Self.validatePlayerName(nickname)
+        if isUITestOffline {
+            return NicknameAvailabilityResponse(nickname: nickname, available: true)
+        }
+        if csrfToken == nil { _ = try await loadSession() }
+        guard sessionState?.authenticated == true,
+            let playerID = sessionState?.profile?.id
+        else {
+            throw Self.authenticationRequiredError
+        }
+
+        let epoch = sessionStateEpoch
+        let body = try encoder.encode(["nickname": nickname])
+        let response: NicknameAvailabilityResponse = try await request(
+            path: "/api/profile/nickname/availability",
+            method: "POST",
+            body: body,
+            csrf: csrfToken
+        )
+        try Task.checkCancellation()
+        guard epoch == sessionStateEpoch,
+            playerID == sessionState?.profile?.id
+        else {
+            throw Self.staleSessionError
+        }
+        guard PlayerNameValidation.localError(for: response.nickname) == nil,
+            response.nickname == PlayerNameValidation.serverNormalizedCandidate(nickname)
+        else {
+            throw Self.invalidNicknameAvailabilityResponseError
+        }
+        return response
+    }
+
+    @discardableResult
     func updateNickname(_ nickname: String) async throws -> ProfileResponse {
+        try Self.validatePlayerName(nickname)
         let body = try encoder.encode(["nickname": nickname])
         let token = try await beginStateMutation(requiresAuthenticatedProfile: true)
         do {
@@ -2074,6 +2112,12 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         code: "invalid-response"
     )
 
+    private static let invalidNicknameAvailabilityResponseError = BackendError(
+        status: 0,
+        message: "Player name validation is temporarily unavailable.",
+        code: "invalid-nickname-availability-response"
+    )
+
     private static let invalidRunFinishResponseError = BackendError(
         status: 0,
         message: "The leaderboard did not confirm that this score was saved. Please retry.",
@@ -2102,6 +2146,12 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         UInt64(request.transactionID).map { $0 > 0 } == true
             && !request.signedTransaction.isEmpty
             && request.signedTransaction.utf8.count <= 262_144
+    }
+
+    private static func validatePlayerName(_ nickname: String) throws {
+        if let message = PlayerNameValidation.localError(for: nickname) {
+            throw BackendError(status: 400, message: message, code: "invalid-player-name")
+        }
     }
 
     private static func isValidWallet(_ wallet: StoreWalletSummary) -> Bool {

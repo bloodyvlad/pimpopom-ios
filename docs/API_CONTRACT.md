@@ -17,6 +17,7 @@ Base URL: `https://speedytapper.otcsoft.com`. Live health and signed-out session
 | `POST /api/profile/game-center` | Verify and reconcile signed `teamPlayerID` | Exact challenge/proof tuple; link-only secondary identity; current-profile-wins reassignment is backend follow-up |
 | `POST /api/logout` | End PHP session | CSRF mutation |
 | `GET`, `PATCH /api/profile?mode=normal` | Profile and nickname | PATCH body contains only `nickname` |
+| `POST /api/profile/nickname/availability` | Check a public player name | Authenticated CSRF mutation; exact body `{"nickname":"<candidate>"}`; this check does not reserve the name |
 | `GET /api/leaderboard?mode=normal\|zen` | Public/shared ranks | Available signed out |
 | `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260719-1"}` |
 | `POST /api/runs/abandon` | Idempotent discard | Body contains `runId` |
@@ -32,6 +33,10 @@ Base URL: `https://speedytapper.otcsoft.com`. Live health and signed-out session
 The native client uses one long-lived default `URLSession` with shared cookie storage, `Accept: application/json`, JSON content type on bodies, and `X-SpeedyTapper-CSRF` on mutations. It sends no browser `Origin`. Login rotates the session binding, so do not log in again between ranked start and finish. Browser and native sessions are separate, while the single open run attempt is player-global.
 
 Concurrent session bootstrap is coalesced. Login, logout, nickname, achievement, theme, and pet mutations carry a client-side session/player generation; a superseded response is rejected instead of being attached to a newer account. Achievement claims are serialized with other account mutations, and an expired 401/403 triggers session reconciliation before the player may retry. Theme and pet mutations are also serialized across both shops. These client checks prevent stale presentation state but do not replace server authentication, transactions, or idempotency.
+
+Public player names contain no Unicode whitespace anywhere. iOS rejects Unicode scalar whitespace before a request and, after a 400 ms editing pause, posts the current candidate to `/api/profile/nickname/availability`. A `200` response contains the server-normalized `nickname` plus `available`; checking the signed-in player's unchanged current name returns `available: true`. `available: false` disables Save and renders **This player name is already taken.** A `400` whitespace rejection renders the server validation error. Cancellation or transport/server failure is never interpreted as availability: the UI shows a temporary validation-unavailable state and permits the authoritative PATCH.
+
+Availability is advisory and does not reserve a name. `PATCH /api/profile?mode=normal` remains the only write and can lose a race after a successful check. Any save-time `409` is rendered as the same exact taken-name state. The parent PHP release owns normalization, confirmed-name uniqueness, owner exclusion, and the database constraint; an iOS upload must not be described as end-to-end unique until that backend release is deployed.
 
 `GET /api/session` and `POST /api/runs/finish` may include an additive `achievementSnapshot`. The current native models intentionally do not consume it. Session decoding consumes `appleSignIn`, `identityBindings`, `wallet`, `adFree`, and `storeKit` while remaining compatible with older responses; synthesized `Codable` decoding ignores all other unknown response keys while retaining every required session/finish field.
 

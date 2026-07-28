@@ -6,6 +6,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Added
 
+- Debounced authenticated public-name availability checks, Unicode-wide no-whitespace validation, inline available/taken/unavailable states, and save-time conflict handling that keeps the PHP update authoritative.
 - App-owned Google Mobile Ads 13.6.0 and UMP 3.1.0 adapters with authoritative server ad-free gating, required Privacy choices, fixed 320×50 menu/gameplay/results banners, stable active-game geometry, and a persistent deduplicated three-completion Arcade/Zen interstitial cadence.
 - Test-safe Debug/Staging/Owner Ads QA/Release configuration guards, current Google SKAdNetwork registration, required-reason privacy declarations, zero-network ad fakes, and deterministic consent/banner/interstitial coverage.
 - Separate native iOS repository under the PimPoPom product name.

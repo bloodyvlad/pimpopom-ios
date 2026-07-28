@@ -32,6 +32,7 @@
 		37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */; };
 		3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */; };
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
+		4451232CF8F8DD79950EFA82 /* PlayerNameValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 035F4C0D3D8F108F40669F27 /* PlayerNameValidation.swift */; };
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
 		4A1A7251FF209E56E3291F35 /* GameCenterAutoLinkControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AA841A473D8AF5CD279A75 /* GameCenterAutoLinkControllerTests.swift */; };
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
@@ -119,6 +120,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		035F4C0D3D8F108F40669F27 /* PlayerNameValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerNameValidation.swift; sourceTree = "<group>"; };
 		0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIdentityServiceTests.swift; sourceTree = "<group>"; };
 		0666D60D3D9DC1385FFD0B8C /* AdsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsController.swift; sourceTree = "<group>"; };
 		06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetCompanionView.swift; sourceTree = "<group>"; };
@@ -444,6 +446,7 @@
 				CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */,
 				905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */,
 				1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */,
+				035F4C0D3D8F108F40669F27 /* PlayerNameValidation.swift */,
 				A9CC5EE844D22FB3BF197B67 /* StoreKitModels.swift */,
 				11F37B0D75969458F56254C5 /* StoreKitService.swift */,
 			);
@@ -700,6 +703,7 @@
 				5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */,
 				7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */,
 				1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */,
+				4451232CF8F8DD79950EFA82 /* PlayerNameValidation.swift in Sources */,
 				5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */,
 				066C6CBA43656DC6D7BA87F3 /* PurchaseController.swift in Sources */,
 				8A9091375A080E76B3131D5B /* RootView.swift in Sources */,
