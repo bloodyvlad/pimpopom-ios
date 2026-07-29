@@ -62,18 +62,53 @@ final class MultiplayerPresentationTests: XCTestCase {
             connection: .ready,
             isMutationPending: false
         )
+        XCTAssertEqual(state.startMatchControlState, .ready)
+        XCTAssertEqual(state.startMatchControlState.title, "Start match")
         XCTAssertTrue(state.canStart)
 
         state.participants[1] = participant(seat: 1, ready: false, current: false)
+        XCTAssertEqual(state.startMatchControlState, .waitingForPlayers)
+        XCTAssertEqual(state.startMatchControlState.title, "Waiting for players")
         XCTAssertFalse(state.canStart)
 
         state.participants[1] = participant(seat: 1, ready: true, current: false)
         state.connection = .confirmingRoster(confirmed: 1, total: 2)
+        XCTAssertEqual(state.startMatchControlState, .loadingRoster)
+        XCTAssertEqual(state.startMatchControlState.title, "Loading roster…")
         XCTAssertFalse(state.canStart)
 
         state.connection = .ready
         state.isMutationPending = true
+        XCTAssertEqual(state.startMatchControlState, .ready)
         XCTAssertFalse(state.canStart)
+
+        state.isMutationPending = false
+        state.participants.removeLast()
+        XCTAssertEqual(state.startMatchControlState, .waitingForPlayers)
+        XCTAssertFalse(state.canStart)
+
+        state.participants.append(
+            participant(
+                seat: 1,
+                ready: true,
+                current: false,
+                connected: false
+            )
+        )
+        XCTAssertEqual(state.startMatchControlState, .loadingRoster)
+        XCTAssertFalse(state.canStart)
+
+        state.participants[1] = participant(seat: 1, ready: true, current: false)
+        let nonCreatorState = MultiplayerPresentation.WaitingRoomState(
+            matchID: "match",
+            capacity: 2,
+            isCreator: false,
+            participants: state.participants,
+            connection: .ready,
+            isMutationPending: false
+        )
+        XCTAssertEqual(nonCreatorState.startMatchControlState, .ready)
+        XCTAssertFalse(nonCreatorState.canStart)
     }
 
     func testWaitingRoomCanToggleReadyBeforeGameKitRosterCompletes() {
@@ -199,7 +234,8 @@ final class MultiplayerPresentationTests: XCTestCase {
         seat: Int,
         ready: Bool,
         current: Bool,
-        creator: Bool = false
+        creator: Bool = false,
+        connected: Bool = true
     ) -> MultiplayerPresentation.Participant {
         MultiplayerPresentation.Participant(
             id: "player-\(seat)",
@@ -209,7 +245,8 @@ final class MultiplayerPresentationTests: XCTestCase {
             petID: nil,
             ready: ready,
             isCurrentPlayer: current,
-            isCreator: creator
+            isCreator: creator,
+            isConnected: connected
         )
     }
 

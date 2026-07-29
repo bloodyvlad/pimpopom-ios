@@ -23,7 +23,8 @@ enum WebMenuMetrics {
     static let motivationHorizontalNudge: CGFloat = -10
     static let motivationScale: CGFloat = 1.15
     static let introRulesHorizontalOffset: CGFloat = 10
-    static let gameModeVerticalOffset: CGFloat = 15
+    static let gameModeVerticalOffset: CGFloat = 30
+    static let achievementsSectionTopOffset: CGFloat = 15
 
     static func largePhoneScale(screenWidth: CGFloat) -> CGFloat {
         guard screenWidth.isFinite, screenWidth > 0 else { return 1 }

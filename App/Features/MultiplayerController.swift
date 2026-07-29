@@ -91,6 +91,12 @@ final class MultiplayerController: ObservableObject {
     private var pendingSubmission: PendingSubmission?
     private var isSubmittingTranscript = false
 
+    private func debugMultiplayerLog(_ message: String) {
+        #if DEBUG
+            print("[PimPoPom Multiplayer] \(message)")
+        #endif
+    }
+
     init(
         backend: BackendClient,
         gameCenter: GameCenterService,
@@ -493,6 +499,14 @@ final class MultiplayerController: ObservableObject {
             message: waitingState?.message,
             expiresAt: Self.parseDate(match.expiresAt)
         )
+        let readyCount = match.participants.filter(\.ready).count
+        let connectedCount = waitingState?.participants.filter(\.isConnected).count ?? 0
+        debugMultiplayerLog(
+            "lobby participants=\(match.participants.count)/\(match.capacity) "
+                + "ready=\(readyCount) connected=\(connectedCount) "
+                + "rosterState=\(waitingState?.connection.title ?? "none") "
+                + "canStart=\(waitingState?.canStart == true)"
+        )
     }
 
     private func beginMatchmakingIfFull() {
@@ -503,6 +517,10 @@ final class MultiplayerController: ObservableObject {
             transport.roster == nil,
             matchmakingAttemptGate.allowsAttempt
         else { return }
+        debugMultiplayerLog(
+            "matchmaking begin participants=\(match.participants.count) "
+                + "playerGroup=\(match.playerGroup)"
+        )
         waitingState?.connection = .matching
         matchmakingTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -524,6 +542,10 @@ final class MultiplayerController: ObservableObject {
         let failure =
             error as? MultiplayerGameKitFailure
             ?? MultiplayerGameKitFailure(error: error)
+        debugMultiplayerLog(
+            "matchmaking failed domain=\(failure.domain) code=\(failure.code) "
+                + "message=\(failure.message)"
+        )
         matchmakingAttemptGate.block(with: failure)
         waitingState?.connection =
             failure.kind == .iCloudUnavailable
@@ -534,6 +556,10 @@ final class MultiplayerController: ObservableObject {
     private func handleTransportEvent(_ event: MultiplayerGameKitTransportEvent) {
         switch event {
         case .rosterReady:
+            debugMultiplayerLog(
+                "GameKit roster ready players=\(transport.roster?.gamePlayerIDs.count ?? 0) "
+                    + "coordinator=\(transport.isCoordinator)"
+            )
             sendCurrentHelloIfNeeded(force: true)
             startClockSynchronization()
         case .helloRosterChanged(let roster):
@@ -543,6 +569,9 @@ final class MultiplayerController: ObservableObject {
                 return
             }
             helloRoster = roster
+            debugMultiplayerLog(
+                "hello roster count=\(roster.count)/\(currentMatch?.capacity ?? 0)"
+            )
             updateWaitingParticipantConnectivity()
             confirmRosterIfComplete()
         case .packet(let received):
@@ -751,6 +780,10 @@ final class MultiplayerController: ObservableObject {
                 )
                 rosterConfirmationCounts[roster.localGamePlayerID] =
                     response.confirmedCount
+                debugMultiplayerLog(
+                    "PHP roster confirmed=\(response.confirmedCount)/"
+                        + "\(response.participantCount)"
+                )
                 try transport.sendRosterConfirmed(
                     confirmedCount: response.confirmedCount,
                     participantCount: response.participantCount
@@ -771,6 +804,10 @@ final class MultiplayerController: ObservableObject {
             disconnectedGamePlayerIDs.isEmpty
         {
             waitingState?.connection = .ready
+            debugMultiplayerLog(
+                "roster start-ready confirmed=\(greatestRosterConfirmationCount)/"
+                    + "\(match.capacity) clockReady=\(clockReady)"
+            )
         } else {
             waitingState?.connection = .confirmingRoster(
                 confirmed: greatestRosterConfirmationCount,

@@ -902,3 +902,20 @@ Move the main-menu **GAME MODE** label and its Arcade, Zen, and Multiplayer cont
 Consequences: A failed Apple request no longer creates a polling loop or hides its actionable state, while lobby/readiness changes continue to arrive. Enabling iCloud changes the App ID's signing capabilities, so Development and App Store provisioning profiles must be regenerated and must authorize the same container before a physical build or TestFlight upload can succeed. The entitlement is a matchmaking compatibility measure, not permission for PimPoPom to store player or gameplay data in iCloud. Real two-device testing remains required to prove whether it resolves the observed code-35 roster failure.
 
 Revisit when: GameKit no longer requires the declared capability for this flow, Apple identifies a different account/service cause for code 35, the app deliberately adopts CloudKit or iCloud file storage, or physical testing shows the 15-point mode shift collides on a supported compact device.
+
+## P-060 — Make the waiting-room start control explain both prerequisites
+
+- Date: 2026-07-29
+- Status: Accepted for physical two-device debugging
+
+Context: The waiting room separately showed GameKit connection copy and a disabled **Start match** button. That made a full PHP lobby with Ready participants look actionable even while the live GameKit roster was still unresolved, and it did not explain whether the host was waiting for lobby readiness or Apple roster confirmation.
+
+Decision: Keep one bottom start control visible to every participant. Show **Waiting for players** while the lobby is incomplete or any participant is not Ready. Once the lobby is full and everyone is Ready, show **Loading roster…** until the complete connected GameKit roster is confirmed. Show **Start match** only after both prerequisites are satisfied, and enable it only for the PHP lobby creator while no mutation is pending. The independent roster error card and explicit Retry remain available for actionable GameKit failures.
+
+Emit Debug-only console diagnostics for the matchmaking request prerequisites, preserved GameKit failure domain/code, live roster and hello counts, PHP confirmation counts, and final start eligibility. Do not log raw Game Center identifiers, PHP participant IDs, authentication material, or transcript contents.
+
+Move the main-menu **GAME MODE** group another 15 points down, for a total 30-point presentation offset from its original position. Add 15 points of real layout space before Achievements so Achievements, Pet Shop, Themes, Settings, and the controls below them move down together while retaining the existing visual gap below Multiplayer.
+
+Consequences: The primary bottom control now describes why starting is blocked without implying that PHP Ready alone creates a live match. Non-hosts see the same prerequisite progress but never gain creator-only start authority. The additional menu spacing intentionally applies to every supported iPhone and requires compact-device physical review.
+
+Revisit when: non-hosts need a distinct **Waiting for host** terminal state, the waiting room gains automatic start, or the fixed main-menu layout no longer fits a supported compact device.

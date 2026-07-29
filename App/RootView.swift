@@ -534,7 +534,9 @@ struct RootView: View {
             }
             .offset(y: WebMenuMetrics.gameModeVerticalOffset)
 
-            Color.clear.frame(height: 9)
+            Color.clear.frame(
+                height: 9 + WebMenuMetrics.achievementsSectionTopOffset
+            )
 
             Button {
                 showsAchievements = true

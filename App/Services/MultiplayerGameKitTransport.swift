@@ -165,6 +165,15 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
     }
 
     func findMatch(configuration: MultiplayerMatchmakingConfiguration) async throws {
+        #if DEBUG
+            print(
+                "[PimPoPom Multiplayer] GameKit request "
+                    + "authenticated=\(isAuthenticated) "
+                    + "persistentIDs=\(scopedIDsArePersistent) "
+                    + "participants=\(configuration.participantCount) "
+                    + "playerGroup=\(configuration.playerGroup)"
+            )
+        #endif
         guard isAuthenticated, scopedIDsArePersistent, !localGamePlayerID.isEmpty else {
             throw MultiplayerGameKitError.notAuthenticated
         }

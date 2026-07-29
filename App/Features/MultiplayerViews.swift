@@ -673,25 +673,20 @@ struct MultiplayerWaitingRoomView: View {
                 .accessibilityIdentifier("multiplayer-ready")
             }
 
-            if state.isCreator {
-                Button(action: onStart) {
-                    Label("Start match", systemImage: "flag.checkered")
-                }
-                .buttonStyle(
-                    WebSecondaryButtonStyle(
-                        theme: palette,
-                        accent: Color(hex: palette.achievementsAccent)
-                    )
+            Button(action: onStart) {
+                Label(
+                    state.startMatchControlState.title,
+                    systemImage: state.startMatchControlState.systemImage
                 )
-                .disabled(!state.canStart)
-                .accessibilityIdentifier("start-multiplayer-match")
-            } else {
-                Text("The host starts when every player is ready.")
-                    .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                    .foregroundStyle(Color(hex: palette.muted))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity, minHeight: 44)
             }
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette,
+                    accent: Color(hex: palette.achievementsAccent)
+                )
+            )
+            .disabled(!state.canStart)
+            .accessibilityIdentifier("start-multiplayer-match")
         }
     }
 }

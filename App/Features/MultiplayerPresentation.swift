@@ -166,6 +166,34 @@ enum MultiplayerPresentation {
         }
     }
 
+    enum StartMatchControlState: Equatable, Sendable {
+        case waitingForPlayers
+        case loadingRoster
+        case ready
+
+        var title: String {
+            switch self {
+            case .waitingForPlayers:
+                "Waiting for players"
+            case .loadingRoster:
+                "Loading roster…"
+            case .ready:
+                "Start match"
+            }
+        }
+
+        var systemImage: String {
+            switch self {
+            case .waitingForPlayers:
+                "person.2.fill"
+            case .loadingRoster:
+                "person.2.wave.2.fill"
+            case .ready:
+                "flag.checkered"
+            }
+        }
+    }
+
     struct WaitingRoomState: Equatable, Sendable {
         let matchID: String
         let capacity: Int
@@ -184,13 +212,23 @@ enum MultiplayerPresentation {
             currentPlayer != nil && !isMutationPending
         }
 
+        var startMatchControlState: StartMatchControlState {
+            let allPlayersReady =
+                participants.count == capacity
+                && participants.allSatisfy(\.ready)
+
+            guard allPlayersReady else {
+                return .waitingForPlayers
+            }
+            guard connection == .ready, participants.allSatisfy(\.isConnected) else {
+                return .loadingRoster
+            }
+            return .ready
+        }
+
         var canStart: Bool {
             isCreator
-                && connection == .ready
-                && participants.count >= 2
-                && participants.count <= capacity
-                && participants.allSatisfy(\.ready)
-                && participants.allSatisfy(\.isConnected)
+                && startMatchControlState == .ready
                 && !isMutationPending
         }
     }
