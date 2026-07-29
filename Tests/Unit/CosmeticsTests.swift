@@ -145,6 +145,7 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(WebMenuMetrics.motivationHorizontalNudge, -10)
         XCTAssertEqual(WebMenuMetrics.motivationScale, 1.15)
         XCTAssertEqual(WebMenuMetrics.introRulesHorizontalOffset, 10)
+        XCTAssertEqual(WebMenuMetrics.gameModeVerticalOffset, 15)
         XCTAssertEqual(WebMenuMetrics.largePhoneScale(screenWidth: 375), 1)
         XCTAssertEqual(
             WebMenuMetrics.largePhoneScale(screenWidth: 440),

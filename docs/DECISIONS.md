@@ -887,3 +887,18 @@ For Pixel, disable the outer content shadow on menu panels and cards; a radius o
 Consequences: Players can express readiness before Apple's live roster finishes, but a match still cannot start early. The corrective release returned to marketing version `1.02`, matching the existing Game Center-enabled App Store version; after build 17 entered testing in both named groups, builds 15 and 16 were unassigned and expired. The Arcade **game version not supported** notice is a separate `/api/runs` ticket-tuple mismatch; both iOS contracts compile `20260729-1`, so that notice requires checking the returned ruleset/proof tuple or deployed validator rather than changing Multiplayer readiness.
 
 Revisit when: readiness itself needs a separate Game Center freshness gate, Apple changes Game Center version compatibility behavior, the leaderboard grows beyond three modes, or Pixel adopts explicit shape-only drop geometry.
+
+## P-059 — Declare iCloud Documents and stop failed GameKit matchmaking loops
+
+- Date: 2026-07-29
+- Status: Accepted for the next physical-device/TestFlight candidate
+
+Context: Two physical TestFlight players could join the same full PHP lobby and mark themselves Ready, but `GKMatchmaker` returned `GKErrorDomain` code 35 while resolving the live roster. The native client had reduced that structured error to text and retried from every 1.25-second PHP lobby refresh. This replaced the useful failure with **Finding the GameKit roster…**, repeatedly called Apple, and left Start unavailable even though readiness correctly showed 2/2. The app's explicit identifier and provisioning profiles declared Game Center but did not declare an iCloud container.
+
+Decision: Declare the iCloud Documents capability for `iCloud.com.otcsoftware.pimpopom` without adding CloudKit, key-value storage, or app-owned document behavior. Keep PHP lobby polling active because it owns lobby membership and readiness, but preserve the GameKit error domain/code and latch Apple matchmaking after a failure. Present code 35 as **Cloud Sync Required** and other matchmaking errors as **Connection Failed**. Keep Ready independent, keep Start disabled until the GameKit roster is confirmed, and provide one explicit Retry that clears the latch and issues one fresh matchmaking attempt.
+
+Move the main-menu **GAME MODE** label and its Arcade, Zen, and Multiplayer controls 15 points lower on every supported iPhone. Use a presentation offset for that group only so Achievements, shops, Settings, Remove Ads, copyright, and banner geometry retain their existing layout positions.
+
+Consequences: A failed Apple request no longer creates a polling loop or hides its actionable state, while lobby/readiness changes continue to arrive. Enabling iCloud changes the App ID's signing capabilities, so Development and App Store provisioning profiles must be regenerated and must authorize the same container before a physical build or TestFlight upload can succeed. The entitlement is a matchmaking compatibility measure, not permission for PimPoPom to store player or gameplay data in iCloud. Real two-device testing remains required to prove whether it resolves the observed code-35 roster failure.
+
+Revisit when: GameKit no longer requires the declared capability for this flow, Apple identifies a different account/service cause for code 35, the app deliberately adopts CloudKit or iCloud file storage, or physical testing shows the 15-point mode shift collides on a supported compact device.

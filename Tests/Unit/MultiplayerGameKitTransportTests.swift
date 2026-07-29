@@ -1,10 +1,33 @@
 import Foundation
+import GameKit
 import XCTest
 
 @testable import PimPoPom
 
 @MainActor
 final class MultiplayerGameKitTransportTests: XCTestCase {
+    func testICloudUnavailableFailurePreservesGameKitCodeAndBlocksRetry() {
+        let error = NSError(
+            domain: GKErrorDomain,
+            code: MultiplayerGameKitFailure.iCloudUnavailableCode,
+            userInfo: [NSLocalizedDescriptionKey: "Not signed in to iCloud."]
+        )
+        let failure = MultiplayerGameKitFailure(error: error)
+        var gate = MultiplayerMatchmakingAttemptGate()
+
+        XCTAssertEqual(failure.domain, GKErrorDomain)
+        XCTAssertEqual(failure.code, MultiplayerGameKitFailure.iCloudUnavailableCode)
+        XCTAssertEqual(failure.kind, .iCloudUnavailable)
+        XCTAssertTrue(gate.allowsAttempt)
+
+        gate.block(with: failure)
+        XCTAssertFalse(gate.allowsAttempt)
+        XCTAssertEqual(gate.failure, failure)
+
+        gate.clear()
+        XCTAssertTrue(gate.allowsAttempt)
+    }
+
     func testRosterUsesExactPlayerGroupAndElectsLexicographicallySmallestPlayer() async throws {
         let client = MultiplayerGameKitClientFake(
             localGamePlayerID: "G:beta",

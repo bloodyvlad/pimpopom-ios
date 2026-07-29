@@ -56,6 +56,9 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :UIApplicationShortcutItems:0:UIApplic
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes:1:CFBundleURLSchemes:0' "$built_info_plist")" = "pimpopom"
 test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.game-center' Config/PimPoPom.entitlements)" = "true"
 test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' Config/PimPoPom.entitlements)" = "Default"
+test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.icloud-container-identifiers:0' Config/PimPoPom.entitlements)" = "iCloud.com.otcsoftware.pimpopom"
+test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.icloud-services:0' Config/PimPoPom.entitlements)" = "CloudDocuments"
+test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.ubiquity-container-identifiers:0' Config/PimPoPom.entitlements)" = "iCloud.com.otcsoftware.pimpopom"
 
 staging_build_settings=$(xcodebuild \
   -project PimPoPom.xcodeproj \

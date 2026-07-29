@@ -124,6 +124,8 @@ enum MultiplayerPresentation {
         case matching
         case confirmingRoster(confirmed: Int, total: Int)
         case ready
+        case cloudSyncRequired
+        case connectionFailed(String)
         case failed(String)
 
         var title: String {
@@ -134,8 +136,32 @@ enum MultiplayerPresentation {
                 "Confirming players \(confirmed)/\(total)…"
             case .ready:
                 "Roster confirmed"
+            case .cloudSyncRequired:
+                "Cloud Sync Required"
+            case .connectionFailed:
+                "Connection Failed"
             case .failed(let message):
                 message
+            }
+        }
+
+        var detail: String? {
+            switch self {
+            case .cloudSyncRequired:
+                "Sign in to iCloud in Settings, then retry."
+            case .connectionFailed(let message):
+                message
+            default:
+                nil
+            }
+        }
+
+        var canRetry: Bool {
+            switch self {
+            case .cloudSyncRequired, .connectionFailed:
+                true
+            default:
+                false
             }
         }
     }

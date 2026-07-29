@@ -384,6 +384,7 @@ struct MultiplayerWaitingRoomView: View {
     let onToggleReady: (Bool) -> Void
     let onStart: () -> Void
     let onLeave: () -> Void
+    let onRetryConnection: () -> Void
     let onPetDrag: (CGSize) -> Void
 
     @State private var settledPetOffset = CGSize.zero
@@ -454,10 +455,36 @@ struct MultiplayerWaitingRoomView: View {
             Image(systemName: connectionIcon)
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(connectionColor)
-            Text(state.connection.title)
-                .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
-                .foregroundStyle(Color(hex: palette.muted))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.connection.title)
+                    .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                    .foregroundStyle(Color(hex: palette.muted))
+                if let detail = state.connection.detail {
+                    Text(detail)
+                        .font(
+                            palette.appFont(
+                                size: 9,
+                                weight: .regular,
+                                relativeTo: .caption2
+                            )
+                        )
+                        .foregroundStyle(Color(hex: palette.muted).opacity(0.86))
+                }
+            }
             Spacer()
+            if state.connection.canRetry {
+                Button("Retry", action: onRetryConnection)
+                    .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption2))
+                    .buttonStyle(
+                        WebSecondaryButtonStyle(
+                            theme: palette,
+                            accent: connectionColor,
+                            minimumHeight: 36
+                        )
+                    )
+                    .frame(width: 72)
+                    .accessibilityIdentifier("retry-multiplayer-connection")
+            }
         }
         .webCardStyle(theme: palette, selectedAccent: connectionColor.opacity(0.55), padding: 10)
         .accessibilityIdentifier("multiplayer-roster-state")
@@ -471,7 +498,9 @@ struct MultiplayerWaitingRoomView: View {
             "checkmark.shield.fill"
         case .ready:
             "checkmark.seal.fill"
-        case .failed:
+        case .cloudSyncRequired:
+            "icloud.slash.fill"
+        case .connectionFailed, .failed:
             "exclamationmark.triangle.fill"
         }
     }
@@ -480,7 +509,7 @@ struct MultiplayerWaitingRoomView: View {
         switch state.connection {
         case .ready:
             Color(hex: "#72e995")
-        case .failed:
+        case .cloudSyncRequired, .connectionFailed, .failed:
             Color(hex: palette.petsAccent)
         default:
             Color(hex: palette.chromeAccent)

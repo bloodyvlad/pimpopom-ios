@@ -100,6 +100,28 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertFalse(state.canToggleReady)
     }
 
+    func testGameKitConnectionFailuresHaveStableRetryablePresentation() {
+        XCTAssertEqual(
+            MultiplayerPresentation.WaitingConnectionState.cloudSyncRequired.title,
+            "Cloud Sync Required"
+        )
+        XCTAssertEqual(
+            MultiplayerPresentation.WaitingConnectionState.cloudSyncRequired.detail,
+            "Sign in to iCloud in Settings, then retry."
+        )
+        XCTAssertTrue(
+            MultiplayerPresentation.WaitingConnectionState.cloudSyncRequired.canRetry
+        )
+
+        let failed =
+            MultiplayerPresentation.WaitingConnectionState.connectionFailed(
+                "GameKit could not create the match."
+            )
+        XCTAssertEqual(failed.title, "Connection Failed")
+        XCTAssertEqual(failed.detail, "GameKit could not create the match.")
+        XCTAssertTrue(failed.canRetry)
+    }
+
     func testLiveStateAlwaysPresentsSixteenOrderedCells() {
         let live = MultiplayerPresentation.LiveMatchState(
             matchID: "match",

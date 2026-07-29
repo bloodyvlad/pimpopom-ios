@@ -770,8 +770,10 @@ final class PimPoPomUITests: XCTestCase {
         let coinStore = app.descendants(matching: .any)["open-coin-store"]
         let leaderboard = app.descendants(matching: .any)["open-leaderboard"]
         let profile = app.descendants(matching: .any)["open-profile"]
+        let gameModeLabel = app.descendants(matching: .any)["menu-game-mode-label"]
         let arcade = app.buttons["mode-normal"]
         let zen = app.buttons["mode-zen"]
+        let multiplayer = app.descendants(matching: .any)["mode-multiplayer"]
         let achievements = app.descendants(matching: .any)["open-achievements"]
         let petShop = app.descendants(matching: .any)["open-pet-shop"]
         let themes = app.descendants(matching: .any)["open-theme-shop"]
@@ -780,8 +782,8 @@ final class PimPoPomUITests: XCTestCase {
         let removeAds = app.descendants(matching: .any)["remove-ads"]
 
         for element in [
-            dialog, wordmark, coinStore, leaderboard, profile, arcade, zen, achievements,
-            petShop, themes, settings, pet, removeAds,
+            dialog, wordmark, coinStore, leaderboard, profile, gameModeLabel, arcade, zen,
+            multiplayer, achievements, petShop, themes, settings, pet, removeAds,
         ] {
             XCTAssertTrue(element.waitForExistence(timeout: 3), element.identifier)
         }
@@ -799,6 +801,11 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertEqual(arcade.frame.height, 56, accuracy: 1)
         XCTAssertEqual(zen.frame.height, 56, accuracy: 1)
         XCTAssertEqual(arcade.frame.width, zen.frame.width, accuracy: 1)
+        XCTAssertLessThan(gameModeLabel.frame.maxY, arcade.frame.minY)
+        XCTAssertLessThan(arcade.frame.maxY, zen.frame.minY)
+        XCTAssertLessThan(zen.frame.maxY, multiplayer.frame.minY)
+        XCTAssertLessThan(multiplayer.frame.maxY, achievements.frame.minY)
+        XCTAssertGreaterThanOrEqual(achievements.frame.minY - multiplayer.frame.maxY, 9)
         XCTAssertLessThan(pet.frame.minY, arcade.frame.minY)
         XCTAssertGreaterThanOrEqual(achievements.frame.height, 51)
         XCTAssertEqual(petShop.frame.width, themes.frame.width, accuracy: 1)

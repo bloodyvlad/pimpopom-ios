@@ -519,6 +519,7 @@ struct RootView: View {
                     .font(palette.appFont(size: 11, weight: .black, relativeTo: .caption))
                     .tracking(1.1)
                     .foregroundStyle(Color(hex: palette.muted))
+                    .accessibilityIdentifier("menu-game-mode-label")
 
                 VStack(spacing: WebMenuMetrics.pairedGap) {
                     modeLink(.arcade)
@@ -531,6 +532,7 @@ struct RootView: View {
                     }
                 }
             }
+            .offset(y: WebMenuMetrics.gameModeVerticalOffset)
 
             Color.clear.frame(height: 9)
 

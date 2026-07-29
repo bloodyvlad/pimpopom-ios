@@ -60,6 +60,7 @@ final class MultiplayerController: ObservableObject {
     private var recoveryTask: Task<Void, Never>?
     private var announcementTask: Task<Void, Never>?
     private var matchmakingTask: Task<Void, Never>?
+    private var matchmakingAttemptGate = MultiplayerMatchmakingAttemptGate()
     private var isApplicationActive = true
     private var isConfirmingRoster = false
     private var hasConfirmedRoster = false
@@ -248,6 +249,15 @@ final class MultiplayerController: ObservableObject {
                 waitingState?.connection = .failed(error.localizedDescription)
             }
         }
+    }
+
+    func retryGameKitConnection() {
+        guard phase == .waiting else { return }
+        transport.disconnect()
+        matchmakingAttemptGate.clear()
+        waitingState?.connection = .matching
+        waitingState?.message = nil
+        beginMatchmakingIfFull()
     }
 
     func leaveMatch() {
@@ -490,7 +500,8 @@ final class MultiplayerController: ObservableObject {
             let match = currentMatch,
             match.participants.count == match.capacity,
             matchmakingTask == nil,
-            transport.roster == nil
+            transport.roster == nil,
+            matchmakingAttemptGate.allowsAttempt
         else { return }
         waitingState?.connection = .matching
         matchmakingTask = Task { @MainActor [weak self] in
@@ -504,9 +515,20 @@ final class MultiplayerController: ObservableObject {
                     participantCount: match.capacity
                 )
             } catch {
-                waitingState?.connection = .failed(error.localizedDescription)
+                presentMatchmakingFailure(error)
             }
         }
+    }
+
+    private func presentMatchmakingFailure(_ error: any Error) {
+        let failure =
+            error as? MultiplayerGameKitFailure
+            ?? MultiplayerGameKitFailure(error: error)
+        matchmakingAttemptGate.block(with: failure)
+        waitingState?.connection =
+            failure.kind == .iCloudUnavailable
+            ? .cloudSyncRequired
+            : .connectionFailed(failure.message)
     }
 
     private func handleTransportEvent(_ event: MultiplayerGameKitTransportEvent) {
@@ -559,7 +581,13 @@ final class MultiplayerController: ObservableObject {
             if phase == .live {
                 markRecovering(message: message)
             } else {
-                waitingState?.connection = .failed(message)
+                presentMatchmakingFailure(
+                    MultiplayerGameKitFailure(
+                        domain: "PimPoPom.Multiplayer.GameKit",
+                        code: 0,
+                        message: message
+                    )
+                )
             }
         }
     }
@@ -1537,6 +1565,7 @@ final class MultiplayerController: ObservableObject {
         recoveryTask = nil
         announcementTask = nil
         matchmakingTask = nil
+        matchmakingAttemptGate.clear()
         if disconnect { transport.disconnect() }
         currentMatch = nil
         waitingState = nil

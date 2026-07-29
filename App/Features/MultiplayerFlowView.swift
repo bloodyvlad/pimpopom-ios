@@ -20,6 +20,7 @@ struct MultiplayerFlowView: View {
                         onToggleReady: multiplayer.toggleReady,
                         onStart: multiplayer.startMatch,
                         onLeave: multiplayer.leaveMatch,
+                        onRetryConnection: multiplayer.retryGameKitConnection,
                         onPetDrag: multiplayer.recordLocalPetDrag
                     )
                 } else {

@@ -65,6 +65,61 @@ enum MultiplayerGameKitConnectionStatus: Equatable, Sendable {
     case unknown
 }
 
+struct MultiplayerGameKitFailure: LocalizedError, Equatable, Sendable {
+    // GKError.Code.iCloudUnavailable is raw value 35. The typed case is
+    // available from iOS 17.2, while PimPoPom still supports iOS 17.0.
+    static let iCloudUnavailableCode = 35
+
+    enum Kind: Equatable, Sendable {
+        case iCloudUnavailable
+        case other
+    }
+
+    let domain: String
+    let code: Int
+    let message: String
+
+    init(error: any Error) {
+        let nsError = error as NSError
+        self.init(
+            domain: nsError.domain,
+            code: nsError.code,
+            message: nsError.localizedDescription
+        )
+    }
+
+    init(domain: String, code: Int, message: String) {
+        self.domain = domain
+        self.code = code
+        self.message = message
+    }
+
+    var kind: Kind {
+        if domain == GKErrorDomain,
+            code == Self.iCloudUnavailableCode
+        {
+            return .iCloudUnavailable
+        }
+        return .other
+    }
+
+    var errorDescription: String? { message }
+}
+
+struct MultiplayerMatchmakingAttemptGate: Equatable, Sendable {
+    private(set) var failure: MultiplayerGameKitFailure?
+
+    var allowsAttempt: Bool { failure == nil }
+
+    mutating func block(with failure: MultiplayerGameKitFailure) {
+        self.failure = failure
+    }
+
+    mutating func clear() {
+        failure = nil
+    }
+}
+
 enum MultiplayerGameKitClientEvent: Equatable, Sendable {
     case rosterChanged
     case received(Data, fromGamePlayerID: String)
@@ -109,11 +164,6 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
         let value: GKMatch
     }
 
-    private struct MatchmakingFailure: LocalizedError, Sendable {
-        let message: String
-        var errorDescription: String? { message }
-    }
-
     func findMatch(configuration: MultiplayerMatchmakingConfiguration) async throws {
         guard isAuthenticated, scopedIDsArePersistent, !localGamePlayerID.isEmpty else {
             throw MultiplayerGameKitError.notAuthenticated
@@ -129,7 +179,7 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
             (continuation: CheckedContinuation<Void, any Error>) in
             GKMatchmaker.shared().findMatch(for: request) { match, error in
                 if let error {
-                    let failure = MatchmakingFailure(message: error.localizedDescription)
+                    let failure = MultiplayerGameKitFailure(error: error)
                     Task { @MainActor in
                         continuation.resume(throwing: failure)
                     }
