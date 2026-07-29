@@ -521,6 +521,7 @@ final class MultiplayerController: ObservableObject {
             "matchmaking begin participants=\(match.participants.count) "
                 + "playerGroup=\(match.playerGroup)"
         )
+        guard matchmakingAttemptGate.beginAttempt() else { return }
         waitingState?.connection = .matching
         matchmakingTask = Task { @MainActor [weak self] in
             guard let self else { return }

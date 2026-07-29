@@ -914,8 +914,10 @@ Decision: Keep one bottom start control visible to every participant. Show **Wai
 
 Emit Debug-only console diagnostics for the matchmaking request prerequisites, preserved GameKit failure domain/code, live roster and hello counts, PHP confirmation counts, and final start eligibility. Do not log raw Game Center identifiers, PHP participant IDs, authentication material, or transcript contents.
 
+A successful `GKMatchmaker.findMatch` may return a still-forming `GKMatch` whose `expectedPlayerCount` is nonzero. Treat that as one active matchmaking attempt and retain it while GameKit connects the remaining peer. PHP lobby refreshes must not start another `findMatch`, because doing so cancels the pending Apple match on both devices before either roster can complete. Only an explicit Retry or full match-runtime reset may clear the attempt latch.
+
 Move the main-menu **GAME MODE** group another 15 points down, for a total 30-point presentation offset from its original position. Add 15 points of real layout space before Achievements so Achievements, Pet Shop, Themes, Settings, and the controls below them move down together while retaining the existing visual gap below Multiplayer.
 
-Consequences: The primary bottom control now describes why starting is blocked without implying that PHP Ready alone creates a live match. Non-hosts see the same prerequisite progress but never gain creator-only start authority. The additional menu spacing intentionally applies to every supported iPhone and requires compact-device physical review.
+Consequences: The primary bottom control now describes why starting is blocked without implying that PHP Ready alone creates a live match. Non-hosts see the same prerequisite progress but never gain creator-only start authority. A pending GameKit match now survives the 1.25-second PHP lobby polling cycle instead of being repeatedly cancelled and recreated. The additional menu spacing intentionally applies to every supported iPhone and requires compact-device physical review.
 
 Revisit when: non-hosts need a distinct **Waiting for host** terminal state, the waiting room gains automatic start, or the fixed main-menu layout no longer fits a supported compact device.

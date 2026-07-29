@@ -107,15 +107,25 @@ struct MultiplayerGameKitFailure: LocalizedError, Equatable, Sendable {
 }
 
 struct MultiplayerMatchmakingAttemptGate: Equatable, Sendable {
+    private(set) var hasStartedAttempt = false
     private(set) var failure: MultiplayerGameKitFailure?
 
-    var allowsAttempt: Bool { failure == nil }
+    var allowsAttempt: Bool { !hasStartedAttempt && failure == nil }
+
+    @discardableResult
+    mutating func beginAttempt() -> Bool {
+        guard allowsAttempt else { return false }
+        hasStartedAttempt = true
+        return true
+    }
 
     mutating func block(with failure: MultiplayerGameKitFailure) {
+        hasStartedAttempt = true
         self.failure = failure
     }
 
     mutating func clear() {
+        hasStartedAttempt = false
         failure = nil
     }
 }
@@ -204,6 +214,13 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
                         self.match = uncheckedMatch.value
                         uncheckedMatch.value.delegate = self
                         GKMatchmaker.shared().finishMatchmaking(for: uncheckedMatch.value)
+                        #if DEBUG
+                            print(
+                                "[PimPoPom Multiplayer] GameKit match acquired "
+                                    + "remotePlayers=\(uncheckedMatch.value.players.count) "
+                                    + "expectedPlayers=\(uncheckedMatch.value.expectedPlayerCount)"
+                            )
+                        #endif
                         self.eventHandler?(.rosterChanged)
                         continuation.resume()
                     }

@@ -20,12 +20,17 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         XCTAssertEqual(failure.kind, .iCloudUnavailable)
         XCTAssertTrue(gate.allowsAttempt)
 
+        XCTAssertTrue(gate.beginAttempt())
+        XCTAssertFalse(gate.allowsAttempt)
+        XCTAssertFalse(gate.beginAttempt())
+
         gate.block(with: failure)
         XCTAssertFalse(gate.allowsAttempt)
         XCTAssertEqual(gate.failure, failure)
 
         gate.clear()
         XCTAssertTrue(gate.allowsAttempt)
+        XCTAssertFalse(gate.hasStartedAttempt)
     }
 
     func testRosterUsesExactPlayerGroupAndElectsLexicographicallySmallestPlayer() async throws {
