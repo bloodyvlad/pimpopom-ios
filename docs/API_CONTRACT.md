@@ -216,7 +216,7 @@ Preserve these values exactly. The protocol-v1 seed is an unpredictable server n
 
 PHP is not a websocket or per-tap relay. A versioned reliable `GKMatch` envelope carries match ID, monotonically increasing packet sequence, event sequence, and logical match milliseconds. It has explicit packet types for roster hello/confirmation, clock samples, future activation plans/cancellation, input, committed event batches, acknowledgement, snapshot request/response, start, and finish.
 
-The fixed coordinator chooses target and decoy events within PHP's validated bounds. Every peer applies the same committed stream and derives the live points, multiplier, lives, names/colors/pets, leader crown, and accepted-tap tone sequence locally. Peer-provided aggregate score or rank is never authoritative.
+The fixed coordinator chooses target and decoy events within PHP's validated bounds. Input packets are reliable broadcasts to every peer, not coordinator-only messages. After unanimous PHP roster confirmation, each client freezes the Game Center sender-to-participant/seat/color mapping and rejects later mutation. An honest peer accepts an input-derived hit/miss only when it has independently received the matching sender evidence; it refuses final peer-consistent submission if evidence is missing or an accepted input remains unexplained. Every peer applies the same committed stream and derives the live points, multiplier, lives, names/colors/pets, leader crown, and accepted-tap tone sequence locally. Peer-provided aggregate score or rank is never authoritative.
 
 To remove network-arrival order from the transcript, the coordinator:
 
@@ -226,7 +226,7 @@ To remove network-arrival order from the transcript, the coordinator:
 4. commits only inputs whose `inputAt <= coordinatorNow - 250 ms`; and
 5. advances scheduler/replay time only to that same watermark.
 
-`handledAt` records coordinator handler delay but cannot jump logical time beyond the watermark. Future activation plans are non-transcript presentation hints sent ahead of their logical `at`; cancellation creates no transcript sequence gap. Reliable acknowledgements plus transcript/snapshot checkpoints recover packet gaps and bounded reconnects. Protocol v1 does not migrate the coordinator. If a peer cannot recover the exact stream, the client cancels/forfeits rather than synthesizing evidence.
+`handledAt` records coordinator handler delay but cannot jump logical time beyond the watermark. Future activation plans are non-transcript presentation hints sent ahead of their logical `at`; cancellation creates no transcript sequence gap. Reliable acknowledgements plus transcript/snapshot checkpoints recover packet gaps and bounded reconnects. Snapshots include the exact pending-plan set and shared clock anchor, and historical catch-up is applied silently rather than replaying old sounds. During a bounded disconnect the coordinator pauses logical time for all connected peers; resume shifts the common start anchor so deadlines never advance while taps are disabled. Protocol v1 does not migrate the coordinator. If a peer cannot recover the exact stream and evidence, the client cancels/forfeits rather than synthesizing evidence.
 
 #### Exact transcript
 

@@ -292,13 +292,17 @@ final class MultiplayerController: ObservableObject {
             disconnectedGamePlayerIDs.isEmpty,
             let match = currentMatch,
             let local = match.participants.first(where: \.isCurrentPlayer),
-            (playbackReducer?.state.players.first(where: { $0.seat == local.seat })?.lives
-                ?? 0) > 0,
+            let localPlayer = playbackReducer?.state.players.first(where: {
+                $0.seat == local.seat
+            }),
+            localPlayer.lives > 0,
             pausedAtLogicalMilliseconds == nil,
+            liveState?.cells.contains(where: \.isTarget) == true,
             (0..<MultiplayerProtocolConstants.boardCellCount).contains(cell),
             let inputAt = try? transport.coordinatorLogicalMilliseconds(
                 forLocalMonotonicMilliseconds: localMonotonicMilliseconds
             ),
+            localPlayer.recoveryUntil.map({ inputAt >= $0 }) ?? true,
             inputAt > 0
         else { return }
 
@@ -1320,7 +1324,10 @@ final class MultiplayerController: ObservableObject {
                 logicalMatchMilliseconds: currentLogicalMilliseconds()
             )
         }
-        guard peerConsistencyIntact, pendingCanonicalBatches.isEmpty else {
+        guard peerConsistencyIntact,
+            pendingCanonicalBatches.isEmpty,
+            inputEvidenceCounts.isEmpty
+        else {
             failLiveMatch(
                 "This device could not independently verify every peer input."
             )
