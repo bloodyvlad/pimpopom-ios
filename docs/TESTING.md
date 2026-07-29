@@ -2,18 +2,22 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
-## Multiplayer candidate acceptance plan — build 1.2 (16)
+## Multiplayer build 1.2 (16) evidence — 2026-07-29
 
-This section is a release gate, not completed evidence. Fill every placeholder only from the exact clean committed candidate later archived and uploaded.
-
-| Evidence | Required record |
+| Evidence | Recorded result |
 | --- | --- |
-| Git/source | Exact integrated commit: **pending** |
-| Core/service/UI checks | Commands, counts, and result bundles: **pending** |
-| Simulator | Single named iPhone 17/iOS version and exercised paths: **pending** |
-| Archive/TestFlight | Version/build, archive checksum, App Store Connect build ID, groups/review: **pending** |
-| Physical GameKit | 2-, 3-, and 4-player device/account runs: **pending** |
+| Git/source | Clean archived commit `79b2e46523c1827fbd139d6bb09c56464c1c79a6` on `codex/multiplayer-build16`; also pushed to `origin/main` |
+| Core/service/UI checks | 52/52 core tests, 36/36 focused Multiplayer tests, and 214/214 complete native tests passed |
+| Simulator | Single named iPhone 17 Simulator on iOS 26.5; deterministic, mocked GameKit/service, presentation, lifecycle, and spectator paths |
+| Archive/TestFlight | `1.2 (16)`; manifest SHA-256 `a27e1be8718ba035602446a757eb779d2b4acdd9cb916d0f93bb99097f3f3a54`; App Store Connect build `0e66ff64-8f7e-4d04-a454-26f14926ed98`; VALID/APPROVED/IN_BETA_TESTING in both named groups |
+| Physical GameKit | 2-, 3-, and 4-player device/account runs remain pending; no device validation is inferred |
 | Backend | Hostinger Multiplayer compatibility release `20260729-1` |
+
+`swift test --package-path Packages/PimPoPomCore` passed all 52 deterministic tests. The focused native suite passed 36 Multiplayer presentation, backend-client, GameKit-transport, peer-consistency, and Game Center service tests. The complete `Scripts/check.sh` gate then passed project regeneration, strict formatting, resource/provenance checks, ad/configuration/privacy guards, the same 52 core tests, a generic Simulator build, Staging version/build/ad assertions, and all 214 native tests with zero failures or skips. The inspected full result bundle was `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.29_17-37-50-+0200.xcresult`; disposable DerivedData was removed after the evidence was recorded.
+
+Focused spectator coverage proves that losing the local player's final life disables cell and gap input at both presentation and controller boundaries without removing that participant from the match. The peer event stream, shared HUD, player strip, tones, leader crown, and remaining-player scheduling continue; results are entered only after every player is out.
+
+A post-upload signed-out smoke read of `GET /api/mobile/v1/multiplayer/leaderboard` returned HTTP 200 with `mode: "multiplayer"` and a valid empty-board shape. This confirms public route compatibility only; it does not exercise authenticated lobby mutations, GameKit peers, transcript submission, or settlement.
 
 Automated acceptance must cover:
 
@@ -28,7 +32,7 @@ Automated acceptance must cover:
 
 One Simulator can validate deterministic and mocked paths, layout, accessibility, lifecycle, and cancellation. It cannot validate real `GKMatch` matchmaking, persistent player IDs, peer latency/order, GameKit reconnection, multi-device audio synchronization, unanimous transcript submission, Apple publication, or background/foreground behavior across peers.
 
-Before external TestFlight promotion, run clean 2-, 3-, and 4-player matches using distinct physical iPhones and Game Center/PimPoPom profiles. For each run retain version/build/commit, device/iOS/account aliases, lobby capacity/group, coordinator alias, clock samples, packet loss/reconnect actions, transcript hash/event count/duration, each submission state, settlement/result IDs, rank ordering, and later Multiplayer Game Center leaderboard visibility. Include at least:
+Before production App Store submission, run clean 2-, 3-, and 4-player matches using distinct physical iPhones and Game Center/PimPoPom profiles. For each run retain version/build/commit, device/iOS/account aliases, lobby capacity/group, coordinator alias, clock samples, packet loss/reconnect actions, transcript hash/event count/duration, each submission state, settlement/result IDs, rank ordering, and later Multiplayer Game Center leaderboard visibility. Include at least:
 
 - creator and non-creator leave while forming, creator transfer, expiry, full lobby, stale Game Center proof, and mismatched PHP/GameKit roster;
 - ordinary clean finish, a local/remote miss, eliminated-player spectating through the final peer, all-player elimination, one player backgrounding briefly and recovering by paused-clock snapshot, bounded recovery failure/cancellation, and no coordinator migration;
