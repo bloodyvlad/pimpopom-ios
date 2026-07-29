@@ -34,6 +34,7 @@
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
 		4451232CF8F8DD79950EFA82 /* PlayerNameValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 035F4C0D3D8F108F40669F27 /* PlayerNameValidation.swift */; };
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
+		48A60FBB88983658EEC67DD5 /* MultiplayerPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */; };
 		4A1A7251FF209E56E3291F35 /* GameCenterAutoLinkControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AA841A473D8AF5CD279A75 /* GameCenterAutoLinkControllerTests.swift */; };
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
 		54263429058B1AB2B2B01286 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 5BB5AC1A8B78187882559EA7 /* GoogleUserMessagingPlatform */; };
@@ -91,10 +92,12 @@
 		E359484EDDD010BB1C4A60B7 /* StoreKitConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */; };
 		E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */ = {isa = PBXBuildFile; fileRef = 86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */; };
 		E8E636A718E81A60D4C7A612 /* disco-tile-overlay.png in Resources */ = {isa = PBXBuildFile; fileRef = F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */; };
+		E8F87EE04771FEC4028EF921 /* MultiplayerViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */; };
 		E9F9F54A8AF784EBFB0BAD83 /* GameCenterLinkWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */; };
 		EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E26897A668D55114A2D880 /* AudioResourceTests.swift */; };
 		EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */; };
 		EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */; };
+		EE2F6AB65E8581D5D3182B82 /* MultiplayerPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B043C470341B214C7C2E10 /* MultiplayerPresentation.swift */; };
 		F037D0227E7E02244D5E47A6 /* audio-disco-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */; };
 		F0C814B129B6961AD724CF1B /* ThemeShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */; };
 		F3A8B24E48292FDEB6D6401E /* audio-classic-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */; };
@@ -125,6 +128,7 @@
 		0666D60D3D9DC1385FFD0B8C /* AdsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsController.swift; sourceTree = "<group>"; };
 		06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetCompanionView.swift; sourceTree = "<group>"; };
 		08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdBannerSlot.swift; sourceTree = "<group>"; };
+		0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerViews.swift; sourceTree = "<group>"; };
 		0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
 		101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-sprite.png"; sourceTree = "<group>"; };
 		11F37B0D75969458F56254C5 /* StoreKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitService.swift; sourceTree = "<group>"; };
@@ -202,9 +206,11 @@
 		D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIdentityService.swift; sourceTree = "<group>"; };
 		D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsControllerTests.swift; sourceTree = "<group>"; };
 		D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInButton.swift; sourceTree = "<group>"; };
+		D5B043C470341B214C7C2E10 /* MultiplayerPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerPresentation.swift; sourceTree = "<group>"; };
 		D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePalette.swift; sourceTree = "<group>"; };
 		DA2E75B83D2198FB2E99E518 /* BackendModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendModels.swift; sourceTree = "<group>"; };
 		DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */ = {isa = PBXFileReference; path = "audio-classic-menu.m4a"; sourceTree = "<group>"; };
+		DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerPresentationTests.swift; sourceTree = "<group>"; };
 		DEC51376F984CE9F83F10F80 /* audio-oops.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-oops.wav"; sourceTree = "<group>"; };
 		E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterServiceTests.swift; sourceTree = "<group>"; };
 		E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -350,6 +356,8 @@
 				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
 				2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */,
 				0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */,
+				D5B043C470341B214C7C2E10 /* MultiplayerPresentation.swift */,
+				0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */,
 				A54435E3370FE5F0E7640F4F /* PetShopView.swift */,
 				E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */,
 				A3E2A0743676367B419D7078 /* PurchaseController.swift */,
@@ -389,6 +397,7 @@
 				FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */,
 				E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */,
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
+				DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
 				6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */,
 				896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */,
@@ -662,6 +671,7 @@
 				37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */,
 				5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */,
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
+				48A60FBB88983658EEC67DD5 /* MultiplayerPresentationTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
 				2BC9C266D38E20EC72551C54 /* PurchaseControllerTests.swift in Sources */,
 				B46953E8B2A2F8158BF74A06 /* ScreenshotFixtureTests.swift in Sources */,
@@ -700,6 +710,8 @@
 				76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */,
 				DFBB0EAB96AFD9C8BC9AA6F9 /* LocalStoreKitCreditService.swift in Sources */,
 				60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */,
+				EE2F6AB65E8581D5D3182B82 /* MultiplayerPresentation.swift in Sources */,
+				E8F87EE04771FEC4028EF921 /* MultiplayerViews.swift in Sources */,
 				5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */,
 				7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */,
 				1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */,
