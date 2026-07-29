@@ -167,6 +167,7 @@ enum MultiplayerPresentation {
     struct Cell: Equatable, Identifiable, Sendable {
         let id: Int
         let colorIndex: Int?
+        let ownerSeat: Int?
         let glyph: String
         let isTarget: Bool
         let isDecoy: Bool
@@ -174,12 +175,14 @@ enum MultiplayerPresentation {
         init(
             id: Int,
             colorIndex: Int?,
+            ownerSeat: Int? = nil,
             glyph: String = "●",
             isTarget: Bool = false,
             isDecoy: Bool = false
         ) {
             self.id = id
             self.colorIndex = colorIndex
+            self.ownerSeat = ownerSeat
             self.glyph = glyph
             self.isTarget = isTarget
             self.isDecoy = isDecoy

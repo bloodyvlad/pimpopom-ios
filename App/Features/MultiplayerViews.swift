@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct MultiplayerMenuLink<Destination: View>: View {
     let availability: MultiplayerPresentation.Availability
@@ -496,6 +497,21 @@ struct MultiplayerWaitingRoomView: View {
         _ player: MultiplayerPresentation.Participant
     ) -> some View {
         HStack(spacing: 8) {
+            Group {
+                if let petID = player.petID {
+                    PetCompanionView(
+                        petID: petID,
+                        size: 30,
+                        placement: .leaderboard
+                    )
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(Color(hex: palette.muted).opacity(0.65))
+                }
+            }
+            .frame(width: 32, height: 32)
+
             Circle()
                 .fill(palette.color(at: player.colorIndex))
                 .frame(width: 15, height: 15)
@@ -637,7 +653,7 @@ struct MultiplayerLiveView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
 
     let state: MultiplayerPresentation.LiveMatchState
-    let onTapCell: (Int) -> Void
+    let onTapCell: (Int, Int) -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 4)
     private var palette: ThemePalette { cosmetics.theme }
@@ -729,9 +745,7 @@ struct MultiplayerLiveView: View {
     private var board: some View {
         LazyVGrid(columns: columns, spacing: 5) {
             ForEach(state.orderedCells) { cell in
-                Button {
-                    onTapCell(cell.id)
-                } label: {
+                ZStack {
                     GameCellPreview(
                         theme: palette,
                         colorIndex: cell.colorIndex,
@@ -749,11 +763,16 @@ struct MultiplayerLiveView: View {
                                 .padding(5)
                         }
                     }
+
+                    MultiplayerTouchCell(
+                        isEnabled: !state.isRecovering,
+                        accessibilityLabel: cellAccessibilityLabel(cell),
+                        accessibilityIdentifier: "multiplayer-cell-\(cell.id)"
+                    ) { touchTimestampMilliseconds in
+                        onTapCell(cell.id, touchTimestampMilliseconds)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .buttonStyle(.plain)
-                .disabled(state.isRecovering)
-                .accessibilityLabel(cellAccessibilityLabel(cell))
-                .accessibilityIdentifier("multiplayer-cell-\(cell.id)")
             }
         }
         .padding(12)
@@ -910,7 +929,11 @@ struct MultiplayerLiveView: View {
     }
 
     private func cellAccessibilityLabel(_ cell: MultiplayerPresentation.Cell) -> String {
-        if cell.isTarget { return "Your active target, cell \(cell.id + 1)" }
+        if cell.isTarget {
+            return cell.ownerSeat == state.localSeat
+                ? "Your active target, cell \(cell.id + 1)"
+                : "Active target, cell \(cell.id + 1)"
+        }
         if cell.isDecoy { return "Decoy, cell \(cell.id + 1)" }
         return "Inactive cell \(cell.id + 1)"
     }
@@ -918,6 +941,53 @@ struct MultiplayerLiveView: View {
     private func formatDuration(_ milliseconds: Int) -> String {
         let seconds = max(0, milliseconds / 1_000)
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+private struct MultiplayerTouchCell: UIViewRepresentable {
+    let isEnabled: Bool
+    let accessibilityLabel: String
+    let accessibilityIdentifier: String
+    let onTap: (Int) -> Void
+
+    func makeUIView(context _: Context) -> MultiplayerTouchCellView {
+        MultiplayerTouchCellView()
+    }
+
+    func updateUIView(_ view: MultiplayerTouchCellView, context _: Context) {
+        view.isUserInteractionEnabled = isEnabled
+        view.isAccessibilityElement = true
+        view.accessibilityTraits = isEnabled ? .button : [.button, .notEnabled]
+        view.accessibilityLabel = accessibilityLabel
+        view.accessibilityIdentifier = accessibilityIdentifier
+        view.onTap = onTap
+    }
+}
+
+private final class MultiplayerTouchCellView: UIView {
+    var onTap: ((Int) -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        isMultipleTouchEnabled = false
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) is unavailable")
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        defer { super.touchesEnded(touches, with: event) }
+        guard let timestamp = touches.first?.timestamp else { return }
+        onTap?(Int((timestamp * 1_000).rounded()))
+    }
+
+    override func accessibilityActivate() -> Bool {
+        guard isUserInteractionEnabled else { return false }
+        onTap?(Int((ProcessInfo.processInfo.systemUptime * 1_000).rounded()))
+        return true
     }
 }
 
@@ -1143,6 +1213,7 @@ struct MultiplayerLeaderboardView: View {
 
     let state: MultiplayerPresentation.LeaderboardState
     let onRefresh: () -> Void
+    let onDone: () -> Void
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -1164,6 +1235,16 @@ struct MultiplayerLeaderboardView: View {
         }
         .navigationTitle("Multiplayer Leaderboard")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: onDone) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .black))
+                }
+                .accessibilityLabel("Back to multiplayer")
+                .accessibilityIdentifier("close-multiplayer-leaderboard")
+            }
+        }
         .accessibilityIdentifier("multiplayer-leaderboard")
     }
 

@@ -211,6 +211,19 @@ final class GameCenterServiceTests: XCTestCase {
         )
 
         XCTAssertTrue(service.isCurrentRuntimePlayerVerified(for: "profile-1"))
+        XCTAssertTrue(
+            service.isCurrentRuntimePlayerVerified(
+                for: "profile-1",
+                maximumAge: 600
+            )
+        )
+        XCTAssertFalse(
+            service.isCurrentRuntimePlayerVerified(
+                for: "profile-1",
+                maximumAge: 600,
+                now: Date().addingTimeInterval(601)
+            )
+        )
         XCTAssertFalse(service.isCurrentRuntimePlayerVerified(for: "profile-2"))
         XCTAssertEqual(service.runtimeVerifiedProfileID, "profile-1")
 

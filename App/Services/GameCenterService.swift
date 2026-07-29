@@ -197,6 +197,7 @@ final class GameCenterService: ObservableObject {
         let profileID: String
         let gamePlayerID: String
         let teamPlayerID: String
+        let verifiedAt: Date
     }
 
     init(
@@ -268,7 +269,8 @@ final class GameCenterService: ObservableObject {
         runtimeVerification = RuntimeVerification(
             profileID: profileID,
             gamePlayerID: verification.gamePlayerID,
-            teamPlayerID: verification.signedTeamPlayerID
+            teamPlayerID: verification.signedTeamPlayerID,
+            verifiedAt: Date()
         )
         runtimeVerifiedProfileID = profileID
     }
@@ -278,9 +280,17 @@ final class GameCenterService: ObservableObject {
         runtimeVerifiedProfileID = nil
     }
 
-    func isCurrentRuntimePlayerVerified(for profileID: String) -> Bool {
+    func isCurrentRuntimePlayerVerified(
+        for profileID: String,
+        maximumAge: TimeInterval? = nil,
+        now: Date = Date()
+    ) -> Bool {
         guard let runtimeVerification,
             runtimeVerification.profileID == profileID,
+            maximumAge.map({
+                now.timeIntervalSince(runtimeVerification.verifiedAt) >= 0
+                    && now.timeIntervalSince(runtimeVerification.verifiedAt) <= $0
+            }) ?? true,
             case .authenticated(let player) = state,
             player.gamePlayerID == runtimeVerification.gamePlayerID,
             player.teamPlayerID == runtimeVerification.teamPlayerID,
