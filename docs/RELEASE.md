@@ -105,6 +105,18 @@ Never break the previous live client merely to simplify a new release.
 
 ## TestFlight release records
 
+### PimPoPom 1.2 (15) — 2026-07-29
+
+- **Git source:** `a87a4ecf33fd541b05f799a1a5523673d96c1cf0` on `codex/decoy-persistence-build15`; the exact archived release commit is also on `origin/main`.
+- **Toolchain:** Xcode 26.6 (`17F113`), Apple Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2.
+- **Identity:** bundle `com.otcsoftware.pimpopom`; Apple Distribution team `APX2925X66`; Apple Sign In and Game Center entitlements; marketing version/build `1.2 (15)`.
+- **Verification:** `Scripts/check.sh` passed project regeneration, strict formatting, asset/source/licence hashes, ad-configuration guards, Info/privacy lint, 36 deterministic core checks, a generic-iOS Simulator build, and all 228 native unit/UI tests on the named iPhone 17 Simulator with iOS 26.5. Xcode reported zero failures or skips: 264 checks including the core package. The focused gameplay/API subset also passed 54/54 before the full run. Full result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hgpdhdhlwjuyrybrnevtvnzivund/Logs/Test/Test-PimPoPom-2026.07.29_14-32-11-+0200.xcresult`.
+- **Archive and symbols:** uploaded from `/Users/vlad/Documents/PimPoPom-release-artifacts/1.2-15/PimPoPom-1.2-15-a87a4ec.xcarchive`; deterministic sorted-file manifest SHA-256 `5118de71341b051e100757866aab1254155ccbb8f7ecc27127e8626c6bc9b1fe`. Xcode's remote App Store export re-signed the package with Apple Distribution. The local archive was removed after Apple accepted the build. Retained dSYM: `/Users/vlad/Documents/PimPoPom-symbols/1.2-15/PimPoPom-1.2-15-a87a4ec-95C223A5-6853-38E9-BD5A-9D59B796919D.dSYM.zip`, SHA-256 `c588e64b9c3187835e6e5ce2b890f1318894e21e386d305a91eacde448e4e1ee`.
+- **App Store Connect:** build `41cea27a-b807-42cc-914a-1c266fe941af` processed `VALID`; icon present; `usesNonExemptEncryption = false`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING` with automatic notification enabled. The English build localization asks testers to verify rapid recovery taps, persistent independent decoys and dodges, color changes, the 70-second overlap transition, and long-run pacing.
+- **Runtime contract:** every board tap is ignored during post-miss recovery; decoys persist independently for 1–3 seconds through correct hits and subsequent targets, reserve their cells, award dodges only on natural expiry, and overlap only after 70 seconds. Visible decoy colors are excluded from the next Arcade player-color change, with current-color fallback. Late 4×4 pressure now contracts 5 ms per hit.
+- **Backend dependency:** ranked Arcade requires build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2, and the documented color-bearing tuples. Until the separately owned PHP validator is deployed with retained v2 support, this client rejects the incompatible ticket and keeps ranked play retryably gated. This release did not modify or deploy PHP/Hostinger.
+- **Prior compatible build:** TestFlight 1.2 (14).
+
 ### PimPoPom 1.2 (14) — 2026-07-28
 
 - **Git source:** `a84fe262f18777a4ac693bef1132ff0076f2db2c` on `codex/unique-player-names-build14`; the exact archived release commit is also on `origin/main`.
