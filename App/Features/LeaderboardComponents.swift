@@ -1,14 +1,37 @@
 import PimPoPomCore
 import SwiftUI
 
-struct WebModeTabs: View {
-    @Binding var mode: GameMode
+enum LeaderboardMode: String, CaseIterable, Hashable, Sendable {
+    case arcade = "normal"
+    case zen
+    case multiplayer
+
+    var title: String {
+        switch self {
+        case .arcade: "Arcade"
+        case .zen: "Zen"
+        case .multiplayer: "Multiplayer"
+        }
+    }
+
+    var gameMode: GameMode? {
+        switch self {
+        case .arcade: .arcade
+        case .zen: .zen
+        case .multiplayer: nil
+        }
+    }
+}
+
+struct LeaderboardModeTabs: View {
+    @Binding var mode: LeaderboardMode
     let theme: ThemePalette
 
     var body: some View {
         HStack(spacing: 6) {
-            tab(.arcade, title: "Arcade")
-            tab(.zen, title: "Zen history")
+            ForEach(LeaderboardMode.allCases, id: \.self) { value in
+                tab(value)
+            }
         }
         .padding(4)
         .background(
@@ -21,6 +44,79 @@ struct WebModeTabs: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("leaderboard-mode-tabs")
+    }
+
+    private func tab(_ value: LeaderboardMode) -> some View {
+        let selected = mode == value
+        return Button {
+            mode = value
+        } label: {
+            Text(value.title)
+                .font(theme.appFont(size: 12, weight: .black, relativeTo: .body))
+                .foregroundStyle(
+                    selected
+                        ? selectedForeground(value)
+                        : Color(hex: theme.muted)
+                )
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .allowsTightening(true)
+                .background(
+                    selected
+                        ? selectedBackground(value)
+                        : Color.clear,
+                    in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 10)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("leaderboard-mode-\(value.rawValue)")
+    }
+
+    private func selectedForeground(_ value: LeaderboardMode) -> Color {
+        switch value {
+        case .arcade:
+            Color(hex: "#fff7f8")
+        case .zen:
+            Color(hex: "#0b2d17")
+        case .multiplayer:
+            Color(hex: "#f8f5ff")
+        }
+    }
+
+    private func selectedBackground(_ value: LeaderboardMode) -> Color {
+        switch value {
+        case .arcade:
+            Color(hex: "#d83c82")
+        case .zen:
+            Color(hex: "#74c75b")
+        case .multiplayer:
+            Color(hex: "#4d73d8")
+        }
+    }
+}
+
+struct WebModeTabs: View {
+    @Binding var mode: GameMode
+    let theme: ThemePalette
+
+    var body: some View {
+        HStack(spacing: 6) {
+            tab(.arcade, title: "Arcade")
+            tab(.zen, title: "Zen")
+        }
+        .padding(4)
+        .background(
+            Color(hex: theme.surface).opacity(theme.isLight ? 0.72 : 0.82),
+            in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 13)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 13)
+                .stroke(Color(hex: theme.foreground).opacity(0.12), lineWidth: theme.isPixel ? 2 : 1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("profile-mode-tabs")
     }
 
     private func tab(_ value: GameMode, title: String) -> some View {
@@ -45,7 +141,7 @@ struct WebModeTabs: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("leaderboard-mode-\(value.rawValue)")
+        .accessibilityIdentifier("profile-mode-\(value.rawValue)")
     }
 }
 
@@ -275,6 +371,125 @@ struct LeaderboardRowView: View {
             .padding(.vertical, 2)
             .background(Color(hex: color).opacity(0.12), in: Capsule())
             .overlay { Capsule().stroke(Color(hex: color).opacity(0.48), lineWidth: 1) }
+    }
+
+    private func formatDuration(_ milliseconds: Int) -> String {
+        let seconds = max(0, milliseconds / 1_000)
+        return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+struct MultiplayerLeaderboardRowView: View {
+    let entry: MultiplayerLeaderboardEntry
+    let theme: ThemePalette
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(spacing: 1) {
+                Text("#\(entry.rank)")
+                    .font(theme.appFont(size: 13, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(
+                        entry.rank <= 3 ? Color(hex: "#ffd84d") : Color(hex: theme.muted)
+                    )
+                    .monospacedDigit()
+
+                Group {
+                    if let petID = entry.petId {
+                        PetCompanionView(petID: petID, size: 34, placement: .leaderboard)
+                    } else {
+                        Image(systemName: "person.3.fill")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundStyle(Color(hex: theme.muted).opacity(0.55))
+                    }
+                }
+                .frame(width: 42, height: 38, alignment: .top)
+            }
+            .frame(width: 42)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 5) {
+                    Text(entry.name)
+                        .font(theme.appFont(size: 14, weight: .black, relativeTo: .headline))
+                        .foregroundStyle(Color(hex: theme.foreground))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                    if entry.place == 1 {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundStyle(Color(hex: "#ffd84d"))
+                    }
+                    if entry.isCurrentPlayer {
+                        Text("YOU")
+                            .font(theme.appFont(size: 7, weight: .black, relativeTo: .caption2))
+                            .foregroundStyle(Color(hex: theme.chromeAccent))
+                    }
+                }
+
+                SpeedRatingDistributionView(
+                    counts: entry.speedRatings,
+                    theme: theme,
+                    showsTitle: false,
+                    showsLegend: false
+                )
+
+                Text(
+                    "Place \(entry.place)/\(entry.playerCount) · \(entry.hits) hits · \(entry.dodges) dodges"
+                )
+                .font(theme.appFont(size: 9, weight: .bold, relativeTo: .caption2))
+                .foregroundStyle(Color(hex: theme.muted))
+                .lineLimit(1)
+                .minimumScaleFactor(0.74)
+
+                Text(
+                    "\(reactionCopy) · \(formatDuration(entry.survivalMs)) survived"
+                )
+                .font(theme.appFont(size: 8, weight: .medium, relativeTo: .caption2))
+                .foregroundStyle(Color(hex: theme.muted).opacity(0.86))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .trailing, spacing: 1) {
+                Text("SCORE")
+                    .font(theme.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                    .foregroundStyle(Color(hex: theme.muted))
+                Text(entry.score.formatted())
+                    .font(theme.appFont(size: 16, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(Color(hex: theme.chromeAccent))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            .frame(minWidth: 64, alignment: .trailing)
+            .layoutPriority(2)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 62)
+        .background(
+            entry.isCurrentPlayer
+                ? Color(hex: theme.chromeAccent).opacity(theme.isLight ? 0.13 : 0.17)
+                : Color(hex: theme.surface).opacity(theme.isLight ? 0.79 : 0.84),
+            in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 12)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 12)
+                .stroke(
+                    entry.isCurrentPlayer
+                        ? Color(hex: theme.chromeAccent).opacity(0.62)
+                        : Color(hex: theme.foreground).opacity(0.10),
+                    lineWidth: theme.isPixel ? 2 : 1
+                )
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("multiplayer-leaderboard-entry-\(entry.id)")
+    }
+
+    private var reactionCopy: String {
+        let fastest = entry.fastestReactionMs.map { "\($0)ms fastest" } ?? "No fastest tap"
+        let average = entry.averageReactionMs.map { "\($0)ms avg" } ?? "No average"
+        return "\(fastest) · \(average)"
     }
 
     private func formatDuration(_ milliseconds: Int) -> String {

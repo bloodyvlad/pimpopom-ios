@@ -52,6 +52,8 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Changed
 
+- The 1.02 (17) corrective candidate lets each lobby participant toggle PHP readiness while GameKit is still assembling the roster, while creator Start remains gated on a complete roster and every participant being ready.
+- Arcade, Zen, and Multiplayer now share one Leaderboard screen with one navigation back control; the Zen label is shortened, waiting-room names retain readable width, and Pixel cards no longer duplicate their labels through offset radius-zero shadows.
 - Recovery taps are ignored after a life loss; late 4×4 response windows contract by 5 ms per hit; and 1–3-second decoys persist through correct hits/targets, reserve their cells, overlap only from 70 seconds, expire independently for dodges, and constrain subsequent player-color choices.
 - Owner-split TestFlight QA now retries an exact production-unit no-fill once with Google's corresponding official demo unit, while non-owner testers remain demo-only and Release behavior is unchanged. Transient UMP refresh failures receive one bounded post-bootstrap/foreground retry, and privacy-safe diagnostics record the account, consent, route, and GMA error class without identifiers.
 - Enabled the fixed banner inside the already separated gameplay footer for ad-supported runs, while keeping every ad surface absent for ad-free players, and reduced successful leaderboard-save feedback from a card to one compact Results line.

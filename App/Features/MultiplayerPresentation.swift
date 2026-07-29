@@ -67,7 +67,7 @@ enum MultiplayerPresentation {
         var isRefreshing: Bool
         var isCreating: Bool
         var joiningLobbyID: String?
-        var message: String?
+        var message: String? = nil
 
         init(
             availability: Availability,
@@ -147,10 +147,15 @@ enum MultiplayerPresentation {
         var participants: [Participant]
         var connection: WaitingConnectionState
         var isMutationPending: Bool
+        var message: String?
         var expiresAt: Date?
 
         var currentPlayer: Participant? {
             participants.first(where: \.isCurrentPlayer)
+        }
+
+        var canToggleReady: Bool {
+            currentPlayer != nil && !isMutationPending
         }
 
         var canStart: Bool {
@@ -282,25 +287,4 @@ enum MultiplayerPresentation {
         }
     }
 
-    struct LeaderboardEntry: Equatable, Identifiable, Sendable {
-        let id: String
-        let rank: Int
-        let place: Int
-        let playerCount: Int
-        let name: String
-        let petID: String?
-        let score: Int
-        let survivalMilliseconds: Int
-        let hits: Int
-        let isCurrentPlayer: Bool
-    }
-
-    struct LeaderboardState: Equatable, Sendable {
-        let entries: [LeaderboardEntry]
-        let totalEntries: Int
-        let playerRank: Int?
-        let topPercent: Int?
-        let isLoading: Bool
-        let message: String?
-    }
 }

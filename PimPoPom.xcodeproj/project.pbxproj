@@ -58,6 +58,7 @@
 		76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */; };
 		772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */; };
 		79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF525ACA8A69F39145C25A62 /* AchievementsView.swift */; };
+		823E49E0F7882DF1E38717F4 /* LeaderboardPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */; };
 		8396C151E5FF08EA7940428D /* AdsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0666D60D3D9DC1385FFD0B8C /* AdsController.swift */; };
 		865CDEB8D47E9E99AF4CD2BF /* GameCenterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */; };
 		88C71DF6DB15C66DC889A60E /* GoogleAdsServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 255214BC89EC4CEFF34C4C55 /* GoogleAdsServices.swift */; };
@@ -158,6 +159,7 @@
 		30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClientTests.swift; sourceTree = "<group>"; };
 		343C3D60DEB6783CB739995F /* misha-climber.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-climber.png"; sourceTree = "<group>"; };
 		36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pimpopom-sting.wav"; sourceTree = "<group>"; };
+		3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardPresentationTests.swift; sourceTree = "<group>"; };
 		3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-sprite.png"; sourceTree = "<group>"; };
 		4229B48A8A93EA5CAD874DB7 /* MultiplayerGameKitTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerGameKitTransport.swift; sourceTree = "<group>"; };
 		4234BF10F969BD645083E373 /* OwnerAdsQA.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = OwnerAdsQA.xcconfig; sourceTree = "<group>"; };
@@ -418,6 +420,7 @@
 				FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */,
 				E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */,
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
+				3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */,
 				14EAFEECB2DCB25385F31063 /* MultiplayerBackendClientTests.swift */,
 				EBBBCDB8847C7393043466BF /* MultiplayerGameKitTransportTests.swift */,
 				FFABD2C36CB814998CA7DE6B /* MultiplayerPeerConsistencyTests.swift */,
@@ -698,6 +701,7 @@
 				37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */,
 				5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */,
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
+				823E49E0F7882DF1E38717F4 /* LeaderboardPresentationTests.swift in Sources */,
 				0893CC631D7FAFF20A3E5028 /* MultiplayerBackendClientTests.swift in Sources */,
 				5A4FF049FA8F5F1B5A8955E2 /* MultiplayerGameKitTransportTests.swift in Sources */,
 				AA8FCAE87D5A559DFE1366F1 /* MultiplayerPeerConsistencyTests.swift in Sources */,

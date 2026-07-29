@@ -11,8 +11,7 @@ struct MultiplayerFlowView: View {
                     state: multiplayer.hubState,
                     onRefresh: multiplayer.refreshLobbies,
                     onCreate: multiplayer.createMatch,
-                    onJoin: multiplayer.joinMatch,
-                    onOpenLeaderboard: multiplayer.openLeaderboard
+                    onJoin: multiplayer.joinMatch
                 )
             case .waiting:
                 if let state = multiplayer.waitingState {
@@ -39,14 +38,7 @@ struct MultiplayerFlowView: View {
                 MultiplayerResultsView(
                     state: multiplayer.resultsState,
                     onRefresh: multiplayer.refreshSettlement,
-                    onOpenLeaderboard: multiplayer.openLeaderboard,
                     onDone: multiplayer.returnToMenuFromResults
-                )
-            case .leaderboard:
-                MultiplayerLeaderboardView(
-                    state: multiplayer.leaderboardState,
-                    onRefresh: multiplayer.loadLeaderboard,
-                    onDone: multiplayer.closeLeaderboard
                 )
             }
         }

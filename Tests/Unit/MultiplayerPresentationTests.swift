@@ -76,6 +76,30 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertFalse(state.canStart)
     }
 
+    func testWaitingRoomCanToggleReadyBeforeGameKitRosterCompletes() {
+        var state = MultiplayerPresentation.WaitingRoomState(
+            matchID: "match",
+            capacity: 2,
+            isCreator: false,
+            participants: [
+                participant(seat: 0, ready: false, current: true),
+                participant(seat: 1, ready: false, current: false),
+            ],
+            connection: .matching,
+            isMutationPending: false
+        )
+
+        XCTAssertTrue(state.canToggleReady)
+        XCTAssertFalse(state.canStart)
+
+        state.connection = .confirmingRoster(confirmed: 1, total: 2)
+        XCTAssertTrue(state.canToggleReady)
+        XCTAssertFalse(state.canStart)
+
+        state.isMutationPending = true
+        XCTAssertFalse(state.canToggleReady)
+    }
+
     func testLiveStateAlwaysPresentsSixteenOrderedCells() {
         let live = MultiplayerPresentation.LiveMatchState(
             matchID: "match",

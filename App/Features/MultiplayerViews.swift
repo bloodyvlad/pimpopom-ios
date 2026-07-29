@@ -108,7 +108,6 @@ struct MultiplayerHubView: View {
     let onRefresh: () -> Void
     let onCreate: (Int) -> Void
     let onJoin: (String) -> Void
-    let onOpenLeaderboard: () -> Void
 
     @State private var capacity = 2
 
@@ -154,7 +153,9 @@ struct MultiplayerHubView: View {
                     .font(palette.appFont(size: 25, weight: .black, relativeTo: .title))
             }
             Spacer()
-            Button(action: onOpenLeaderboard) {
+            NavigationLink {
+                LeaderboardView(initialMode: .multiplayer)
+            } label: {
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 18, weight: .black))
                     .frame(width: 42, height: 42)
@@ -398,6 +399,13 @@ struct MultiplayerWaitingRoomView: View {
             VStack(spacing: 12) {
                 header
                 connectionCard
+                if let message = state.message {
+                    Text(message)
+                        .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption))
+                        .foregroundStyle(Color(hex: palette.petsAccent))
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("multiplayer-waiting-message")
+                }
                 participantGrid
                 Spacer(minLength: 4)
                 localPetStage
@@ -519,16 +527,12 @@ struct MultiplayerWaitingRoomView: View {
                 .overlay { Circle().stroke(.white.opacity(0.86), lineWidth: 2) }
                 .shadow(color: palette.color(at: player.colorIndex), radius: palette.isPixel ? 0 : 5)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(player.name)
-                        .font(palette.appFont(size: 13, weight: .black, relativeTo: .headline))
-                        .lineLimit(1)
-                    if player.isCreator {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 9, weight: .black))
-                            .foregroundStyle(Color(hex: "#ffd84d"))
-                    }
-                }
+                Text(player.name)
+                    .font(palette.appFont(size: 13, weight: .black, relativeTo: .headline))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+                    .allowsTightening(true)
+                    .layoutPriority(1)
                 Text(player.ready ? "READY" : (player.isConnected ? "NOT READY" : "RECONNECTING"))
                     .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
                     .foregroundStyle(
@@ -539,11 +543,20 @@ struct MultiplayerWaitingRoomView: View {
             }
             Spacer(minLength: 0)
         }
+        .padding(.trailing, player.isCreator ? 18 : 0)
         .webCardStyle(
             theme: palette,
             selectedAccent: palette.color(at: player.colorIndex).opacity(0.68),
             padding: 9
         )
+        .overlay(alignment: .topTrailing) {
+            if player.isCreator {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 9, weight: .black))
+                    .foregroundStyle(Color(hex: "#ffd84d"))
+                    .padding(8)
+            }
+        }
         .opacity(player.isConnected ? 1 : 0.60)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("multiplayer-waiting-player-\(player.seat)")
@@ -627,7 +640,7 @@ struct MultiplayerWaitingRoomView: View {
                             : Color(hex: "#72e995")
                     )
                 )
-                .disabled(state.isMutationPending || state.connection != .ready)
+                .disabled(!state.canToggleReady)
                 .accessibilityIdentifier("multiplayer-ready")
             }
 
@@ -1068,7 +1081,6 @@ struct MultiplayerResultsView: View {
 
     let state: MultiplayerPresentation.ResultsState
     let onRefresh: () -> Void
-    let onOpenLeaderboard: () -> Void
     let onDone: () -> Void
 
     private var palette: ThemePalette { cosmetics.theme }
@@ -1248,14 +1260,18 @@ struct MultiplayerResultsView: View {
                     .disabled(state.isRefreshing)
                     .accessibilityIdentifier("refresh-multiplayer-settlement")
             } else {
-                Button("Leaderboard", action: onOpenLeaderboard)
-                    .buttonStyle(
-                        WebSecondaryButtonStyle(
-                            theme: palette,
-                            accent: Color(hex: palette.chromeAccent)
-                        )
+                NavigationLink {
+                    LeaderboardView(initialMode: .multiplayer)
+                } label: {
+                    Text("Leaderboard")
+                }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.chromeAccent)
                     )
-                    .accessibilityIdentifier("results-multiplayer-leaderboard")
+                )
+                .accessibilityIdentifier("results-multiplayer-leaderboard")
             }
 
             if state.canReturnToMenu {
@@ -1279,209 +1295,5 @@ struct MultiplayerResultsView: View {
             result.averageReactionMilliseconds.map { "\($0)ms average" }
             ?? "No average"
         return "\(fastest) · \(average)"
-    }
-}
-
-struct MultiplayerLeaderboardView: View {
-    @EnvironmentObject private var cosmetics: CosmeticsController
-
-    let state: MultiplayerPresentation.LeaderboardState
-    let onRefresh: () -> Void
-    let onDone: () -> Void
-
-    private var palette: ThemePalette { cosmetics.theme }
-
-    var body: some View {
-        ZStack {
-            AppThemeBackground(theme: palette)
-
-            VStack(spacing: 10) {
-                header
-                positionStrip
-                leaderboardContent
-            }
-            .foregroundStyle(Color(hex: palette.foreground))
-            .padding(14)
-            .frame(maxWidth: 620, maxHeight: .infinity)
-            .webCardStyle(theme: palette, padding: 14)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-        }
-        .navigationTitle("Multiplayer Leaderboard")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(action: onDone) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .black))
-                }
-                .accessibilityLabel("Back to multiplayer")
-                .accessibilityIdentifier("close-multiplayer-leaderboard")
-            }
-        }
-        .accessibilityIdentifier("multiplayer-leaderboard")
-    }
-
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("MULTIPLAYER")
-                    .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption2))
-                    .tracking(1.0)
-                    .foregroundStyle(Color(hex: palette.muted))
-                Text("Leaderboard")
-                    .font(palette.appFont(size: 25, weight: .black, relativeTo: .title))
-            }
-            Spacer()
-            Image(systemName: "person.3.fill")
-                .font(.system(size: 24, weight: .black))
-                .foregroundStyle(Color(hex: palette.chromeAccent))
-        }
-    }
-
-    private var positionStrip: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(state.playerRank == nil ? "RANKED RESULTS" : "YOUR BEST POSITION")
-                    .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
-                    .tracking(0.75)
-                    .foregroundStyle(Color(hex: palette.muted))
-                Text(state.playerRank.map { "#\($0)" } ?? "\(state.totalEntries)")
-                    .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
-                    .foregroundStyle(Color(hex: palette.chromeAccent))
-                    .monospacedDigit()
-            }
-            Spacer()
-            if let topPercent = state.topPercent {
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text("TOP RESULTS")
-                        .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
-                        .foregroundStyle(Color(hex: palette.muted))
-                    Text("\(topPercent)%")
-                        .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
-                        .foregroundStyle(Color(hex: palette.chromeAccent))
-                        .monospacedDigit()
-                }
-            } else {
-                Text("\(state.totalEntries) total")
-                    .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                    .foregroundStyle(Color(hex: palette.muted))
-            }
-        }
-        .webCardStyle(
-            theme: palette,
-            selectedAccent: Color(hex: palette.chromeAccent),
-            padding: 10
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("multiplayer-leaderboard-position")
-    }
-
-    @ViewBuilder
-    private var leaderboardContent: some View {
-        if !state.entries.isEmpty {
-            ScrollView {
-                LazyVStack(spacing: 7) {
-                    ForEach(state.entries) { entry in
-                        leaderboardRow(entry)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-            .refreshable { onRefresh() }
-            .accessibilityIdentifier("multiplayer-leaderboard-results")
-        } else if !state.isLoading {
-            VStack(spacing: 12) {
-                Spacer()
-                Image(systemName: state.message == nil ? "flag.checkered" : "wifi.exclamationmark")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(Color(hex: palette.chromeAccent))
-                Text(state.message ?? "No multiplayer results yet")
-                    .font(palette.appFont(size: 15, weight: .bold, relativeTo: .body))
-                    .foregroundStyle(Color(hex: palette.muted))
-                    .multilineTextAlignment(.center)
-                Button("Try again", action: onRefresh)
-                    .buttonStyle(
-                        WebSecondaryButtonStyle(
-                            theme: palette,
-                            accent: Color(hex: palette.chromeAccent),
-                            minimumHeight: 42
-                        )
-                    )
-                    .frame(maxWidth: 180)
-                Spacer()
-            }
-        } else {
-            WebLoadingOverlay(theme: palette, label: "Loading multiplayer ranks")
-        }
-    }
-
-    private func leaderboardRow(
-        _ entry: MultiplayerPresentation.LeaderboardEntry
-    ) -> some View {
-        HStack(spacing: 8) {
-            VStack(spacing: 1) {
-                Text("#\(entry.rank)")
-                    .font(palette.appFont(size: 13, weight: .black, relativeTo: .headline))
-                    .foregroundStyle(
-                        entry.rank <= 3
-                            ? Color(hex: "#ffd84d")
-                            : Color(hex: palette.muted)
-                    )
-                if let petID = entry.petID {
-                    PetCompanionView(petID: petID, size: 34, placement: .leaderboard)
-                        .frame(width: 42, height: 38)
-                }
-            }
-            .frame(width: 42)
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Text(entry.name)
-                        .font(palette.appFont(size: 14, weight: .black, relativeTo: .headline))
-                        .lineLimit(1)
-                    if entry.place == 1 {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundStyle(Color(hex: "#ffd84d"))
-                    }
-                    if entry.isCurrentPlayer {
-                        Text("YOU")
-                            .font(palette.appFont(size: 7, weight: .black, relativeTo: .caption2))
-                            .foregroundStyle(Color(hex: palette.chromeAccent))
-                    }
-                }
-                Text(
-                    "Place \(entry.place)/\(entry.playerCount) · \(entry.hits) hits · \(formatDuration(entry.survivalMilliseconds))"
-                )
-                .font(palette.appFont(size: 9, weight: .bold, relativeTo: .caption2))
-                .foregroundStyle(Color(hex: palette.muted))
-                .lineLimit(1)
-            }
-            Spacer(minLength: 6)
-            VStack(alignment: .trailing, spacing: 1) {
-                Text("SCORE")
-                    .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
-                    .foregroundStyle(Color(hex: palette.muted))
-                Text(entry.score.formatted())
-                    .font(palette.appFont(size: 16, weight: .black, relativeTo: .headline))
-                    .foregroundStyle(Color(hex: palette.chromeAccent))
-                    .monospacedDigit()
-            }
-        }
-        .webCardStyle(
-            theme: palette,
-            selectedAccent: entry.isCurrentPlayer
-                ? Color(hex: palette.chromeAccent).opacity(0.68)
-                : nil,
-            padding: 10
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("multiplayer-leaderboard-entry-\(entry.id)")
-    }
-
-    private func formatDuration(_ milliseconds: Int) -> String {
-        let seconds = max(0, milliseconds / 1_000)
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 }

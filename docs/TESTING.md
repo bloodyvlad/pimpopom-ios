@@ -2,6 +2,13 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## Corrective candidate 1.02 (17) evidence — 2026-07-29
+
+- Focused implementation-time coverage passed for `MultiplayerPresentationTests`, `LeaderboardPresentationTests`, the standard Leaderboard/Profile parity UI path, and the Pixel screenshot fixture before packaging. The inspected captures showed one navigation back control, Arcade/Zen/Multiplayer tabs, readable labels without Pixel shadow duplicates, and the deterministic Multiplayer row.
+- The final candidate passed project regeneration, strict Swift formatting, `git diff --check`, asset/provenance validation, ad-configuration checks, Info/privacy plist lint, and generic-device Staging build-setting inspection for bundle `com.otcsoftware.pimpopom`, marketing version `1.02`, build `17`, owner-split test ads, and the Game Center entitlement path.
+- The readiness fix allows the current PHP participant to toggle Ready while GameKit remains in matching or roster-confirmation state. A readiness transport failure is presented separately and cannot overwrite or permanently poison the independent GameKit connection state. Creator Start remains disabled until the roster is confirmed and every connected participant is ready.
+- Per the owner's release instruction, no additional Simulator or physical-device test was run after the final corrective edits. The signed generic-device archive supplies the final app compilation check; real 2-device GameKit matchmaking and readiness remain TestFlight acceptance work.
+
 ## Multiplayer build 1.2 (16) evidence — 2026-07-29
 
 | Evidence | Recorded result |

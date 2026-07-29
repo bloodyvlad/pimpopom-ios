@@ -357,10 +357,10 @@ struct WebMenuPanelModifier: ViewModifier {
                 panelShape.stroke(panelBorder, lineWidth: theme.isPixel ? 2 : 1)
             }
             .shadow(
-                color: panelShadow,
+                color: theme.isPixel ? .clear : panelShadow,
                 radius: theme.isPixel ? 0 : 34,
-                x: theme.isPixel ? 8 : 0,
-                y: theme.isPixel ? 8 : 20
+                x: 0,
+                y: theme.isPixel ? 0 : 20
             )
     }
 
@@ -436,11 +436,11 @@ struct WebCardModifier: ViewModifier {
             }
             .shadow(
                 color: theme.isPixel
-                    ? Color(hex: "#070713")
+                    ? .clear
                     : (theme.isLight ? Color(hex: "#3f799d").opacity(0.09) : .black.opacity(0.12)),
                 radius: theme.isPixel ? 0 : 10,
-                x: theme.isPixel ? 4 : 0,
-                y: theme.isPixel ? 4 : 5
+                x: 0,
+                y: theme.isPixel ? 0 : 5
             )
     }
 }

@@ -8,7 +8,6 @@ enum MultiplayerFlowPhase: Equatable {
     case waiting
     case live
     case results
-    case leaderboard
 }
 
 @MainActor
@@ -31,15 +30,6 @@ final class MultiplayerController: ObservableObject {
         localSubmissionAccepted: false,
         message: nil
     )
-    @Published private(set) var leaderboardState = MultiplayerPresentation.LeaderboardState(
-        entries: [],
-        totalEntries: 0,
-        playerRank: nil,
-        topPercent: nil,
-        isLoading: false,
-        message: nil
-    )
-
     var availability: MultiplayerPresentation.Availability {
         Self.resolveAvailability(backend: backend, gameCenter: gameCenter)
     }
@@ -225,18 +215,18 @@ final class MultiplayerController: ObservableObject {
             return
         }
         waitingState?.isMutationPending = true
+        waitingState?.message = nil
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer { waitingState?.isMutationPending = false }
             do {
-                try await ensureFreshGameCenterProof()
                 let updated = try await backend.setMultiplayerReadiness(
                     match.matchId,
                     ready: ready
                 )
                 applyMatch(updated)
             } catch {
-                waitingState?.connection = .failed(error.localizedDescription)
+                waitingState?.message = error.localizedDescription
             }
         }
     }
@@ -328,50 +318,6 @@ final class MultiplayerController: ObservableObject {
             )
         } else {
             recordInputEvidence(packet, expectedSeat: local.seat)
-        }
-    }
-
-    func openLeaderboard() {
-        phase = .leaderboard
-        loadLeaderboard()
-    }
-
-    func closeLeaderboard() {
-        phase = currentMatch == nil ? .hub : .results
-    }
-
-    func loadLeaderboard() {
-        guard !leaderboardState.isLoading else { return }
-        leaderboardState = MultiplayerPresentation.LeaderboardState(
-            entries: leaderboardState.entries,
-            totalEntries: leaderboardState.totalEntries,
-            playerRank: leaderboardState.playerRank,
-            topPercent: leaderboardState.topPercent,
-            isLoading: true,
-            message: nil
-        )
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                let response = try await backend.loadMultiplayerLeaderboard()
-                leaderboardState = MultiplayerPresentation.LeaderboardState(
-                    entries: response.entries.map(Self.presentedLeaderboardEntry),
-                    totalEntries: response.totalEntries,
-                    playerRank: response.playerRank,
-                    topPercent: response.topPercent,
-                    isLoading: false,
-                    message: response.entries.isEmpty ? "No verified matches yet." : nil
-                )
-            } catch {
-                leaderboardState = MultiplayerPresentation.LeaderboardState(
-                    entries: leaderboardState.entries,
-                    totalEntries: leaderboardState.totalEntries,
-                    playerRank: leaderboardState.playerRank,
-                    topPercent: leaderboardState.topPercent,
-                    isLoading: false,
-                    message: error.localizedDescription
-                )
-            }
         }
     }
 
@@ -534,6 +480,7 @@ final class MultiplayerController: ObservableObject {
             },
             connection: connection,
             isMutationPending: waitingState?.isMutationPending ?? false,
+            message: waitingState?.message,
             expiresAt: Self.parseDate(match.expiresAt)
         )
     }
@@ -1759,23 +1706,6 @@ final class MultiplayerController: ObservableObject {
             averageReactionMilliseconds: result.averageReactionMs,
             maxMultiplier: result.maxMultiplier,
             isCurrentPlayer: result.isCurrentPlayer
-        )
-    }
-
-    private static func presentedLeaderboardEntry(_ entry: MultiplayerLeaderboardEntry)
-        -> MultiplayerPresentation.LeaderboardEntry
-    {
-        MultiplayerPresentation.LeaderboardEntry(
-            id: entry.id,
-            rank: entry.rank,
-            place: entry.place,
-            playerCount: entry.playerCount,
-            name: entry.name,
-            petID: entry.petId,
-            score: entry.score,
-            survivalMilliseconds: entry.survivalMs,
-            hits: entry.hits,
-            isCurrentPlayer: entry.isCurrentPlayer
         )
     }
 

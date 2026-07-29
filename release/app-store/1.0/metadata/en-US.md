@@ -133,6 +133,20 @@ Create or sign in to a PimPoPom profile with Apple or Google, then open Profile 
 
 Sign-in is optional and the app can be evaluated without reviewer-provided credentials. Game Center requires a signed-in PimPoPom profile and explicit Connect; it cannot create or access a wallet. The app obtains fresh GameKit identity proof, while the PimPoPom PHP service asynchronously publishes only protocol-verified Arcade personal bests and authoritative achievement unlocks. The client never submits scores or achievements directly, so Apple’s dashboard may update after a short propagation delay. Purchases use Apple’s TestFlight Sandbox environment. Advertising uses Google AdMob behind Google UMP consent. The gameplay banner is fixed below the Speed Bar, and the interstitial becomes due after 3 eligible completed rounds and is attempted from Results.
 
+## Build 17 / version 1.02 TestFlight copy
+
+**Beta App Description**
+
+PimPoPom is a reaction game with Arcade, Zen, and a 2–4-player Multiplayer beta. This build corrects Multiplayer waiting-room readiness and polishes leaderboards, Pixel presentation, and player-name layout.
+
+**What to Test**
+
+Using two or more distinct Game Center and PimPoPom accounts, create or join the same Multiplayer lobby. Confirm every participant can toggle Ready while the GameKit roster is still connecting, but only the creator can start and only after the complete roster is confirmed and all players are ready. Verify the shared Arcade, Zen, and Multiplayer Leaderboard tabs, one back control, readable waiting-room names, Pixel labels without duplicate shadows, eliminated-player spectating, synchronized play, and final settlement. Also report crashes, roster stalls, purchase errors, layout problems, or ads shown to ad-free accounts.
+
+**Beta Review Notes**
+
+Sign-in is optional for Arcade and Zen. Multiplayer requires a signed-in PimPoPom profile with a confirmed nickname and the Game Center player active on the device. PimPoPom uses PHP for authenticated lobbies and verified settlement while GameKit carries live peer-to-peer gameplay. Multiplayer awards no coins or achievements. Purchases use Apple’s TestFlight Sandbox environment, and advertising uses Google AdMob behind Google UMP consent. The client does not submit Game Center scores or achievements directly; the PHP service publishes eligible verified results asynchronously.
+
 ## Production App Review notes draft
 
 PimPoPom can be evaluated without signing in: launch the app, choose Arcade or Zen, and play immediately. Arcade leaderboard submission, profile-bound cosmetics, achievements, and StoreKit value require a signed-in PimPoPom profile.

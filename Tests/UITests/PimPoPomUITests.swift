@@ -713,6 +713,7 @@ final class PimPoPomUITests: XCTestCase {
             app.descendants(matching: .any)["leaderboard-entry-ui-rank-1"]
                 .waitForExistence(timeout: 2)
         )
+        attachScreenshot(of: app, name: "Pixel leaderboard without text shadows")
 
         app.terminate()
         app.launchArguments = [
@@ -911,6 +912,10 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-mode-tabs"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-position"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["leaderboard-entry-ui-player"].exists)
+        XCTAssertTrue(app.buttons["leaderboard-mode-normal"].exists)
+        XCTAssertEqual(app.buttons["leaderboard-mode-zen"].label, "Zen")
+        let multiplayerTab = app.buttons["leaderboard-mode-multiplayer"]
+        XCTAssertEqual(multiplayerTab.label, "Multiplayer")
         XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == 'LEGACY'")).count, 0)
         let score = app.descendants(matching: .any)["leaderboard-entry-score-ui-player"]
         XCTAssertTrue(score.waitForExistence(timeout: 2))
@@ -921,6 +926,12 @@ final class PimPoPomUITests: XCTestCase {
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'does not prove'")).count,
             0
         )
+        multiplayerTab.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["multiplayer-leaderboard-entry-1|TeamAurora|2026-07-29T18:00:00Z"]
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertFalse(app.buttons["close-multiplayer-leaderboard"].exists)
         attachScreenshot(of: app, name: "iPhone 17 leaderboard parity")
 
         app.navigationBars.buttons.element(boundBy: 0).tap()

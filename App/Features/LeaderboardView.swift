@@ -4,15 +4,25 @@ import SwiftUI
 struct LeaderboardView: View {
     @EnvironmentObject private var backend: BackendClient
     @EnvironmentObject private var cosmetics: CosmeticsController
-    @State private var mode = GameMode.arcade
+    @State private var mode: LeaderboardMode
     @State private var response: LeaderboardResponse?
+    @State private var multiplayerResponse: MultiplayerLeaderboardResponse?
     @State private var error: String?
     @State private var loading = false
     @State private var loadGeneration = 0
 
+    init(initialMode: LeaderboardMode = .arcade) {
+        _mode = State(initialValue: initialMode)
+    }
+
     private var palette: ThemePalette { cosmetics.theme }
     private var visibleResponse: LeaderboardResponse? {
-        response?.mode == mode.rawValue ? response : nil
+        guard let gameMode = mode.gameMode else { return nil }
+        return response?.mode == gameMode.rawValue ? response : nil
+    }
+
+    private var visibleMultiplayerResponse: MultiplayerLeaderboardResponse? {
+        mode == .multiplayer ? multiplayerResponse : nil
     }
 
     var body: some View {
@@ -36,10 +46,10 @@ struct LeaderboardView: View {
                         .shadow(color: Color(hex: "#ffd84d").opacity(0.42), radius: palette.isPixel ? 0 : 8)
                 }
 
-                WebModeTabs(mode: $mode, theme: palette)
+                LeaderboardModeTabs(mode: $mode, theme: palette)
 
-                if let response = visibleResponse {
-                    positionStrip(response)
+                if let summary = positionSummary {
+                    positionStrip(summary)
                 }
 
                 ZStack {
@@ -72,7 +82,9 @@ struct LeaderboardView: View {
 
     @ViewBuilder
     private var leaderboardContent: some View {
-        if let response = visibleResponse, !response.entries.isEmpty {
+        if mode == .multiplayer {
+            multiplayerLeaderboardContent
+        } else if let response = visibleResponse, !response.entries.isEmpty {
             ScrollView {
                 LazyVStack(spacing: 7) {
                     ForEach(Array(response.entries.enumerated()), id: \.element.id) { index, entry in
@@ -116,20 +128,67 @@ struct LeaderboardView: View {
         }
     }
 
-    private func positionStrip(_ response: LeaderboardResponse) -> some View {
+    @ViewBuilder
+    private var multiplayerLeaderboardContent: some View {
+        if let response = visibleMultiplayerResponse, !response.entries.isEmpty {
+            ScrollView {
+                LazyVStack(spacing: 7) {
+                    ForEach(response.entries) { entry in
+                        MultiplayerLeaderboardRowView(entry: entry, theme: palette)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            .refreshable { await load() }
+            .accessibilityIdentifier("multiplayer-leaderboard-results")
+        } else if !loading {
+            emptyState(
+                icon: error == nil ? "person.3.fill" : "wifi.exclamationmark",
+                message: error ?? "No multiplayer results yet"
+            )
+        } else {
+            Color.clear
+        }
+    }
+
+    private struct PositionSummary {
+        let playerRank: Int?
+        let totalEntries: Int
+        let topPercent: Int?
+    }
+
+    private var positionSummary: PositionSummary? {
+        if let response = visibleMultiplayerResponse {
+            return PositionSummary(
+                playerRank: response.playerRank,
+                totalEntries: response.totalEntries,
+                topPercent: response.topPercent
+            )
+        }
+        if let response = visibleResponse {
+            return PositionSummary(
+                playerRank: response.playerRank,
+                totalEntries: response.totalEntries,
+                topPercent: response.topPercent
+            )
+        }
+        return nil
+    }
+
+    private func positionStrip(_ summary: PositionSummary) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
-                Text(response.playerRank == nil ? "RANKED RESULTS" : "YOUR BEST POSITION")
+                Text(summary.playerRank == nil ? "RANKED RESULTS" : "YOUR BEST POSITION")
                     .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
                     .tracking(0.75)
                     .foregroundStyle(Color(hex: palette.muted))
-                Text(response.playerRank.map { "#\($0)" } ?? "\(response.totalEntries)")
+                Text(summary.playerRank.map { "#\($0)" } ?? "\(summary.totalEntries)")
                     .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
-                    .foregroundStyle(Color(hex: palette.accent))
+                    .foregroundStyle(positionAccent)
                     .monospacedDigit()
             }
             Spacer()
-            if let percent = response.topPercent {
+            if let percent = summary.topPercent {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text("TOP RESULTS")
                         .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
@@ -137,18 +196,45 @@ struct LeaderboardView: View {
                         .foregroundStyle(Color(hex: palette.muted))
                     Text("\(percent)%")
                         .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
-                        .foregroundStyle(Color(hex: palette.accent))
+                        .foregroundStyle(positionAccent)
                         .monospacedDigit()
                 }
             } else {
-                Text("\(response.totalEntries) total")
+                Text("\(summary.totalEntries) total")
                     .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
                     .foregroundStyle(Color(hex: palette.muted))
             }
         }
-        .webCardStyle(theme: palette, selectedAccent: Color(hex: palette.accent), padding: 10)
+        .webCardStyle(theme: palette, selectedAccent: positionAccent, padding: 10)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("leaderboard-position")
+    }
+
+    private var positionAccent: Color {
+        Color(hex: mode == .multiplayer ? palette.chromeAccent : palette.accent)
+    }
+
+    private func emptyState(icon: String, message: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: icon)
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(positionAccent)
+            Text(message)
+                .font(palette.appFont(size: 15, weight: .bold, relativeTo: .body))
+                .foregroundStyle(Color(hex: palette.muted))
+                .multilineTextAlignment(.center)
+            Button("Try again") { Task { await load() } }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: positionAccent,
+                        minimumHeight: 42
+                    )
+                )
+                .frame(maxWidth: 180)
+            Spacer()
+        }
     }
 
     private func load() async {
@@ -160,12 +246,21 @@ struct LeaderboardView: View {
             if generation == loadGeneration { loading = false }
         }
         do {
-            let loaded = try await backend.loadLeaderboard(mode: requestedMode)
-            guard !Task.isCancelled,
-                mode == requestedMode,
-                generation == loadGeneration
-            else { return }
-            response = loaded
+            if let gameMode = requestedMode.gameMode {
+                let loaded = try await backend.loadLeaderboard(mode: gameMode)
+                guard !Task.isCancelled,
+                    mode == requestedMode,
+                    generation == loadGeneration
+                else { return }
+                response = loaded
+            } else {
+                let loaded = try await backend.loadMultiplayerLeaderboard()
+                guard !Task.isCancelled,
+                    mode == requestedMode,
+                    generation == loadGeneration
+                else { return }
+                multiplayerResponse = loaded
+            }
             error = nil
         } catch {
             guard !Task.isCancelled,
@@ -173,7 +268,11 @@ struct LeaderboardView: View {
                 generation == loadGeneration
             else { return }
             self.error = error.localizedDescription
-            response = nil
+            if requestedMode == .multiplayer {
+                multiplayerResponse = nil
+            } else {
+                response = nil
+            }
         }
     }
 }

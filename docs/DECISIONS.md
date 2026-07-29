@@ -870,3 +870,20 @@ Consequences: The UI needs an availability gate, lobby browser/create capacity, 
 The App Store Connect score leaderboard uses exact vendor identifier `com.otcsoftware.pimpopom.multiplayer.verified`. PHP, not iOS, publishes each verified personal best through its separate allowlisted lane. Creating the Game Center component does not by itself validate or release the native mode.
 
 Revisit when: Apple changes `GKMatch`/player identity behavior, coordinator migration becomes a product requirement, production latency makes the 250 ms watermark unacceptable, the backend supplies a server-replayed random schedule or live relay, or product policy adds teams, rewards, spectators, or rematches.
+
+## P-058 — Decouple lobby readiness and consolidate leaderboard navigation
+
+- Date: 2026-07-29
+- Status: Accepted implementation candidate for TestFlight `1.02 (17)`; physical two-device validation remains pending
+
+Context: A full PHP lobby could show one participant as **Not ready** while the Ready control ignored taps. The client had coupled the readiness PATCH to a completely confirmed GameKit roster, even though PHP readiness and GameKit roster confirmation are independent start prerequisites. The same candidate exposed Multiplayer results through a nested leaderboard surface with both the NavigationStack back control and its own back control. Pixel's radius-zero outer card shadow duplicated every label inside the card, and the waiting-room icon/color/crown row compressed long player names.
+
+Decision: Permit the current participant to toggle PHP readiness whenever no readiness mutation is pending, including while GameKit is matching or confirming the roster. Do not refresh the ten-minute Game Center proof for this readiness-only PATCH; continue requiring fresh proof for create, join, roster confirmation, and start. Keep creator Start disabled until the live roster is confirmed, all 2–4 PHP participants are ready and connected, and no mutation is pending.
+
+Replace the nested Multiplayer leaderboard phase with one standard Leaderboard screen containing **Arcade**, **Zen**, and **Multiplayer** tabs. Route the Multiplayer hub and settled results to that screen through ordinary `NavigationLink` navigation so exactly one system back control is present. Retain the Multiplayer response model rather than coercing peer-consistent rows into the Arcade/Zen model. Use the exact short label **Zen**.
+
+For Pixel, disable the outer content shadow on menu panels and cards; a radius of zero with a nonzero offset is a hard duplicate of the entire composited subtree, not an absent shadow. Give the waiting-room name text tightening and scale room, and move the creator crown to an overlay so identity copy remains visible.
+
+Consequences: Players can express readiness before Apple's live roster finishes, but a match still cannot start early. The corrective candidate returns to marketing version `1.02`, matching the existing Game Center-enabled App Store version, and the prior TestFlight-only `1.2` builds can be retired after replacement. The Arcade **game version not supported** notice is a separate `/api/runs` ticket-tuple mismatch; both iOS contracts compile `20260729-1`, so that notice requires checking the returned ruleset/proof tuple or deployed validator rather than changing Multiplayer readiness.
+
+Revisit when: readiness itself needs a separate Game Center freshness gate, Apple changes Game Center version compatibility behavior, the leaderboard grows beyond three modes, or Pixel adopts explicit shape-only drop geometry.
