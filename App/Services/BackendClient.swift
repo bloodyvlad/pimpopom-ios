@@ -1180,6 +1180,41 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         return try await request(path: path, method: method, body: body, csrf: csrfToken)
     }
 
+    func performMultiplayerRequest<Response: Decodable>(
+        path: String,
+        method: String = "GET",
+        body: Data? = nil,
+        requiresAuthentication: Bool,
+        requiresCSRF: Bool
+    ) async throws -> Response {
+        let routePath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+        guard
+            routePath == "\(MultiplayerAPIContract.basePath)/leaderboard"
+                || routePath == "\(MultiplayerAPIContract.basePath)/lobbies"
+                || routePath.hasPrefix("\(MultiplayerAPIContract.basePath)/matches")
+        else {
+            throw BackendError(
+                status: 0,
+                message: "The multiplayer service path is invalid.",
+                code: "invalid-multiplayer-path"
+            )
+        }
+        if (requiresAuthentication && sessionState == nil) || (requiresCSRF && csrfToken == nil) {
+            _ = try await loadSession()
+        }
+        if requiresAuthentication {
+            guard sessionState?.authenticated == true, sessionState?.profile != nil else {
+                throw Self.authenticationRequiredError
+            }
+        }
+        return try await request(
+            path: path,
+            method: method,
+            body: body,
+            csrf: requiresCSRF ? csrfToken : nil
+        )
+    }
+
     private func submitStoreKitCredit(
         _ creditRequest: StoreCreditRequest
     ) async throws -> StoreCreditResponse {
