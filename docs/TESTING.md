@@ -2,6 +2,13 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## TestFlight 1.02 (19) Multiplayer layout candidate — 2026-07-30
+
+- The presentation regression suite passed all 14 focused Multiplayer tests, including one control scale for compact/tall waiting rooms, the exact 20-point roster offset, fixed 5-point HUD-to-board spacing, deterministic 2/3/4-player badge widths, and one 44-point horizontal player strip.
+- Two focused UI paths passed on the single named **PimPoPom iPhone 17** Simulator. The pet-free waiting fixture retained four uniform roster rows plus full-size Ready/Start controls. The four-player live fixture launched Classic, Disco, Light, and Pixel independently and retained screenshots proving the larger assigned-color cell/name, compact side cards, board spacing, pet-free Speed Bar, vertically centered pets, single-line multipliers, and four horizontal glowing badges without Pixel label ghosting. No other Simulator profile was run for this visual change.
+- `Scripts/check.sh` passed project regeneration, strict Swift formatting, `git diff --check`, resource/source/licence hashes, Info/privacy/ad-configuration guards, all 52 deterministic core tests, generic Simulator compilation, Staging version/build assertions for `1.02 (19)`, and all 224 native unit/UI paths with zero failures, skips, or expected failures. Full result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.30_01-52-53-+0200.xcresult`.
+- Simulator fixtures prove layout and accessibility only. Real 2–4-device GameKit matchmaking, live peer timing, terminal settlement, leader transfer, and Multiplayer leaderboard publication remain physical/TestFlight acceptance work.
+
 ## TestFlight 1.02 (18) Multiplayer settlement release — 2026-07-30
 
 - The corrected transcript preflight has a regression proving that a delayed final miss followed by input-time player-out and finish tuples reaches the HTTP submission stub. The coordinator policy regression proves that a terminal input cannot trigger a backward engine advance.

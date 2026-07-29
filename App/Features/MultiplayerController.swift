@@ -199,6 +199,9 @@ final class MultiplayerController: ObservableObject {
         }
         restorePendingSubmission()
         refreshAvailability()
+        #if DEBUG
+            configureUITestFixture(arguments: ProcessInfo.processInfo.arguments)
+        #endif
     }
 
     deinit {
@@ -210,6 +213,155 @@ final class MultiplayerController: ObservableObject {
         announcementTask?.cancel()
         matchmakingTask?.cancel()
     }
+
+    #if DEBUG
+        private func configureUITestFixture(arguments: [String]) {
+            let participants = [
+                MultiplayerPresentation.Participant(
+                    id: "fixture-player-0",
+                    seat: 0,
+                    colorIndex: 0,
+                    name: "pimpovlad",
+                    petID: "foka",
+                    ready: true,
+                    isCurrentPlayer: true,
+                    isCreator: true
+                ),
+                MultiplayerPresentation.Participant(
+                    id: "fixture-player-1",
+                    seat: 1,
+                    colorIndex: 1,
+                    name: "alenka",
+                    petID: "kesha",
+                    ready: true,
+                    isCurrentPlayer: false
+                ),
+                MultiplayerPresentation.Participant(
+                    id: "fixture-player-2",
+                    seat: 2,
+                    colorIndex: 2,
+                    name: "PixelPilot",
+                    petID: "misha",
+                    ready: true,
+                    isCurrentPlayer: false
+                ),
+                MultiplayerPresentation.Participant(
+                    id: "fixture-player-3",
+                    seat: 3,
+                    colorIndex: 3,
+                    name: "TapMaster",
+                    petID: "pancake",
+                    ready: true,
+                    isCurrentPlayer: false
+                ),
+            ]
+
+            if arguments.contains("--ui-test-multiplayer-waiting-fixture") {
+                phase = .waiting
+                waitingState = MultiplayerPresentation.WaitingRoomState(
+                    matchID: "fixture-match",
+                    capacity: 4,
+                    isCreator: true,
+                    participants: participants,
+                    connection: .ready,
+                    isMutationPending: false
+                )
+                return
+            }
+
+            guard arguments.contains("--ui-test-multiplayer-live-fixture") else {
+                return
+            }
+
+            let livePlayers = [
+                MultiplayerPresentation.LivePlayer(
+                    id: "fixture-player-0",
+                    seat: 0,
+                    colorIndex: 0,
+                    name: "pimpovlad",
+                    petID: "foka",
+                    points: 15_460,
+                    multiplier: 4,
+                    lives: 2,
+                    isLeader: true,
+                    isCurrentPlayer: true,
+                    isConnected: true
+                ),
+                MultiplayerPresentation.LivePlayer(
+                    id: "fixture-player-1",
+                    seat: 1,
+                    colorIndex: 1,
+                    name: "alenka",
+                    petID: "kesha",
+                    points: 8_320,
+                    multiplier: 3,
+                    lives: 3,
+                    isLeader: false,
+                    isCurrentPlayer: false,
+                    isConnected: true
+                ),
+                MultiplayerPresentation.LivePlayer(
+                    id: "fixture-player-2",
+                    seat: 2,
+                    colorIndex: 2,
+                    name: "PixelPilot",
+                    petID: "misha",
+                    points: 6_905,
+                    multiplier: 2,
+                    lives: 1,
+                    isLeader: false,
+                    isCurrentPlayer: false,
+                    isConnected: true
+                ),
+                MultiplayerPresentation.LivePlayer(
+                    id: "fixture-player-3",
+                    seat: 3,
+                    colorIndex: 3,
+                    name: "TapMaster",
+                    petID: "pancake",
+                    points: 4_210,
+                    multiplier: 1,
+                    lives: 3,
+                    isLeader: false,
+                    isCurrentPlayer: false,
+                    isConnected: true
+                ),
+            ]
+            let cells = (0..<16).map { cellID in
+                switch cellID {
+                case 5:
+                    MultiplayerPresentation.Cell(
+                        id: cellID,
+                        colorIndex: 0,
+                        ownerSeat: 0,
+                        glyph: gameColors[0].glyph,
+                        isTarget: true
+                    )
+                case 12:
+                    MultiplayerPresentation.Cell(
+                        id: cellID,
+                        colorIndex: 5,
+                        ownerSeat: 2,
+                        glyph: gameColors[5].glyph,
+                        isDecoy: true
+                    )
+                default:
+                    MultiplayerPresentation.Cell(id: cellID, colorIndex: nil)
+                }
+            }
+            phase = .live
+            liveState = MultiplayerPresentation.LiveMatchState(
+                matchID: "fixture-match",
+                elapsedMilliseconds: 46_000,
+                cells: cells,
+                players: livePlayers,
+                localSeat: 0,
+                streakSteps: 3,
+                isRecovering: false,
+                announcement: nil
+            )
+        }
+    #endif
 
     func open() {
         phase = .hub
@@ -476,10 +628,6 @@ final class MultiplayerController: ObservableObject {
                 )
             }
         }
-    }
-
-    func recordLocalPetDrag(_: CGSize) {
-        // Waiting-room pet movement is intentionally local presentation only.
     }
 
     private static func resolveAvailability(

@@ -29,6 +29,7 @@ struct RootView: View {
     @State private var showsScreenshotThemeShop = false
     @State private var showsScreenshotPetShop = false
     @State private var showsScreenshotLeaderboard = false
+    @State private var showsMultiplayerUITestFixture = false
     @State private var motivationIndex: Int?
     @State private var hasCompletedGameThisLaunch = false
     @State private var isMenuSurfaceVisible = true
@@ -157,6 +158,9 @@ struct RootView: View {
                         }
                     }
             }
+        }
+        .fullScreenCover(isPresented: $showsMultiplayerUITestFixture) {
+            MultiplayerFlowView()
         }
         .task {
             configureDebugLaunch()
@@ -889,6 +893,11 @@ struct RootView: View {
                 navigationPath = [.arcade]
             } else if arguments.contains("--play-zen") {
                 navigationPath = [.zen]
+            }
+            if arguments.contains("--ui-test-multiplayer-waiting-fixture")
+                || arguments.contains("--ui-test-multiplayer-live-fixture")
+            {
+                showsMultiplayerUITestFixture = true
             }
 
             if let fixture = ScreenshotFixture.resolve(arguments: arguments) {

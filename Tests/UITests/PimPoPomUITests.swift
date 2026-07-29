@@ -695,6 +695,85 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
+    func testMultiplayerWaitingRoomUsesPetFreeFullSizeRows() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--deterministic-game",
+            "--uitesting",
+            "--ui-test-theme=classic",
+            "--ui-test-multiplayer-waiting-fixture",
+        ]
+        app.launch()
+
+        let wordmark = app.descendants(matching: .any)["multiplayer-waiting-wordmark"]
+        XCTAssertTrue(wordmark.waitForExistence(timeout: 6))
+        XCTAssertFalse(app.descendants(matching: .any)["multiplayer-draggable-pet"].exists)
+        let firstPlayer =
+            app.descendants(matching: .any)["multiplayer-waiting-player-0"]
+        XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
+        XCTAssertGreaterThanOrEqual(firstPlayer.frame.minY - wordmark.frame.maxY, 20)
+
+        let ready = app.buttons["multiplayer-ready"]
+        let start = app.buttons["start-multiplayer-match"]
+        XCTAssertTrue(ready.waitForExistence(timeout: 2))
+        XCTAssertTrue(start.waitForExistence(timeout: 2))
+        XCTAssertGreaterThanOrEqual(ready.frame.height, 48)
+        XCTAssertGreaterThanOrEqual(start.frame.height, 48)
+
+        for seat in 0..<4 {
+            let player =
+                app.descendants(matching: .any)["multiplayer-waiting-player-\(seat)"]
+            XCTAssertTrue(player.exists)
+            XCTAssertEqual(player.frame.height, firstPlayer.frame.height, accuracy: 1)
+        }
+        attachScreenshot(of: app, name: "iPhone 17 pet-free multiplayer waiting room")
+    }
+
+    func testFourPlayerMultiplayerLiveLayoutAcrossThemes() {
+        let app = XCUIApplication()
+
+        for theme in ["classic", "disco", "light", "pixel"] {
+            app.launchArguments = [
+                "--deterministic-game",
+                "--uitesting",
+                "--ui-test-theme=\(theme)",
+                "--ui-test-multiplayer-live-fixture",
+            ]
+            app.launch()
+
+            let header = app.descendants(matching: .any)["multiplayer-live-header"]
+            let board = app.descendants(matching: .any)["multiplayer-board"]
+            let color = app.descendants(matching: .any)["multiplayer-your-color"]
+            let speedBar = app.descendants(matching: .any)["multiplayer-speed-bar"]
+            let strip = app.descendants(matching: .any)["multiplayer-player-strip"]
+            XCTAssertTrue(
+                color.waitForExistence(timeout: 6),
+                "Missing \(theme) live fixture"
+            )
+            for element in [header, board, color, speedBar, strip] {
+                XCTAssertTrue(element.waitForExistence(timeout: 2))
+            }
+            XCTAssertTrue(color.label.contains("Cyan"))
+
+            let firstPlayer = app.descendants(matching: .any)["multiplayer-player-0"]
+            XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
+            XCTAssertLessThanOrEqual(firstPlayer.frame.height, 52)
+            for seat in 1..<4 {
+                let player = app.descendants(matching: .any)["multiplayer-player-\(seat)"]
+                XCTAssertTrue(player.exists)
+                XCTAssertEqual(player.frame.midY, firstPlayer.frame.midY, accuracy: 3)
+                XCTAssertLessThanOrEqual(player.frame.height, 52)
+                XCTAssertGreaterThan(player.frame.minX, firstPlayer.frame.minX)
+            }
+            XCTAssertLessThanOrEqual(
+                app.descendants(matching: .any)["multiplayer-player-3"].frame.maxX,
+                app.windows.firstMatch.frame.maxX + 1
+            )
+            attachScreenshot(of: app, name: "iPhone 17 \(theme) four-player horizontal strip")
+            app.terminate()
+        }
+    }
+
     func testScreenshotFixtureOpensSyntheticMarketingScreens() {
         let app = XCUIApplication()
 

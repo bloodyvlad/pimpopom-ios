@@ -936,3 +936,20 @@ Replace the Multiplayer hub and waiting-room promotional heading with the PimPoP
 Consequences: The slow opening cadence remains unchanged because it already fits PHP's accepted target-scheduling and response-window bounds; it was not the cause of zero submissions. Both coordinator and joined devices now retain recoverable evidence and cannot leave a collecting result early. A temporary network failure may keep Results visible while the exact submission is retried, which is preferable to discarding or silently replacing evidence.
 
 Revisit when: PHP adds explicit per-player submission counts to every settlement response, product adds a manual abandon path for a permanently collecting match, or the compact waiting room needs a separate four-player visual design.
+
+## P-062 — Use one pet-free waiting roster and one horizontal live player strip
+
+- Date: 2026-07-30
+- Status: Accepted for TestFlight `1.02 (19)`; physical multi-device validation remains required
+
+Context: Build 18's compact Multiplayer presentation still used different waiting-room row/action sizes on 667-point devices, retained decorative pets while players waited, and stacked live player badges vertically. In live play, Points and Lives competed with the assigned color, the HUD-to-board gap varied by device, and four-player score/name/multiplier content could wrap or clip.
+
+Decision: Remove every pet from the waiting room while retaining each player's assigned-color dot, public name, readiness, connection state, and creator crown. Use the same 48-point participant rows and 48-point Ready/Start controls on compact and tall iPhones, with 9-point row-card padding and 20 points of real layout space before the roster.
+
+In live Multiplayer, reserve smaller side cards for Points and Lives and make the center card a 48-point assigned-color cell plus its visible color name, without a Your Color caption. Keep exactly 5 points between the HUD layout frame and game-zone frame. Reuse the normal pet-free Speed Bar, then show all 2–4 player badges in one horizontal row. Each 44-point badge derives its width from the available row width and participant count, vertically centers its pet, keeps score and public name together, constrains the multiplier to one line, overlays the leader crown at the upper-right corner, and draws a 2.5-point smooth-theme or 3-point Pixel-theme color stroke with stroke-only glow.
+
+Use Debug-only deterministic waiting/live fixtures for presentation tests. Validate the final presentation only on the single named iPhone 17 Simulator: the waiting fixture proves pets are absent and controls/rows are uniform, while the four-player fixture runs through Classic, Disco, Light, and Pixel and retains screenshots for visual review. This does not replace real 2–4-device GameKit validation.
+
+Consequences: The waiting room uses more neutral identity presentation and no longer implies that a selected pet participates before the match. Four-player badges intentionally use smaller score/name typography to preserve all required data in one row. Stroke-only glow avoids reintroducing Pixel label ghosting. The exact 5-point gap is a layout invariant rather than a device-specific exception.
+
+Revisit when: a supported phone width cannot fit four accessible badge summaries, the waiting room gains a separate avatar/profile system, Dynamic Type requirements demand a vertical compact fallback, or Multiplayer expands beyond four players.

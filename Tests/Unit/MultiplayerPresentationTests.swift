@@ -195,7 +195,14 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertEqual(live.orderedCells[9].colorIndex, 1)
     }
 
-    func testLiveLayoutStacksPlayersAndMovesSEBoardCloserToHUD() {
+    func testWaitingRoomUsesOneControlScaleAndTwentyPointListOffset() {
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantTopOffset, 20)
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantRowHeight, 48)
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantCardPadding, 9)
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.actionHeight, 48)
+    }
+
+    func testLiveLayoutUsesFivePointHUDGapAndOneHorizontalPlayerRow() {
         let compact = MultiplayerLiveLayoutMetrics.resolve(
             availableSize: CGSize(width: 375, height: 667),
             playerCount: 4
@@ -205,13 +212,12 @@ final class MultiplayerPresentationTests: XCTestCase {
             playerCount: 4
         )
 
-        XCTAssertEqual(compact.hudToBoardSpacing, 4)
-        XCTAssertEqual(tall.hudToBoardSpacing, 10)
-        XCTAssertEqual(
-            compact.playerStackHeight,
-            MultiplayerLiveLayoutMetrics.badgeHeight * 4
-                + MultiplayerLiveLayoutMetrics.badgeSpacing * 3
-        )
+        XCTAssertEqual(compact.hudToBoardSpacing, 5)
+        XCTAssertEqual(tall.hudToBoardSpacing, 5)
+        XCTAssertEqual(compact.playerStripHeight, MultiplayerLiveLayoutMetrics.badgeHeight)
+        XCTAssertEqual(tall.playerStripHeight, MultiplayerLiveLayoutMetrics.badgeHeight)
+        XCTAssertEqual(compact.playerBadgeWidth, 84.75, accuracy: 0.01)
+        XCTAssertEqual(tall.playerBadgeWidth, 98.5, accuracy: 0.01)
         XCTAssertGreaterThanOrEqual(
             compact.boardSide,
             MultiplayerLiveLayoutMetrics.minimumBoardSide
@@ -220,6 +226,17 @@ final class MultiplayerPresentationTests: XCTestCase {
             tall.boardSide,
             430 - MultiplayerLiveLayoutMetrics.horizontalInset * 2
         )
+
+        let twoPlayers = MultiplayerLiveLayoutMetrics.resolve(
+            availableSize: CGSize(width: 430, height: 932),
+            playerCount: 2
+        )
+        let threePlayers = MultiplayerLiveLayoutMetrics.resolve(
+            availableSize: CGSize(width: 430, height: 932),
+            playerCount: 3
+        )
+        XCTAssertEqual(twoPlayers.playerBadgeWidth, 201, accuracy: 0.01)
+        XCTAssertEqual(threePlayers.playerBadgeWidth, 132.67, accuracy: 0.01)
     }
 
     func testTerminalRemoteInputNeverAdvancesCoordinatorBackwards() {
