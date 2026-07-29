@@ -9,7 +9,7 @@ This specification captures the initial native migration baseline. It intentiona
 - Player-facing name: **Arcade**. Compatibility wire/storage identifier may remain `normal`.
 - Endless until exactly three mistakes; no hidden time limit.
 - Wrong color, decoy, inactive cell, empty board, and an expired correct target are mistakes.
-- Each mistake resets the speed multiplier. The first and second life losses begin a 1.5-second recovery before the next round; the third ends Arcade immediately and has no recovery round.
+- Each mistake resets the speed multiplier. The first and second life losses begin a 1.5-second recovery before the next round; board input is ignored throughout that recovery so a rapid multi-tap cannot consume another life. The third mistake ends Arcade immediately and has no recovery round.
 - Authenticated ranked play requires a confirmed nickname and a server-issued attempt before the first target presentation. A signed-out or nickname-unconfirmed session may play local practice that can never be promoted later; failure to bootstrap the PHP session or issue a required ranked ticket blocks Arcade with retry/menu actions.
 
 ### Zen
@@ -39,9 +39,10 @@ Frozen baseline configuration:
 | 0–10 s warm-up | 1,000 ms | 550–1,100 ms | None | 0 |
 | 10–20 s color patience | 1,000 ms | 550–1,000 ms | 2,200–3,600 ms | 1 |
 | 20–30 s gentle ramp | Rounded linear 1,000→750 ms | 500–950 ms | 2,000–3,200 ms | 1 |
-| 30–40 s rare decoys | 750 ms | 475–900 ms | 600–3,400 ms | 2 |
+| 30–40 s rare decoys | 750 ms | 475–900 ms | 600–3,400 ms | 1 |
 | 40–50 s 4×4 reset | 1,000 ms | 525–950 ms | 2,200–3,400 ms | 1 |
-| 50 s+ challenge | `max(200, 1,000 - 10 × challengeHits)` ms | See formula below | See formula below | `min(6, 2 + tier)` |
+| 50–70 s challenge | `max(200, 1,000 - 5 × challengeHits)` ms | See formula below | See formula below | 1 |
+| 70 s+ challenge | `max(200, 1,000 - 5 × challengeHits)` ms | See formula below | See formula below | `min(6, 2 + tier)` |
 
 At the first target activation at or after 50 seconds, record the current hit count as the challenge baseline. Then:
 
@@ -54,16 +55,18 @@ decoyQuietMin = 600
 decoyQuietMax = max(1,100, 2,000 - 170 × tier)
 ```
 
-The effective live-decoy cap is also limited to `cellCount - 1`. An opportunity that cannot create a decoy is recorded as ignored; when the grid has no capacity, the scheduler retries after 150 ms. Random quiet intervals, cells, colors, and lifetimes use an injected generator. Production uses the accepted system random source; deterministic fixtures inject a seeded generator. Introducing a server-provided seed would be a new proof protocol, not migration parity.
+The effective live-decoy cap is also limited to `cellCount - 1`. More than one decoy is never allowed before 70 seconds. An opportunity that cannot create a decoy is recorded as ignored; when the grid has no capacity, the scheduler retries after 150 ms. Random quiet intervals, cells, colors, and lifetimes use an injected generator. Production uses the accepted system random source; deterministic fixtures inject a seeded generator. Introducing a server-provided seed would be a new proof protocol, not migration parity.
 
-The initial player color is random. It stays fixed before 10 seconds. Each correct tap resolved at or after 10 seconds changes it to a different color; mistakes do not change it.
+The initial player color is random. It stays fixed before 10 seconds. Each correct tap resolved at or after 10 seconds chooses a different color while excluding every color used by a currently visible decoy. If those exclusions leave no alternative, retain the current color. Mistakes do not change it.
 
 ## Decoys
 
 - A decoy never uses the player's current color.
-- Decoys activate independently of targets, may overlap, and live for a randomized 450–750 ms.
+- Decoys activate independently of targets, may overlap from 70 seconds onward, and live for a randomized 1,000–3,000 ms.
 - Natural expiry awards one dodge worth 550 Arcade points.
-- Correct target input, any mistake, restart, background abandonment, or run end clears live decoys without awarding dodges.
+- Correct target input does not remove decoys. Every visible decoy remains through subsequent targets and expires on its own schedule.
+- Life loss, restart, background abandonment, or run end may clear still-live decoys without awarding dodges.
+- A decoy cell remains reserved from targets and other decoys until that decoy expires.
 - A target activation cannot reuse a cell that displayed a decoy immediately before that activation frame.
 - Ignored decoy opportunities are explicit proof events so a client cannot omit required pressure invisibly.
 - Zen never schedules or displays a decoy.

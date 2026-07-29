@@ -2,6 +2,15 @@ import PimPoPomCore
 import SpriteKit
 import SwiftUI
 
+enum GameplayBoardInteraction {
+    static func allowsHitTesting(
+        preparing: Bool,
+        recoveryRemainingMilliseconds: Double
+    ) -> Bool {
+        !preparing && recoveryRemainingMilliseconds <= 0
+    }
+}
+
 struct GameView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -476,7 +485,12 @@ struct GameView: View {
                 options: [.allowsTransparency, .ignoresSiblingOrder]
             )
             .clipShape(shell)
-            .allowsHitTesting(!preparing)
+            .allowsHitTesting(
+                GameplayBoardInteraction.allowsHitTesting(
+                    preparing: preparing,
+                    recoveryRemainingMilliseconds: coordinator.snapshot.recoveryRemainingMilliseconds
+                )
+            )
             .zIndex(GameplayOverlayLayer.board)
 
             if palette.id == "disco" {

@@ -6,6 +6,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Added
 
+- Color-bearing `reaction-proof-v3` target/hit/decoy tuples plus exact build/ruleset/proof ticket validation for the build-15 gameplay contract.
 - Debounced authenticated public-name availability checks, Unicode-wide no-whitespace validation, inline available/taken/unavailable states, and save-time conflict handling that keeps the PHP update authoritative.
 - App-owned Google Mobile Ads 13.6.0 and UMP 3.1.0 adapters with authoritative server ad-free gating, required Privacy choices, fixed 320×50 menu/gameplay/results banners, stable active-game geometry, and a persistent deduplicated three-completion Arcade/Zen interstitial cadence.
 - Test-safe Debug/Staging/Owner Ads QA/Release configuration guards, current Google SKAdNetwork registration, required-reason privacy declarations, zero-network ad fakes, and deterministic consent/banner/interstitial coverage.
@@ -48,6 +49,7 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Changed
 
+- Recovery taps are ignored after a life loss; late 4×4 response windows contract by 5 ms per hit; and 1–3-second decoys persist through correct hits/targets, reserve their cells, overlap only from 70 seconds, expire independently for dodges, and constrain subsequent player-color choices.
 - Owner-split TestFlight QA now retries an exact production-unit no-fill once with Google's corresponding official demo unit, while non-owner testers remain demo-only and Release behavior is unchanged. Transient UMP refresh failures receive one bounded post-bootstrap/foreground retry, and privacy-safe diagnostics record the account, consent, route, and GMA error class without identifiers.
 - Enabled the fixed banner inside the already separated gameplay footer for ad-supported runs, while keeping every ad surface absent for ad-free players, and reduced successful leaderboard-save feedback from a card to one compact Results line.
 - Unaffordable owned-account theme/pet taps now open Buy Coins directly, and redundant shop instruction, coin-shortfall, and newly-purchased-pet status copy no longer consumes shop space.

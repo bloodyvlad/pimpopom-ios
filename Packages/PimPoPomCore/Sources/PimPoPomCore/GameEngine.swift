@@ -213,7 +213,7 @@ public final class GameEngine {
         activeAt = now
         targetIndex = selectedTarget
         proofTargetAt = proofElapsed(now: now)
-        recordProofEvent([0, proofTargetAt ?? 0, selectedTarget])
+        recordProofEvent([0, proofTargetAt ?? 0, selectedTarget, playerColorIndex])
         return GameTransition(
             kind: .roundActive,
             snapshot: snapshot(now: now),
@@ -272,7 +272,10 @@ public final class GameEngine {
         }
 
         let configuredRange = configuration.decoys.lifetimeRangeMilliseconds
-        let maximum = min(750, configuration.decoys.maximumLifetimeMilliseconds, configuredRange.maximum)
+        let maximum = min(
+            configuration.decoys.maximumLifetimeMilliseconds,
+            configuredRange.maximum
+        )
         let minimum = min(maximum, max(0, configuredRange.minimum))
         let lifetime = jsRound(Double(minimum) + random() * Double(maximum - minimum))
         let decoy = Decoy(
@@ -284,7 +287,14 @@ public final class GameEngine {
         )
         nextDecoyID += 1
         activeDecoys.append(decoy)
-        recordProofEvent([3, proofElapsed(now: now), decoy.id, decoy.cellIndex, lifetime])
+        recordProofEvent([
+            3,
+            proofElapsed(now: now),
+            decoy.id,
+            decoy.cellIndex,
+            decoy.colorIndex,
+            lifetime,
+        ])
         return GameTransition(
             kind: .decoyActive,
             snapshot: snapshot(now: now),
@@ -321,13 +331,14 @@ public final class GameEngine {
     @discardableResult
     public func tap(cellIndex: Int, now: Double, resolvedAt: Double? = nil) -> GameTransition {
         let handledAt = resolvedAt ?? now
-        let noSettledDodges = SettledDecoys()
+        let settled = settleExpiredDecoys(now: now)
         if state == .waiting {
+            if let guarded = recoveryGuard(now: now) { return guarded }
             return miss(
                 reason: .empty,
                 now: now,
                 reactionMilliseconds: nil,
-                settled: noSettledDodges,
+                settled: settled,
                 resolvedAt: handledAt,
                 cellIndex: cellIndex
             )
@@ -346,7 +357,7 @@ public final class GameEngine {
                 reason: .late,
                 now: now,
                 reactionMilliseconds: reaction,
-                settled: noSettledDodges,
+                settled: settled,
                 resolvedAt: handledAt,
                 cellIndex: cellIndex
             )
@@ -356,7 +367,7 @@ public final class GameEngine {
                 reason: .wrong,
                 now: now,
                 reactionMilliseconds: reaction,
-                settled: noSettledDodges,
+                settled: settled,
                 resolvedAt: handledAt,
                 cellIndex: cellIndex
             )
@@ -365,7 +376,7 @@ public final class GameEngine {
         let classified = SpeedRating.classify(reactionMilliseconds: reaction)
         let scoredReaction = classified.displayedMilliseconds
         let inputAt = (proofTargetAt ?? proofElapsed(now: activeAt)) + scoredReaction
-        recordProofEvent([1, inputAt, max(inputAt, proofElapsed(now: handledAt)), cellIndex])
+        let handledProofAt = max(inputAt, proofElapsed(now: handledAt))
         let multiplierUsed = multiplier
         maximumMultiplierUsed = max(maximumMultiplierUsed, multiplierUsed)
         let base = ReactionScoring.points(
@@ -390,13 +401,16 @@ public final class GameEngine {
         if mode == .zen {
             zenTargetDelayMilliseconds += configuration.zen.cadenceAdaptation * (reaction - zenTargetDelayMilliseconds)
         }
-        finishRound()
+        finishRound(clearingDecoys: false)
         let shouldChangeColor = proofElapsed(now: now) >= configuration.phases.colorPatienceStartsAtMilliseconds
-        if shouldChangeColor { playerColorIndex = differentColorIndex() }
+        let colorChanged = shouldChangeColor ? changePlayerColor(now: now) : false
+        recordProofEvent([1, inputAt, handledProofAt, cellIndex, playerColorIndex])
 
         return GameTransition(
             kind: .hit,
             snapshot: snapshot(now: now),
+            dodgesAwarded: settled.count,
+            dodgePointsAwarded: settled.points,
             pointsAwarded: awarded,
             basePointsAwarded: base,
             multiplierUsed: multiplierUsed,
@@ -405,7 +419,7 @@ public final class GameEngine {
             reactionMilliseconds: reaction,
             displayedReactionMilliseconds: scoredReaction,
             speedRating: classified.rating,
-            colorChanged: shouldChangeColor
+            colorChanged: colorChanged
         )
     }
 
@@ -429,11 +443,12 @@ public final class GameEngine {
                 remainingMilliseconds: Double(difficulty.responseWindowMilliseconds) - reaction
             )
         }
+        let settled = settleExpiredDecoys(now: now)
         return miss(
             reason: .late,
             now: now,
             reactionMilliseconds: reaction,
-            settled: SettledDecoys(),
+            settled: settled,
             resolvedAt: now,
             cellIndex: -1
         )
@@ -555,6 +570,20 @@ public final class GameEngine {
         return (playerColorIndex + offset) % colors.count
     }
 
+    private func changePlayerColor(now: Double) -> Bool {
+        let visibleDecoyColors = Set(
+            activeDecoys.lazy
+                .filter { $0.expiresAt > now }
+                .map(\.colorIndex)
+        )
+        let candidates = colors.indices.filter {
+            $0 != playerColorIndex && !visibleDecoyColors.contains($0)
+        }
+        guard !candidates.isEmpty else { return false }
+        playerColorIndex = candidates[randomInteger(maximumExclusive: candidates.count)]
+        return true
+    }
+
     private func advanceStreak(steps: Int) {
         if multiplier >= configuration.streak.maximumMultiplier {
             streakProgress = configuration.streak.stepsPerMultiplier
@@ -577,9 +606,9 @@ public final class GameEngine {
         streakProgress = 0
     }
 
-    private func finishRound() {
+    private func finishRound(clearingDecoys: Bool = true) {
         state = .waiting
-        activeDecoys = []
+        if clearingDecoys { activeDecoys = [] }
         targetIndex = nil
         activeAt = nil
         roundKind = nil

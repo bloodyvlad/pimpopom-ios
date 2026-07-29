@@ -30,6 +30,7 @@ public struct GameConfiguration: Equatable, Sendable {
         public let rareDecoysStartsAtMilliseconds: Int
         public let fourByFourStartsAtMilliseconds: Int
         public let fourByFourChallengeStartsAtMilliseconds: Int
+        public let multipleDecoysStartsAtMilliseconds: Int
     }
 
     public struct ResponseWindows: Equatable, Sendable {
@@ -102,14 +103,15 @@ public struct GameConfiguration: Equatable, Sendable {
             gentleRampStartsAtMilliseconds: 20_000,
             rareDecoysStartsAtMilliseconds: 30_000,
             fourByFourStartsAtMilliseconds: 40_000,
-            fourByFourChallengeStartsAtMilliseconds: 50_000
+            fourByFourChallengeStartsAtMilliseconds: 50_000,
+            multipleDecoysStartsAtMilliseconds: 70_000
         ),
         responseWindows: ResponseWindows(
             comfortable: 1_000,
             gentleMinimum: 750,
             fourByFourStart: 1_000,
             fourByFourMinimum: 200,
-            fourByFourDecreasePerHit: 10
+            fourByFourDecreasePerHit: 5
         ),
         endlessDifficulty: EndlessDifficulty(
             hitsPerTier: 10,
@@ -131,8 +133,8 @@ public struct GameConfiguration: Equatable, Sendable {
             fourByFourChallenge: DelayRange(425, 825)
         ),
         decoys: Decoys(
-            maximumLifetimeMilliseconds: 750,
-            lifetimeRangeMilliseconds: DelayRange(450, 750),
+            maximumLifetimeMilliseconds: 3_000,
+            lifetimeRangeMilliseconds: DelayRange(1_000, 3_000),
             retryDelayMilliseconds: 150,
             colorPatience: DelayRange(2_200, 3_600),
             gentleRamp: DelayRange(2_000, 3_200),

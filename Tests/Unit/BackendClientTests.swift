@@ -1549,15 +1549,17 @@ final class BackendClientTests: XCTestCase {
     }
 
     func testRankedRunStartAndFinishPreserveTicketProofContract() async throws {
-        XCTAssertEqual(BackendClient.deployedBuildID, "20260719-1")
+        XCTAssertEqual(BackendClient.deployedBuildID, "20260729-1")
+        XCTAssertEqual(BackendClient.rankedRuleset, "reaction-proof-v3")
+        XCTAssertEqual(BackendClient.rankedProofVersion, 2)
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.signedInSession)
         let ticket = RunTicket(
             runId: "run-native-1",
             mode: GameMode.arcade.rawValue,
             buildId: BackendClient.deployedBuildID,
-            ruleset: "reaction-proof-v2",
-            proofVersion: 1
+            ruleset: BackendClient.rankedRuleset,
+            proofVersion: BackendClient.rankedProofVersion
         )
         let finish = RunFinishResponse(
             rank: 8,
@@ -1588,9 +1590,10 @@ final class BackendClientTests: XCTestCase {
         let engine = GameEngine(random: { 0 })
         _ = engine.start(now: 0, mode: .arcade)
         _ = engine.tap(cellIndex: 0, now: 100, resolvedAt: 100)
-        _ = engine.tap(cellIndex: 0, now: 200, resolvedAt: 200)
-        _ = engine.tap(cellIndex: 0, now: 300, resolvedAt: 300)
+        _ = engine.tap(cellIndex: 0, now: 1_600, resolvedAt: 1_600)
+        _ = engine.tap(cellIndex: 0, now: 3_100, resolvedAt: 3_100)
         let proof = engine.proofEvents()
+        XCTAssertEqual(proof.last?.first, 5)
         let accepted = try await backend.finishRun(ticket: issued, events: proof)
 
         XCTAssertEqual(issued, ticket)
@@ -1619,6 +1622,34 @@ final class BackendClientTests: XCTestCase {
         XCTAssertEqual(finishPayload["ruleset"] as? String, ticket.ruleset)
         XCTAssertEqual(finishPayload["proofVersion"] as? Int, ticket.proofVersion)
         XCTAssertEqual(finishPayload["events"] as? [[Int]], proof)
+    }
+
+    func testRankedRunStartRejectsAnIncompatibleProofTicket() async throws {
+        let sessionData = try JSONEncoder().encode(Self.signedInSession)
+        let incompatible = RunTicket(
+            runId: "run-old-proof",
+            mode: GameMode.arcade.rawValue,
+            buildId: BackendClient.deployedBuildID,
+            ruleset: "reaction-proof-v2",
+            proofVersion: 1
+        )
+        let incompatibleData = try JSONEncoder().encode(incompatible)
+        StubURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/session": StubResponse(data: sessionData)
+            case "/api/runs": StubResponse(data: incompatibleData, statusCode: 201)
+            default: StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        do {
+            _ = try await backend.startRun()
+            XCTFail("A v2 ticket must not accept the v3 gameplay trace.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "invalid-run-ticket-response")
+        }
     }
 
     func testSessionAndRunFinishIgnoreAchievementSnapshotFields() throws {
@@ -1709,8 +1740,8 @@ final class BackendClientTests: XCTestCase {
             runId: "run-native-mismatch",
             mode: GameMode.arcade.rawValue,
             buildId: BackendClient.deployedBuildID,
-            ruleset: "reaction-proof-v2",
-            proofVersion: 1
+            ruleset: BackendClient.rankedRuleset,
+            proofVersion: BackendClient.rankedProofVersion
         )
         let mismatched = RunFinishResponse(
             rank: 4,

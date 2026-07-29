@@ -350,6 +350,103 @@ final class GameplayLifecycleTests: XCTestCase {
         coordinator.stop()
     }
 
+    func testMissedRecoveryIgnoresRapidBoardTapsWithoutDrainingLives() {
+        let coordinator = GameCoordinator(mode: .arcade)
+        var soundEvents: [GameplaySoundEvent] = []
+        coordinator.onSoundEvent = { soundEvents.append($0) }
+        coordinator.startNewRun()
+
+        let now = ProcessInfo.processInfo.systemUptime * 1_000
+        coordinator.gameScene(
+            coordinator.scene,
+            didTapCell: 0,
+            normalizedLocation: CGPoint(x: 0.5, y: 0.5),
+            inputAt: now,
+            handledAt: now
+        )
+        let proofAfterAcceptedMiss = coordinator.proofEvents()
+
+        for offset in [10.0, 20.0, 30.0] {
+            coordinator.gameScene(
+                coordinator.scene,
+                didTapCell: 0,
+                normalizedLocation: CGPoint(x: 0.5, y: 0.5),
+                inputAt: now + offset,
+                handledAt: now + offset
+            )
+        }
+
+        XCTAssertEqual(coordinator.snapshot.lives, 2)
+        XCTAssertEqual(coordinator.snapshot.misses, 1)
+        XCTAssertEqual(soundEvents, [.lifeLoss])
+        XCTAssertEqual(coordinator.proofEvents(), proofAfterAcceptedMiss)
+        XCTAssertEqual(coordinator.feedback, "Missed")
+        coordinator.stop()
+    }
+
+    func testBoardInteractionIsDisabledWhilePreparingOrRecovering() {
+        XCTAssertFalse(
+            GameplayBoardInteraction.allowsHitTesting(
+                preparing: true,
+                recoveryRemainingMilliseconds: 0
+            )
+        )
+        XCTAssertFalse(
+            GameplayBoardInteraction.allowsHitTesting(
+                preparing: false,
+                recoveryRemainingMilliseconds: 1
+            )
+        )
+        XCTAssertTrue(
+            GameplayBoardInteraction.allowsHitTesting(
+                preparing: false,
+                recoveryRemainingMilliseconds: 0
+            )
+        )
+    }
+
+    func testCoordinatorKeepsDecoyAcrossHitAndTargetUntilIndependentExpiry() throws {
+        let coordinator = GameCoordinator(mode: .arcade)
+        coordinator.startNewRun()
+        let base = ProcessInfo.processInfo.systemUptime * 1_000
+
+        coordinator.gameScene(
+            coordinator.scene,
+            requestsRoundActivationAt: base + 70_000
+        )
+        let firstTarget = try XCTUnwrap(coordinator.snapshot.targetIndex)
+        coordinator.gameScene(
+            coordinator.scene,
+            requestsDecoyActivationAt: base + 70_050
+        )
+        let decoy = try XCTUnwrap(coordinator.snapshot.activeDecoys.first)
+        coordinator.gameScene(
+            coordinator.scene,
+            didTapCell: firstTarget,
+            normalizedLocation: CGPoint(x: 0.5, y: 0.5),
+            inputAt: base + 70_100,
+            handledAt: base + 70_100
+        )
+
+        XCTAssertEqual(coordinator.snapshot.activeDecoys, [decoy])
+        XCTAssertNotEqual(coordinator.snapshot.playerColorIndex, decoy.colorIndex)
+
+        coordinator.gameScene(
+            coordinator.scene,
+            requestsRoundActivationAt: base + 70_200
+        )
+        XCTAssertEqual(coordinator.snapshot.activeDecoys, [decoy])
+        XCTAssertNotEqual(coordinator.snapshot.targetIndex, decoy.cellIndex)
+
+        coordinator.gameScene(
+            coordinator.scene,
+            didAdvanceTo: decoy.expiresAt
+        )
+        XCTAssertTrue(coordinator.snapshot.activeDecoys.isEmpty)
+        XCTAssertEqual(coordinator.snapshot.dodges, 1)
+        coordinator.stop()
+    }
+
     func testEmptyAndWrongTapsShareMissedCopyWhileLateKeepsTooSlow() {
         XCTAssertEqual(GameplayMissPresentation.copy(for: nil), "Missed")
         XCTAssertEqual(GameplayMissPresentation.copy(for: "empty"), "Missed")

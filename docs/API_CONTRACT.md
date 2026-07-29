@@ -6,6 +6,8 @@ Status: two layers. The first section records the deployed compatibility surface
 
 Base URL: `https://speedytapper.otcsoft.com`. Live health and signed-out session probes on 2026-07-20 confirmed Season 1, public access, Apple identity enabled for `com.otcsoftware.pimpopom`, and the additive identity/wallet/ad-free/StoreKit session shape. The recorded backend release is annotated tag `hostinger-20260720-1` at commit `1debeaf16210bc6d2fbe9fd406adc158c9e4aa80`; its compatibility allowlist retains the native client's `20260719-1` ranked-proof build.
 
+TestFlight candidate `1.2 (15)` deliberately moves its gameplay contract to build `20260729-1`, ruleset `reaction-proof-v3`, and proof version 2. Its upload is authorized, but ranked Arcade remains compatibility-gated and retryable until the parent PHP service accepts and replays the exact v3 semantics and tuples below while retaining v2 for already distributed builds.
+
 | Method and path | Purpose | Native behavior |
 | --- | --- | --- |
 | `GET /api/session` | Cookie/CSRF bootstrap and profile summary | Always call before mutation; retain returned CSRF in memory |
@@ -19,7 +21,7 @@ Base URL: `https://speedytapper.otcsoft.com`. Live health and signed-out session
 | `GET`, `PATCH /api/profile?mode=normal` | Profile and nickname | PATCH body contains only `nickname` |
 | `POST /api/profile/nickname/availability` | Check a public player name | Authenticated CSRF mutation; exact body `{"nickname":"<candidate>"}`; this check does not reserve the name |
 | `GET /api/leaderboard?mode=normal\|zen` | Public/shared ranks | Available signed out |
-| `POST /api/runs` | Issue ranked Arcade ticket | Body `{"mode":"normal","buildId":"20260719-1"}` |
+| `POST /api/runs` | Issue ranked Arcade ticket | Build 14 sends `20260719-1`; candidate build 15 sends `20260729-1` |
 | `POST /api/runs/abandon` | Idempotent discard | Body contains `runId` |
 | `POST /api/runs/finish` | Replay proof and save result | Ticket metadata plus integer proof tuples only |
 | `GET /api/achievements` | Five-goal catalog, player state, and balance | Public; signed out returns the locked catalog, while authenticated reads return server-authoritative states/counts and `coinBalance` |
@@ -46,7 +48,7 @@ The achievement client validates unique nonempty catalog entries, positive rewar
 
 Google configuration uses a new iOS OAuth client whose bundle ID matches the app plus the existing Web OAuth client as Google `serverClientID`. The returned ID token therefore retains the audience the PHP verifier already accepts. OAuth client IDs are public configuration; no OAuth client secret ships in the app.
 
-Ranked compatibility is fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. P-025 temporarily passes the currently deployed build ID. Arcade must first bootstrap the PHP session; a signed-in confirmed session must also obtain a ranked ticket before gameplay begins. A session or ticket failure is blocking and retryable rather than a silent downgrade. After `/api/runs/finish`, a `verified` result is accepted only when `submittedEntryId` equals that ticket's `runId`; `review` and `quarantined` confirm persistence but remain intentionally absent from public ranking. P-027 permits this production-compatible path only for the first direct-email TestFlight owner/QA cohort. It must still be replaced before public-link beta expansion or App Store distribution, and immediately if the server changes its accepted build.
+Distributed build 14 remains fixed to ruleset `reaction-proof-v2`, proof version 1, a 256 KiB body cap, and 10,000 events. Candidate build 15 requires the separately versioned `reaction-proof-v3`, proof version 2 contract. Arcade must first bootstrap the PHP session; a signed-in confirmed session must also obtain a matching ranked ticket before gameplay begins. The candidate rejects a ticket whose build, mode, ruleset, or proof version does not exactly match its compiled constants. A session or ticket failure is blocking and retryable rather than a silent downgrade. After `/api/runs/finish`, a `verified` result is accepted only when `submittedEntryId` equals that ticket's `runId`; `review` and `quarantined` confirm persistence but remain intentionally absent from public ranking.
 
 The deployed compatibility backend now exposes StoreKit credit and account-deletion routes described below. The native StoreKit client uses them only for an authenticated, bound profile and never grants local value before a validated server acknowledgement. Achievement state/rewards, StoreKit wallet and entitlement state, pet/theme prices, ownership, selection, and balance are always taken from the server response; client fallback catalogs are display/offline continuity only.
 
@@ -234,6 +236,16 @@ Exact baseline proof-v1 tuple shapes:
 | 4 | `[4, settledAtMs, decoyId, ...]` | One or more naturally expired decoys |
 | 5 | `[5, logicalFinishAtMs, handledAtMs]` | Third-life terminal transition |
 | 6 | `[6, opportunityAtMs]` | Decoy opportunity that created nothing |
+
+Candidate proof-v2 retains opcodes 2, 4, 5, and 6, and extends target presentation, successful input, and decoy activation so PHP can validate every color/decoy transition:
+
+| Opcode | Proof-v2 tuple | Notes |
+| ---: | --- | --- |
+| 0 | `[0, presentedAtMs, targetCell, playerColorIndex]` | Target presentation and the exact current Your Color index |
+| 1 | `[1, inputAtMs, handledAtMs, cell, resultingPlayerColorIndex]` | Correct input and the current color after the eligible color-choice transition |
+| 3 | `[3, visibleAtMs, decoyId, cell, decoyColorIndex, lifetimeMs]` | Decoy activation; lifetime is 1,000–3,000 ms |
+
+The v3 replay must ignore board input during the 1.5-second life-loss recovery; decrease the 4×4 response window by 5 ms per challenge hit; keep the live-decoy cap at one through 69,999 ms and allow `min(6, 2 + tier)` from 70,000 ms; retain correct-hit decoys across subsequent targets; award each natural expiry independently; reserve its cell until expiry; and clear still-live decoys only on life loss, restart, abandonment, or run end. At each eligible correct-hit color change, the next player color must differ from the current color and every visible decoy color, retaining the current color only when no candidate remains.
 
 Times are chronological integer milliseconds from the run start under the proof clock. Complete accepted/invalid arrays belong in versioned golden fixtures; do not hand-author a partial example and treat it as valid. The server replays transitions, derives canonical fields, checks server-clock coverage and cadence, detects duplicate UUIDs and cloned traces, consumes the attempt once, and returns the exact result plus its rank context and economy effects.
 

@@ -56,8 +56,8 @@ func proofRounding() {
     )
     #expect(
         engine.proofEvents() == [
-            [0, 100, active.snapshot.targetIndex!],
-            [1, 250, 252, active.snapshot.targetIndex!],
+            [0, 100, active.snapshot.targetIndex!, active.snapshot.playerColorIndex],
+            [1, 250, 252, active.snapshot.targetIndex!, active.snapshot.playerColorIndex],
         ])
 }
 
@@ -111,6 +111,35 @@ func difficultyBoundaries() {
     #expect(capped.responseWindowMilliseconds == 200)
     #expect(capped.maximumActiveDecoys == 6)
     #expect(capped.decoySpawnDelayRangeMilliseconds == DelayRange(600, 1_100))
+    #expect(resolveDifficulty(hits: 4, elapsedMilliseconds: 50_000, challengeHits: 1).responseWindowMilliseconds == 995)
+    #expect(
+        resolveDifficulty(hits: 4, elapsedMilliseconds: 50_000, challengeHits: 10).responseWindowMilliseconds == 950)
+}
+
+@Test("Arcade permits multiple live decoys only from seventy seconds")
+func multipleDecoyBoundary() {
+    #expect(resolveDifficulty(hits: 8, elapsedMilliseconds: 30_000).maximumActiveDecoys == 1)
+    #expect(
+        resolveDifficulty(
+            hits: 30,
+            elapsedMilliseconds: 69_999,
+            challengeHits: 20
+        ).maximumActiveDecoys == 1
+    )
+    #expect(
+        resolveDifficulty(
+            hits: 30,
+            elapsedMilliseconds: 70_000,
+            challengeHits: 0
+        ).maximumActiveDecoys == 2
+    )
+    #expect(
+        resolveDifficulty(
+            hits: 60,
+            elapsedMilliseconds: 70_000,
+            challengeHits: 40
+        ).maximumActiveDecoys == 6
+    )
 }
 
 @Test("Independent decoy cadence wakes at the phase boundary")
@@ -128,14 +157,27 @@ func overlappingDecoys() {
     let engine = makeEngine(random: { 0.25 })
     engine.start(now: 0)
     engine.hits = 4
-    let first = engine.activateDecoy(now: 35_000)
-    let target = engine.activateRound(now: 35_020)
-    let second = engine.activateDecoy(now: 35_040)
+    let first = engine.activateDecoy(now: 70_000)
+    let target = engine.activateRound(now: 70_020)
+    let second = engine.activateDecoy(now: 70_040)
     #expect(first.kind == .decoyActive)
     #expect(target.kind == .roundActive)
     #expect(second.kind == .decoyActive)
     #expect(second.snapshot.activeDecoys.count == 2)
     #expect(second.decoy?.colorIndex != second.snapshot.playerColorIndex)
+}
+
+@Test("Decoy lifetime spans the accepted one-to-three-second range")
+func decoyLifetimeRange() {
+    let minimumEngine = makeEngine(random: { 0 })
+    minimumEngine.start(now: 0)
+    minimumEngine.hits = 4
+    #expect(minimumEngine.activateDecoy(now: 10_100).lifetimeMilliseconds == 1_000)
+
+    let maximumEngine = makeEngine(random: { 1 })
+    maximumEngine.start(now: 0)
+    maximumEngine.hits = 4
+    #expect(maximumEngine.activateDecoy(now: 10_100).lifetimeMilliseconds == 3_000)
 }
 
 @Test("Natural decoy expiry awards a neutral 550 point dodge")
@@ -162,10 +204,25 @@ func decoyProofTuples() {
 
     engine.hits = 4
     let first = engine.activateDecoy(now: 35_000).decoy!
-    let second = engine.activateDecoy(now: 35_010).decoy!
-    let expired = engine.expireDecoys(now: max(first.expiresAt, second.expiresAt))
-    #expect(expired.decoyIDs == [1, 2])
-    #expect(engine.proofEvents().last == [4, 35_460, 1, 2])
+    let blocked = engine.activateDecoy(now: 35_010)
+    #expect(blocked.reason == "decoy-capacity")
+    #expect(engine.expireDecoys(now: first.expiresAt).decoyIDs == [1])
+
+    let second = engine.activateDecoy(now: 70_000).decoy!
+    let third = engine.activateDecoy(now: 70_010).decoy!
+    #expect(
+        engine.proofEvents().contains {
+            $0 == [3, 70_000, second.id, second.cellIndex, second.colorIndex, 1_000]
+        }
+    )
+    #expect(
+        engine.proofEvents().contains {
+            $0 == [3, 70_010, third.id, third.cellIndex, third.colorIndex, 1_000]
+        }
+    )
+    let expired = engine.expireDecoys(now: max(second.expiresAt, third.expiresAt))
+    #expect(expired.decoyIDs == [2, 3])
+    #expect(engine.proofEvents().last == [4, 71_010, 2, 3])
 }
 
 @Test("An expired decoy cell is reserved from the next target")
@@ -179,50 +236,173 @@ func expiredCellReservation() {
     #expect(target.snapshot.targetIndex != decoy.cellIndex)
 }
 
-@Test("A correct hit clears visible decoys without a dodge")
-func hitClearsDecoys() {
+@Test("A correct hit preserves decoys through the next target until natural expiry")
+func hitPreservesDecoys() {
     let engine = makeEngine(random: { 0 })
     engine.start(now: 0)
     engine.hits = 4
-    let active = engine.activateRound(now: 35_000)
-    _ = engine.activateDecoy(now: 35_050)
-    let hit = engine.tap(cellIndex: active.snapshot.targetIndex!, now: 35_100)
+    let active = engine.activateRound(now: 70_000)
+    let decoy = engine.activateDecoy(now: 70_050).decoy!
+    let hit = engine.tap(cellIndex: active.snapshot.targetIndex!, now: 70_100)
     #expect(hit.kind == .hit)
-    #expect(hit.snapshot.activeDecoys.isEmpty)
+    #expect(hit.snapshot.activeDecoys == [decoy])
     #expect(hit.snapshot.dodges == 0)
+
+    let next = engine.activateRound(now: 70_200)
+    #expect(next.snapshot.targetIndex != decoy.cellIndex)
+    #expect(next.snapshot.activeDecoys == [decoy])
+
+    let expired = engine.expireDecoys(now: decoy.expiresAt)
+    #expect(expired.kind == .decoysDodged)
+    #expect(expired.snapshot.dodges == 1)
+    #expect(expired.snapshot.activeDecoys.isEmpty)
 }
 
-@Test("A hit clears an overdue but unsettled decoy without awarding a dodge")
-func hitClearsUnsettledExpiredDecoy() {
+@Test("A correct hit settles an independently expired decoy before its hit proof")
+func hitSettlesExpiredDecoy() {
     let engine = makeEngine(random: { 0 })
     engine.start(now: 0)
     engine.hits = 4
-    let active = engine.activateRound(now: 35_000)
-    let decoy = engine.activateDecoy(now: 35_010).decoy!
-    #expect(decoy.expiresAt == 35_460)
+    let decoy = engine.activateDecoy(now: 69_000).decoy!
+    let active = engine.activateRound(now: 69_500)
+    #expect(decoy.expiresAt == 70_000)
 
-    let hit = engine.tap(cellIndex: active.snapshot.targetIndex!, now: 35_470)
+    let hit = engine.tap(cellIndex: active.snapshot.targetIndex!, now: 70_010)
     #expect(hit.kind == .hit)
-    #expect(hit.snapshot.dodges == 0)
-    #expect(!engine.proofEvents().contains { $0.first == 4 })
+    #expect(hit.dodgesAwarded == 1)
+    #expect(hit.dodgePointsAwarded == 550)
+    #expect(hit.snapshot.dodges == 1)
+    let expiryIndex = engine.proofEvents().firstIndex { $0.first == 4 }
+    let hitIndex = engine.proofEvents().firstIndex { $0.first == 1 }
+    #expect(expiryIndex != nil)
+    #expect(hitIndex != nil)
+    #expect(expiryIndex! < hitIndex!)
 }
 
-@Test("Normal ends on exactly the third mistake and records finish")
+@Test("Staggered decoy expiry preserves and reserves the live sibling")
+func staggeredDecoyExpiryPreservesSibling() {
+    let engine = makeEngine(random: { 0 })
+    engine.start(now: 0)
+    engine.hits = 34
+    engine.challengeStartHits = 4
+    engine.activeDecoys = [
+        Decoy(id: 1, cellIndex: 2, colorIndex: 1, visibleAt: 70_000, expiresAt: 71_000),
+        Decoy(id: 2, cellIndex: 3, colorIndex: 2, visibleAt: 70_000, expiresAt: 72_000),
+    ]
+
+    let expiry = engine.expireDecoys(now: 71_000)
+    #expect(expiry.decoyIDs == [1])
+    #expect(expiry.snapshot.activeDecoys.map(\.id) == [2])
+    #expect(expiry.snapshot.nextDecoyExpiryAt == 72_000)
+
+    let target = engine.activateRound(now: 71_100)
+    #expect(target.snapshot.targetIndex != 2)
+    #expect(target.snapshot.targetIndex != 3)
+    #expect(target.snapshot.activeDecoys.map(\.id) == [2])
+}
+
+@Test("A miss awards an expired decoy while clearing its live sibling")
+func missSettlesExpiredDecoyAndClearsSibling() {
+    let engine = makeEngine(random: { 0 })
+    engine.start(now: 0)
+    engine.hits = 34
+    engine.challengeStartHits = 4
+    let active = engine.activateRound(now: 70_000)
+    let targetIndex = active.snapshot.targetIndex!
+    let decoyCells = (0..<16).filter { $0 != targetIndex }
+    engine.activeDecoys = [
+        Decoy(id: 1, cellIndex: decoyCells[0], colorIndex: 1, visibleAt: 70_010, expiresAt: 70_050),
+        Decoy(id: 2, cellIndex: decoyCells[1], colorIndex: 2, visibleAt: 70_010, expiresAt: 72_000),
+    ]
+
+    let miss = engine.tap(cellIndex: decoyCells[0], now: 70_100)
+    #expect(miss.kind == .miss)
+    #expect(miss.dodgesAwarded == 1)
+    #expect(miss.dodgePointsAwarded == 550)
+    #expect(miss.snapshot.dodges == 1)
+    #expect(miss.snapshot.activeDecoys.isEmpty)
+    #expect(engine.proofEvents().contains { $0 == [4, 70_100, 1] })
+}
+
+@Test("Arcade color changes exclude every visible decoy color")
+func colorChangeAvoidsVisibleDecoys() {
+    let engine = makeEngine(random: { 0 })
+    engine.start(now: 0)
+    engine.hits = 4
+    let active = engine.activateRound(now: 70_000)
+    let decoy = engine.activateDecoy(now: 70_050).decoy!
+    #expect(active.snapshot.playerColorIndex == 0)
+    #expect(decoy.colorIndex == 1)
+
+    let hit = engine.tap(cellIndex: active.snapshot.targetIndex!, now: 70_100)
+    #expect(hit.colorChanged == true)
+    #expect(hit.snapshot.playerColorIndex == 2)
+    #expect(hit.snapshot.playerColorIndex != decoy.colorIndex)
+    #expect(hit.snapshot.activeDecoys == [decoy])
+    #expect(engine.proofEvents().last == [1, 70_100, 70_100, active.snapshot.targetIndex!, 2])
+}
+
+@Test("Arcade retains its color when visible decoys occupy every alternative")
+func colorChangeRetainsCurrentFallback() {
+    let engine = makeEngine(random: { 0 })
+    engine.start(now: 0)
+    engine.hits = 34
+    engine.challengeStartHits = 4
+    let active = engine.activateRound(now: 70_000)
+    let targetIndex = active.snapshot.targetIndex!
+    let availableCells = (0..<16).filter { $0 != targetIndex }
+    engine.activeDecoys = (1...5).map { colorIndex in
+        Decoy(
+            id: colorIndex,
+            cellIndex: availableCells[colorIndex - 1],
+            colorIndex: colorIndex,
+            visibleAt: 70_010,
+            expiresAt: 80_000
+        )
+    }
+
+    let hit = engine.tap(cellIndex: targetIndex, now: 70_100)
+    #expect(hit.kind == .hit)
+    #expect(hit.colorChanged == false)
+    #expect(hit.snapshot.playerColorIndex == 0)
+    #expect(hit.snapshot.activeDecoys.count == 5)
+}
+
+@Test("A life loss clears every still-visible decoy without a dodge")
+func missClearsVisibleDecoys() {
+    let engine = makeEngine(random: { 0 })
+    engine.start(now: 0)
+    engine.hits = 4
+    let active = engine.activateRound(now: 70_000)
+    _ = engine.activateDecoy(now: 70_050)
+    let wrongCell = (active.snapshot.targetIndex! + 1) % 16
+
+    let miss = engine.tap(cellIndex: wrongCell, now: 70_100)
+    #expect(miss.kind == .miss)
+    #expect(miss.lifeLost == true)
+    #expect(miss.snapshot.activeDecoys.isEmpty)
+    #expect(miss.snapshot.dodges == 0)
+}
+
+@Test("Normal ignores recovery taps and ends only on three accepted mistakes")
 func threeLifeEnding() {
     let engine = makeEngine(random: { 0 })
     engine.start(now: 0)
     _ = engine.tap(cellIndex: 0, now: 100)
-    _ = engine.tap(cellIndex: 0, now: 200)
-    let third = engine.tap(cellIndex: 0, now: 300)
+    #expect(engine.tap(cellIndex: 0, now: 200).reason == "recovering")
+    #expect(engine.tap(cellIndex: 0, now: 300).reason == "recovering")
+    #expect(engine.lives == 2)
+    _ = engine.tap(cellIndex: 0, now: 1_600)
+    let third = engine.tap(cellIndex: 0, now: 3_100)
     #expect(third.kind == .miss)
     #expect(third.snapshot.state == .gameOver)
     #expect(third.snapshot.lives == 0)
-    #expect(third.snapshot.elapsedMilliseconds == 300)
-    #expect(engine.proofEvents().last == [5, 300, 300])
+    #expect(third.snapshot.elapsedMilliseconds == 3_100)
+    #expect(engine.proofEvents().last == [5, 3_100, 3_100])
     #expect(engine.isRunComplete())
 }
 
-@Test("Lost lives enforce recovery and waiting taps restart it")
+@Test("Lost lives enforce recovery and waiting taps cannot restart it")
 func recovery() {
     let engine = makeEngine(random: { 0 })
     engine.start(now: 0)
@@ -230,9 +410,12 @@ func recovery() {
     let blocked = engine.activateRound(now: 1_599)
     #expect(blocked.reason == "recovering")
     #expect(blocked.remainingMilliseconds == 1)
-    _ = engine.tap(cellIndex: 0, now: 1_000)
-    #expect(engine.snapshot(now: 1_000).lives == 1)
-    #expect(engine.snapshot(now: 1_000).recoveryRemainingMilliseconds == 1_500)
+    let ignoredTap = engine.tap(cellIndex: 0, now: 1_000)
+    #expect(ignoredTap.kind == .ignored)
+    #expect(ignoredTap.reason == "recovering")
+    #expect(engine.snapshot(now: 1_000).lives == 2)
+    #expect(engine.snapshot(now: 1_000).recoveryRemainingMilliseconds == 600)
+    #expect(engine.activateRound(now: 1_600).kind == .roundActive)
 }
 
 @Test("Life-loss recovery is anchored to delayed handler resolution")

@@ -832,3 +832,20 @@ Treat availability as advisory, cancellable, profile-scoped, and non-reserving. 
 Consequences: Profile gives prompt feedback without trusting a stale check, every whitespace class is handled consistently, and save-time concurrency remains correct. The TestFlight binary can fail safely against an older backend—the check appears temporarily unavailable and PATCH remains authoritative—but uniqueness is not end-to-end until the parent PHP release is deployed. Physical/TestFlight validation remains required because this candidate intentionally skips Simulator execution at the owner's request.
 
 Revisit when: product policy adds case-sensitive names, confusable-character moderation, a server-issued reservation token, locale-specific normalization, or rename cooldowns.
+
+## P-056 — Slow late-round pressure and make decoys persistent hazards
+
+- Date: 2026-07-29
+- Status: Accepted for native candidate `1.2 (15)`; matching PHP proof-v3 support is a release gate
+
+Context: A life-loss recovery still accepted waiting-board taps, so one rapid multi-tap could consume all three lives. Correct hits also removed every visible decoy, making the independent scheduler look transient, while the 450–750 ms lifetime and 10 ms per-hit late-round contraction shortened rounds more aggressively than desired. Persisting decoys changes both player-visible pressure and the server replay that derives authoritative score.
+
+Decision: Ignore every board tap during the 1.5-second post-miss recovery without emitting another miss or proof event. Use randomized 1,000–3,000 ms decoy lifetimes. A correct hit preserves every still-live decoy through the waiting interval and subsequent targets; natural expiry remains independent and awards its 550-point dodge. Life loss, restart, abandonment, and round end clear still-live decoys without a dodge. Reserve each decoy cell until expiry.
+
+Keep the configured live-decoy cap at one before 70,000 elapsed milliseconds. At 70,000 ms and later, allow `min(6, 2 + tier)`, still bounded by `cellCount - 1`. Reduce the 4×4 challenge response window by 5 ms per hit rather than 10 ms, retaining the existing 200 ms floor. After the ten-second color-change threshold, choose the next player color from colors that differ from the current color and every visible decoy color; retain the current color only when no alternative exists.
+
+Version the changed replay as build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2. Extend target presentation to `[0, at, cell, playerColorIndex]`, successful input to `[1, inputAt, handledAt, cell, resultingPlayerColorIndex]`, and decoy activation to `[3, at, id, cell, decoyColorIndex, lifetimeMs]`; all other opcode shapes remain unchanged. Recording the resulting color on opcode 1 lets replay advance its current color before a decoy can appear ahead of the next target opcode. The native client rejects a mismatched ranked ticket instead of emitting a v3 trace under v2. TestFlight upload is authorized, but ranked Arcade stays blocked with its existing retry/menu compatibility gate until the parent backend deploys a separate v3 validator while retaining v2 support for distributed clients.
+
+Consequences: Recovery can no longer cascade into accidental life loss, decoys become persistent board constraints, and late Arcade rounds progress more gradually. Deterministic core and coordinator tests must cover the 70-second boundary, both lifetime bounds, hit persistence, independent expiry/dodge, miss clearing, reserved cells, color exclusion/fallback, proof tuple order, and ticket compatibility. Simulator and physical-device validation remain required before describing presentation/touch behavior as release-validated.
+
+Revisit when: longer-lived decoys obscure targets too often, 70 seconds is too late for overlap, the six-decoy cap overwhelms small screens, or production traces justify another response-window floor or cadence change.

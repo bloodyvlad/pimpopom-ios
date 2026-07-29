@@ -13,7 +13,9 @@ struct BackendError: LocalizedError {
 @MainActor
 final class BackendClient: ObservableObject, StoreKitCreditServing {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
-    static let deployedBuildID = "20260719-1"
+    static let deployedBuildID = "20260729-1"
+    static let rankedRuleset = "reaction-proof-v3"
+    static let rankedProofVersion = 2
     static let accountDeletionConfirmation = "DELETE MY ACCOUNT"
     static let accountDeletionAccountMismatchCode = "account-reauthentication-mismatch"
     static var localStoreKitFixtureRequested: Bool {
@@ -974,15 +976,27 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 runId: "00000000-0000-4000-8000-000000000001",
                 mode: GameMode.arcade.rawValue,
                 buildId: Self.deployedBuildID,
-                ruleset: "reaction-proof-v2",
-                proofVersion: 1
+                ruleset: Self.rankedRuleset,
+                proofVersion: Self.rankedProofVersion
             )
         }
         let body = try encoder.encode([
             "mode": GameMode.arcade.rawValue,
             "buildId": Self.deployedBuildID,
         ])
-        return try await mutation(path: "/api/runs", method: "POST", body: body)
+        let ticket: RunTicket = try await mutation(
+            path: "/api/runs",
+            method: "POST",
+            body: body
+        )
+        guard ticket.mode == GameMode.arcade.rawValue,
+            ticket.buildId == Self.deployedBuildID,
+            ticket.ruleset == Self.rankedRuleset,
+            ticket.proofVersion == Self.rankedProofVersion
+        else {
+            throw Self.invalidRunTicketResponseError
+        }
+        return ticket
     }
 
     func abandonRun(_ runID: String) async {
@@ -2122,6 +2136,12 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         status: 0,
         message: "The leaderboard did not confirm that this score was saved. Please retry.",
         code: "invalid-run-finish-response"
+    )
+
+    private static let invalidRunTicketResponseError = BackendError(
+        status: 0,
+        message: "This game version is not yet supported for ranked Arcade. Please try again later.",
+        code: "invalid-run-ticket-response"
     )
 
     private static let invalidStoreKitRequestError = BackendError(

@@ -116,7 +116,7 @@ public func resolveDifficulty(
         responseWindow = windows.gentleMinimum
         spawnDelay = delays.rareDecoys
         decoyDelay = configuration.decoys.rareDecoys
-        maximumActiveDecoys = 2
+        maximumActiveDecoys = 1
     }
     if elapsed >= phases.fourByFourStartsAtMilliseconds {
         phaseID = "four-by-four-reset"
@@ -157,7 +157,10 @@ public func resolveDifficulty(
                     * endless.decoyMaximumDecreasePerTierMilliseconds
             )
         )
-        maximumActiveDecoys = min(endless.maximumDecoys, 2 + challengeTier)
+        maximumActiveDecoys =
+            elapsed >= phases.multipleDecoysStartsAtMilliseconds
+            ? min(endless.maximumDecoys, 2 + challengeTier)
+            : 1
     }
 
     let paceLevel: Int

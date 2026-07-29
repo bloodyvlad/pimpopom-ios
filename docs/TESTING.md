@@ -2,6 +2,12 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## Build 1.2 (15) gameplay-candidate evidence — 2026-07-29
+
+- `swift test --package-path Packages/PimPoPomCore` passed all 36 deterministic core tests. Focused coverage includes the 70-second multi-decoy boundary, 1,000/3,000 ms lifetime bounds, persistence through hits and subsequent targets, staggered expiry with sibling reservation/next-expiry advancement, expiry immediately before a miss, life-loss cleanup, color exclusion/fallback, recovery input suppression, 5 ms challenge contraction, and the exact proof-v2 target/hit/decoy tuples.
+- Focused `xcodebuild test` on the single named iPhone 17 Simulator passed all 54 selected `BackendClientTests` and `GameplayLifecycleTests` with zero failures. This covers the literal SpriteView interaction lock while preparing/recovering, coordinator-level decoy persistence/expiry, rapid recovery taps, exact build/ruleset/proof ticket acceptance, and mismatched-ticket rejection. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hgpdhdhlwjuyrybrnevtvnzivund/Logs/Test/Test-PimPoPom-2026.07.29_14-26-32-+0200.xcresult`.
+- This is focused implementation evidence, not physical-device validation. Ranked Arcade remains retryably gated until PHP accepts build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2, and the exact color-bearing proof tuples.
+
 ## TestFlight build 1.2 (14) nickname-validation evidence
 
 The owner explicitly requested no Simulator execution for this candidate. Project regeneration, strict formatting, deterministic host-side core checks, asset/configuration/privacy guards, `git diff --check`, a generic-iOS app build, a compile-only generic-iOS test bundle, a clean signed generic-device archive, archive signature/entitlement/configuration inspection, and App Store Connect processing passed. Apple accepted build `0c92c8da-ff91-4c99-9a05-cf7f00984fdd`, approved its Beta App Review, and placed it in both named QA groups. This is not Simulator-tested or device-tested evidence.
@@ -64,14 +70,14 @@ Run without iOS frameworks, network, wall clock, or nondeterministic randomness:
 
 - seeded target/color/cell selection;
 - 1×1 → 2×2 → 4×4 progression and phase boundaries;
-- target windows, late-game floor, recovery, and endless completion rules;
+- target windows, 5 ms late-game contraction/floor, recovery input lock, and endless completion rules;
 - every mistake type and exact third-life terminal transition;
-- independent overlapping decoys, lifetime bounds, reserved-cell rule, natural-expiry dodge, and clearing without dodge;
+- 1–3-second independent decoys, the 70-second overlap boundary, persistence across hits/targets, reserved-cell and color-exclusion rules, natural-expiry dodges, and life-loss clearing without a dodge;
 - score formula and rounding at 0, threshold-adjacent, deadline-adjacent, and clamped values;
 - Godlike/Perfect/Great/Good boundaries from the displayed rounded milliseconds;
 - multiplier step weighting, overflow, next-tap activation, 5× cap, mistake reset, and neutral dodge;
 - endless Zen, persistent target through mistakes, adaptive delay, no decoys/reward/proof, and ephemeral End run results;
-- proof opcode order, timestamps, duplicate resolution, terminal completeness, and size limits.
+- proof-v2 color-bearing target/hit/decoy tuples, opcode order, timestamps, duplicate resolution, terminal completeness, and size limits.
 
 Use frozen cross-runtime JSON fixtures plus property-based/randomized transition tests. A parity mismatch fails until an accepted decision explains it.
 
@@ -99,7 +105,7 @@ Use XCUITest for end-to-end paths and focused UIKit/SpriteKit harnesses or XCTes
 - Game Center API compatibility while the old PHP service can still return recent-auth/conflict errors, plus current-profile-wins reassignment, publication-lock ordering, stale-outbox invalidation, and idempotent authoritative backfill after the separate backend task deploys.
 - Keychain first install, update, lock state, restore, loss, reinstall, and account switch.
 - API schema, compatibility rejection, maintenance, rate limit, timeout, cancellation, response redaction, and safe retry.
-- Ranked start/abandon/finish, duplicate UUID, mismatched retry, cloned trace, review, idempotent completion, offline start, and background abandonment.
+- Ranked start/abandon/finish, exact `20260729-1`/`reaction-proof-v3`/proof-2 ticket gating, duplicate UUID, mismatched retry, cloned trace, review, idempotent completion, offline start, and background abandonment.
 - Profile/nickname, top-five and neighboring-rank context, achievements, pets, themes, catalog prices, ownership, debt, and generation behavior.
 - App Attest supported/unsupported, key loss, reinstall, stale challenge, counter/replay, and Apple service outage.
 
