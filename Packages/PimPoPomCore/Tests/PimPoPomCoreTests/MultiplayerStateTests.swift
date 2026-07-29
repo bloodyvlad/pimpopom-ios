@@ -274,20 +274,22 @@ func multiplayerCoordinatorInputReorderWatermark() throws {
     #expect(coordinator.clockMilliseconds == secondWatermark)
 
     _ = try coordinator.advance(to: secondWatermark)
-    #expect(coordinator.events.contains { event in
-        if case .miss(_, _, _, _, .late, _) = event { return true }
-        return false
-    } == false)
+    #expect(
+        coordinator.events.contains { event in
+            if case .miss(_, _, _, _, .late, _) = event { return true }
+            return false
+        } == false)
 
     // Advancing the next stable watermark does not retroactively create the
     // expired-target miss, because the queued hit resolved it first.
     _ = try coordinator.advance(
         to: arrivedAt
     )
-    #expect(coordinator.events.contains { event in
-        if case .miss(_, _, _, _, .late, _) = event { return true }
-        return false
-    } == false)
+    #expect(
+        coordinator.events.contains { event in
+            if case .miss(_, _, _, _, .late, _) = event { return true }
+            return false
+        } == false)
 }
 
 @Test("Placement uses score, hits, average reaction, then seat")

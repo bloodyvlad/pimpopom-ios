@@ -12,6 +12,7 @@ struct RootView: View {
     @EnvironmentObject private var quickActions: HomeQuickActionController
     @EnvironmentObject private var gameCenter: GameCenterService
     @EnvironmentObject private var gameCenterAutoLink: GameCenterAutoLinkController
+    @EnvironmentObject private var multiplayer: MultiplayerController
     @EnvironmentObject private var purchases: PurchaseController
     @EnvironmentObject private var ads: AdsController
 
@@ -48,6 +49,7 @@ struct RootView: View {
                 GeometryReader { proxy in
                     menuPanel(
                         screenWidth: proxy.size.width,
+                        screenHeight: proxy.size.height,
                         usesCompactRemoveAds: MenuRemoveAdsPlacement.usesCompactHeader(
                             screenSize: UIScreen.main.bounds.size
                         )
@@ -161,6 +163,7 @@ struct RootView: View {
             openPendingQuickAction()
             audio.setApplicationActive(scenePhase == .active)
             ads.setApplicationActive(scenePhase == .active)
+            multiplayer.setApplicationActive(scenePhase == .active)
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
             audio.playLaunchSting()
@@ -193,6 +196,7 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             audio.setApplicationActive(phase == .active)
             ads.setApplicationActive(phase == .active)
+            multiplayer.setApplicationActive(phase == .active)
             if phase == .active, navigationPath.isEmpty {
                 audio.setMusicContext(.menu)
             }
@@ -207,6 +211,7 @@ struct RootView: View {
         }
         .onChange(of: backend.sessionState) { _, _ in
             gameCenterAutoLink.reconcile()
+            multiplayer.refreshAvailability()
             Task {
                 await ads.updateSession(backend.sessionState)
                 await purchases.reconcileOutstandingTransactions()
@@ -223,6 +228,7 @@ struct RootView: View {
         }
         .onChange(of: gameCenter.state) { _, _ in
             gameCenterAutoLink.reconcile()
+            multiplayer.refreshAvailability()
         }
         .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
             guard isEmpty, !wasEmpty else { return }
@@ -236,6 +242,7 @@ struct RootView: View {
 
     private func menuPanel(
         screenWidth: CGFloat,
+        screenHeight: CGFloat,
         usesCompactRemoveAds: Bool
     ) -> some View {
         let largePhoneScale = WebMenuMetrics.largePhoneScale(screenWidth: screenWidth)
@@ -252,7 +259,10 @@ struct RootView: View {
 
             VStack(spacing: 0) {
                 utilityHeader(usesCompactRemoveAds: usesCompactRemoveAds)
-                hintStage(screenWidth: screenWidth)
+                hintStage(
+                    screenWidth: screenWidth,
+                    usesCompactHeight: screenHeight < 700
+                )
                 actionStack
                 Spacer(minLength: 6)
                 menuFooter(usesCompactRemoveAds: usesCompactRemoveAds)
@@ -413,7 +423,10 @@ struct RootView: View {
         .frame(minHeight: WebMenuMetrics.headerHeight)
     }
 
-    private func hintStage(screenWidth: CGFloat) -> some View {
+    private func hintStage(
+        screenWidth: CGFloat,
+        usesCompactHeight: Bool
+    ) -> some View {
         let largePhoneScale = WebMenuMetrics.largePhoneScale(screenWidth: screenWidth)
         let menuPetSize = WebMenuMetrics.menuPetSize(screenWidth: screenWidth)
 
@@ -473,10 +486,14 @@ struct RootView: View {
                 .accessibilityIdentifier("menu-intro-stamps")
             }
         }
-        .frame(maxWidth: .infinity, minHeight: WebMenuMetrics.hintHeight, alignment: .leading)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: usesCompactHeight ? 78 : WebMenuMetrics.hintHeight,
+            alignment: .leading
+        )
         .padding(.trailing, cosmetics.displayedPetID == nil ? 0 : menuPetSize + 12)
-        .padding(.top, 8)
-        .padding(.bottom, 14)
+        .padding(.top, usesCompactHeight ? 2 : 8)
+        .padding(.bottom, usesCompactHeight ? 4 : 14)
     }
 
     private var introHints: [(text: String, color: String)] {
@@ -506,6 +523,12 @@ struct RootView: View {
                 VStack(spacing: WebMenuMetrics.pairedGap) {
                     modeLink(.arcade)
                     modeLink(.zen)
+                    MultiplayerMenuLink(
+                        availability: multiplayer.availability,
+                        theme: palette
+                    ) {
+                        MultiplayerFlowView()
+                    }
                 }
             }
 
@@ -912,9 +935,15 @@ struct RootView: View {
     let achievements = AchievementsController(backend: backend)
     let purchases = PurchaseController(creditService: backend, startListeners: false)
     let gameCenter = GameCenterService(arguments: ["--uitesting"])
+    let audio = AudioController()
     let gameCenterAutoLink = GameCenterAutoLinkController(
         backend: backend,
         gameCenter: gameCenter
+    )
+    let multiplayer = MultiplayerController(
+        backend: backend,
+        gameCenter: gameCenter,
+        audio: audio
     )
     let ads = AdsController(
         configuration: AdsConfiguration(
@@ -936,11 +965,12 @@ struct RootView: View {
     .environmentObject(preferences)
     .environmentObject(cosmetics)
     .environmentObject(achievements)
-    .environmentObject(AudioController())
+    .environmentObject(audio)
     .environmentObject(AppIconController())
     .environmentObject(HomeQuickActionController.shared)
     .environmentObject(gameCenter)
     .environmentObject(gameCenterAutoLink)
+    .environmentObject(multiplayer)
     .environmentObject(purchases)
     .environmentObject(ads)
 }

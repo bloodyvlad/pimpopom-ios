@@ -296,10 +296,24 @@ struct MultiplayerSnapshotPacket: Codable, Equatable {
     let chunkIndex: Int
     let chunkCount: Int
     let events: [[Int]]
+    let pendingPlans: [MultiplayerWireActivationPlan]
+    let coordinatorMatchStartMonotonicMilliseconds: Int
+    let pauseId: Int?
+    let pausedAtLogicalMilliseconds: Int?
 }
 
 struct MultiplayerSnapshotRequestPacket: Codable, Equatable {
     let afterEventSequence: Int
+}
+
+struct MultiplayerPausePacket: Codable, Equatable {
+    let pauseId: Int
+    let pausedAtLogicalMilliseconds: Int
+}
+
+struct MultiplayerResumePacket: Codable, Equatable {
+    let pauseId: Int
+    let coordinatorMatchStartMonotonicMilliseconds: Int
 }
 
 struct MultiplayerFinishPacket: Codable, Equatable {
@@ -321,6 +335,8 @@ enum MultiplayerPacketPayload: Equatable {
     case acknowledgement(MultiplayerAcknowledgementPacket)
     case snapshot(MultiplayerSnapshotPacket)
     case snapshotRequest(MultiplayerSnapshotRequestPacket)
+    case pause(MultiplayerPausePacket)
+    case resume(MultiplayerResumePacket)
     case finish(MultiplayerFinishPacket)
 }
 
@@ -343,6 +359,8 @@ extension MultiplayerPacketPayload: Codable {
         case acknowledgement
         case snapshot
         case snapshotRequest
+        case pause
+        case resume
         case finish
     }
 
@@ -396,6 +414,14 @@ extension MultiplayerPacketPayload: Codable {
             self = .snapshotRequest(
                 try container.decode(MultiplayerSnapshotRequestPacket.self, forKey: .body)
             )
+        case .pause:
+            self = .pause(
+                try container.decode(MultiplayerPausePacket.self, forKey: .body)
+            )
+        case .resume:
+            self = .resume(
+                try container.decode(MultiplayerResumePacket.self, forKey: .body)
+            )
         case .finish:
             self = .finish(try container.decode(MultiplayerFinishPacket.self, forKey: .body))
         }
@@ -439,6 +465,12 @@ extension MultiplayerPacketPayload: Codable {
             try container.encode(body, forKey: .body)
         case .snapshotRequest(let body):
             try container.encode(Kind.snapshotRequest, forKey: .kind)
+            try container.encode(body, forKey: .body)
+        case .pause(let body):
+            try container.encode(Kind.pause, forKey: .kind)
+            try container.encode(body, forKey: .body)
+        case .resume(let body):
+            try container.encode(Kind.resume, forKey: .kind)
             try container.encode(body, forKey: .body)
         case .finish(let body):
             try container.encode(Kind.finish, forKey: .kind)
@@ -602,11 +634,14 @@ protocol MultiplayerGameKitTransporting: AnyObject {
     func broadcastEvents(_ events: [[Int]], logicalMatchMilliseconds: Int) throws
     func sendSnapshot(
         events: [[Int]],
+        pendingPlans: [MultiplayerWireActivationPlan],
         afterEventSequence: Int,
         logicalMatchMilliseconds: Int,
         to gamePlayerID: String
     ) throws
     func requestSnapshot(afterEventSequence: Int, logicalMatchMilliseconds: Int) throws
+    func sendPause(pauseID: Int, logicalMatchMilliseconds: Int) throws
+    func sendResume(pauseID: Int, logicalMatchMilliseconds: Int) throws
     func sendFinish(
         finalEventSequence: Int,
         manifestHash: String,
@@ -656,6 +691,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
     private var pendingAcknowledgements: [Int: Set<String>] = [:]
     private var disconnectedPlayerIDs: Set<String> = []
     private var startSignal: MultiplayerStartSignalPacket?
+    private var activePause:
+        (
+            id: Int,
+            coordinatorBeganMonotonicMilliseconds: Int,
+            logicalMilliseconds: Int
+        )?
 
     init(
         client: any MultiplayerGameKitClientProtocol = LiveMultiplayerGameKitClient(),
@@ -792,21 +833,15 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         _ input: MultiplayerInputPacket,
         logicalMatchMilliseconds: Int
     ) throws {
-        guard let roster else { throw MultiplayerGameKitError.notConnected }
-        if isCoordinator {
-            try send(
-                payload: .input(input),
-                eventSequence: highestAppliedEventSequence,
-                logicalMatchMilliseconds: logicalMatchMilliseconds
-            )
-        } else {
-            try send(
-                payload: .input(input),
-                eventSequence: highestAppliedEventSequence,
-                logicalMatchMilliseconds: logicalMatchMilliseconds,
-                to: [roster.coordinatorGamePlayerID]
-            )
-        }
+        guard roster != nil else { throw MultiplayerGameKitError.notConnected }
+        // Every peer must witness immutable input evidence. Sending only to the
+        // coordinator would let one modified coordinator fabricate another
+        // participant's accepted taps before all peers submit the transcript.
+        try send(
+            payload: .input(input),
+            eventSequence: highestAppliedEventSequence,
+            logicalMatchMilliseconds: logicalMatchMilliseconds
+        )
     }
 
     func sendActivationPlans(
@@ -897,12 +932,14 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
 
     func sendSnapshot(
         events: [[Int]],
+        pendingPlans: [MultiplayerWireActivationPlan],
         afterEventSequence: Int,
         logicalMatchMilliseconds: Int,
         to gamePlayerID: String
     ) throws {
         guard isCoordinator,
-            events.first?[safe: 1] == afterEventSequence + 1 || events.isEmpty
+            events.first?[safe: 1] == afterEventSequence + 1 || events.isEmpty,
+            let coordinatorMatchStartMonotonicMilliseconds
         else {
             throw MultiplayerGameKitError.coordinatorRequired
         }
@@ -916,7 +953,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                         throughEventSequence: events.last?[safe: 1] ?? afterEventSequence,
                         chunkIndex: index,
                         chunkCount: snapshotChunks.count,
-                        events: chunk
+                        events: chunk,
+                        pendingPlans: pendingPlans.sorted { $0.planId < $1.planId },
+                        coordinatorMatchStartMonotonicMilliseconds:
+                            coordinatorMatchStartMonotonicMilliseconds,
+                        pauseId: activePause?.id,
+                        pausedAtLogicalMilliseconds: activePause?.logicalMilliseconds
                     )
                 ),
                 eventSequence: events.last?[safe: 1] ?? afterEventSequence,
@@ -939,6 +981,53 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             logicalMatchMilliseconds: logicalMatchMilliseconds,
             to: [roster.coordinatorGamePlayerID]
         )
+    }
+
+    func sendPause(pauseID: Int, logicalMatchMilliseconds: Int) throws {
+        guard isCoordinator,
+            pauseID > 0,
+            activePause == nil
+        else {
+            throw MultiplayerGameKitError.coordinatorRequired
+        }
+        let packet = MultiplayerPausePacket(
+            pauseId: pauseID,
+            pausedAtLogicalMilliseconds: logicalMatchMilliseconds
+        )
+        try send(
+            payload: .pause(packet),
+            eventSequence: highestAppliedEventSequence,
+            logicalMatchMilliseconds: logicalMatchMilliseconds
+        )
+        activePause = (
+            id: pauseID,
+            coordinatorBeganMonotonicMilliseconds: monotonicMilliseconds(),
+            logicalMilliseconds: logicalMatchMilliseconds
+        )
+    }
+
+    func sendResume(pauseID: Int, logicalMatchMilliseconds: Int) throws {
+        guard isCoordinator,
+            let pause = activePause,
+            pause.id == pauseID,
+            let start = coordinatorMatchStartMonotonicMilliseconds
+        else {
+            throw MultiplayerGameKitError.coordinatorRequired
+        }
+        let resumedAt = monotonicMilliseconds()
+        let adjustedStart =
+            start + max(0, resumedAt - pause.coordinatorBeganMonotonicMilliseconds)
+        coordinatorMatchStartMonotonicMilliseconds = adjustedStart
+        let packet = MultiplayerResumePacket(
+            pauseId: pauseID,
+            coordinatorMatchStartMonotonicMilliseconds: adjustedStart
+        )
+        try send(
+            payload: .resume(packet),
+            eventSequence: highestAppliedEventSequence,
+            logicalMatchMilliseconds: logicalMatchMilliseconds
+        )
+        activePause = nil
     }
 
     func sendFinish(
@@ -1106,6 +1195,19 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                 highestAppliedEventSequence =
                     snapshot.events.last?[safe: 1] ?? highestAppliedEventSequence
             }
+            coordinatorMatchStartMonotonicMilliseconds =
+                snapshot.coordinatorMatchStartMonotonicMilliseconds
+            if let pauseID = snapshot.pauseId,
+                let pausedAt = snapshot.pausedAtLogicalMilliseconds
+            {
+                activePause = (
+                    id: pauseID,
+                    coordinatorBeganMonotonicMilliseconds: monotonicMilliseconds(),
+                    logicalMilliseconds: pausedAt
+                )
+            } else {
+                activePause = nil
+            }
         case .acknowledgement(let acknowledgement):
             pendingAcknowledgements[acknowledgement.acknowledgedPacketSequence]?
                 .remove(senderGamePlayerID)
@@ -1113,6 +1215,16 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             if finish.finalEventSequence >= highestAppliedEventSequence {
                 highestAppliedEventSequence = finish.finalEventSequence
             }
+        case .pause(let pause):
+            activePause = (
+                id: pause.pauseId,
+                coordinatorBeganMonotonicMilliseconds: monotonicMilliseconds(),
+                logicalMilliseconds: pause.pausedAtLogicalMilliseconds
+            )
+        case .resume(let resume):
+            coordinatorMatchStartMonotonicMilliseconds =
+                resume.coordinatorMatchStartMonotonicMilliseconds
+            activePause = nil
         case .rosterConfirmed, .input, .activationPlans, .cancelActivationPlans,
             .snapshotRequest:
             break
@@ -1288,8 +1400,29 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                 && snapshot.chunkIndex >= 0
                 && snapshot.chunkIndex < snapshot.chunkCount
                 && snapshot.chunkCount > 0
+                && snapshot.coordinatorMatchStartMonotonicMilliseconds > 0
+                && snapshot.pendingPlans.allSatisfy({
+                    Self.isValidActivationPlan(
+                        $0,
+                        participantCount: requiredParticipantCount,
+                        minimumAt: 0
+                    )
+                })
+                && ((snapshot.pauseId == nil
+                    && snapshot.pausedAtLogicalMilliseconds == nil)
+                    || ((snapshot.pauseId ?? 0) > 0
+                        && (snapshot.pausedAtLogicalMilliseconds ?? -1) >= 0))
         case .snapshotRequest(let request):
             return request.afterEventSequence >= 0
+        case .pause(let pause):
+            return senderGamePlayerID == roster?.coordinatorGamePlayerID
+                && pause.pauseId > 0
+                && pause.pausedAtLogicalMilliseconds
+                    == envelope.logicalMatchMilliseconds
+        case .resume(let resume):
+            return senderGamePlayerID == roster?.coordinatorGamePlayerID
+                && resume.pauseId > 0
+                && resume.coordinatorMatchStartMonotonicMilliseconds > 0
         case .finish(let finish):
             return senderGamePlayerID == roster?.coordinatorGamePlayerID
                 && finish.finalEventSequence == envelope.eventSequence
@@ -1322,6 +1455,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         highestAppliedEventSequence = 0
         clockEstimator = MultiplayerClockEstimator()
         startSignal = nil
+        activePause = nil
         coordinatorMatchStartMonotonicMilliseconds = nil
         state = .idle
     }

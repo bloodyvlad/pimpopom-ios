@@ -217,6 +217,10 @@ enum MultiplayerPresentation {
             players.first(where: { $0.seat == localSeat })
         }
 
+        var isSpectating: Bool {
+            localPlayer?.lives == 0
+        }
+
         var orderedCells: [Cell] {
             let byID = Dictionary(uniqueKeysWithValues: cells.map { ($0.id, $0) })
             return (0..<16).map {
@@ -268,7 +272,14 @@ enum MultiplayerPresentation {
         let settlement: SettlementState
         let results: [Result]
         let isRefreshing: Bool
+        let localSubmissionAccepted: Bool
         let message: String?
+
+        var canReturnToMenu: Bool {
+            if localSubmissionAccepted { return true }
+            if case .review = settlement { return true }
+            return false
+        }
     }
 
     struct LeaderboardEntry: Equatable, Identifiable, Sendable {

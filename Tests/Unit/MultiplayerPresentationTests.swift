@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import PimPoPom
 
 final class MultiplayerPresentationTests: XCTestCase {
@@ -105,7 +106,7 @@ final class MultiplayerPresentationTests: XCTestCase {
                 matchID: "match",
                 elapsedMilliseconds: 0,
                 cells: [],
-                players: (0..<count).map(livePlayer),
+                players: (0..<count).map { livePlayer(seat: $0) },
                 localSeat: 0,
                 streakSteps: 0,
                 isRecovering: false,
@@ -128,6 +129,26 @@ final class MultiplayerPresentationTests: XCTestCase {
         )
     }
 
+    func testEliminatedLocalPlayerRemainsInLiveSpectatorState() {
+        let live = MultiplayerPresentation.LiveMatchState(
+            matchID: "match",
+            elapsedMilliseconds: 72_000,
+            cells: [],
+            players: [
+                livePlayer(seat: 0, lives: 0),
+                livePlayer(seat: 1, lives: 2),
+            ],
+            localSeat: 0,
+            streakSteps: 0,
+            isRecovering: false,
+            announcement: nil
+        )
+
+        XCTAssertTrue(live.isSpectating)
+        XCTAssertEqual(live.players.count, 2)
+        XCTAssertEqual(live.players[1].lives, 2)
+    }
+
     private func participant(
         seat: Int,
         ready: Bool,
@@ -147,7 +168,8 @@ final class MultiplayerPresentationTests: XCTestCase {
     }
 
     private func livePlayer(
-        seat: Int
+        seat: Int,
+        lives: Int = 3
     ) -> MultiplayerPresentation.LivePlayer {
         MultiplayerPresentation.LivePlayer(
             id: "player-\(seat)",
@@ -157,7 +179,7 @@ final class MultiplayerPresentationTests: XCTestCase {
             petID: nil,
             points: seat * 1_000,
             multiplier: 1,
-            lives: 3,
+            lives: lives,
             isLeader: seat == 0,
             isCurrentPlayer: seat == 0,
             isConnected: true

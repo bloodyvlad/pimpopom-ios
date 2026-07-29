@@ -21,6 +21,7 @@
 		18FA0F8FA27D0B4CD6BD7451 /* PimPoPomCore in Frameworks */ = {isa = PBXBuildFile; productRef = B99BB11775542C9E63F45B2A /* PimPoPomCore */; };
 		1F56100B9FA124B56BA3A42B /* PimPoPomApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A705B270F5758C926EC0E8EE /* PimPoPomApp.swift */; };
 		21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */; };
+		22289F60746CA9C63CD2DD49 /* MultiplayerFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E56F771992EE742330A38AF /* MultiplayerFlowView.swift */; };
 		228758F9D283D50E443CD560 /* audio-pixel-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */; };
 		22B0ADE3ECAA3BF9FCA9423C /* pancake-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 6D8B77DB0BBFFF1688760C67 /* pancake-sprite.png */; };
 		24F0C16C1DE42D0FB31628E2 /* kesha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = B194C5E2A0BBB6D9E67B30A2 /* kesha-sprite.png */; };
@@ -30,6 +31,7 @@
 		339BFE056EAC7EFF394CC904 /* audio-pimpopom-sting.wav in Resources */ = {isa = PBXBuildFile; fileRef = 36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */; };
 		33CE829944CE88CF56F940A8 /* foka-ice-floe.png in Resources */ = {isa = PBXBuildFile; fileRef = A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */; };
 		36B37175BB6E0CBFE6607C34 /* muse-floor.png in Resources */ = {isa = PBXBuildFile; fileRef = AE0A4CFFE2AEF83863978D0D /* muse-floor.png */; };
+		36E3B43113D25ADE49657F66 /* MultiplayerPeerConsistency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C39AB8C2A564691E80BA03D /* MultiplayerPeerConsistency.swift */; };
 		37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */; };
 		3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */; };
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
@@ -40,6 +42,7 @@
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
 		54263429058B1AB2B2B01286 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 5BB5AC1A8B78187882559EA7 /* GoogleUserMessagingPlatform */; };
 		56603C4049290197D71E7DE7 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 8A3904134513421E1F894756 /* GoogleMobileAds */; };
+		575CE37825C8F28233C993B3 /* MultiplayerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */; };
 		5A4FF049FA8F5F1B5A8955E2 /* MultiplayerGameKitTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBBBCDB8847C7393043466BF /* MultiplayerGameKitTransportTests.swift */; };
 		5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */; };
 		5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */; };
@@ -74,6 +77,7 @@
 		9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B807723F13D7024F84747F72 /* GameCoordinator.swift */; };
 		A19D6210497A3D375CDC07BE /* GameCellArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7C97DB7185189A114B58620 /* GameCellArtwork.swift */; };
 		A8C18C383224F6F97F475FB5 /* StoreKitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9CC5EE844D22FB3BF197B67 /* StoreKitModels.swift */; };
+		AA8FCAE87D5A559DFE1366F1 /* MultiplayerPeerConsistencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFABD2C36CB814998CA7DE6B /* MultiplayerPeerConsistencyTests.swift */; };
 		ABE35C2FC352D25D7C800F64 /* MultiplayerGameKitTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4229B48A8A93EA5CAD874DB7 /* MultiplayerGameKitTransport.swift */; };
 		AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */; };
 		B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */; };
@@ -160,6 +164,7 @@
 		449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebParityComponents.swift; sourceTree = "<group>"; };
 		491AE95125B0A41ABB5B5D44 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4E56F771992EE742330A38AF /* MultiplayerFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFlowView.swift; sourceTree = "<group>"; };
 		4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuMotivation.swift; sourceTree = "<group>"; };
 		59325BF36E2F3C3A524AD069 /* PimPoPomTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -179,10 +184,12 @@
 		7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterAutoLinkController.swift; sourceTree = "<group>"; };
 		81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflow.swift; sourceTree = "<group>"; };
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
+		8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerController.swift; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
 		86EABB78532A8A66E0E421C5 /* PimPoPom.storekit */ = {isa = PBXFileReference; path = PimPoPom.storekit; sourceTree = "<group>"; };
 		896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixtureTests.swift; sourceTree = "<group>"; };
 		8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayLifecycleTests.swift; sourceTree = "<group>"; };
+		8C39AB8C2A564691E80BA03D /* MultiplayerPeerConsistency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerPeerConsistency.swift; sourceTree = "<group>"; };
 		905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeQuickActionController.swift; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixture.swift; sourceTree = "<group>"; };
@@ -234,6 +241,7 @@
 		FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflowTests.swift; sourceTree = "<group>"; };
 		FF525ACA8A69F39145C25A62 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */ = {isa = PBXFileReference; path = "audio-classic-run.m4a"; sourceTree = "<group>"; };
+		FFABD2C36CB814998CA7DE6B /* MultiplayerPeerConsistencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerPeerConsistencyTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -366,6 +374,9 @@
 				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
 				2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */,
 				0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */,
+				8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */,
+				4E56F771992EE742330A38AF /* MultiplayerFlowView.swift */,
+				8C39AB8C2A564691E80BA03D /* MultiplayerPeerConsistency.swift */,
 				D5B043C470341B214C7C2E10 /* MultiplayerPresentation.swift */,
 				0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */,
 				A54435E3370FE5F0E7640F4F /* PetShopView.swift */,
@@ -409,6 +420,7 @@
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
 				14EAFEECB2DCB25385F31063 /* MultiplayerBackendClientTests.swift */,
 				EBBBCDB8847C7393043466BF /* MultiplayerGameKitTransportTests.swift */,
+				FFABD2C36CB814998CA7DE6B /* MultiplayerPeerConsistencyTests.swift */,
 				DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
 				6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */,
@@ -688,6 +700,7 @@
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
 				0893CC631D7FAFF20A3E5028 /* MultiplayerBackendClientTests.swift in Sources */,
 				5A4FF049FA8F5F1B5A8955E2 /* MultiplayerGameKitTransportTests.swift in Sources */,
+				AA8FCAE87D5A559DFE1366F1 /* MultiplayerPeerConsistencyTests.swift in Sources */,
 				48A60FBB88983658EEC67DD5 /* MultiplayerPresentationTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
 				2BC9C266D38E20EC72551C54 /* PurchaseControllerTests.swift in Sources */,
@@ -728,8 +741,11 @@
 				DFBB0EAB96AFD9C8BC9AA6F9 /* LocalStoreKitCreditService.swift in Sources */,
 				60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */,
 				C132456E3372F15EA38F2091 /* MultiplayerBackendClient.swift in Sources */,
+				575CE37825C8F28233C993B3 /* MultiplayerController.swift in Sources */,
+				22289F60746CA9C63CD2DD49 /* MultiplayerFlowView.swift in Sources */,
 				ABE35C2FC352D25D7C800F64 /* MultiplayerGameKitTransport.swift in Sources */,
 				B4F2844849CAE58E84BFA13F /* MultiplayerModels.swift in Sources */,
+				36E3B43113D25ADE49657F66 /* MultiplayerPeerConsistency.swift in Sources */,
 				EE2F6AB65E8581D5D3182B82 /* MultiplayerPresentation.swift in Sources */,
 				E8F87EE04771FEC4028EF921 /* MultiplayerViews.swift in Sources */,
 				5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */,

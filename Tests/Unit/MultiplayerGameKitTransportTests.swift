@@ -235,6 +235,108 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         XCTAssertEqual(request.afterEventSequence, 0)
     }
 
+    func testEveryInputIsBroadcastSoAllPeersCanVerifyItsSeatEvidence() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:beta",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:alpha", displayName: "Alpha")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        try await transport.connect(
+            matchID: Self.matchID,
+            playerGroup: 12,
+            participantCount: 2
+        )
+
+        try transport.sendInput(
+            MultiplayerInputPacket(
+                inputSequence: 1,
+                seat: 1,
+                cell: 7,
+                coordinatorInputMilliseconds: 420
+            ),
+            logicalMatchMilliseconds: 420
+        )
+
+        let sent = try XCTUnwrap(client.sent.last)
+        XCTAssertNil(sent.recipients)
+        let envelope = try JSONDecoder().decode(
+            MultiplayerPacketEnvelope.self,
+            from: sent.data
+        )
+        guard case .input(let input) = envelope.payload else {
+            return XCTFail("Expected peer input evidence.")
+        }
+        XCTAssertEqual(input.seat, 1)
+        XCTAssertEqual(input.cell, 7)
+        XCTAssertEqual(input.coordinatorInputMilliseconds, 420)
+    }
+
+    func testRecoverySnapshotCarriesPlansAndResumeShiftsTheSharedClock() async throws {
+        let clock = MultiplayerTestClock(value: 100)
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(
+            client: client,
+            monotonicMilliseconds: { clock.value }
+        )
+        try await transport.connect(
+            matchID: Self.matchID,
+            playerGroup: 13,
+            participantCount: 2
+        )
+        try transport.sendStartManifest(
+            Self.manifest,
+            coordinatorStartMonotonicMilliseconds: 1_000,
+            presentationLeadMilliseconds: 180
+        )
+        try transport.sendPause(pauseID: 1, logicalMatchMilliseconds: 250)
+        let plan = MultiplayerWireActivationPlan(
+            planId: 3,
+            kind: .target,
+            at: 600,
+            ownerSeat: 1,
+            entityId: 2,
+            cell: 9,
+            colorIndex: 1,
+            lifetimeMs: nil
+        )
+        try transport.sendSnapshot(
+            events: [],
+            pendingPlans: [plan],
+            afterEventSequence: 0,
+            logicalMatchMilliseconds: 250,
+            to: "G:beta"
+        )
+        let snapshotEnvelope = try JSONDecoder().decode(
+            MultiplayerPacketEnvelope.self,
+            from: try XCTUnwrap(client.sent.last).data
+        )
+        guard case .snapshot(let snapshot) = snapshotEnvelope.payload else {
+            return XCTFail("Expected recovery snapshot.")
+        }
+        XCTAssertEqual(snapshot.pendingPlans, [plan])
+        XCTAssertEqual(snapshot.pauseId, 1)
+        XCTAssertEqual(snapshot.pausedAtLogicalMilliseconds, 250)
+        XCTAssertEqual(snapshot.coordinatorMatchStartMonotonicMilliseconds, 1_000)
+
+        clock.value = 400
+        try transport.sendResume(pauseID: 1, logicalMatchMilliseconds: 250)
+        let resumeEnvelope = try JSONDecoder().decode(
+            MultiplayerPacketEnvelope.self,
+            from: try XCTUnwrap(client.sent.last).data
+        )
+        guard case .resume(let resume) = resumeEnvelope.payload else {
+            return XCTFail("Expected shared-clock resume.")
+        }
+        XCTAssertEqual(resume.coordinatorMatchStartMonotonicMilliseconds, 1_300)
+    }
+
     func testPacketPayloadRoundTripsEveryRecoveryAndControlCase() throws {
         let cases: [MultiplayerPacketPayload] = [
             .hello(
@@ -309,10 +411,26 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
                     throughEventSequence: 1,
                     chunkIndex: 0,
                     chunkCount: 1,
-                    events: [[6, 1, 500]]
+                    events: [[6, 1, 500]],
+                    pendingPlans: [],
+                    coordinatorMatchStartMonotonicMilliseconds: 10_000,
+                    pauseId: nil,
+                    pausedAtLogicalMilliseconds: nil
                 )
             ),
             .snapshotRequest(MultiplayerSnapshotRequestPacket(afterEventSequence: 0)),
+            .pause(
+                MultiplayerPausePacket(
+                    pauseId: 1,
+                    pausedAtLogicalMilliseconds: 500
+                )
+            ),
+            .resume(
+                MultiplayerResumePacket(
+                    pauseId: 1,
+                    coordinatorMatchStartMonotonicMilliseconds: 12_000
+                )
+            ),
             .finish(
                 MultiplayerFinishPacket(
                     finalEventSequence: 1,
