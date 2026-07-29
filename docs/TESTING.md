@@ -2,12 +2,13 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
-## TestFlight 1.02 (18) Multiplayer settlement candidate — 2026-07-30
+## TestFlight 1.02 (18) Multiplayer settlement release — 2026-07-30
 
 - The corrected transcript preflight has a regression proving that a delayed final miss followed by input-time player-out and finish tuples reaches the HTTP submission stub. The coordinator policy regression proves that a terminal input cannot trigger a backward engine advance.
 - Settlement recovery tests cover lost submission responses, failure before server commit, exact-payload retention, conservative GET polling, stale callback rejection after a terminal response, and both peers reaching a terminal state. The implementation also persists only the seat-only match ID, manifest hash, and exact transcript for a bounded 24-hour retry window; it never persists Game Center IDs, profile IDs, cookies, or credentials.
 - Layout coverage resolves compact and tall live geometry, including the 4-point iPhone SE HUD-to-board gap, full-width stacked player badges, exact HUD/badge heights, and the shared pet-free Speed Bar. The compact waiting-room implementation reduces four-player row, pet-stage, action, and card spacing at 667 points.
 - `swift test --package-path Packages/PimPoPomCore` passed all 52 deterministic tests. The focused backend/presentation/GameKit/peer-consistency suite passed 28/28. The complete `Scripts/check.sh` gate passed project regeneration, strict Swift formatting, asset/source/licence hashes, Info/privacy/ad-configuration guards, generic Simulator compilation, Staging version/build assertions for `1.02 (18)`, and all 223 native unit/UI paths with zero failures, skips, or expected failures. Full result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.07.30_00-57-24-+0200.xcresult`.
+- App Store Connect accepted exact source commit `4352d93c1e62ccee20a5b650b585cf00ef7fa584` as build `b49ecbeb-92fe-4332-b9de-eb5969c7c933`. The build is `VALID`, Beta App Review is `APPROVED`, automatic notification is enabled, and Internal QA plus External QA both report `IN_BETA_TESTING`. Its English What to Test begins **Multiplayer!!!** and covers both winner orderings, terminal Results, exact transcript acceptance, leaderboard rows, the compact live HUD, and iPhone SE geometry.
 - Real 2–4-device GameKit validation remains mandatory. In particular, QA must finish matches with both creator and joined-player winners, verify eliminated-player spectating, confirm every client reaches terminal Results, and confirm every accepted participant row appears in the Multiplayer leaderboard.
 
 ## TestFlight 1.02 (17) corrective-release evidence — 2026-07-29
