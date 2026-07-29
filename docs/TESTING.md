@@ -2,12 +2,13 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
-## Corrective candidate 1.02 (17) evidence — 2026-07-29
+## TestFlight 1.02 (17) corrective-release evidence — 2026-07-29
 
 - Focused implementation-time coverage passed for `MultiplayerPresentationTests`, `LeaderboardPresentationTests`, the standard Leaderboard/Profile parity UI path, and the Pixel screenshot fixture before packaging. The inspected captures showed one navigation back control, Arcade/Zen/Multiplayer tabs, readable labels without Pixel shadow duplicates, and the deterministic Multiplayer row.
 - The final candidate passed project regeneration, strict Swift formatting, `git diff --check`, asset/provenance validation, ad-configuration checks, Info/privacy plist lint, and generic-device Staging build-setting inspection for bundle `com.otcsoftware.pimpopom`, marketing version `1.02`, build `17`, owner-split test ads, and the Game Center entitlement path.
 - The readiness fix allows the current PHP participant to toggle Ready while GameKit remains in matching or roster-confirmation state. A readiness transport failure is presented separately and cannot overwrite or permanently poison the independent GameKit connection state. Creator Start remains disabled until the roster is confirmed and every connected participant is ready.
 - Per the owner's release instruction, no additional Simulator or physical-device test was run after the final corrective edits. The signed generic-device archive supplies the final app compilation check; real 2-device GameKit matchmaking and readiness remain TestFlight acceptance work.
+- App Store Connect accepted exact source commit `07450a7f2877e306faacf647176f86c6c2604ae8` as build `adafe302-d587-4999-8383-08524e84e707`. Beta App Review is approved; Internal QA and External QA both report `IN_BETA_TESTING` with automatic notification enabled. Only after that replacement became usable were builds 15 and 16 unassigned and expired.
 
 ## Multiplayer build 1.2 (16) evidence — 2026-07-29
 

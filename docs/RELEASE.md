@@ -56,6 +56,65 @@ Before archiving a Multiplayer candidate:
 4. Upload through Xcode/Xcode Cloud/App Store Connect and record the processed build ID.
 5. Do not reuse a build number or claim upload success until App Store Connect finishes processing.
 
+### Repeatable TestFlight signing and upload commands
+
+The established command-line lane uses a local Apple Development identity to create the archive, then lets App Store Connect re-sign the uploaded package for distribution. It does not require manually selecting a distribution certificate, and it does not launch a Simulator.
+
+Keep the App Store Connect issuer ID, key ID, and `.p8` path outside Git. The key file must remain owner-readable only (`chmod 600`). This repository's credential names are `ASC_ISSUER_ID`, `ASC_KEY_ID`, and `ASC_PRIVATE_KEY_PATH`; their values must never be pasted into logs or committed.
+
+If archive signing reports `errSecInternalComponent`, first verify and unlock the login keychain:
+
+```sh
+security find-identity -v -p codesigning
+security unlock-keychain "$HOME/Library/Keychains/login.keychain-db"
+```
+
+Archive the exact clean commit with the release-optimized Staging scheme:
+
+```sh
+ARCHIVE="/absolute/release/path/PimPoPom.xcarchive"
+
+xcodebuild \
+  -project PimPoPom.xcodeproj \
+  -scheme "PimPoPom Staging" \
+  -configuration Staging \
+  -destination "generic/platform=iOS" \
+  -archivePath "$ARCHIVE" \
+  -allowProvisioningUpdates \
+  clean archive
+```
+
+Upload using the ignored App Store Connect API credentials:
+
+```sh
+EXPORT_DIR="/absolute/release/path/upload"
+
+xcodebuild \
+  -exportArchive \
+  -archivePath "$ARCHIVE" \
+  -exportOptionsPlist Config/ExportOptions-TestFlight.plist \
+  -exportPath "$EXPORT_DIR" \
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "$ASC_PRIVATE_KEY_PATH" \
+  -authenticationKeyID "$ASC_KEY_ID" \
+  -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+```
+
+`Config/ExportOptions-TestFlight.plist` deliberately uses `destination = upload`, `method = app-store-connect`, automatic signing, symbol upload, and `testFlightInternalTestingOnly = false` so one processed build can serve both internal and external groups.
+
+Before upload, inspect the archive rather than trusting project settings:
+
+```sh
+APP="$ARCHIVE/Products/Applications/PimPoPom.app"
+
+plutil -p "$APP/Info.plist"
+codesign --verify --deep --strict --verbose=2 "$APP"
+codesign -d --entitlements :- "$APP"
+find "$ARCHIVE" \( -name "*.p8" -o -name "*.storekit" -o -name "Local.xcconfig" \) -print
+```
+
+Retain the app dSYM with its UUID and SHA-256 after Apple accepts the build. The archive, export directory, DerivedData, and upload logs are reproducible and may then be removed to reclaim disk space; source, release record, API key, and retained dSYM are not disposable.
+
 ## TestFlight progression
 
 ### First named cohort (P-027)
@@ -115,6 +174,18 @@ iOS binaries cannot be instantly rolled back on every installed device. Prepare 
 Never break the previous live client merely to simplify a new release.
 
 ## TestFlight release records
+
+### PimPoPom 1.02 (17) Multiplayer corrective release — 2026-07-29
+
+- **Git source:** `07450a7f2877e306faacf647176f86c6c2604ae8` on `codex/multiplayer-readiness-leaderboard-fix`. This later release-record commit is documentation only and is not the archive identity.
+- **Toolchain/identity:** Xcode 26.6 (`17F113`), Apple Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2; bundle `com.otcsoftware.pimpopom`; team `APX2925X66`; Apple Sign In and Game Center entitlements; marketing version/build `1.02 (17)`.
+- **Archive and symbols:** archived with the release-optimized **PimPoPom Staging** scheme at `/Users/vlad/Documents/PimPoPom-release-artifacts/1.02-17/PimPoPom-1.02-17-07450a7.xcarchive`; deterministic sorted-file manifest SHA-256 `441bd53a8f268225bc4a9119be86ebec62602647d49d2a7e3c43b710e92c4ec7`. The reproducible archive/export and project DerivedData were removed after App Store Connect acceptance. Retained app dSYM UUID `146234C3-66D2-3BA1-95CC-9638E81C05B3`: `/Users/vlad/Documents/PimPoPom-symbols/1.02-17/PimPoPom-1.02-17-07450a7-146234C3-66D2-3BA1-95CC-9638E81C05B3.dSYM.zip`, SHA-256 `408cc66607abfeac58c1df05c03b7254cb98e274e42105255eb57f5c55886e7c`.
+- **Archive validation:** the signed archive resolved to version/build `1.02 (17)`, bundle `com.otcsoftware.pimpopom`, display name `PimPoPom`, owner-split-test ad mode with demo defaults, the intended Google configuration, and no embedded `.p8`, `.storekit`, or `Local.xcconfig`. Strict signature verification passed. App Store upload re-signed the package for distribution. Apple accepted the upload despite known missing vendor-framework dSYM warnings for Google Mobile Ads UUID `7AD92487-DDF5-3B47-ABCB-C1C44F697411` and UMP UUID `89DF15BA-CD36-3450-BBE8-0B14CBF9BCD2`; the app dSYM is retained separately.
+- **Verification:** the focused readiness, Leaderboard, Profile parity, and Pixel presentation paths had passed before packaging. The final source also passed project regeneration, strict Swift formatting, `git diff --check`, asset/provenance checks, ad/configuration/privacy guards, generic-device Staging inspection, clean signed archive compilation, and archive validation. Per the owner's explicit instruction, no additional Simulator or physical-device test ran after the final corrective edits.
+- **App Store Connect:** build `adafe302-d587-4999-8383-08524e84e707` processed `VALID`; icon present; `usesNonExemptEncryption = false`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING`; automatic notification enabled. The standing beta description, English What to Test, and review notes document the corrected Ready flow, complete-roster/start gate, consolidated Leaderboard, eliminated-player spectating, synchronization/settlement, no Multiplayer coins/achievements, StoreKit Sandbox, and AdMob/UMP.
+- **Runtime correction:** every participant can toggle PHP readiness before GameKit roster completion; roster matching and readiness errors are independent; creator Start still requires the complete confirmed roster plus every participant ready. Arcade, Zen, and Multiplayer now share one Leaderboard screen and one back control. The tabs say **Arcade**, **Zen**, and **Multiplayer**; Pixel labels no longer duplicate through shadows; player names retain readable width beside pet, color, readiness, and crown.
+- **Retirement:** after build 17 reached `IN_BETA_TESTING` in both groups, builds 15 (`41cea27a-b807-42cc-914a-1c266fe941af`) and 16 (`0e66ff64-8f7e-4d04-a454-26f14926ed98`) were removed from Internal QA and External QA and explicitly expired.
+- **Trust/limitations:** the unchanged Multiplayer transport still needs real 2-, 3-, and 4-device/account TestFlight validation. PHP derives clean settlement from peer-consistent transcript evidence; do not call it server-authoritative, human-verified, bot-proof, or collusion-proof. The Arcade ticket tuple remains build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2.
 
 ### PimPoPom 1.2 (16) Multiplayer candidate — 2026-07-29
 

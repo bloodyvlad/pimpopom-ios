@@ -874,7 +874,7 @@ Revisit when: Apple changes `GKMatch`/player identity behavior, coordinator migr
 ## P-058 — Decouple lobby readiness and consolidate leaderboard navigation
 
 - Date: 2026-07-29
-- Status: Accepted implementation candidate for TestFlight `1.02 (17)`; physical two-device validation remains pending
+- Status: Accepted and shipped to named TestFlight QA in `1.02 (17)`; physical two-device validation remains pending
 
 Context: A full PHP lobby could show one participant as **Not ready** while the Ready control ignored taps. The client had coupled the readiness PATCH to a completely confirmed GameKit roster, even though PHP readiness and GameKit roster confirmation are independent start prerequisites. The same candidate exposed Multiplayer results through a nested leaderboard surface with both the NavigationStack back control and its own back control. Pixel's radius-zero outer card shadow duplicated every label inside the card, and the waiting-room icon/color/crown row compressed long player names.
 
@@ -884,6 +884,6 @@ Replace the nested Multiplayer leaderboard phase with one standard Leaderboard s
 
 For Pixel, disable the outer content shadow on menu panels and cards; a radius of zero with a nonzero offset is a hard duplicate of the entire composited subtree, not an absent shadow. Give the waiting-room name text tightening and scale room, and move the creator crown to an overlay so identity copy remains visible.
 
-Consequences: Players can express readiness before Apple's live roster finishes, but a match still cannot start early. The corrective candidate returns to marketing version `1.02`, matching the existing Game Center-enabled App Store version, and the prior TestFlight-only `1.2` builds can be retired after replacement. The Arcade **game version not supported** notice is a separate `/api/runs` ticket-tuple mismatch; both iOS contracts compile `20260729-1`, so that notice requires checking the returned ruleset/proof tuple or deployed validator rather than changing Multiplayer readiness.
+Consequences: Players can express readiness before Apple's live roster finishes, but a match still cannot start early. The corrective release returned to marketing version `1.02`, matching the existing Game Center-enabled App Store version; after build 17 entered testing in both named groups, builds 15 and 16 were unassigned and expired. The Arcade **game version not supported** notice is a separate `/api/runs` ticket-tuple mismatch; both iOS contracts compile `20260729-1`, so that notice requires checking the returned ruleset/proof tuple or deployed validator rather than changing Multiplayer readiness.
 
 Revisit when: readiness itself needs a separate Game Center freshness gate, Apple changes Game Center version compatibility behavior, the leaderboard grows beyond three modes, or Pixel adopts explicit shape-only drop geometry.
