@@ -164,6 +164,15 @@ enum MultiplayerPresentation {
                 false
             }
         }
+
+        var shouldPresentFailure: Bool {
+            switch self {
+            case .cloudSyncRequired, .connectionFailed, .failed:
+                true
+            case .matching, .confirmingRoster, .ready:
+                false
+            }
+        }
     }
 
     enum StartMatchControlState: Equatable, Sendable {
@@ -296,17 +305,21 @@ enum MultiplayerPresentation {
                 byID[$0] ?? Cell(id: $0, colorIndex: nil)
             }
         }
-
-        var stripFraction: Double {
-            guard !players.isEmpty else { return 1 }
-            return 1 / Double(min(4, max(2, players.count)))
-        }
     }
 
     enum SettlementState: Equatable, Sendable {
         case collecting(submitted: Int, total: Int)
         case settled(leaderboardEligible: Bool)
         case review(reason: String?)
+
+        var isTerminal: Bool {
+            switch self {
+            case .collecting:
+                false
+            case .settled, .review:
+                true
+            }
+        }
 
         var title: String {
             switch self {
@@ -317,6 +330,74 @@ enum MultiplayerPresentation {
             case .review:
                 "Match held for review"
             }
+        }
+    }
+
+    struct SettlementRecovery<Submission: Equatable>: Equatable {
+        enum ResponseSource {
+            case submission
+            case settlement
+        }
+
+        private(set) var settlement: SettlementState
+        private(set) var pendingSubmission: Submission?
+        private(set) var localSubmissionAccepted = false
+        private(set) var shouldRetrySubmission = true
+        private(set) var message: String?
+
+        init(pendingSubmission: Submission, participantCount: Int) {
+            settlement = .collecting(
+                submitted: 0,
+                total: max(2, participantCount)
+            )
+            self.pendingSubmission = pendingSubmission
+        }
+
+        var isTerminal: Bool { settlement.isTerminal }
+        var shouldPoll: Bool { !isTerminal }
+        var canReturnToMenu: Bool { isTerminal }
+
+        @discardableResult
+        mutating func applyServerResponse(
+            settlement incoming: SettlementState,
+            source: ResponseSource
+        ) -> Bool {
+            guard !isTerminal else { return false }
+            settlement = incoming
+            if source == .submission {
+                localSubmissionAccepted = true
+                shouldRetrySubmission = false
+            }
+            if incoming.isTerminal {
+                pendingSubmission = nil
+                shouldRetrySubmission = false
+                if case .settled = incoming {
+                    localSubmissionAccepted = true
+                }
+            }
+            message =
+                if case .collecting = incoming {
+                    "Waiting for matching peer transcripts."
+                } else {
+                    nil
+                }
+            return true
+        }
+
+        @discardableResult
+        mutating func recordSubmissionResponseFailure(_ failure: String) -> Bool {
+            guard !isTerminal else { return false }
+            shouldRetrySubmission =
+                pendingSubmission != nil && !localSubmissionAccepted
+            message = failure
+            return true
+        }
+
+        @discardableResult
+        mutating func recordSettlementResponseFailure(_ failure: String) -> Bool {
+            guard !isTerminal else { return false }
+            message = failure
+            return true
         }
     }
 
@@ -344,11 +425,7 @@ enum MultiplayerPresentation {
         let localSubmissionAccepted: Bool
         let message: String?
 
-        var canReturnToMenu: Bool {
-            if localSubmissionAccepted { return true }
-            if case .review = settlement { return true }
-            return false
-        }
+        var canReturnToMenu: Bool { settlement.isTerminal }
     }
 
 }

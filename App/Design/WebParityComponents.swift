@@ -66,6 +66,8 @@ enum PimPoPomBrandColors {
 struct PimPoPomWordmark: View {
     let theme: ThemePalette
     var size: CGFloat = 22
+    var suffix: String? = nil
+    var identifier = "menu-wordmark"
 
     var body: some View {
         HStack(alignment: .center, spacing: -1.5) {
@@ -79,6 +81,15 @@ struct PimPoPomWordmark: View {
                 .shadow(color: Color(hex: "#63fff2"), radius: 5)
                 .padding(.leading, 5)
                 .offset(y: -7)
+
+            if let suffix {
+                wordPart(
+                    suffix,
+                    colors: ["#63fff2", "#a58aff"],
+                    fontSize: size * 0.72
+                )
+                .padding(.leading, 7)
+            }
         }
         .padding(.horizontal, theme.isLight ? 8 : 0)
         .padding(.vertical, theme.isLight ? 6 : 0)
@@ -96,14 +107,18 @@ struct PimPoPomWordmark: View {
         .fixedSize(horizontal: true, vertical: false)
         .shadow(color: Color(hex: "#43f4ff").opacity(0.26), radius: theme.isPixel ? 0 : 7)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("PimPoPom")
-        .accessibilityIdentifier("menu-wordmark")
+        .accessibilityLabel(suffix.map { "PimPoPom \($0)" } ?? "PimPoPom")
+        .accessibilityIdentifier(identifier)
     }
 
     @ViewBuilder
-    private func wordPart(_ text: String, colors: [String]) -> some View {
+    private func wordPart(
+        _ text: String,
+        colors: [String],
+        fontSize: CGFloat? = nil
+    ) -> some View {
         let label = Text(text)
-            .font(theme.appFont(size: size, weight: .black, relativeTo: .title))
+            .font(theme.appFont(size: fontSize ?? size, weight: .black, relativeTo: .title))
             .foregroundStyle(
                 LinearGradient(
                     colors: colors.map { Color(hex: $0) },

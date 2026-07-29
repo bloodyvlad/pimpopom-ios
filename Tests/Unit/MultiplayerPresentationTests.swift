@@ -147,6 +147,10 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertTrue(
             MultiplayerPresentation.WaitingConnectionState.cloudSyncRequired.canRetry
         )
+        XCTAssertTrue(
+            MultiplayerPresentation.WaitingConnectionState.cloudSyncRequired
+                .shouldPresentFailure
+        )
 
         let failed =
             MultiplayerPresentation.WaitingConnectionState.connectionFailed(
@@ -155,6 +159,17 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertEqual(failed.title, "Connection Failed")
         XCTAssertEqual(failed.detail, "GameKit could not create the match.")
         XCTAssertTrue(failed.canRetry)
+        XCTAssertTrue(failed.shouldPresentFailure)
+        XCTAssertTrue(
+            MultiplayerPresentation.WaitingConnectionState.failed("Start failed.")
+                .shouldPresentFailure
+        )
+        XCTAssertFalse(
+            MultiplayerPresentation.WaitingConnectionState.matching.shouldPresentFailure
+        )
+        XCTAssertFalse(
+            MultiplayerPresentation.WaitingConnectionState.ready.shouldPresentFailure
+        )
     }
 
     func testLiveStateAlwaysPresentsSixteenOrderedCells() {
@@ -178,27 +193,51 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertEqual(live.orderedCells.map(\.id), Array(0..<16))
         XCTAssertEqual(live.orderedCells[2].colorIndex, 5)
         XCTAssertEqual(live.orderedCells[9].colorIndex, 1)
-        XCTAssertEqual(live.stripFraction, 1.0 / 3.0, accuracy: 0.000_001)
     }
 
-    func testPlayerStripFractionsCoverSupportedRosterSizes() {
-        for count in 2...4 {
-            let live = MultiplayerPresentation.LiveMatchState(
-                matchID: "match",
-                elapsedMilliseconds: 0,
-                cells: [],
-                players: (0..<count).map { livePlayer(seat: $0) },
-                localSeat: 0,
-                streakSteps: 0,
-                isRecovering: false,
-                announcement: nil
-            )
-            XCTAssertEqual(
-                live.stripFraction,
-                1 / Double(count),
-                accuracy: 0.000_001
-            )
-        }
+    func testLiveLayoutStacksPlayersAndMovesSEBoardCloserToHUD() {
+        let compact = MultiplayerLiveLayoutMetrics.resolve(
+            availableSize: CGSize(width: 375, height: 667),
+            playerCount: 4
+        )
+        let tall = MultiplayerLiveLayoutMetrics.resolve(
+            availableSize: CGSize(width: 430, height: 932),
+            playerCount: 4
+        )
+
+        XCTAssertEqual(compact.hudToBoardSpacing, 4)
+        XCTAssertEqual(tall.hudToBoardSpacing, 10)
+        XCTAssertEqual(
+            compact.playerStackHeight,
+            MultiplayerLiveLayoutMetrics.badgeHeight * 4
+                + MultiplayerLiveLayoutMetrics.badgeSpacing * 3
+        )
+        XCTAssertGreaterThanOrEqual(
+            compact.boardSide,
+            MultiplayerLiveLayoutMetrics.minimumBoardSide
+        )
+        XCTAssertEqual(
+            tall.boardSide,
+            430 - MultiplayerLiveLayoutMetrics.horizontalInset * 2
+        )
+    }
+
+    func testTerminalRemoteInputNeverAdvancesCoordinatorBackwards() {
+        XCTAssertEqual(
+            MultiplayerCoordinatorFramePolicy.handledAt(
+                inputAt: 9_000,
+                receivedAt: 9_250,
+                engineClock: 8_950,
+                watermark: 9_100
+            ),
+            9_100
+        )
+        XCTAssertTrue(
+            MultiplayerCoordinatorFramePolicy.shouldAdvance(.running)
+        )
+        XCTAssertFalse(
+            MultiplayerCoordinatorFramePolicy.shouldAdvance(.finished)
+        )
     }
 
     func testSettlementCopyDoesNotClaimServerAuthority() {
@@ -208,6 +247,130 @@ final class MultiplayerPresentationTests: XCTestCase {
             ).title,
             "Match verified"
         )
+    }
+
+    func testLostSubmissionResponseRecoversFromTerminalSettlement() {
+        var firstPeer = MultiplayerPresentation.SettlementRecovery(
+            pendingSubmission: "exact-transcript",
+            participantCount: 2
+        )
+        var secondPeer = MultiplayerPresentation.SettlementRecovery(
+            pendingSubmission: "exact-transcript",
+            participantCount: 2
+        )
+
+        XCTAssertTrue(
+            firstPeer.recordSubmissionResponseFailure("The response was lost.")
+        )
+        XCTAssertEqual(firstPeer.pendingSubmission, "exact-transcript")
+        XCTAssertTrue(firstPeer.shouldRetrySubmission)
+        XCTAssertFalse(firstPeer.localSubmissionAccepted)
+        XCTAssertTrue(firstPeer.shouldPoll)
+
+        XCTAssertTrue(
+            secondPeer.applyServerResponse(
+                settlement: .settled(leaderboardEligible: true),
+                source: .submission
+            )
+        )
+        XCTAssertTrue(secondPeer.isTerminal)
+        XCTAssertNil(secondPeer.pendingSubmission)
+
+        XCTAssertTrue(
+            firstPeer.applyServerResponse(
+                settlement: .settled(leaderboardEligible: true),
+                source: .settlement
+            )
+        )
+        let terminalSnapshot = firstPeer
+        XCTAssertTrue(firstPeer.canReturnToMenu)
+        XCTAssertFalse(firstPeer.shouldPoll)
+        XCTAssertNil(firstPeer.pendingSubmission)
+        XCTAssertFalse(
+            firstPeer.applyServerResponse(
+                settlement: .collecting(submitted: 1, total: 2),
+                source: .submission
+            )
+        )
+        XCTAssertFalse(firstPeer.recordSubmissionResponseFailure("stale"))
+        XCTAssertFalse(firstPeer.recordSettlementResponseFailure("stale"))
+        XCTAssertEqual(firstPeer, terminalSnapshot)
+    }
+
+    func testFailedSubmissionBeforeCommitRetainsExactPayloadUntilRetrySettles() {
+        var firstPeer = MultiplayerPresentation.SettlementRecovery(
+            pendingSubmission: "exact-transcript",
+            participantCount: 2
+        )
+        var secondPeer = MultiplayerPresentation.SettlementRecovery(
+            pendingSubmission: "exact-transcript",
+            participantCount: 2
+        )
+
+        XCTAssertTrue(firstPeer.recordSubmissionResponseFailure("offline"))
+        XCTAssertTrue(
+            secondPeer.applyServerResponse(
+                settlement: .collecting(submitted: 1, total: 2),
+                source: .submission
+            )
+        )
+        XCTAssertEqual(secondPeer.pendingSubmission, "exact-transcript")
+        XCTAssertTrue(secondPeer.localSubmissionAccepted)
+        XCTAssertFalse(secondPeer.shouldRetrySubmission)
+
+        XCTAssertTrue(
+            firstPeer.applyServerResponse(
+                settlement: .collecting(submitted: 1, total: 2),
+                source: .settlement
+            )
+        )
+        XCTAssertEqual(firstPeer.pendingSubmission, "exact-transcript")
+        XCTAssertFalse(firstPeer.localSubmissionAccepted)
+        XCTAssertTrue(firstPeer.shouldRetrySubmission)
+
+        XCTAssertTrue(
+            firstPeer.applyServerResponse(
+                settlement: .settled(leaderboardEligible: true),
+                source: .submission
+            )
+        )
+        XCTAssertTrue(
+            secondPeer.applyServerResponse(
+                settlement: .settled(leaderboardEligible: true),
+                source: .settlement
+            )
+        )
+        XCTAssertTrue(firstPeer.canReturnToMenu)
+        XCTAssertTrue(secondPeer.canReturnToMenu)
+        XCTAssertNil(firstPeer.pendingSubmission)
+        XCTAssertNil(secondPeer.pendingSubmission)
+    }
+
+    func testCollectingSettlementDoesNotInventSubmissionAcceptance() {
+        var recovery = MultiplayerPresentation.SettlementRecovery(
+            pendingSubmission: "exact-transcript",
+            participantCount: 2
+        )
+
+        XCTAssertTrue(
+            recovery.applyServerResponse(
+                settlement: .collecting(submitted: 0, total: 2),
+                source: .settlement
+            )
+        )
+        XCTAssertEqual(recovery.pendingSubmission, "exact-transcript")
+        XCTAssertFalse(recovery.localSubmissionAccepted)
+        XCTAssertTrue(recovery.shouldRetrySubmission)
+
+        XCTAssertTrue(
+            recovery.applyServerResponse(
+                settlement: .collecting(submitted: 1, total: 2),
+                source: .submission
+            )
+        )
+        XCTAssertEqual(recovery.pendingSubmission, "exact-transcript")
+        XCTAssertTrue(recovery.localSubmissionAccepted)
+        XCTAssertFalse(recovery.shouldRetrySubmission)
     }
 
     func testEliminatedLocalPlayerRemainsInLiveSpectatorState() {

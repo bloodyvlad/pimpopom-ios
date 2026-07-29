@@ -1,3 +1,4 @@
+import PimPoPomCore
 import SwiftUI
 import UIKit
 
@@ -144,14 +145,12 @@ struct MultiplayerHubView: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("AVAILABLE GAMES")
-                    .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption2))
-                    .tracking(1.0)
-                    .foregroundStyle(Color(hex: palette.muted))
-                Text("Own your color")
-                    .font(palette.appFont(size: 25, weight: .black, relativeTo: .title))
-            }
+            PimPoPomWordmark(
+                theme: palette,
+                size: 25,
+                suffix: "MP",
+                identifier: "multiplayer-wordmark"
+            )
             Spacer()
             NavigationLink {
                 LeaderboardView(initialMode: .multiplayer)
@@ -397,42 +396,60 @@ struct MultiplayerWaitingRoomView: View {
         ZStack {
             AppThemeBackground(theme: palette)
 
-            VStack(spacing: 12) {
-                header
-                connectionCard
-                if let message = state.message {
-                    Text(message)
-                        .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption))
-                        .foregroundStyle(Color(hex: palette.petsAccent))
-                        .multilineTextAlignment(.center)
-                        .accessibilityIdentifier("multiplayer-waiting-message")
+            GeometryReader { proxy in
+                let compact =
+                    max(proxy.size.width, proxy.size.height) <= 667
+
+                VStack(spacing: compact ? 6 : 12) {
+                    header(compact: compact)
+                    if let message = state.message {
+                        Text(message)
+                            .font(
+                                palette.appFont(
+                                    size: compact ? 9 : 10,
+                                    weight: .bold,
+                                    relativeTo: .caption
+                                )
+                            )
+                            .foregroundStyle(Color(hex: palette.petsAccent))
+                            .multilineTextAlignment(.center)
+                            .accessibilityIdentifier("multiplayer-waiting-message")
+                    }
+                    participantGrid(compact: compact)
+                    Spacer(minLength: compact ? 0 : 4)
+                    localPetStage(compact: compact)
+                    actionRow(compact: compact)
                 }
-                participantGrid
-                Spacer(minLength: 4)
-                localPetStage
-                actionRow
+                .foregroundStyle(Color(hex: palette.foreground))
+                .padding(compact ? 10 : 14)
+                .frame(maxWidth: 620, maxHeight: .infinity)
+                .webCardStyle(theme: palette, padding: compact ? 10 : 14)
+                .padding(.horizontal, 12)
+                .padding(.vertical, compact ? 4 : 8)
             }
-            .foregroundStyle(Color(hex: palette.foreground))
-            .padding(14)
-            .frame(maxWidth: 620, maxHeight: .infinity)
-            .webCardStyle(theme: palette, padding: 14)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
         }
         .navigationTitle("Waiting Room")
         .navigationBarBackButtonHidden(true)
         .accessibilityIdentifier("multiplayer-waiting-room")
     }
 
-    private var header: some View {
+    private func header(compact: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("WAITING ROOM")
-                    .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption2))
-                    .tracking(1)
-                    .foregroundStyle(Color(hex: palette.muted))
+                PimPoPomWordmark(
+                    theme: palette,
+                    size: compact ? 16 : 18,
+                    suffix: "MP",
+                    identifier: "multiplayer-waiting-wordmark"
+                )
                 Text("\(state.participants.count)/\(state.capacity) players")
-                    .font(palette.appFont(size: 24, weight: .black, relativeTo: .title2))
+                    .font(
+                        palette.appFont(
+                            size: compact ? 20 : 24,
+                            weight: .black,
+                            relativeTo: .title2
+                        )
+                    )
             }
             Spacer()
             Button("Leave", action: onLeave)
@@ -441,7 +458,7 @@ struct MultiplayerWaitingRoomView: View {
                     WebSecondaryButtonStyle(
                         theme: palette,
                         accent: Color(hex: palette.petsAccent),
-                        minimumHeight: 40
+                        minimumHeight: compact ? 36 : 40
                     )
                 )
                 .frame(width: 86)
@@ -516,30 +533,28 @@ struct MultiplayerWaitingRoomView: View {
         }
     }
 
-    private var participantGrid: some View {
-        LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible())],
-            spacing: 8
-        ) {
+    private func participantGrid(compact: Bool) -> some View {
+        VStack(spacing: 8) {
             ForEach(state.participants.sorted(by: { $0.seat < $1.seat })) { player in
-                waitingParticipant(player)
+                waitingParticipant(player, compact: compact)
             }
             ForEach(state.participants.count..<state.capacity, id: \.self) { seat in
-                emptySeat(seat)
+                emptySeat(seat, compact: compact)
             }
         }
         .accessibilityIdentifier("multiplayer-waiting-participants")
     }
 
     private func waitingParticipant(
-        _ player: MultiplayerPresentation.Participant
+        _ player: MultiplayerPresentation.Participant,
+        compact: Bool
     ) -> some View {
         HStack(spacing: 8) {
             Group {
                 if let petID = player.petID {
                     PetCompanionView(
                         petID: petID,
-                        size: 30,
+                        size: compact ? 26 : 30,
                         placement: .leaderboard
                     )
                 } else {
@@ -548,7 +563,7 @@ struct MultiplayerWaitingRoomView: View {
                         .foregroundStyle(Color(hex: palette.muted).opacity(0.65))
                 }
             }
-            .frame(width: 32, height: 32)
+            .frame(width: compact ? 28 : 32, height: compact ? 28 : 32)
 
             Circle()
                 .fill(palette.color(at: player.colorIndex))
@@ -573,10 +588,11 @@ struct MultiplayerWaitingRoomView: View {
             Spacer(minLength: 0)
         }
         .padding(.trailing, player.isCreator ? 18 : 0)
+        .frame(maxWidth: .infinity, minHeight: compact ? 36 : 48, alignment: .leading)
         .webCardStyle(
             theme: palette,
             selectedAccent: palette.color(at: player.colorIndex).opacity(0.68),
-            padding: 9
+            padding: compact ? 5 : 9
         )
         .overlay(alignment: .topTrailing) {
             if player.isCreator {
@@ -591,7 +607,7 @@ struct MultiplayerWaitingRoomView: View {
         .accessibilityIdentifier("multiplayer-waiting-player-\(player.seat)")
     }
 
-    private func emptySeat(_ seat: Int) -> some View {
+    private func emptySeat(_ seat: Int, compact: Bool) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "person.crop.circle.badge.questionmark")
                 .font(.system(size: 20, weight: .semibold))
@@ -600,12 +616,13 @@ struct MultiplayerWaitingRoomView: View {
             Spacer(minLength: 0)
         }
         .foregroundStyle(Color(hex: palette.muted).opacity(0.70))
-        .webCardStyle(theme: palette, padding: 9)
+        .frame(maxWidth: .infinity, minHeight: compact ? 36 : 48, alignment: .leading)
+        .webCardStyle(theme: palette, padding: compact ? 5 : 9)
         .accessibilityIdentifier("multiplayer-empty-seat-\(seat)")
     }
 
     @ViewBuilder
-    private var localPetStage: some View {
+    private func localPetStage(compact: Bool) -> some View {
         if let current = state.currentPlayer, let petID = current.petID {
             VStack(spacing: 2) {
                 Text("DRAG YOUR PET WHILE YOU WAIT")
@@ -614,7 +631,7 @@ struct MultiplayerWaitingRoomView: View {
                     .foregroundStyle(Color(hex: palette.muted))
                 PetCompanionView(
                     petID: petID,
-                    size: 58,
+                    size: compact ? 44 : 58,
                     placement: .shop,
                     animationTrigger: petActivity
                 )
@@ -646,12 +663,16 @@ struct MultiplayerWaitingRoomView: View {
                 .accessibilityLabel("Your draggable pet")
                 .accessibilityIdentifier("multiplayer-draggable-pet")
             }
-            .frame(maxWidth: .infinity, minHeight: 92)
+            .frame(maxWidth: .infinity, minHeight: compact ? 62 : 92)
         }
     }
 
-    private var actionRow: some View {
-        VStack(spacing: 8) {
+    private func actionRow(compact: Bool) -> some View {
+        VStack(spacing: compact ? 6 : 8) {
+            if state.connection.shouldPresentFailure {
+                connectionCard
+            }
+
             if let current = state.currentPlayer {
                 Button {
                     onToggleReady(!current.ready)
@@ -666,7 +687,8 @@ struct MultiplayerWaitingRoomView: View {
                         theme: palette,
                         accent: current.ready
                             ? Color(hex: palette.muted)
-                            : Color(hex: "#72e995")
+                            : Color(hex: "#72e995"),
+                        minimumHeight: compact ? 38 : 48
                     )
                 )
                 .disabled(!state.canToggleReady)
@@ -682,12 +704,56 @@ struct MultiplayerWaitingRoomView: View {
             .buttonStyle(
                 WebSecondaryButtonStyle(
                     theme: palette,
-                    accent: Color(hex: palette.achievementsAccent)
+                    accent: Color(hex: palette.achievementsAccent),
+                    minimumHeight: compact ? 38 : 48
                 )
             )
             .disabled(!state.canStart)
             .accessibilityIdentifier("start-multiplayer-match")
         }
+    }
+}
+
+enum MultiplayerLiveLayoutMetrics {
+    static let horizontalInset: CGFloat = 12
+    static let hudHeight: CGFloat = 50
+    static let badgeHeight: CGFloat = 50
+    static let badgeSpacing: CGFloat = 4
+    static let boardToSpeedBarSpacing: CGFloat = 14
+    static let speedBarHeight: CGFloat = 50
+    static let speedBarToBadgesSpacing: CGFloat = 8
+    static let verticalPadding: CGFloat = 8
+    static let minimumBoardSide: CGFloat = 220
+
+    struct Plan: Equatable {
+        let boardSide: CGFloat
+        let hudToBoardSpacing: CGFloat
+        let playerStackHeight: CGFloat
+    }
+
+    static func resolve(availableSize: CGSize, playerCount: Int) -> Plan {
+        let count = max(1, min(4, playerCount))
+        let compactSE = max(availableSize.width, availableSize.height) <= 667
+        let hudToBoardSpacing: CGFloat = compactSE ? 4 : 10
+        let playerStackHeight =
+            CGFloat(count) * badgeHeight
+            + CGFloat(max(0, count - 1)) * badgeSpacing
+        let reservedHeight =
+            verticalPadding * 2
+            + hudHeight
+            + hudToBoardSpacing
+            + boardToSpeedBarSpacing
+            + speedBarHeight
+            + speedBarToBadgesSpacing
+            + playerStackHeight
+        let widthBound = max(0, availableSize.width - horizontalInset * 2)
+        let heightBound = max(minimumBoardSide, availableSize.height - reservedHeight)
+
+        return Plan(
+            boardSide: min(widthBound, heightBound),
+            hudToBoardSpacing: hudToBoardSpacing,
+            playerStackHeight: playerStackHeight
+        )
     }
 }
 
@@ -705,20 +771,31 @@ struct MultiplayerLiveView: View {
             AppThemeBackground(theme: palette)
 
             GeometryReader { proxy in
-                let horizontalInset: CGFloat = 14
-                let boardSide = min(
-                    proxy.size.width - horizontalInset * 2,
-                    proxy.size.height * 0.57
+                let layout = MultiplayerLiveLayoutMetrics.resolve(
+                    availableSize: proxy.size,
+                    playerCount: state.players.count
                 )
-                VStack(spacing: 10) {
+                VStack(spacing: 0) {
                     liveHeader
+                        .frame(height: MultiplayerLiveLayoutMetrics.hudHeight)
+                    Color.clear
+                        .frame(height: layout.hudToBoardSpacing)
+                        .accessibilityHidden(true)
                     board
-                        .frame(width: boardSide, height: boardSide)
+                        .frame(width: layout.boardSide, height: layout.boardSide)
+                    Color.clear
+                        .frame(height: MultiplayerLiveLayoutMetrics.boardToSpeedBarSpacing)
+                        .accessibilityHidden(true)
                     speedBar
-                    playerStrip(width: proxy.size.width - horizontalInset * 2)
+                    Color.clear
+                        .frame(height: MultiplayerLiveLayoutMetrics.speedBarToBadgesSpacing)
+                        .accessibilityHidden(true)
+                    playerStrip
+                        .frame(height: layout.playerStackHeight)
+                    Spacer(minLength: 0)
                 }
-                .padding(.horizontal, horizontalInset)
-                .padding(.vertical, 8)
+                .padding(.horizontal, MultiplayerLiveLayoutMetrics.horizontalInset)
+                .padding(.vertical, MultiplayerLiveLayoutMetrics.verticalPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
 
@@ -740,48 +817,145 @@ struct MultiplayerLiveView: View {
     }
 
     private var liveHeader: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text("MULTIPLAYER")
-                    .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
-                    .tracking(0.9)
-                    .foregroundStyle(Color(hex: palette.muted))
-                Text(formatDuration(state.elapsedMilliseconds))
-                    .font(palette.appFont(size: 21, weight: .black, relativeTo: .title3))
-                    .monospacedDigit()
-            }
-            Spacer()
+        HStack(spacing: 7) {
+            multiplayerStatCard(
+                label: "Points",
+                value: "\(state.localPlayer?.points ?? 0)",
+                identifier: "multiplayer-points"
+            )
+
+            localColorCard
+                .frame(width: 64)
+
+            multiplayerLivesCard
+        }
+        .accessibilityIdentifier("multiplayer-live-header")
+    }
+
+    private func multiplayerStatCard(
+        label: String,
+        value: String,
+        identifier: String
+    ) -> some View {
+        VStack(spacing: 1) {
+            Text(label.uppercased())
+                .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                .tracking(0.35)
+                .foregroundStyle(Color(hex: palette.muted))
+                .lineLimit(1)
+            Text(value)
+                .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 3)
+        .background(
+            Color(hex: palette.surface).opacity(palette.isLight ? 0.88 : 0.78),
+            in: hudShape
+        )
+        .overlay {
+            hudShape.stroke(
+                palette.isLight
+                    ? Color(hex: "#477694").opacity(0.18)
+                    : Color(hex: palette.foreground).opacity(0.10),
+                lineWidth: palette.isPixel ? 2 : 1
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
+    }
+
+    private var localColorCard: some View {
+        Group {
             if let local = state.localPlayer {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(palette.color(at: local.colorIndex))
-                        .frame(width: 18, height: 18)
-                        .overlay { Circle().stroke(.white.opacity(0.90), lineWidth: 2) }
-                        .shadow(
-                            color: palette.color(at: local.colorIndex),
-                            radius: palette.isPixel ? 0 : 6
-                        )
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text("YOUR COLOR")
-                            .font(
-                                palette.appFont(
-                                    size: 8,
-                                    weight: .black,
-                                    relativeTo: .caption2
-                                )
-                            )
-                            .tracking(0.8)
-                            .foregroundStyle(Color(hex: palette.muted))
-                        Text(String(repeating: "♥", count: max(0, local.lives)))
-                            .font(.system(size: 16, weight: .black, design: .rounded))
-                            .foregroundStyle(Color(hex: "#ff5370"))
-                    }
-                }
+                GameCellPreview(
+                    theme: palette,
+                    colorIndex: local.colorIndex,
+                    glyph: gameColors.indices.contains(local.colorIndex)
+                        ? gameColors[local.colorIndex].glyph
+                        : "●",
+                    showsGlyphs: true,
+                    isTarget: true,
+                    glyphScale: GameCellVisualMetrics.previewGlyphScale
+                )
+                .frame(width: 38, height: 38)
+                .accessibilityLabel("Your color")
+                .accessibilityValue(
+                    gameColors.indices.contains(local.colorIndex)
+                        ? gameColors[local.colorIndex].name
+                        : "Assigned color")
+            } else {
+                Color.clear
+                    .frame(width: 38, height: 38)
             }
         }
-        .padding(10)
-        .webCardStyle(theme: palette, padding: 0)
-        .accessibilityIdentifier("multiplayer-live-header")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            Color(hex: palette.surface).opacity(palette.isLight ? 0.88 : 0.78),
+            in: hudShape
+        )
+        .overlay {
+            hudShape
+                .stroke(
+                    state.localPlayer.map { palette.color(at: $0.colorIndex) }
+                        ?? Color(hex: palette.foreground).opacity(0.10),
+                    lineWidth: GameHUDMetrics.colorHeroOutlineWidth
+                )
+                .shadow(
+                    color: (state.localPlayer.map { palette.color(at: $0.colorIndex) }
+                        ?? .clear).opacity(GameHUDMetrics.colorHeroGlowOpacity),
+                    radius: palette.isPixel ? 3 : GameHUDMetrics.colorHeroGlowRadius
+                )
+        }
+        .accessibilityIdentifier("multiplayer-your-color")
+    }
+
+    private var multiplayerLivesCard: some View {
+        VStack(spacing: 1) {
+            Text("LIVES")
+                .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                .tracking(0.35)
+                .foregroundStyle(Color(hex: palette.muted))
+            if palette.isPixel {
+                PixelLivesView(
+                    remaining: max(0, min(3, state.localPlayer?.lives ?? 0)),
+                    color: Color(hex: GameHUDMetrics.livesColorHex)
+                )
+                .frame(height: 16)
+            } else {
+                Text(multiplayerLivesPresentation)
+                    .font(.system(size: 15, weight: .black, design: .rounded))
+                    .foregroundStyle(Color(hex: GameHUDMetrics.livesColorHex))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 3)
+        .background(
+            Color(hex: palette.surface).opacity(palette.isLight ? 0.88 : 0.78),
+            in: hudShape
+        )
+        .overlay {
+            hudShape.stroke(
+                palette.isLight
+                    ? Color(hex: "#477694").opacity(0.18)
+                    : Color(hex: palette.foreground).opacity(0.10),
+                lineWidth: palette.isPixel ? 2 : 1
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("multiplayer-lives")
+    }
+
+    private var multiplayerLivesPresentation: String {
+        let lives = max(0, min(3, state.localPlayer?.lives ?? 0))
+        return String(repeating: "♥", count: lives)
+            + String(repeating: "♡", count: 3 - lives)
+    }
+
+    private var hudShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 11, style: .continuous)
     }
 
     private var board: some View {
@@ -846,117 +1020,69 @@ struct MultiplayerLiveView: View {
     }
 
     private var speedBar: some View {
-        HStack(spacing: palette.isPixel ? 2 : 4) {
-            Text("SPEED BAR")
-                .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption))
-                .frame(width: 76)
-            ForEach(0..<5, id: \.self) { step in
-                RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 5)
-                    .fill(
-                        step < min(5, max(0, state.streakSteps))
-                            ? LinearGradient(
-                                colors: [
-                                    Color(hex: "#914eff"),
-                                    Color(hex: "#ff83d4"),
-                                    Color(hex: "#ffe16a"),
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                            : LinearGradient(
-                                colors: [
-                                    Color(hex: palette.surface),
-                                    Color(hex: palette.surface),
-                                ],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 5)
-                            .stroke(Color(hex: palette.foreground).opacity(0.16), lineWidth: 1)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 30)
-            }
-            Text("\(state.localPlayer?.multiplier ?? 1)×")
-                .font(palette.appFont(size: 18, weight: .black, relativeTo: .headline))
-                .frame(width: 45)
-        }
-        .padding(8)
-        .webCardStyle(theme: palette, padding: 0)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "Speed bar \(state.streakSteps) of 5, multiplier \(state.localPlayer?.multiplier ?? 1)"
+        GameplaySpeedBarView(
+            theme: palette,
+            multiplier: state.localPlayer?.multiplier ?? 1,
+            progress: state.streakSteps,
+            target: 5,
+            accessibilityIdentifier: "multiplayer-speed-bar"
         )
-        .accessibilityIdentifier("multiplayer-speed-bar")
     }
 
-    private func playerStrip(width: CGFloat) -> some View {
-        HStack(spacing: 4) {
+    private var playerStrip: some View {
+        VStack(spacing: MultiplayerLiveLayoutMetrics.badgeSpacing) {
             ForEach(state.players.sorted(by: { $0.seat < $1.seat })) { player in
                 playerTile(player)
-                    .frame(
-                        width: max(
-                            0,
-                            (width - CGFloat(max(0, state.players.count - 1)) * 4)
-                                * CGFloat(state.stripFraction)
-                        )
-                    )
             }
         }
-        .frame(width: width, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .top)
         .accessibilityIdentifier("multiplayer-player-strip")
     }
 
     private func playerTile(_ player: MultiplayerPresentation.LivePlayer) -> some View {
-        VStack(spacing: 2) {
-            ZStack(alignment: .topTrailing) {
-                if let petID = player.petID {
-                    PetCompanionView(
-                        petID: petID,
-                        size: state.players.count == 4 ? 25 : 31,
-                        placement: .gameplay
-                    )
-                } else {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: state.players.count == 4 ? 23 : 28))
-                        .foregroundStyle(Color(hex: palette.muted))
+        ZStack {
+            HStack {
+                Group {
+                    if let petID = player.petID {
+                        PetCompanionView(
+                            petID: petID,
+                            size: 34,
+                            placement: .gameplay
+                        )
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 29))
+                            .foregroundStyle(Color(hex: palette.muted))
+                    }
                 }
-                if player.isLeader {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundStyle(Color(hex: "#ffd84d"))
-                        .offset(x: 6, y: -5)
-                        .shadow(color: Color(hex: "#ffd84d"), radius: palette.isPixel ? 0 : 4)
-                }
+                .frame(width: 38, height: 38)
+                Spacer()
+                Text("\(player.multiplier)×")
+                    .font(palette.appFont(size: 28, weight: .black, relativeTo: .title2))
+                    .foregroundStyle(palette.color(at: player.colorIndex))
+                    .minimumScaleFactor(0.72)
+                    .frame(width: 44)
             }
-            .frame(height: 30)
+            .padding(.horizontal, 8)
 
-            Text(player.name)
-                .font(
-                    palette.appFont(
-                        size: state.players.count == 4 ? 8 : 10,
-                        weight: .black,
-                        relativeTo: .caption2
-                    )
-                )
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text("\(player.points.formatted()) · \(player.multiplier)×")
-                .font(
-                    palette.appFont(
-                        size: state.players.count == 4 ? 8 : 9,
-                        weight: .bold,
-                        relativeTo: .caption2
-                    )
-                )
-                .foregroundStyle(palette.color(at: player.colorIndex))
-                .monospacedDigit()
-                .lineLimit(1)
+            VStack(spacing: 0) {
+                Text(player.points.formatted())
+                    .font(palette.appFont(size: 15, weight: .black, relativeTo: .headline))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                Text(player.name)
+                    .font(palette.appFont(size: 9, weight: .bold, relativeTo: .caption2))
+                    .foregroundStyle(Color(hex: palette.muted))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+                    .allowsTightening(true)
+            }
+            .padding(.horizontal, 56)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, minHeight: 70)
+        .frame(height: MultiplayerLiveLayoutMetrics.badgeHeight)
+        .frame(maxWidth: .infinity)
         .background(
             player.isCurrentPlayer
                 ? palette.color(at: player.colorIndex).opacity(0.14)
@@ -971,6 +1097,16 @@ struct MultiplayerLiveView: View {
                     ),
                     lineWidth: palette.isPixel ? 2 : 1
                 )
+        }
+        .overlay(alignment: .topTrailing) {
+            if player.isLeader {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(Color(hex: "#ffd84d"))
+                    .offset(x: 4, y: -6)
+                    .shadow(color: Color(hex: "#ffd84d"), radius: palette.isPixel ? 0 : 4)
+                    .accessibilityHidden(true)
+            }
         }
         .opacity(player.isConnected ? 1 : 0.52)
         .accessibilityElement(children: .ignore)
@@ -990,10 +1126,6 @@ struct MultiplayerLiveView: View {
         return "Inactive cell \(cell.id + 1)"
     }
 
-    private func formatDuration(_ milliseconds: Int) -> String {
-        let seconds = max(0, milliseconds / 1_000)
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
-    }
 }
 
 private struct MultiplayerTouchCell: UIViewRepresentable {

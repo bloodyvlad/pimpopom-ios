@@ -613,93 +613,13 @@ struct GameView: View {
     }
 
     private var streakMeter: some View {
-        let trackShape = palette.isPixel ? AnyShape(Rectangle()) : AnyShape(Capsule())
-        let presentation = SpeedBarPresentation.resolve(
+        GameplaySpeedBarView(
+            theme: palette,
             multiplier: coordinator.snapshot.multiplier,
             progress: coordinator.snapshot.streakProgress,
-            target: coordinator.snapshot.streakTarget
+            target: coordinator.snapshot.streakTarget,
+            accessibilityIdentifier: "speed-streak"
         )
-
-        return HStack(spacing: 7) {
-            GeometryReader { _ in
-                ZStack(alignment: .leading) {
-                    trackShape
-                        .fill(streakTierColor.opacity(coordinator.snapshot.multiplier == 1 ? 0.10 : 0.28))
-
-                    SpeedBarLayeredFill(
-                        presentation: presentation,
-                        isPixel: palette.isPixel
-                    )
-
-                    if palette.isPixel {
-                        HStack(spacing: 0) {
-                            ForEach(0..<5, id: \.self) { index in
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .overlay(alignment: .trailing) {
-                                        if index < 4 {
-                                            Rectangle()
-                                                .fill(Color(hex: palette.board).opacity(0.62))
-                                                .frame(width: 2)
-                                        }
-                                    }
-                            }
-                        }
-                        .allowsHitTesting(false)
-                    }
-                    Text("SPEED BAR")
-                        .font(palette.appFont(size: 10, weight: .black, relativeTo: .caption2))
-                        .tracking(0.65)
-                        .foregroundStyle(Color(hex: palette.foreground))
-                        .shadow(color: .black.opacity(palette.isLight ? 0.12 : 0.65), radius: 2)
-                        .padding(.leading, 12)
-                }
-            }
-            .frame(height: 36)
-
-            Text("\(coordinator.snapshot.multiplier)×")
-                .font(palette.appFont(size: 21, weight: .black, relativeTo: .title3))
-                .foregroundStyle(coordinator.snapshot.multiplier == 1 ? Color(hex: palette.foreground) : .black)
-                .frame(width: 46, height: 36)
-                .background(streakTierColor, in: trackShape)
-                .overlay {
-                    if palette.isPixel {
-                        Rectangle()
-                            .stroke(Color(hex: palette.foreground).opacity(0.36), lineWidth: 2)
-                    }
-                }
-                .shadow(
-                    color: streakTierColor.opacity(coordinator.snapshot.multiplier == 1 ? 0.10 : 0.55),
-                    radius: palette.isPixel ? 0 : 8
-                )
-        }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 6)
-        .frame(height: 50)
-        .background(
-            Color(hex: palette.surface).opacity(palette.isLight ? 0.88 : 0.82),
-            in: RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 14)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 14)
-                .stroke(streakTierColor.opacity(0.42), lineWidth: palette.isPixel ? 2 : 1)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Speed bar")
-        .accessibilityValue(
-            "Multiplier \(coordinator.snapshot.multiplier), \(coordinator.snapshot.streakProgress) of \(coordinator.snapshot.streakTarget)"
-        )
-        .accessibilityIdentifier("speed-streak")
-    }
-
-    private var streakTierColor: Color {
-        switch coordinator.snapshot.multiplier {
-        case 2: Color(hex: "#72e995")
-        case 3: Color(hex: "#67adff")
-        case 4: Color(hex: "#c68cff")
-        case 5...: Color(hex: "#ffd84d")
-        default: Color(hex: palette.foreground).opacity(0.18)
-        }
     }
 
     private var resultOverlay: some View {
@@ -1193,7 +1113,7 @@ struct GameView: View {
     }
 }
 
-private struct PixelLivesView: View {
+struct PixelLivesView: View {
     let remaining: Int
     let color: Color
 
@@ -1205,6 +1125,103 @@ private struct PixelLivesView: View {
             }
         }
         .accessibilityHidden(true)
+    }
+}
+
+struct GameplaySpeedBarView: View {
+    let theme: ThemePalette
+    let multiplier: Int
+    let progress: Int
+    let target: Int
+    var accessibilityIdentifier = "speed-streak"
+
+    var body: some View {
+        let trackShape = theme.isPixel ? AnyShape(Rectangle()) : AnyShape(Capsule())
+        let presentation = SpeedBarPresentation.resolve(
+            multiplier: multiplier,
+            progress: progress,
+            target: target
+        )
+
+        HStack(spacing: 7) {
+            GeometryReader { _ in
+                ZStack(alignment: .leading) {
+                    trackShape
+                        .fill(tierColor.opacity(multiplier == 1 ? 0.10 : 0.28))
+
+                    SpeedBarLayeredFill(
+                        presentation: presentation,
+                        isPixel: theme.isPixel
+                    )
+
+                    if theme.isPixel {
+                        HStack(spacing: 0) {
+                            ForEach(0..<5, id: \.self) { index in
+                                Rectangle()
+                                    .fill(Color.clear)
+                                    .overlay(alignment: .trailing) {
+                                        if index < 4 {
+                                            Rectangle()
+                                                .fill(Color(hex: theme.board).opacity(0.62))
+                                                .frame(width: 2)
+                                        }
+                                    }
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
+
+                    Text("SPEED BAR")
+                        .font(theme.appFont(size: 10, weight: .black, relativeTo: .caption2))
+                        .tracking(0.65)
+                        .foregroundStyle(Color(hex: theme.foreground))
+                        .shadow(color: .black.opacity(theme.isLight ? 0.12 : 0.65), radius: 2)
+                        .padding(.leading, 12)
+                }
+            }
+            .frame(height: 36)
+
+            Text("\(multiplier)×")
+                .font(theme.appFont(size: 21, weight: .black, relativeTo: .title3))
+                .foregroundStyle(multiplier == 1 ? Color(hex: theme.foreground) : .black)
+                .frame(width: 46, height: 36)
+                .background(tierColor, in: trackShape)
+                .overlay {
+                    if theme.isPixel {
+                        Rectangle()
+                            .stroke(Color(hex: theme.foreground).opacity(0.36), lineWidth: 2)
+                    }
+                }
+                .shadow(
+                    color: tierColor.opacity(multiplier == 1 ? 0.10 : 0.55),
+                    radius: theme.isPixel ? 0 : 8
+                )
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .frame(height: 50)
+        .background(
+            Color(hex: theme.surface).opacity(theme.isLight ? 0.88 : 0.82),
+            in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 14)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 14)
+                .stroke(tierColor.opacity(0.42), lineWidth: theme.isPixel ? 2 : 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Speed bar")
+        .accessibilityValue("Multiplier \(multiplier), \(progress) of \(target)")
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    private var tierColor: Color {
+        switch multiplier {
+        case 2: Color(hex: "#72e995")
+        case 3: Color(hex: "#67adff")
+        case 4: Color(hex: "#c68cff")
+        case 5...: Color(hex: "#ffd84d")
+        default: Color(hex: theme.foreground).opacity(0.18)
+        }
     }
 }
 

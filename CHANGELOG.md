@@ -52,6 +52,8 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Changed
 
+- The 1.02 (18) candidate fixes valid Multiplayer final transcripts being rejected on-device before submission, preserves terminal event delivery to spectators, retries the exact retained submission safely, and keeps every participant on Results until PHP returns a terminal settlement.
+- Multiplayer now uses a PimPoPom MP wordmark, one-column waiting-room roster, compact Points/color/Lives HUD, the shared pet-free Speed Bar, and full-width stacked player badges with readable names, pet-scale multipliers, and overlaid leader crowns. Compact iPhones tighten the HUD-to-board and four-player waiting-room geometry.
 - The 1.02 (17) corrective candidate lets each lobby participant toggle PHP readiness while GameKit is still assembling the roster, while creator Start remains gated on a complete roster and every participant being ready.
 - Arcade, Zen, and Multiplayer now share one Leaderboard screen with one navigation back control; the Zen label is shortened, waiting-room names retain readable width, and Pixel cards no longer duplicate their labels through offset radius-zero shadows.
 - Recovery taps are ignored after a life loss; late 4×4 response windows contract by 5 ms per hit; and 1–3-second decoys persist through correct hits/targets, reserve their cells, overlap only from 70 seconds, expire independently for dodges, and constrain subsequent player-color choices.

@@ -1,6 +1,7 @@
 import Combine
 import CryptoKit
 import Foundation
+import OSLog
 import PimPoPomCore
 
 enum MultiplayerFlowPhase: Equatable {
@@ -8,6 +9,25 @@ enum MultiplayerFlowPhase: Equatable {
     case waiting
     case live
     case results
+}
+
+enum MultiplayerCoordinatorFramePolicy {
+    static func handledAt(
+        inputAt: Int,
+        receivedAt: Int,
+        engineClock: Int,
+        watermark: Int
+    ) -> Int {
+        let latestHandledAt = min(inputAt + 10_000, watermark)
+        return max(
+            inputAt,
+            min(max(receivedAt, engineClock), latestHandledAt)
+        )
+    }
+
+    static func shouldAdvance(_ phase: MultiplayerLivePhase) -> Bool {
+        phase == .running
+    }
 }
 
 @MainActor
@@ -42,10 +62,64 @@ final class MultiplayerController: ObservableObject {
         let receivedAt: Int
     }
 
-    private struct PendingSubmission {
+    private struct PendingSubmission: Codable, Equatable {
         let matchID: String
         let manifestHash: String
         let transcript: MultiplayerTranscriptSubmission
+        let participantCount: Int
+        let createdAt: Date
+    }
+
+    private struct PendingSubmissionStore {
+        private let fileURL: URL?
+
+        init(fileManager: FileManager = .default) {
+            fileURL = fileManager.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first?
+            .appendingPathComponent("PimPoPom", isDirectory: true)
+            .appendingPathComponent(
+                "multiplayer-pending-submission-v1.json",
+                isDirectory: false
+            )
+        }
+
+        func load() -> PendingSubmission? {
+            guard let fileURL,
+                let data = try? Data(contentsOf: fileURL),
+                let value = try? JSONDecoder().decode(
+                    PendingSubmission.self,
+                    from: data
+                )
+            else { return nil }
+            return value
+        }
+
+        func save(_ value: PendingSubmission) {
+            guard let fileURL,
+                let data = try? JSONEncoder().encode(value)
+            else { return }
+            let directory = fileURL.deletingLastPathComponent()
+            do {
+                try FileManager.default.createDirectory(
+                    at: directory,
+                    withIntermediateDirectories: true
+                )
+                var resourceValues = URLResourceValues()
+                resourceValues.isExcludedFromBackup = true
+                var mutableDirectory = directory
+                try? mutableDirectory.setResourceValues(resourceValues)
+                try data.write(to: fileURL, options: .atomic)
+            } catch {
+                // Settlement remains recoverable in memory for this process.
+            }
+        }
+
+        func clear() {
+            guard let fileURL else { return }
+            try? FileManager.default.removeItem(at: fileURL)
+        }
     }
 
     private let backend: BackendClient
@@ -57,6 +131,7 @@ final class MultiplayerController: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var tickTask: Task<Void, Never>?
     private var settlementTask: Task<Void, Never>?
+    private var submissionTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
     private var announcementTask: Task<Void, Never>?
     private var matchmakingTask: Task<Void, Never>?
@@ -88,12 +163,24 @@ final class MultiplayerController: ObservableObject {
     private var coreManifest: PimPoPomCore.MultiplayerManifest?
     private var transcriptEvents: [MultiplayerEvent] = []
     private var currentAnnouncement: String?
-    private var pendingSubmission: PendingSubmission?
+    private var settlementRecovery: MultiplayerPresentation.SettlementRecovery<PendingSubmission>?
     private var isSubmittingTranscript = false
+    private let pendingSubmissionStore = PendingSubmissionStore()
+    private let logger = Logger(
+        subsystem: "com.otcsoftware.pimpopom",
+        category: "Multiplayer"
+    )
 
     private func debugMultiplayerLog(_ message: String) {
         #if DEBUG
             print("[PimPoPom Multiplayer] \(message)")
+        #endif
+    }
+
+    private func logMultiplayerError(_ message: String) {
+        logger.error("\(message, privacy: .public)")
+        #if DEBUG
+            print("[PimPoPom Multiplayer] ERROR \(message)")
         #endif
     }
 
@@ -110,6 +197,7 @@ final class MultiplayerController: ObservableObject {
         self.transport.eventHandler = { [weak self] event in
             self?.handleTransportEvent(event)
         }
+        restorePendingSubmission()
         refreshAvailability()
     }
 
@@ -117,6 +205,7 @@ final class MultiplayerController: ObservableObject {
         pollTask?.cancel()
         tickTask?.cancel()
         settlementTask?.cancel()
+        submissionTask?.cancel()
         recoveryTask?.cancel()
         announcementTask?.cancel()
         matchmakingTask?.cancel()
@@ -139,7 +228,10 @@ final class MultiplayerController: ObservableObject {
 
     func setApplicationActive(_ isActive: Bool) {
         isApplicationActive = isActive
-        if isActive, phase == .results, pendingSubmission != nil {
+        if isActive,
+            phase == .results,
+            settlementRecovery?.shouldRetrySubmission == true
+        {
             submitPendingTranscript()
         }
         guard phase == .live else { return }
@@ -338,10 +430,9 @@ final class MultiplayerController: ObservableObject {
     }
 
     func refreshSettlement() {
-        guard let matchID = currentMatch?.matchId else { return }
-        if pendingSubmission != nil {
+        guard let matchID = activeSettlementMatchID else { return }
+        if settlementRecovery?.shouldRetrySubmission == true {
             submitPendingTranscript()
-            return
         }
         resultsState = MultiplayerPresentation.ResultsState(
             settlement: resultsState.settlement,
@@ -353,24 +444,35 @@ final class MultiplayerController: ObservableObject {
         Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
-                resultsState = MultiplayerPresentation.ResultsState(
-                    settlement: resultsState.settlement,
-                    results: resultsState.results,
-                    isRefreshing: false,
-                    localSubmissionAccepted: resultsState.localSubmissionAccepted,
-                    message: resultsState.message
-                )
+                if activeSettlementMatchID == matchID {
+                    resultsState = MultiplayerPresentation.ResultsState(
+                        settlement: resultsState.settlement,
+                        results: resultsState.results,
+                        isRefreshing: false,
+                        localSubmissionAccepted: resultsState.localSubmissionAccepted,
+                        message: resultsState.message
+                    )
+                }
             }
             do {
                 let response = try await backend.loadMultiplayerSettlement(matchID)
-                applySettlement(response)
+                applySettlement(
+                    response,
+                    source: .settlement,
+                    matchID: matchID
+                )
             } catch {
+                guard activeSettlementMatchID == matchID else { return }
+                guard var recovery = settlementRecovery,
+                    recovery.recordSettlementResponseFailure(error.localizedDescription)
+                else { return }
+                settlementRecovery = recovery
                 resultsState = MultiplayerPresentation.ResultsState(
-                    settlement: resultsState.settlement,
+                    settlement: recovery.settlement,
                     results: resultsState.results,
                     isRefreshing: false,
-                    localSubmissionAccepted: resultsState.localSubmissionAccepted,
-                    message: error.localizedDescription
+                    localSubmissionAccepted: recovery.localSubmissionAccepted,
+                    message: recovery.message
                 )
             }
         }
@@ -970,12 +1072,16 @@ final class MultiplayerController: ObservableObject {
         var cancellations: [Int] = []
         do {
             for input in readyInputs {
-                let handledAt = max(
-                    input.inputAt,
-                    min(
-                        max(input.receivedAt, engine.clockMilliseconds),
-                        input.inputAt + 10_000
+                guard
+                    MultiplayerCoordinatorFramePolicy.shouldAdvance(
+                        engine.state.phase
                     )
+                else { break }
+                let handledAt = MultiplayerCoordinatorFramePolicy.handledAt(
+                    inputAt: input.inputAt,
+                    receivedAt: input.receivedAt,
+                    engineClock: engine.clockMilliseconds,
+                    watermark: watermark
                 )
                 let output = try engine.handleTap(
                     seat: input.seat,
@@ -987,15 +1093,17 @@ final class MultiplayerController: ObservableObject {
                 plans.append(contentsOf: output.plannedActivations)
                 cancellations.append(contentsOf: output.cancelledPlanIds)
             }
-            let advance = try engine.advance(to: watermark)
-            events.append(contentsOf: advance.committedEvents)
-            plans.append(contentsOf: advance.plannedActivations)
-            cancellations.append(contentsOf: advance.cancelledPlanIds)
+            if MultiplayerCoordinatorFramePolicy.shouldAdvance(engine.state.phase) {
+                let advance = try engine.advance(to: watermark)
+                events.append(contentsOf: advance.committedEvents)
+                plans.append(contentsOf: advance.plannedActivations)
+                cancellations.append(contentsOf: advance.cancelledPlanIds)
+            }
             emitCoordinatorOutput(
                 events: events,
                 plans: plans,
                 cancellations: cancellations,
-                logicalMilliseconds: watermark
+                logicalMilliseconds: max(watermark, engine.clockMilliseconds)
             )
         } catch {
             failLiveMatch(error.localizedDescription)
@@ -1348,6 +1456,21 @@ final class MultiplayerController: ObservableObject {
         }
         didSubmitTranscript = true
         phase = .results
+        let pendingSubmission = PendingSubmission(
+            matchID: match.matchId,
+            manifestHash: manifest.manifestHash,
+            transcript: MultiplayerTranscriptSubmission(
+                matchId: match.matchId,
+                events: transcriptEvents.map(\.integerTuple)
+            ),
+            participantCount: match.participants.count,
+            createdAt: Date()
+        )
+        pendingSubmissionStore.save(pendingSubmission)
+        settlementRecovery = MultiplayerPresentation.SettlementRecovery(
+            pendingSubmission: pendingSubmission,
+            participantCount: match.participants.count
+        )
         resultsState = MultiplayerPresentation.ResultsState(
             settlement: .collecting(
                 submitted: 0,
@@ -1358,50 +1481,90 @@ final class MultiplayerController: ObservableObject {
             localSubmissionAccepted: false,
             message: "Submitting the retained peer-consistent transcript."
         )
-        pendingSubmission = PendingSubmission(
-            matchID: match.matchId,
-            manifestHash: manifest.manifestHash,
-            transcript: MultiplayerTranscriptSubmission(
-                matchId: match.matchId,
-                events: transcriptEvents.map(\.integerTuple)
-            )
-        )
         submitPendingTranscript()
     }
 
-    private func submitPendingTranscript() {
-        guard !isSubmittingTranscript, let pendingSubmission else { return }
+    private func submitPendingTranscript(
+        startsSettlementPolling: Bool = true
+    ) {
+        guard !isSubmittingTranscript,
+            let recovery = settlementRecovery,
+            recovery.shouldRetrySubmission,
+            let pendingSubmission = recovery.pendingSubmission
+        else { return }
+        let matchID = pendingSubmission.matchID
         isSubmittingTranscript = true
         resultsState = MultiplayerPresentation.ResultsState(
             settlement: resultsState.settlement,
             results: resultsState.results,
             isRefreshing: true,
-            localSubmissionAccepted: false,
+            localSubmissionAccepted: recovery.localSubmissionAccepted,
             message: "Submitting the retained peer-consistent transcript."
         )
-        Task { @MainActor [weak self] in
+        submissionTask?.cancel()
+        submissionTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { isSubmittingTranscript = false }
+            defer {
+                if activeSettlementMatchID == matchID
+                    || settlementRecovery?.isTerminal == true
+                {
+                    isSubmittingTranscript = false
+                    submissionTask = nil
+                }
+            }
             do {
                 let response = try await backend.submitMultiplayerTranscript(
-                    matchID: pendingSubmission.matchID,
+                    matchID: matchID,
                     manifestHash: pendingSubmission.manifestHash,
                     transcript: pendingSubmission.transcript
                 )
-                self.pendingSubmission = nil
-                applySettlement(response)
-                if response.state == "collecting" {
+                guard !Task.isCancelled,
+                    activeSettlementMatchID == matchID
+                else { return }
+                applySettlement(
+                    response,
+                    source: .submission,
+                    matchID: matchID
+                )
+                if startsSettlementPolling,
+                    settlementRecovery?.shouldPoll == true
+                {
                     startSettlementPolling()
                 }
             } catch {
+                let failure =
+                    "Submission unavailable · \(error.localizedDescription) "
+                    + "Retrying automatically."
+                if let backendError = error as? BackendError {
+                    logMultiplayerError(
+                        "transcript submission failed status=\(backendError.status) "
+                            + "code=\(backendError.code ?? "none") "
+                            + "message=\(backendError.message)"
+                    )
+                } else {
+                    logMultiplayerError(
+                        "transcript submission failed message=\(error.localizedDescription)"
+                    )
+                }
+                guard !Task.isCancelled,
+                    activeSettlementMatchID == matchID
+                else { return }
+                guard var recovery = settlementRecovery,
+                    recovery.recordSubmissionResponseFailure(failure)
+                else { return }
+                settlementRecovery = recovery
                 resultsState = MultiplayerPresentation.ResultsState(
-                    settlement: resultsState.settlement,
-                    results: provisionalResults(),
+                    settlement: recovery.settlement,
+                    results: resultsState.results.isEmpty
+                        ? provisionalResults()
+                        : resultsState.results,
                     isRefreshing: false,
-                    localSubmissionAccepted: false,
-                    message:
-                        "Submission unavailable. The exact transcript is retained; tap Check status to retry."
+                    localSubmissionAccepted: recovery.localSubmissionAccepted,
+                    message: recovery.message
                 )
+                if startsSettlementPolling, recovery.shouldPoll {
+                    startSettlementPolling()
+                }
             }
         }
     }
@@ -1425,54 +1588,101 @@ final class MultiplayerController: ObservableObject {
 
     private func startSettlementPolling() {
         settlementTask?.cancel()
-        guard let matchID = currentMatch?.matchId else { return }
+        guard let matchID = activeSettlementMatchID else { return }
         settlementTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(1_500))
-                guard let self, phase == .results else { return }
+                guard let self,
+                    phase == .results,
+                    activeSettlementMatchID == matchID
+                else { return }
+                guard settlementRecovery?.shouldPoll == true else { return }
+                if settlementRecovery?.shouldRetrySubmission == true,
+                    !isSubmittingTranscript
+                {
+                    submitPendingTranscript(
+                        startsSettlementPolling: false
+                    )
+                }
                 do {
                     let response = try await backend.loadMultiplayerSettlement(matchID)
-                    applySettlement(response)
-                    if response.state != "collecting" { return }
+                    applySettlement(
+                        response,
+                        source: .settlement,
+                        matchID: matchID
+                    )
+                    if settlementRecovery?.shouldPoll != true { return }
                 } catch {
+                    guard activeSettlementMatchID == matchID else { return }
+                    guard var recovery = settlementRecovery,
+                        recovery.recordSettlementResponseFailure(
+                            error.localizedDescription
+                        )
+                    else { return }
+                    settlementRecovery = recovery
                     resultsState = MultiplayerPresentation.ResultsState(
-                        settlement: resultsState.settlement,
+                        settlement: recovery.settlement,
                         results: resultsState.results,
                         isRefreshing: false,
-                        localSubmissionAccepted: resultsState.localSubmissionAccepted,
-                        message: error.localizedDescription
+                        localSubmissionAccepted: recovery.localSubmissionAccepted,
+                        message: recovery.message
                     )
                 }
             }
         }
     }
 
-    private func applySettlement(_ response: MultiplayerSettlementResponse) {
-        let settlement: MultiplayerPresentation.SettlementState =
-            switch response.state {
-            case "settled":
-                .settled(leaderboardEligible: response.leaderboardEligible)
-            case "review", "cancelled":
-                .review(reason: response.reviewReason)
-            default:
-                .collecting(
-                    submitted: response.submittedCount ?? 0,
-                    total: response.participantCount
-                        ?? currentMatch?.participants.count
-                        ?? 2
-                )
-            }
+    private func applySettlement(
+        _ response: MultiplayerSettlementResponse,
+        source: MultiplayerPresentation.SettlementRecovery<PendingSubmission>.ResponseSource,
+        matchID: String
+    ) {
+        guard activeSettlementMatchID == matchID,
+            var recovery = settlementRecovery
+        else { return }
+        let previousSettlement = recovery.settlement
+        let settlement: MultiplayerPresentation.SettlementState
+        switch response.state {
+        case "settled":
+            settlement = .settled(
+                leaderboardEligible: response.leaderboardEligible
+            )
+        case "review", "cancelled":
+            settlement = .review(reason: response.reviewReason)
+        default:
+            let previousCounts =
+                if case .collecting(let submitted, let total) = previousSettlement {
+                    (submitted, total)
+                } else {
+                    (0, currentMatch?.participants.count ?? 2)
+                }
+            settlement = .collecting(
+                submitted: response.submittedCount ?? previousCounts.0,
+                total: response.participantCount
+                    ?? previousCounts.1
+            )
+        }
+        guard
+            recovery.applyServerResponse(
+                settlement: settlement,
+                source: source
+            )
+        else { return }
+        settlementRecovery = recovery
+        if recovery.isTerminal {
+            pendingSubmissionStore.clear()
+        }
+        let serverResults = response.results?.map(Self.presentedResult) ?? []
         let results =
-            response.results?.map(Self.presentedResult)
-            ?? provisionalResults()
+            serverResults.isEmpty
+            ? (resultsState.results.isEmpty ? provisionalResults() : resultsState.results)
+            : serverResults
         resultsState = MultiplayerPresentation.ResultsState(
-            settlement: settlement,
+            settlement: recovery.settlement,
             results: results,
             isRefreshing: false,
-            localSubmissionAccepted: true,
-            message: response.state == "collecting"
-                ? "Waiting for matching peer transcripts."
-                : nil
+            localSubmissionAccepted: recovery.localSubmissionAccepted,
+            message: recovery.message
         )
     }
 
@@ -1581,11 +1791,12 @@ final class MultiplayerController: ObservableObject {
         tickTask = nil
         audio.setMusicContext(.menu)
         phase = .results
+        settlementRecovery = nil
         resultsState = MultiplayerPresentation.ResultsState(
             settlement: .review(reason: message),
             results: provisionalResults(),
             isRefreshing: false,
-            localSubmissionAccepted: pendingSubmission == nil && didSubmitTranscript,
+            localSubmissionAccepted: false,
             message: "This match is not leaderboard eligible."
         )
     }
@@ -1594,12 +1805,14 @@ final class MultiplayerController: ObservableObject {
         pollTask?.cancel()
         tickTask?.cancel()
         settlementTask?.cancel()
+        submissionTask?.cancel()
         recoveryTask?.cancel()
         announcementTask?.cancel()
         matchmakingTask?.cancel()
         pollTask = nil
         tickTask = nil
         settlementTask = nil
+        submissionTask = nil
         recoveryTask = nil
         announcementTask = nil
         matchmakingTask = nil
@@ -1634,8 +1847,47 @@ final class MultiplayerController: ObservableObject {
         coreManifest = nil
         transcriptEvents = []
         currentAnnouncement = nil
-        pendingSubmission = nil
+        settlementRecovery = nil
         isSubmittingTranscript = false
+    }
+
+    private var activeSettlementMatchID: String? {
+        settlementRecovery?.pendingSubmission?.matchID
+            ?? currentMatch?.matchId
+    }
+
+    private func restorePendingSubmission() {
+        guard let pending = pendingSubmissionStore.load() else { return }
+        let maximumAge: TimeInterval = 24 * 60 * 60
+        let age = Date().timeIntervalSince(pending.createdAt)
+        guard (2...4).contains(pending.participantCount),
+            pending.transcript.matchId == pending.matchID,
+            pending.transcript.buildId == MultiplayerAPIContract.buildID,
+            pending.transcript.ruleset == MultiplayerAPIContract.ruleset,
+            pending.transcript.protocolVersion == MultiplayerAPIContract.protocolVersion,
+            pending.transcript.proofVersion == MultiplayerAPIContract.proofVersion,
+            !pending.transcript.events.isEmpty,
+            age >= 0,
+            age <= maximumAge
+        else {
+            pendingSubmissionStore.clear()
+            return
+        }
+        settlementRecovery = MultiplayerPresentation.SettlementRecovery(
+            pendingSubmission: pending,
+            participantCount: pending.participantCount
+        )
+        phase = .results
+        resultsState = MultiplayerPresentation.ResultsState(
+            settlement: .collecting(
+                submitted: 0,
+                total: max(2, pending.participantCount)
+            ),
+            results: [],
+            isRefreshing: false,
+            localSubmissionAccepted: false,
+            message: "Restoring the retained Multiplayer result."
+        )
     }
 
     private var localSeat: Int {

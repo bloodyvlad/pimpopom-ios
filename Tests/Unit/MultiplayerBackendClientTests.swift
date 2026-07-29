@@ -201,6 +201,55 @@ final class MultiplayerBackendClientTests: XCTestCase {
         }
     }
 
+    func testFinishedTranscriptOrdersMissPlayerOutAndFinishByInputTime() async throws {
+        let recorder = MultiplayerRequestRecorder()
+        let sessionData = try JSONEncoder().encode(Self.session)
+        let collectingData = try JSONEncoder().encode(Self.collecting)
+        MultiplayerStubURLProtocol.handler = { request in
+            recorder.append(request)
+            switch (request.url?.path, request.httpMethod) {
+            case ("/api/session", "GET"):
+                return MultiplayerStubResponse(data: sessionData)
+            case ("/api/mobile/v1/multiplayer/matches/\(Self.matchID)/submissions", "POST"):
+                return MultiplayerStubResponse(data: collectingData)
+            default:
+                return MultiplayerStubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+        let events = [
+            [2, 1, 1_000, 1_008, 0, 0, 1],
+            [2, 2, 3_000, 3_009, 0, 0, 1],
+            [2, 3, 5_000, 5_013, 0, 0, 1],
+            [5, 4, 5_000, 0],
+            [2, 5, 7_000, 7_011, 1, 0, 1],
+            [2, 6, 9_000, 9_014, 1, 0, 1],
+            [2, 7, 11_000, 11_016, 1, 0, 1],
+            [5, 8, 11_000, 1],
+            [6, 9, 11_016],
+        ]
+
+        let response = try await backend.submitMultiplayerTranscript(
+            matchID: Self.matchID,
+            manifestHash: Self.hash,
+            transcript: MultiplayerTranscriptSubmission(
+                matchId: Self.matchID,
+                events: events
+            )
+        )
+
+        XCTAssertEqual(response.state, "collecting")
+        XCTAssertNotNil(
+            recorder.first(
+                path: "/api/mobile/v1/multiplayer/matches/\(Self.matchID)/submissions",
+                method: "POST"
+            ),
+            "A valid final miss → player-out → finish transcript must reach PHP."
+        )
+    }
+
     private func makeBackend() -> BackendClient {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [MultiplayerStubURLProtocol.self]

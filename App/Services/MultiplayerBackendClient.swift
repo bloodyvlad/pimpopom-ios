@@ -383,31 +383,32 @@ extension BackendClient: MultiplayerBackendServing {
                 (0...6).contains(event[0])
             else { return false }
             let expectedCount: Int
-            let logicalTimeIndex: Int
             switch event[0] {
             case 0:
                 expectedCount = 7
-                logicalTimeIndex = 2
             case 1, 2:
                 expectedCount = 7
-                logicalTimeIndex = 3
             case 3:
                 expectedCount = 8
-                logicalTimeIndex = 2
             case 4, 5:
                 expectedCount = 4
-                logicalTimeIndex = 2
             case 6:
                 expectedCount = 3
-                logicalTimeIndex = 2
             default:
                 return false
             }
+            // Every transcript tuple uses index 2 as its authoritative logical
+            // time. For hit and miss events that is inputAt; handledAt remains
+            // separate handler-lag evidence. A third miss is immediately
+            // followed by playerOut at the same inputAt, so ordering those
+            // tuples by handledAt incorrectly rejects a valid finished match
+            // before it can ever reach PHP.
+            let logicalTime = event[2]
             guard event.count == expectedCount,
-                event[logicalTimeIndex] >= previousTime,
-                event[logicalTimeIndex] <= MultiplayerAPIContract.maximumDurationMilliseconds
+                logicalTime >= previousTime,
+                logicalTime <= MultiplayerAPIContract.maximumDurationMilliseconds
             else { return false }
-            previousTime = event[logicalTimeIndex]
+            previousTime = logicalTime
         }
         return events.last?.first == 6
     }
