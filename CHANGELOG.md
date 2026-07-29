@@ -6,6 +6,9 @@ All notable PimPoPom changes will be recorded here. The project uses semantic ma
 
 ### Added
 
+- An unreleased 2–4-player own-color Multiplayer implementation candidate using authenticated PHP lobbies/manifests/settlement plus reliable `GKMatch` peer traffic, with waiting-room, live-player-strip, ranked-results, and Multiplayer leaderboard surfaces.
+- Exact `multiplayer-own-color-v1` manifest and compact integer transcript models, deterministic replay/scoring/placement, a fixed coordinator with a 250 ms input-reorder watermark, reliable activation/event packets, acknowledgements, and snapshot recovery.
+- App Store Connect Multiplayer score leaderboard `com.otcsoftware.pimpopom.multiplayer.verified`, configured and attached to the draft app-review submission without submitting that production draft.
 - Color-bearing `reaction-proof-v3` target/hit/decoy tuples plus exact build/ruleset/proof ticket validation for the build-15 gameplay contract.
 - Debounced authenticated public-name availability checks, Unicode-wide no-whitespace validation, inline available/taken/unavailable states, and save-time conflict handling that keeps the PHP update authoritative.
 - App-owned Google Mobile Ads 13.6.0 and UMP 3.1.0 adapters with authoritative server ad-free gating, required Privacy choices, fixed 320×50 menu/gameplay/results banners, stable active-game geometry, and a persistent deduplicated three-completion Arcade/Zen interstitial cadence.

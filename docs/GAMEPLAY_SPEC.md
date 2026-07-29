@@ -20,6 +20,16 @@ This specification captures the initial native migration baseline. It intentiona
 - The quiet interval starts at 1,000 ms and, after each correct reaction, moves halfway toward that reaction: `next = previousDelay + 0.5 × (reactionMs - previousDelay)`. Preserve fractional monotonic milliseconds internally; round only values the UI or a versioned contract explicitly defines as integers.
 - **End run** freezes an ephemeral Results view. Restart, menu return, app termination, or reload discards it.
 
+### Multiplayer
+
+- Own-color ranked mode for exactly 2–4 players under build `20260729-1`, ruleset `multiplayer-own-color-v1`, protocol version 1, and proof version 1.
+- Available only to a Google/Apple-authenticated internal profile with a confirmed public nickname and linked, publishing-enabled Game Center identity. Create, join, roster confirmation, and start require a Game Center proof no older than ten minutes.
+- PHP assigns each participant one stable seat and unique target color. A target belongs to one living seat; only that seat can accept it as a correct hit. Another seat's input is that player's miss and does not let the peer claim the target.
+- Every participant starts with three lives and has independent score, streak, multiplier, reactions, and 1.5-second post-miss recovery. The match finishes only after every participant is out.
+- Target and dodge ownership rotate fairly across living seats. Natural decoy expiry awards its rotating owner 550 unmultiplied points.
+- Multiplayer awards no coins, coin time, cosmetics, or achievements. Its only durable results are PHP-replayed settlement rows and the server-published Multiplayer Game Center personal best.
+- The live HUD is provisional. Every peer derives it from one coordinator-authored compact event stream; PHP derives final values again from matching submitted transcripts.
+
 ## Board and pressure progression
 
 Grid size and elapsed-time phase are independent until 40 seconds:
@@ -101,6 +111,46 @@ Input at the exact response deadline is expired/late, not correct.
 - Every mistake resets the tier to 1× and clears step progress.
 - Dodges are neutral, never multiplied, and do not change the meter.
 - Multipliers never retroactively rescale accumulated score and never affect time-based coins.
+
+## Multiplayer schedule, replay, and placement
+
+Multiplayer always uses the 16-cell board. The response window is:
+
+| Logical match time | Response window |
+| --- | ---: |
+| Before 20 s | 1,000 ms |
+| 20–30 s | Rounded linear 1,000→750 ms |
+| 30–40 s | 750 ms |
+| 40–50 s | 1,000 ms |
+| 50 s onward | `max(200, 1,000 - 5 × owningPlayerChallengeHits)` ms |
+
+Targets are separated by 250–5,000 ms and rotate across living seats. A target uses its owner's assigned color and a non-reserved cell. Correct input at the exact deadline is late. A target-owner miss removes that target and begins the normal recovery; a different player's miss affects that player without allowing them to consume the owner's target.
+
+Decoys:
+
+- begin no earlier than 10 seconds and are at least 600 ms apart;
+- use no participant's assigned target color;
+- reserve their cells and last for a randomized 1,000–3,000 ms;
+- rotate dodge ownership fairly across living seats;
+- are capped at one before 70 seconds, then at `min(6, 2 + floor(totalHits / 20))`;
+- persist through correct hits; and
+- award exactly 550 unmultiplied points on natural expiry, while any mistake clears all live decoys without credit.
+
+Multiplayer uses the Arcade reaction formula with the active player's current multiplier:
+
+```text
+remaining = clamp(1 - reactionMs / responseWindowMs, 0...1)
+basePoints = round(100 + 900 × remaining²)
+tapAward = basePoints × multiplierBeforeThisTap
+```
+
+Rating thresholds and streak semantics remain Godlike `<250 ms` plus two steps, Perfect `<350 ms` plus one, Great `<450 ms` plus zero, and Good otherwise plus zero. Great/Good preserve progress. Five steps raise the multiplier only for subsequent taps, overflow carries, 5× is the maximum, and a miss resets multiplier/progress.
+
+The fixed GameKit coordinator authors activation plans and committed tuples. To make network arrival order deterministic, it queues inputs, sorts `(inputAt, seat, inputSequence)`, and commits only through `coordinatorNow - 250 ms`; `handledAt` is lag evidence rather than canonical event order. Every peer retains the same contiguous transcript, acknowledges committed sequences, and can request a checkpoint/snapshot after a gap or bounded reconnect. Protocol v1 does not migrate coordinator authority. If exact recovery fails, cancel/forfeit instead of constructing a divergent local finish.
+
+Live player cards occupy one-half, one-third, or one-quarter of the strip for 2, 3, or 4 players. Each card shows the assigned color, public name, pet, points, multiplier, and current leader crown. All devices play the next shared tap tone for every committed accepted hit, including another player's hit. Pets may animate locally in the waiting room; those gestures never enter the proof.
+
+Final placement is score descending, hits descending, rounded average reaction ascending, then seat ascending. The end screen first distinguishes **Collecting**, **Settled**, and **Review**; only a clean PHP settlement is leaderboard eligible. Accepted rows are **protocol-verified, peer-consistent**, not server-authoritative, human-verified, bot-proof, or collusion-proof.
 
 ## Presentation and touch resolution
 

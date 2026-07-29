@@ -37,6 +37,17 @@ Use semantic marketing versions once public. CI should own build-number allocati
 
 Before any ad-enabled archive, run the configuration validator and inspect the built `Info.plist`. Before public live activation, also verify the current aggregate archive privacy report and App Store privacy answers, UMP consent/privacy-options messages, accepted age treatment, `https://otcsoft.com/app-ads.txt` using the exact personalized AdMob line, AdMob app linkage/readiness, banner/interstitial physical evidence, and server-authoritative Remove Ads behavior. Do not infer or construct the `app-ads.txt` publisher line from memory. The closed-beta owner fingerprints and GMA test-device ID are intentionally committed, but neither belongs in App Store metadata or a public live Release archive.
 
+### Multiplayer configuration gate
+
+Before archiving a Multiplayer candidate:
+
+1. Confirm the backend compatibility value is build `20260729-1`, ruleset `multiplayer-own-color-v1`, protocol/proof version 1, and that the private cookie/CSRF lobby routes plus public Multiplayer leaderboard pass staging/live smoke probes without modifying unrelated production data.
+2. Confirm the binary carries Game Center entitlement, uses persistent scoped player IDs, bridges only PHP's private positive 31-bit `playerGroup` into `GKMatchRequest`, and contains no direct `GKLeaderboard.submitScore` or `GKAchievement.report` call.
+3. Run the complete automated Multiplayer acceptance plan in [`TESTING.md`](TESTING.md), including tuple/replay parity, 250 ms coordinator watermark, packet gaps/snapshots, fixed-coordinator cancellation, UI/accessibility, and zero economy/achievement side effects.
+4. Record real 2-, 3-, and 4-player physical/TestFlight evidence before describing the feature as multi-device validated. A Simulator cannot close the GameKit transport gate.
+5. Confirm the Game Center score leaderboard exact vendor identifier is `com.otcsoftware.pimpopom.multiplayer.verified`, its localization is ready, and the PHP publisher has the matching allowlisted prerelease lane. Do not make iOS publish a score as a fallback.
+6. Use trust copy **protocol-verified, peer-consistent**. Do not claim server-authoritative gameplay, human verification, bot protection, or collusion resistance.
+
 ## Archive and upload
 
 1. Archive from the exact clean commit with Release configuration and automatic/manual signing according to team policy.
@@ -53,12 +64,12 @@ Before any ad-enabled archive, run the configuration validator and inspect the b
 - Do not export as **TestFlight Internal Only** because the same processed build serves the named internal and external groups.
 - Confirm the exported App Store payload is distribution-signed, has `com.apple.developer.game-center = true`, has no `get-task-allow`, contains no private key, and reports version/build `1.01 (4)` before upload.
 - Use direct email groups only: one internal owner group and one external QA group. Do not enable a public link. An internal tester must already be an App Store Connect user with app access; external tester access is limited to TestFlight.
-- For StoreKit/ad-enabled Staging builds, disclose that the app uses the live compatibility service and real shared player/ranking/purchase data, Google demo-labelled ads behind UMP consent, five Sandbox products, server acknowledgement before credit, and in-app deletion. From build `1.02 (9)`, also disclose that PHP asynchronously mirrors only protocol-verified Arcade personal bests and authoritative achievement unlocks; the client does not submit either directly. For P-054 candidates, explain that iOS may present Apple's standard Game Center authentication at launch and silently associates the active Game Center player after primary PimPoPom sign-in. Do not describe queued work as already visible in Apple or current-profile reassignment as live before its separate PHP deployment.
+- For StoreKit/ad-enabled Staging builds, disclose that the app uses the live compatibility service and real shared player/ranking/purchase data, Google demo-labelled ads behind UMP consent, five Sandbox products, server acknowledgement before credit, and in-app deletion. From build `1.02 (9)`, also disclose that PHP asynchronously mirrors only protocol-verified Arcade personal bests and authoritative achievement unlocks; the client does not submit either directly. For P-054 candidates, explain that iOS may present Apple's standard Game Center authentication at launch and silently associates the active Game Center player after primary PimPoPom sign-in. A Multiplayer candidate must additionally disclose the 2–4-device/account requirement, no coins/achievements, peer-to-peer `GKMatch` transport, PHP transcript settlement, and protocol-verified peer-consistent trust limit. Do not describe queued work as already visible in Apple.
 - Submission to TestFlight Beta App Review is not approval. Record processing, review, and invitation states independently.
 
 ### Internal
 
-- Smoke cold install/update/reinstall, both modes, identity/linking, ranked proof, leaderboard, automatic nonblocking Game Center launch authentication, later silent primary-profile reconciliation, repeated **See stats**, achievements, themes/pets, audio/haptics, consent/test or approved diagnostic ads, Remove Ads, coin purchase, restore, account deletion, and support URLs. Confirm Arcade Your Color remains empty through preparation/Get Ready and reveals only the actual run color.
+- Smoke cold install/update/reinstall, every enabled mode, identity/linking, ranked proofs, leaderboards, automatic nonblocking Game Center launch authentication, later silent primary-profile reconciliation, repeated **See stats**, achievements, themes/pets, audio/haptics, consent/test or approved diagnostic ads, Remove Ads, coin purchase, restore, account deletion, and support URLs. Confirm Arcade Your Color remains empty through preparation/Get Ready and reveals only the actual run color. For Multiplayer candidates, exercise at least one real 2-player match before internal distribution and retain the same exact transcript/submission/settlement evidence from both devices.
 - Verify production-like server rate limits/alerts without using live ad clicks or uncontrolled real purchases.
 
 ### External
@@ -73,7 +84,7 @@ Prepare:
 
 - localized name **PimPoPom**, subtitle, description, keywords, category, age rating, support/marketing/privacy URLs;
 - real in-app screenshots and previews, including disclosure of paid content where relevant;
-- review notes explaining Apple/Google login, nickname confirmation, local play, ranked flow, ads/consent, Remove Ads, Buy Coins, restore, and account deletion;
+- review notes explaining Apple/Google login, nickname confirmation, local play, Arcade and Multiplayer ranked flows, Multiplayer's 2–4-device Game Center requirement, ads/consent, Remove Ads, Buy Coins, restore, and account deletion;
 - a stable reviewer account or approved demo path, a live review backend, and exact navigation to every IAP;
 - IAP review screenshots/metadata and any Game Center assets;
 - contact information for review and urgent server issues.
@@ -85,7 +96,7 @@ Submit only when every configured IAP is functional and visible or clearly expla
 After release:
 
 1. Confirm the exact App Store version/build and seller page.
-2. Fresh-install from the store and test launch, consent, sign-in providers, nickname, local Zen, ranked Arcade, finish/rank, shops, a controlled purchase/restore path, Remove Ads, audio/haptics, backgrounding, account deletion entry, and support links.
+2. Fresh-install from the store and test launch, consent, sign-in providers, nickname, local Zen, ranked Arcade, any enabled Multiplayer lobby/match/settlement, finish/rank, shops, a controlled purchase/restore path, Remove Ads, audio/haptics, backgrounding, account deletion entry, and support links.
 3. Verify App Store server notifications, ledger idempotency, error/redaction logs, crash symbols, rate-limit health, ad configuration, and no staging traffic.
 4. Record release time, storefront rollout, backend version, smoke-test account/result cleanup, and any issue/mitigation.
 
@@ -105,6 +116,17 @@ Never break the previous live client merely to simplify a new release.
 
 ## TestFlight release records
 
+### Pending PimPoPom 1.2 (16) Multiplayer candidate — not uploaded
+
+- **Git source:** exact integrated release commit and branch are **pending**. This section must be updated from the clean commit actually archived; documentation commits or intermediate feature commits are not release identity.
+- **Toolchain/identity:** expected bundle `com.otcsoftware.pimpopom`, Game Center entitlement, marketing version `1.2`, next build `16`; exact Xcode/Swift/SDK, signing, archive checksum, dSYM, and App Store Connect build ID are **pending**.
+- **Backend dependency:** Hostinger backend release `20260729-1`; `/api/mobile/v1/multiplayer`; `multiplayer-own-color-v1`; protocol/proof version 1; 2–4 own-color players; no coins or achievements.
+- **Verification:** deterministic core/service/UI checks, named iPhone 17 Simulator evidence, and exact result bundles/counts are **pending**. Real 2-, 3-, and 4-player physical/TestFlight GameKit evidence is also **pending** and must remain an explicit limitation after upload if not completed.
+- **Beta metadata:** update Beta App Description and What to Test for create/join/readiness, complete GameKit roster, 2–4-player synchronized targets/decoys/points/multipliers/pets/crown/tones, bounded reconnect/snapshot, collecting/settled/review results, exact-submission retry, Multiplayer leaderboard, and confirmation that the mode grants no coins/achievements. Review notes must state that primary sign-in, confirmed nickname, Game Center, and multiple devices/accounts are required for this mode while Arcade/Zen remain independently evaluable.
+- **Game Center leaderboard:** app Apple ID `6792328590`; vendor ID `com.otcsoftware.pimpopom.multiplayer.verified`; leaderboard resource `2b03eb62-0107-431d-b4dc-347317e10dc2`; leaderboard version `c582d3da-76c9-44a2-86f8-4b135f73185a`; localization `d000beaa-8a4d-4435-9186-e117ab4cfefb`.
+- **App-review association:** add-only association exists on draft review submission `8069f585-f7a1-4a4e-833a-0b90ce3d0f8f`; review item `ODA2OWY1ODUtZjdhMS00YTRlLTgzM2EtMGI5MGNlM2QwZjhmfDEyfGM1ODJkM2RhLTc2YzktNDRhMi04NmY4LTRiMTM1ZjczMTg1YQ`; component and item reported `READY_FOR_REVIEW`. The draft has not been submitted (`submittedDate` is null); this is not App Store approval, production release, or TestFlight evidence.
+- **Trust/limitations:** PHP replays matching transcripts and may publish each verified personal best; iOS never publishes directly. Clean rows are **protocol-verified, peer-consistent**, not server-authoritative, human-verified, bot-proof, or collusion-proof. Protocol v1 has fixed coordinator/no host migration and bounded snapshot recovery; failed exact recovery cancels/forfeits.
+
 ### PimPoPom 1.2 (15) — 2026-07-29
 
 - **Git source:** `a87a4ecf33fd541b05f799a1a5523673d96c1cf0` on `codex/decoy-persistence-build15`; the exact archived release commit is also on `origin/main`.
@@ -114,7 +136,7 @@ Never break the previous live client merely to simplify a new release.
 - **Archive and symbols:** uploaded from `/Users/vlad/Documents/PimPoPom-release-artifacts/1.2-15/PimPoPom-1.2-15-a87a4ec.xcarchive`; deterministic sorted-file manifest SHA-256 `5118de71341b051e100757866aab1254155ccbb8f7ecc27127e8626c6bc9b1fe`. Xcode's remote App Store export re-signed the package with Apple Distribution. The local archive was removed after Apple accepted the build. Retained dSYM: `/Users/vlad/Documents/PimPoPom-symbols/1.2-15/PimPoPom-1.2-15-a87a4ec-95C223A5-6853-38E9-BD5A-9D59B796919D.dSYM.zip`, SHA-256 `c588e64b9c3187835e6e5ce2b890f1318894e21e386d305a91eacde448e4e1ee`.
 - **App Store Connect:** build `41cea27a-b807-42cc-914a-1c266fe941af` processed `VALID`; icon present; `usesNonExemptEncryption = false`; Beta App Review `APPROVED`; Internal QA and External QA both `IN_BETA_TESTING` with automatic notification enabled. The English build localization asks testers to verify rapid recovery taps, persistent independent decoys and dodges, color changes, the 70-second overlap transition, and long-run pacing.
 - **Runtime contract:** every board tap is ignored during post-miss recovery; decoys persist independently for 1–3 seconds through correct hits and subsequent targets, reserve their cells, award dodges only on natural expiry, and overlap only after 70 seconds. Visible decoy colors are excluded from the next Arcade player-color change, with current-color fallback. Late 4×4 pressure now contracts 5 ms per hit.
-- **Backend dependency:** ranked Arcade requires build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2, and the documented color-bearing tuples. Until the separately owned PHP validator is deployed with retained v2 support, this client rejects the incompatible ticket and keeps ranked play retryably gated. This release did not modify or deploy PHP/Hostinger.
+- **Backend dependency:** ranked Arcade requires build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2, and the documented color-bearing tuples. At archive/upload time the separately owned PHP validator was pending, so the client retained its retryable gate. Hostinger backend release `20260729-1` subsequently deployed the matching replay while retaining supported prior-client compatibility. This iOS release did not modify or deploy PHP/Hostinger.
 - **Prior compatible build:** TestFlight 1.2 (14).
 
 ### PimPoPom 1.2 (14) — 2026-07-28

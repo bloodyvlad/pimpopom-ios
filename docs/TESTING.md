@@ -2,12 +2,49 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## Multiplayer candidate acceptance plan — build 1.2 (16)
+
+This section is a release gate, not completed evidence. Fill every placeholder only from the exact clean committed candidate later archived and uploaded.
+
+| Evidence | Required record |
+| --- | --- |
+| Git/source | Exact integrated commit: **pending** |
+| Core/service/UI checks | Commands, counts, and result bundles: **pending** |
+| Simulator | Single named iPhone 17/iOS version and exercised paths: **pending** |
+| Archive/TestFlight | Version/build, archive checksum, App Store Connect build ID, groups/review: **pending** |
+| Physical GameKit | 2-, 3-, and 4-player device/account runs: **pending** |
+| Backend | Hostinger Multiplayer compatibility release `20260729-1` |
+
+Automated acceptance must cover:
+
+- exact 2–4-participant manifest validation, unique contiguous seats/colors, UUID/base64url bounds, build/ruleset/protocol/proof gates, and 2,500-event/15-minute caps;
+- exact unkeyed integer encoding/decoding for all seven event opcodes, contiguous sequence, nondecreasing `inputAt`/event time, handler-lag bounds, transcript replay, checkpoint restore, and manifest-hash mismatch rejection;
+- PHP-parity target/dodge-owner rotation, target interval bounds, per-player recovery/elimination, non-owner miss behavior, decoy color/cell/cap/lifetime/expiry/clear rules, score rounding, multiplier progression/reset, and placement tie breaks;
+- coordinator input buffering sorted by `(inputAt, seat, inputSequence)`, the 250 ms watermark, delayed packet arrival, same-timestamp tie order, future activation-plan cancellation, and proof that `handledAt` cannot advance canonical scheduler time;
+- REST cookie/CSRF wiring, strict create/join/leave/readiness/roster/start/submission/settlement/leaderboard shapes, unknown/additive response-field handling, auth/nickname/Game Center/fresh-proof gates, expiry, creator transfer, post-start cancellation, idempotent submission, and collecting/settled/review decoding;
+- `GKMatchRequest.playerGroup`, exact participant count, deterministic coordinator election, version/match/sender/sequence rejection, reliable hello/roster/clock/input/plan/event/ack/snapshot/finish packets, packet gaps, duplicate packets, reconnect timeout, and fixed-coordinator failure;
+- lobby, capacity, waiting-room, readiness, creator-only start, draggable local-presentation pet, live 2/3/4-player strip geometry, color/name/pet/points/multiplier/crown, local touch-contact timestamp bridging, shared tap-tone order, settlement ranks, and Multiplayer leaderboard states;
+- zero Multiplayer coin credit, achievement unlock/claim, direct `GKLeaderboard.submitScore`, direct `GKAchievement.report`, or per-tap PHP traffic.
+
+One Simulator can validate deterministic and mocked paths, layout, accessibility, lifecycle, and cancellation. It cannot validate real `GKMatch` matchmaking, persistent player IDs, peer latency/order, GameKit reconnection, multi-device audio synchronization, unanimous transcript submission, Apple publication, or background/foreground behavior across peers.
+
+Before external TestFlight promotion, run clean 2-, 3-, and 4-player matches using distinct physical iPhones and Game Center/PimPoPom profiles. For each run retain version/build/commit, device/iOS/account aliases, lobby capacity/group, coordinator alias, clock samples, packet loss/reconnect actions, transcript hash/event count/duration, each submission state, settlement/result IDs, rank ordering, and later Multiplayer Game Center leaderboard visibility. Include at least:
+
+- creator and non-creator leave while forming, creator transfer, expiry, full lobby, stale Game Center proof, and mismatched PHP/GameKit roster;
+- ordinary clean finish, a local/remote miss, all-player elimination, one player backgrounding briefly and recovering by snapshot, bounded recovery failure/cancellation, and no coordinator migration;
+- simultaneous/near-simultaneous taps crossing the 250 ms watermark, future plan delivery/cancellation, packet duplicate/gap/reorder, and every peer retaining byte-equivalent transcript tuples;
+- pets/crown/tones/points/multipliers staying synchronized without those presentation fields entering the transcript;
+- collecting until every exact submission arrives, idempotent retry after interruption, clean settled ranking, and intentionally reviewed/ineligible evidence; and
+- no coins or achievements before/after Multiplayer, plus asynchronous PHP publication to `com.otcsoftware.pimpopom.multiplayer.verified`.
+
+Do not call Multiplayer device-tested or TestFlight-tested until this physical evidence exists. Clean settlement may be described only as **protocol-verified, peer-consistent**.
+
 ## Build 1.2 (15) gameplay-candidate evidence — 2026-07-29
 
 - `swift test --package-path Packages/PimPoPomCore` passed all 36 deterministic core tests. Focused coverage includes the 70-second multi-decoy boundary, 1,000/3,000 ms lifetime bounds, persistence through hits and subsequent targets, staggered expiry with sibling reservation/next-expiry advancement, expiry immediately before a miss, life-loss cleanup, color exclusion/fallback, recovery input suppression, 5 ms challenge contraction, and the exact proof-v2 target/hit/decoy tuples.
 - Focused `xcodebuild test` on the single named iPhone 17 Simulator passed all 54 selected `BackendClientTests` and `GameplayLifecycleTests` with zero failures. This covers the literal SpriteView interaction lock while preparing/recovering, coordinator-level decoy persistence/expiry, rapid recovery taps, exact build/ruleset/proof ticket acceptance, and mismatched-ticket rejection. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hgpdhdhlwjuyrybrnevtvnzivund/Logs/Test/Test-PimPoPom-2026.07.29_14-26-32-+0200.xcresult`.
 - The complete `Scripts/check.sh` gate then passed project regeneration, strict Swift formatting, asset/source/licence hashes, Info/privacy/ad-configuration guards, the same 36 deterministic core tests, a generic Swift 6 Simulator build, and all 228 native unit/UI tests on the named iPhone 17 Simulator with iOS 26.5. Xcode reported zero failures, skips, or expected failures: 264 checks including the core package. Result bundle: `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hgpdhdhlwjuyrybrnevtvnzivund/Logs/Test/Test-PimPoPom-2026.07.29_14-32-11-+0200.xcresult`.
-- This is exact-commit Simulator evidence, not physical-device validation. Ranked Arcade remains retryably gated until PHP accepts build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2, and the exact color-bearing proof tuples.
+- This is exact-commit Simulator evidence, not physical-device validation. At candidate-test time ranked Arcade was retryably gated; Hostinger backend release `20260729-1` subsequently deployed the required build/ruleset/proof tuple. No physical run is inferred from that later backend deployment.
 
 ## TestFlight build 1.2 (14) nickname-validation evidence
 
@@ -79,6 +116,7 @@ Run without iOS frameworks, network, wall clock, or nondeterministic randomness:
 - multiplier step weighting, overflow, next-tap activation, 5× cap, mistake reset, and neutral dodge;
 - endless Zen, persistent target through mistakes, adaptive delay, no decoys/reward/proof, and ephemeral End run results;
 - proof-v2 color-bearing target/hit/decoy tuples, opcode order, timestamps, duplicate resolution, terminal completeness, and size limits.
+- Multiplayer manifest/tuple validation, deterministic state replay, target/dodge rotation, 1–3-second decoys, per-player lives/recovery, score/multiplier parity, placement, checkpoint restore, coordinator planning, and the 250 ms input-reorder watermark.
 
 Use frozen cross-runtime JSON fixtures plus property-based/randomized transition tests. A parity mismatch fails until an accepted decision explains it.
 
@@ -104,6 +142,8 @@ Use XCUITest for end-to-end paths and focused UIKit/SpriteKit harnesses or XCTes
 - Apple/Google success, cancellation, nonce/state mismatch, wrong audience, expired token, provider revocation, explicit linking, account conflict, logout, refresh, and deletion.
 - Game Center launch authentication, already-authenticated adoption, cancellation/restrictions/unavailability, persistent-ID refusal, automatic primary-profile reconciliation, exact-context deduplication, profile/player reset, deferred foreground retry, and zero direct score/achievement submission.
 - Game Center API compatibility while the old PHP service can still return recent-auth/conflict errors, plus current-profile-wins reassignment, publication-lock ordering, stale-outbox invalidation, and idempotent authoritative backfill after the separate backend task deploys.
+- Multiplayer lobby/leaderboard/create/show/join/leave/readiness/roster/start/submission/settlement compatibility against backend release `20260729-1`, including cookie/CSRF, ten-minute Game Center proof freshness, strict request fields, idempotent retry, and collecting/settled/review states.
+- GameKit Multiplayer transport envelope, exact `playerGroup`/participant count, persistent-ID roster mapping, coordinator election, clock estimation, reliable sequence/acknowledgement, future plans, canonical events, snapshots, gaps, duplicates, reconnect, and cancellation.
 - Keychain first install, update, lock state, restore, loss, reinstall, and account switch.
 - API schema, compatibility rejection, maintenance, rate limit, timeout, cancellation, response redaction, and safe retry.
 - Ranked start/abandon/finish, exact `20260729-1`/`reaction-proof-v3`/proof-2 ticket gating, duplicate UUID, mismatched retry, cloned trace, review, idempotent completion, offline start, and background abandonment.
@@ -159,6 +199,7 @@ Cover every screen and important state at minimum/maximum Dynamic Type, VoiceOve
 - transparent reaction stamps remain readable over every theme; Great/Good fade in place, while Godlike/Perfect reach the measured Speed Bar before disappearing;
 - Reduce Motion supplies an equivalent non-flying Godlike/Perfect transition without changing score or multiplier timing;
 - signed-out gating and identity benefits explanation;
+- Multiplayer unavailable/login/nickname/Game Center gates; empty/full/expired lobby lists; 2/3/4-player capacity selection; waiting-room readiness/creator start; player-strip fractions; pets/colors/names/points/multipliers/crown; collecting/settled/review results; and leaderboard context;
 - purchase pending/error/restored/refunded states;
 - long nickname, long localized product name, large localized StoreKit price, right-to-left layout if supported;
 - color-blind glyph consistency and non-color-only information;
@@ -225,6 +266,7 @@ Physical gates:
 - Sign in with Apple, Google, linking, logout, deletion;
 - background/foreground, phone call/Siri, lock/unlock, memory and thermal behavior;
 - cold install, update from prior TestFlight build, reinstall, offline first launch.
+- distinct 2-, 3-, and 4-player Game Center/PimPoPom account sets for real `GKMatch`, peer ordering, background/reconnect, unanimous transcript submission, settlement, and later server-published Multiplayer leaderboard visibility.
 
 ## Performance and diagnostics
 

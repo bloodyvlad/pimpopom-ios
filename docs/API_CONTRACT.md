@@ -1,12 +1,12 @@
 # Native API contract
 
-Status: two layers. The first section records the deployed compatibility surface used by the internal alpha under P-014 and the named first TestFlight cohort under P-027. The later `mobile-v1` surface remains the production direction for broader external distribution.
+Status: two layers. The first section records the deployed compatibility surface used by the internal alpha, named TestFlight cohort, and unreleased Multiplayer candidate. Hostinger backend release `20260729-1` is the Multiplayer contract source of truth. The later `mobile-v1` surface remains the production direction for broader external distribution.
 
 ## Current internal-alpha compatibility surface
 
 Base URL: `https://speedytapper.otcsoft.com`. Live health and signed-out session probes on 2026-07-20 confirmed Season 1, public access, Apple identity enabled for `com.otcsoftware.pimpopom`, and the additive identity/wallet/ad-free/StoreKit session shape. The recorded backend release is annotated tag `hostinger-20260720-1` at commit `1debeaf16210bc6d2fbe9fd406adc158c9e4aa80`; its compatibility allowlist retains the native client's `20260719-1` ranked-proof build.
 
-TestFlight candidate `1.2 (15)` deliberately moves its gameplay contract to build `20260729-1`, ruleset `reaction-proof-v3`, and proof version 2. Its upload is authorized, but ranked Arcade remains compatibility-gated and retryable until the parent PHP service accepts and replays the exact v3 semantics and tuples below while retaining v2 for already distributed builds.
+TestFlight `1.2 (15)` moved its gameplay contract to build `20260729-1`, ruleset `reaction-proof-v3`, and proof version 2. Hostinger backend release `20260729-1` now accepts and replays those exact v3 semantics while retaining the supported prior-client path. The client still rejects any ticket whose build/ruleset/proof tuple differs from its compiled contract.
 
 | Method and path | Purpose | Native behavior |
 | --- | --- | --- |
@@ -77,6 +77,245 @@ PHP alone mirrors the protocol-verified Arcade all-time best and eligible achiev
 | `buy_a_pet` | `com.otcsoftware.pimpopom.achievement.buy_a_pet` | 10 |
 
 The backend exposes binary locked/claimable/claimed state, not trustworthy numeric progress. PHP reports only monotonic 100% completion when an item first becomes `claimable` or is already `claimed`; it never publishes 0% or treats the separate coin-reward claim as the unlock. A verified automatic binding reconciles historical eligibility before backfill and enqueues later unlocks transactionally. TestFlight uses Apple's prerelease lane; production uses the production lane. Reassignment stops future delivery to the displaced destination but cannot erase leaderboard or achievement history Apple already accepted there. Account deletion removes binding, publication state, and pending work without calling Apple's reset-all-achievements API.
+
+### Multiplayer compatibility boundary
+
+Hostinger backend release `20260729-1` deploys the Multiplayer API at:
+
+```text
+/api/mobile/v1/multiplayer
+```
+
+All private routes use the existing secure PHP cookie session. Every mutation sends JSON plus `X-SpeedyTapper-CSRF: <csrfToken from GET /api/session>` and follows the existing same-origin mutation policy. Unknown request fields are rejected. Compatibility errors use:
+
+```json
+{ "error": "Diagnostic message." }
+```
+
+Before iOS presents Multiplayer as available, require all of:
+
+1. Google or Apple login to an existing internal PimPoPom UUID.
+2. A confirmed public nickname containing no whitespace.
+3. A linked Game Center identity with publication enabled.
+4. Game Center authentication for the persistent player active on the device.
+
+`GET /lobbies` checks the first three server-held conditions. Before create, join, GameKit-roster confirmation, or start, refresh the Game Center challenge/proof if the current successful proof is ten minutes old. PHP rechecks every participant at start. A stale proof is `409` with `Refresh the Game Center connection before multiplayer.` Game Center cannot independently register, log in, access a wallet, or satisfy the primary-profile requirement.
+
+#### Lobby routes
+
+| Method and path | Exact request | Success |
+| --- | --- | --- |
+| `GET /leaderboard` | none | Public top five; authenticated context may add the player's best and neighbors |
+| `GET /lobbies?limit=20` | `limit` integer `1...50` | `{"lobbies":[...]}` |
+| `POST /matches` | `{"mode":"own_color","capacity":2,"buildId":"20260729-1"}` | `201 {"match":{...}}` |
+| `GET /matches/{matchId}` | none | `{"match":{...}}`; non-members receive `404` |
+| `POST /matches/{matchId}/join` | `{}` | `{"match":{...}}` |
+| `POST /matches/{matchId}/leave` | `{}` | `{"left":true,"matchCancelled":false}` |
+| `PATCH /matches/{matchId}/readiness` | `{"ready":true}` | `{"match":{...}}` |
+| `POST /matches/{matchId}/gamekit-roster` | exact roster object below | confirmation counts |
+| `POST /matches/{matchId}/start` | `{}` | immutable manifest plus participant presentation |
+| `POST /matches/{matchId}/submissions` | exact manifest hash/transcript object below | collecting or settlement payload |
+| `GET /matches/{matchId}/settlement` | none | current collecting/settled/review payload |
+
+A lobby lives for ten minutes and supports exactly 2–4 players. Only the creator starts it. A creator leaving while `forming` transfers ownership to the first remaining seat. Any participant leaving after start cancels the match.
+
+The public lobby list intentionally excludes the private GameKit routing group:
+
+```json
+{
+  "matchId": "UUID",
+  "mode": "own_color",
+  "capacity": 4,
+  "playerCount": 2,
+  "host": { "name": "Player9551", "petId": "foka" },
+  "createdAt": "2026-07-29T12:00:00.000Z",
+  "expiresAt": "2026-07-29T12:10:00.000Z"
+}
+```
+
+A member receives private state including the stable participant ID, seat, color, readiness, and positive 31-bit `playerGroup`:
+
+```json
+{
+  "match": {
+    "matchId": "UUID",
+    "state": "forming",
+    "mode": "own_color",
+    "capacity": 4,
+    "selfParticipantId": "UUID",
+    "isCreator": true,
+    "playerGroup": 123456789,
+    "participants": [
+      {
+        "participantId": "UUID",
+        "seat": 0,
+        "colorIndex": 0,
+        "name": "Player9551",
+        "petId": "foka",
+        "ready": false,
+        "status": "joined",
+        "isCurrentPlayer": true
+      }
+    ],
+    "expiresAt": "2026-07-29T12:10:00.000Z"
+  }
+}
+```
+
+Client decoding tolerates additive unknown response fields but validates required identifiers, seat/color uniqueness, participant count, capacity, state, and timestamp fields before changing local state.
+
+#### PHP lobby to GameKit
+
+After create/join/show, put the returned `playerGroup` into `GKMatchRequest.playerGroup` and connect exactly the PHP lobby's participant count. PHP never creates or transports a `GKMatch`. Every peer exchanges the PHP participant/seat mapping over the reliable versioned packet channel, then elects the same fixed coordinator: lexicographically smallest persistent `gamePlayerID`.
+
+After `GKMatch` exposes the complete live roster, every participant posts:
+
+```json
+{
+  "localGamePlayerId": "G:local",
+  "observedGamePlayerIds": ["G:remote-1", "G:remote-2"],
+  "coordinatorGamePlayerId": "G:local"
+}
+```
+
+`observedGamePlayerIds` excludes the local player. The combined list contains exactly 2–4 unique persistent IDs, and every device submits the same roster and coordinator. PHP verifies the local ID against that profile's linked Game Center binding and the complete set against PHP lobby membership. It stores hashes rather than raw Game Center identifiers. Success is:
+
+```json
+{ "confirmed": true, "confirmedCount": 3, "participantCount": 3 }
+```
+
+Only after every participant is ready and has confirmed one identical complete roster may the PHP-lobby creator call `/start`.
+
+#### Immutable start manifest
+
+`POST /start` returns and binds this exact tuple:
+
+```json
+{
+  "manifest": {
+    "protocolVersion": 1,
+    "ruleset": "multiplayer-own-color-v1",
+    "proofVersion": 1,
+    "matchId": "UUID",
+    "buildId": "20260729-1",
+    "seed": "unpadded-base64url-32-bytes",
+    "startingLives": 3,
+    "participants": [
+      { "participantId": "UUID", "seat": 0, "colorIndex": 0 },
+      { "participantId": "UUID", "seat": 1, "colorIndex": 1 }
+    ],
+    "manifestHash": "unpadded-base64url-sha256"
+  },
+  "participants": []
+}
+```
+
+Preserve these values exactly. The protocol-v1 seed is an unpredictable server nonce binding this manifest; it is not a specified PRNG seed, and PHP does not infer the live schedule from it. Transcript events contain only stable participant seats and protocol integers—never nicknames, pets, internal player UUIDs, or raw Game Center IDs.
+
+#### Live GameKit packet boundary
+
+PHP is not a websocket or per-tap relay. A versioned reliable `GKMatch` envelope carries match ID, monotonically increasing packet sequence, event sequence, and logical match milliseconds. It has explicit packet types for roster hello/confirmation, clock samples, future activation plans/cancellation, input, committed event batches, acknowledgement, snapshot request/response, start, and finish.
+
+The fixed coordinator chooses target and decoy events within PHP's validated bounds. Every peer applies the same committed stream and derives the live points, multiplier, lives, names/colors/pets, leader crown, and accepted-tap tone sequence locally. Peer-provided aggregate score or rank is never authoritative.
+
+To remove network-arrival order from the transcript, the coordinator:
+
+1. converts local and remote touch-contact timestamps into coordinator logical time;
+2. queues inputs with a per-sender input sequence;
+3. sorts by `(inputAt, seat, inputSequence)`;
+4. commits only inputs whose `inputAt <= coordinatorNow - 250 ms`; and
+5. advances scheduler/replay time only to that same watermark.
+
+`handledAt` records coordinator handler delay but cannot jump logical time beyond the watermark. Future activation plans are non-transcript presentation hints sent ahead of their logical `at`; cancellation creates no transcript sequence gap. Reliable acknowledgements plus transcript/snapshot checkpoints recover packet gaps and bounded reconnects. Protocol v1 does not migrate the coordinator. If a peer cannot recover the exact stream, the client cancels/forfeits rather than synthesizing evidence.
+
+#### Exact transcript
+
+Every participant submits:
+
+```json
+{
+  "manifestHash": "unpadded-base64url-sha256",
+  "transcript": {
+    "matchId": "UUID",
+    "buildId": "20260729-1",
+    "ruleset": "multiplayer-own-color-v1",
+    "protocolVersion": 1,
+    "proofVersion": 1,
+    "events": []
+  }
+}
+```
+
+Every member is an integer, `seq` starts at 1 and is contiguous, and logical time is nondecreasing. For hit/miss tuples PHP orders by `inputAt`; `handledAt` is separate evidence.
+
+| Event | Exact tuple |
+| --- | --- |
+| Target | `[0, seq, at, ownerSeat, targetId, cell, colorIndex]` |
+| Hit | `[1, seq, inputAt, handledAt, seat, targetId, cell]` |
+| Miss | `[2, seq, inputAt, handledAt, seat, reason, cell]` |
+| Decoy activate | `[3, seq, at, ownerSeat, decoyId, cell, colorIndex, lifetimeMs]` |
+| Decoy expire | `[4, seq, at, decoyId]` |
+| Player out | `[5, seq, at, seat]` |
+| Finish | `[6, seq, at]` |
+
+Miss reasons are `0` empty, `1` wrong, and `2` late. Late expiry may use `cell = -1`; other board cells are `0...15`. The transcript is limited to 2,500 events and 15 minutes.
+
+PHP replay enforces:
+
+- fair target and dodge-owner rotation across living seats;
+- target scheduling intervals of 250–5,000 ms;
+- one unique assigned target color per participant and no assigned color on a decoy;
+- decoys beginning at 10 seconds, lasting 1–3 seconds, separated by at least 600 ms, with one simultaneous decoy before 70 seconds and then `min(6, 2 + floor(totalHits / 20))`;
+- decoys preserved by correct hits, a 550-point unmultiplied dodge on natural expiry, and all live decoys cleared without credit on a mistake;
+- three lives, 1.5-second per-player recovery, and finish only after every player is out;
+- 1,000 ms response windows before 20 seconds, linear 1,000→750 ms from 20–30 seconds, 750 ms from 30–40, 1,000 ms reset from 40–50, then a 5 ms reduction per owning-player challenge hit to a 200 ms floor;
+- ratings of Godlike `<250 ms`, Perfect `<350 ms`, Great `<450 ms`, otherwise Good;
+- Godlike adding two streak steps, Perfect one, five steps raising the multiplier for subsequent taps, and a miss resetting multiplier/progress.
+
+The iOS live score uses the same integer derivation:
+
+```text
+remaining = clamp(1 - reactionMs / responseWindowMs, 0, 1)
+base = round(100 + 900 × remaining²)
+tap award = base × multiplierBeforeThisTap
+```
+
+Placement is score descending, hits descending, average reaction ascending, then seat ascending.
+
+#### Submission, settlement, and ranking
+
+Every participant submits the exact same manifest hash and transcript. Until all submissions arrive:
+
+```json
+{
+  "duplicate": false,
+  "state": "collecting",
+  "submittedCount": 1,
+  "participantCount": 3,
+  "leaderboardEligible": false
+}
+```
+
+The client retains the exact submission for idempotent retry and polls `/settlement`. A clean final response is `state: "settled"`, `leaderboardEligible: true`, `verification: "peer_consistent_v1"`, nullable `reviewReason`, and a result per participant with place/playerCount/name/pet, score, survival, hits/misses/dodges, fastest/average reaction, maximum multiplier, rating counts, and `isCurrentPlayer`. A reviewed settlement is not leaderboard eligible. A missing peer can leave a match collecting until a later exact retry or backend cleanup; do not fabricate completion.
+
+`GET /api/mobile/v1/multiplayer/leaderboard` uses the established leaderboard window:
+
+```json
+{
+  "season": { "id": "season-1", "name": "Season 1" },
+  "mode": "multiplayer",
+  "entries": [],
+  "totalEntries": 0,
+  "playerRank": null,
+  "topPercent": null
+}
+```
+
+Each accepted participant result is an immutable row; it is not deduplicated per player. The PHP order is score, match placement, duration, hits, achieved time, then result ID. `GET /api/session` may add `ranks.multiplayer`.
+
+The Game Center score lane uses exact vendor identifier `com.otcsoftware.pimpopom.multiplayer.verified`. PHP queues only each participant's verified personal best through its allowlisted environment-specific publisher. iOS never calls `GKLeaderboard.submitScore` and never submits Multiplayer achievements because the mode unlocks none.
+
+Matching final submissions prevent one lone coordinator from silently rewriting a match, but colluding or modified clients can manufacture a matching structurally valid transcript. Describe clean rows as **protocol-verified, peer-consistent**, never server-authoritative, human-verified, bot-proof, or collusion-proof.
 
 ## Baseline gap
 
