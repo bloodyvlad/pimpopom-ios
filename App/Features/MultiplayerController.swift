@@ -256,6 +256,23 @@ final class MultiplayerController: ObservableObject {
                 ),
             ]
 
+            if arguments.contains("--ui-test-multiplayer-hub-fixture") {
+                phase = .hub
+                hubState = MultiplayerPresentation.HubState(
+                    availability: .available,
+                    lobbies: [
+                        MultiplayerPresentation.Lobby(
+                            id: "fixture-lobby",
+                            capacity: 4,
+                            playerCount: 2,
+                            hostName: "PixelPilot",
+                            hostPetID: "foka"
+                        )
+                    ]
+                )
+                return
+            }
+
             if arguments.contains("--ui-test-multiplayer-waiting-fixture") {
                 phase = .waiting
                 waitingState = MultiplayerPresentation.WaitingRoomState(
@@ -366,6 +383,11 @@ final class MultiplayerController: ObservableObject {
     func open() {
         phase = .hub
         audio.setMusicContext(.menu)
+        #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--ui-test-multiplayer-hub-fixture") {
+                return
+            }
+        #endif
         refreshAvailability()
         refreshLobbies()
     }

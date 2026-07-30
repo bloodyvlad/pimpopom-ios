@@ -2,6 +2,13 @@
 
 PimPoPom is a timing-sensitive game with identity, public ranking, ads, and paid value. Simulator-only confidence is insufficient.
 
+## TestFlight 1.02 (20) Multiplayer identity candidate — 2026-07-30
+
+- The focused `CosmeticsTests` and `MultiplayerPresentationTests` run passed 47/47 checks on the single named **PimPoPom iPhone 17** Simulator. Coverage includes the half-right sprite mapping, exact Leaderboard-only Foka/Kesha `-7`-point adjustment, waiting-row geometry, glyph-aware color-cell presentation helpers, and Pixel-only small-copy scaling.
+- The waiting-room UI fixture passed in Classic, Disco, Light, and Pixel with selected half-right pets and square color cells. A separate Pixel launch passed with Glyphs disabled. The four-player live fixture passed in all four themes with half-right pets retained in the horizontal badges. Captures were inspected for pet pose, name/color separation, crown placement, color-cell material, glyph on/off state, and four-player fit.
+- The existing Pixel Leaderboard marketing fixture passed and its inspected capture includes Kesha and Foka on their habitats. The Pixel Multiplayer hub recording shows the theme-styled back control and doubled 2/3/4-player supporting copy. After the final six-point waiting-name spacing refinement, the owner instructed Codex to skip the remaining Simulator rerun and deploy directly; the clean signed archive is therefore the final compile/signing gate.
+- This is deterministic Simulator presentation evidence only. Real 2–4-device GameKit matchmaking, readiness, live transport, settlement, pet/account state, and leaderboard publication remain TestFlight acceptance work.
+
 ## TestFlight 1.02 (19) Multiplayer layout release — 2026-07-30
 
 - The presentation regression suite passed all 14 focused Multiplayer tests, including one control scale for compact/tall waiting rooms, the exact 20-point roster offset, fixed 5-point HUD-to-board spacing, deterministic 2/3/4-player badge widths, and one 44-point horizontal player strip.

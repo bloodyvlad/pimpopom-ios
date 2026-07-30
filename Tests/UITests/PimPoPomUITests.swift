@@ -695,38 +695,62 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
-    func testMultiplayerWaitingRoomUsesPetFreeFullSizeRows() {
+    func testMultiplayerWaitingRoomUsesHalfRightPetAvatarsAndColorTilesAcrossThemes() {
         let app = XCUIApplication()
+
+        for theme in ["classic", "disco", "light", "pixel"] {
+            app.launchArguments = [
+                "--deterministic-game",
+                "--uitesting",
+                "--ui-test-theme=\(theme)",
+                "--ui-test-glyphs-on",
+                "--ui-test-multiplayer-waiting-fixture",
+            ]
+            app.launch()
+
+            let title = app.descendants(matching: .any)["multiplayer-waiting-title"]
+            let wordmark = app.descendants(matching: .any)["multiplayer-waiting-wordmark"]
+            XCTAssertTrue(title.waitForExistence(timeout: 6))
+            XCTAssertTrue(wordmark.waitForExistence(timeout: 2))
+            XCTAssertFalse(app.descendants(matching: .any)["multiplayer-draggable-pet"].exists)
+            let firstPlayer =
+                app.descendants(matching: .any)["multiplayer-waiting-player-0"]
+            XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
+            XCTAssertGreaterThanOrEqual(firstPlayer.frame.minY - wordmark.frame.maxY, 20)
+            XCTAssertGreaterThanOrEqual(firstPlayer.frame.height, 80)
+
+            let ready = app.buttons["multiplayer-ready"]
+            let start = app.buttons["start-multiplayer-match"]
+            XCTAssertTrue(ready.waitForExistence(timeout: 2))
+            XCTAssertTrue(start.waitForExistence(timeout: 2))
+            XCTAssertGreaterThanOrEqual(ready.frame.height, 48)
+            XCTAssertGreaterThanOrEqual(start.frame.height, 48)
+
+            for seat in 0..<4 {
+                let player =
+                    app.descendants(matching: .any)["multiplayer-waiting-player-\(seat)"]
+                XCTAssertTrue(player.exists)
+                XCTAssertEqual(player.frame.height, firstPlayer.frame.height, accuracy: 1)
+                XCTAssertTrue((player.value as? String)?.contains("Pet half right") == true)
+                XCTAssertTrue((player.value as? String)?.contains("glyph shown") == true)
+            }
+            attachScreenshot(of: app, name: "iPhone 17 \(theme) multiplayer waiting avatars")
+            app.terminate()
+        }
+
         app.launchArguments = [
             "--deterministic-game",
             "--uitesting",
-            "--ui-test-theme=classic",
+            "--ui-test-theme=pixel",
+            "--ui-test-glyphs-off",
             "--ui-test-multiplayer-waiting-fixture",
         ]
         app.launch()
-
-        let wordmark = app.descendants(matching: .any)["multiplayer-waiting-wordmark"]
-        XCTAssertTrue(wordmark.waitForExistence(timeout: 6))
-        XCTAssertFalse(app.descendants(matching: .any)["multiplayer-draggable-pet"].exists)
-        let firstPlayer =
+        let glyphlessPlayer =
             app.descendants(matching: .any)["multiplayer-waiting-player-0"]
-        XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
-        XCTAssertGreaterThanOrEqual(firstPlayer.frame.minY - wordmark.frame.maxY, 20)
-
-        let ready = app.buttons["multiplayer-ready"]
-        let start = app.buttons["start-multiplayer-match"]
-        XCTAssertTrue(ready.waitForExistence(timeout: 2))
-        XCTAssertTrue(start.waitForExistence(timeout: 2))
-        XCTAssertGreaterThanOrEqual(ready.frame.height, 48)
-        XCTAssertGreaterThanOrEqual(start.frame.height, 48)
-
-        for seat in 0..<4 {
-            let player =
-                app.descendants(matching: .any)["multiplayer-waiting-player-\(seat)"]
-            XCTAssertTrue(player.exists)
-            XCTAssertEqual(player.frame.height, firstPlayer.frame.height, accuracy: 1)
-        }
-        attachScreenshot(of: app, name: "iPhone 17 pet-free multiplayer waiting room")
+        XCTAssertTrue(glyphlessPlayer.waitForExistence(timeout: 6))
+        XCTAssertTrue((glyphlessPlayer.value as? String)?.contains("glyph hidden") == true)
+        attachScreenshot(of: app, name: "iPhone 17 Pixel waiting colors without glyphs")
     }
 
     func testFourPlayerMultiplayerLiveLayoutAcrossThemes() {
@@ -758,12 +782,14 @@ final class PimPoPomUITests: XCTestCase {
             let firstPlayer = app.descendants(matching: .any)["multiplayer-player-0"]
             XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
             XCTAssertLessThanOrEqual(firstPlayer.frame.height, 52)
+            XCTAssertEqual(firstPlayer.value as? String, "Pet half right")
             for seat in 1..<4 {
                 let player = app.descendants(matching: .any)["multiplayer-player-\(seat)"]
                 XCTAssertTrue(player.exists)
                 XCTAssertEqual(player.frame.midY, firstPlayer.frame.midY, accuracy: 3)
                 XCTAssertLessThanOrEqual(player.frame.height, 52)
                 XCTAssertGreaterThan(player.frame.minX, firstPlayer.frame.minX)
+                XCTAssertEqual(player.value as? String, "Pet half right")
             }
             XCTAssertLessThanOrEqual(
                 app.descendants(matching: .any)["multiplayer-player-3"].frame.maxX,
@@ -772,6 +798,49 @@ final class PimPoPomUITests: XCTestCase {
             attachScreenshot(of: app, name: "iPhone 17 \(theme) four-player horizontal strip")
             app.terminate()
         }
+    }
+
+    func testPixelMultiplayerHubUsesThemedLoweredBackButtonAndLegibleSmallCopy() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--deterministic-game",
+            "--uitesting",
+            "--ui-test-theme=pixel",
+            "--ui-test-multiplayer-hub-fixture",
+        ]
+        app.launch()
+
+        let title = app.descendants(matching: .any)["multiplayer-title"]
+        let back = app.buttons["multiplayer-back"]
+        XCTAssertTrue(title.waitForExistence(timeout: 6))
+        XCTAssertTrue(back.waitForExistence(timeout: 2))
+        XCTAssertGreaterThanOrEqual(back.frame.height, 38)
+        attachScreenshot(of: app, name: "iPhone 17 Pixel Multiplayer hub typography and back")
+
+        app.terminate()
+        app.launchArguments = [
+            "--uitesting",
+            "--screenshot-mode",
+            "--screenshot-screen=menu",
+            "--screenshot-theme=pixel",
+        ]
+        app.launch()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["mode-multiplayer"]
+                .waitForExistence(timeout: 6)
+        )
+        attachScreenshot(of: app, name: "iPhone 17 Pixel Zen and Multiplayer descriptions")
+
+        app.terminate()
+        app.launchArguments = [
+            "--uitesting",
+            "--screenshot-mode",
+            "--screenshot-screen=pets",
+            "--screenshot-theme=pixel",
+        ]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["Baby seal"].waitForExistence(timeout: 6))
+        attachScreenshot(of: app, name: "iPhone 17 Pixel pet descriptions")
     }
 
     func testScreenshotFixtureOpensSyntheticMarketingScreens() {

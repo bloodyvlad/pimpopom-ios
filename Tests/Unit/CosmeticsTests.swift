@@ -199,6 +199,8 @@ final class CosmeticsTests: XCTestCase {
         XCTAssertEqual(WebMenuBorderAccents.settingsOpacity, 0.85, accuracy: 0.001)
         XCTAssertEqual(ThemePalette.pixel.resolvedFontSize(10), 12.5, accuracy: 0.001)
         XCTAssertEqual(ThemePalette.classic.resolvedFontSize(10), 10, accuracy: 0.001)
+        XCTAssertEqual(ThemePalette.pixel.legibleSmallCopySize(10), 20, accuracy: 0.001)
+        XCTAssertEqual(ThemePalette.classic.legibleSmallCopySize(10), 10, accuracy: 0.001)
         XCTAssertEqual(
             PimPoPomBrandColors.pimGradient,
             ["#16b887", "#39c85f", "#86bd3c"]
@@ -666,6 +668,24 @@ final class CosmeticsTests: XCTestCase {
             20
         )
         XCTAssertEqual(PetArtworkGeometry.gameplayViewVerticalOffset(petID: "pancake"), 10)
+    }
+
+    func testLeaderboardRaisesOnlyFokaAndKeshaSevenPointsAboveTheirBeds() {
+        XCTAssertEqual(
+            LeaderboardPetPresentation.spriteVerticalAdjustment(petID: "foka"),
+            -7
+        )
+        XCTAssertEqual(
+            LeaderboardPetPresentation.spriteVerticalAdjustment(petID: "kesha"),
+            -7
+        )
+        for petID in ["tauta", "misha", "mitsuri", "muse", "pancake"] {
+            XCTAssertEqual(
+                LeaderboardPetPresentation.spriteVerticalAdjustment(petID: petID),
+                0,
+                petID
+            )
+        }
     }
 
     func testPetFacingUsesHorizontalScreenPercentageZones() {

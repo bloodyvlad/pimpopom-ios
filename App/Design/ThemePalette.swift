@@ -23,6 +23,10 @@ struct ThemePalette: Identifiable, Equatable, Sendable {
         isPixel ? size * 1.25 : size
     }
 
+    func legibleSmallCopySize(_ size: CGFloat) -> CGFloat {
+        isPixel ? size * 2 : size
+    }
+
     var chromeAccent: String {
         switch id {
         case "light": "#087fa7"

@@ -306,6 +306,7 @@ struct PetCompanionView: View {
     var animationTrigger = 0
     var facing = PetFacing.front
     var isSleeping = false
+    var spriteVerticalAdjustment: CGFloat = 0
 
     @State private var frameIndex = 0
 
@@ -373,7 +374,7 @@ struct PetCompanionView: View {
                     .frame(width: size, height: size)
                     .offset(
                         x: geometry.spriteOffset.width,
-                        y: geometry.spriteOffset.height
+                        y: geometry.spriteOffset.height + spriteVerticalAdjustment
                     )
                     .shadow(color: .black.opacity(0.54), radius: 2, y: 3)
                     .zIndex(presentation.id == "misha" ? 4 : 2)
@@ -455,6 +456,15 @@ struct PetCompanionView: View {
 
     private var shouldShowHabitat: Bool {
         !(presentation.id == "kesha" && frameIndex >= 8)
+    }
+}
+
+enum LeaderboardPetPresentation {
+    static func spriteVerticalAdjustment(petID: String) -> CGFloat {
+        switch petID {
+        case "foka", "kesha": -7
+        default: 0
+        }
     }
 }
 

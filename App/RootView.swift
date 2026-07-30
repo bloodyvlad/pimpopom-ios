@@ -160,7 +160,9 @@ struct RootView: View {
             }
         }
         .fullScreenCover(isPresented: $showsMultiplayerUITestFixture) {
-            MultiplayerFlowView()
+            NavigationStack {
+                MultiplayerFlowView()
+            }
         }
         .task {
             configureDebugLaunch()
@@ -691,7 +693,13 @@ struct RootView: View {
                     .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
                 if mode == .zen {
                     Text("NO COINS AWARDED")
-                        .font(palette.appFont(size: 9, weight: .bold, relativeTo: .caption2))
+                        .font(
+                            palette.appFont(
+                                size: palette.legibleSmallCopySize(9),
+                                weight: .bold,
+                                relativeTo: .caption2
+                            )
+                        )
                         .tracking(0.55)
                 }
             }
@@ -896,6 +904,7 @@ struct RootView: View {
             }
             if arguments.contains("--ui-test-multiplayer-waiting-fixture")
                 || arguments.contains("--ui-test-multiplayer-live-fixture")
+                || arguments.contains("--ui-test-multiplayer-hub-fixture")
             {
                 showsMultiplayerUITestFixture = true
             }

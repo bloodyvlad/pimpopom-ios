@@ -258,7 +258,15 @@ struct LeaderboardRowView: View {
 
                 Group {
                     if let petID = entry.petId {
-                        PetCompanionView(petID: petID, size: 34, placement: .leaderboard)
+                        PetCompanionView(
+                            petID: petID,
+                            size: 34,
+                            placement: .leaderboard,
+                            spriteVerticalAdjustment:
+                                LeaderboardPetPresentation.spriteVerticalAdjustment(
+                                    petID: petID
+                                )
+                        )
                     } else {
                         Image(systemName: "person.crop.circle.fill")
                             .font(.system(size: 27, weight: .semibold))
@@ -395,7 +403,15 @@ struct MultiplayerLeaderboardRowView: View {
 
                 Group {
                     if let petID = entry.petId {
-                        PetCompanionView(petID: petID, size: 34, placement: .leaderboard)
+                        PetCompanionView(
+                            petID: petID,
+                            size: 34,
+                            placement: .leaderboard,
+                            spriteVerticalAdjustment:
+                                LeaderboardPetPresentation.spriteVerticalAdjustment(
+                                    petID: petID
+                                )
+                        )
                     } else {
                         Image(systemName: "person.3.fill")
                             .font(.system(size: 24, weight: .semibold))

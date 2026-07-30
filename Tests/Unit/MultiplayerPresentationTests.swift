@@ -197,8 +197,11 @@ final class MultiplayerPresentationTests: XCTestCase {
 
     func testWaitingRoomUsesOneControlScaleAndTwentyPointListOffset() {
         XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantTopOffset, 20)
-        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantRowHeight, 48)
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantRowHeight, 64)
         XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantCardPadding, 9)
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantAvatarSide, 46)
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantColorSide, 40)
+        XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.participantNameLeadingOffset, 10)
         XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.actionHeight, 48)
     }
 

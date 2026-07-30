@@ -187,6 +187,26 @@ With two, three, and four players, confirm all player badges remain in one horiz
 
 Sign-in is optional for Arcade and Zen. Multiplayer requires a signed-in PimPoPom profile with a confirmed nickname and the Game Center player active on the device. PimPoPom uses PHP for authenticated lobbies and protocol-verified, peer-consistent settlement while GameKit carries live peer-to-peer gameplay. Multiplayer awards no coins or achievements. Purchases use Apple's TestFlight Sandbox environment, and advertising uses Google AdMob behind Google UMP consent. The client does not submit Game Center scores or achievements directly; the PHP service publishes eligible verified results asynchronously.
 
+## Build 20 / version 1.02 TestFlight copy
+
+**Beta App Description**
+
+PimPoPom is a reaction game with Arcade, Zen, and a 2–4-player Multiplayer beta. This build makes Multiplayer players easier to recognize and improves Pixel-theme readability throughout the waiting and selection flow.
+
+**What to Test**
+
+Multiplayer!!!
+
+Using two to four distinct Game Center and PimPoPom accounts, create or join the same Multiplayer lobby. Confirm every waiting-room row is taller and shows the participant's selected pet facing half-right, a readable public name and readiness state, and a square assigned-color cell at the right. Toggle Glyphs in Settings and verify the waiting-room color cells show or hide their canonical glyphs accordingly.
+
+Start a match and verify the horizontal player badges below the Speed Bar also show the selected pets facing half-right while retaining the assigned-color outline/glow, score, name, multiplier, and leader crown. Check the waiting room and live badges in Classic, Disco, Light, and Pixel. In Pixel, confirm the Zen and Multiplayer subtitles, pet species descriptions, 2/3/4-player capacity labels, waiting names, and Ready/Not Ready states are substantially easier to read.
+
+Also confirm Waiting Room uses the Multiplayer title treatment, the Multiplayer back control matches the selected theme and sits slightly lower, and Foka and Kesha appear seven points higher over their beds/perches only in Leaderboard rows. Finish matches with creator and joined-player winners and verify every participant reaches terminal Results and eligible rows appear in the Multiplayer leaderboard. Report roster stalls, stuck settlement, clipped text, incorrect pets/colors/glyphs, purchase errors, or ads shown to ad-free accounts.
+
+**Beta Review Notes**
+
+Sign-in is optional for Arcade and Zen. Multiplayer requires a signed-in PimPoPom profile with a confirmed nickname and the Game Center player active on the device. PimPoPom uses PHP for authenticated lobbies and protocol-verified, peer-consistent settlement while GameKit carries live peer-to-peer gameplay. Multiplayer awards no coins or achievements. Purchases use Apple's TestFlight Sandbox environment, and advertising uses Google AdMob behind Google UMP consent. The client does not submit Game Center scores or achievements directly; the PHP service publishes eligible verified results asynchronously.
+
 ## Production App Review notes draft
 
 PimPoPom can be evaluated without signing in: launch the app, choose Arcade or Zen, and play immediately. Arcade leaderboard submission, profile-bound cosmetics, achievements, and StoreKit value require a signed-in PimPoPom profile.

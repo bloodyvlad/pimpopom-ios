@@ -51,7 +51,13 @@ struct MultiplayerMenuLink<Destination: View>: View {
                     .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
             }
             Text(availability.menuMessage)
-                .font(theme.appFont(size: 9, weight: .bold, relativeTo: .caption2))
+                .font(
+                    theme.appFont(
+                        size: theme.legibleSmallCopySize(9),
+                        weight: .bold,
+                        relativeTo: .caption2
+                    )
+                )
                 .tracking(0.55)
         }
         .foregroundStyle(Color(hex: "#f8f5ff"))
@@ -103,6 +109,7 @@ private struct MultiplayerModeButtonStyle: ButtonStyle {
 }
 
 struct MultiplayerHubView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var cosmetics: CosmeticsController
 
     let state: MultiplayerPresentation.HubState
@@ -133,11 +140,31 @@ struct MultiplayerHubView: View {
         }
         .navigationTitle("Multiplayer")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .black))
+                        .frame(width: 38, height: 38)
+                }
+                .buttonStyle(
+                    WebSecondaryButtonStyle(
+                        theme: palette,
+                        accent: Color(hex: palette.chromeAccent),
+                        minimumHeight: 38
+                    )
+                )
+                .frame(width: 40)
+                .offset(y: 5)
+                .accessibilityLabel("Back")
+                .accessibilityIdentifier("multiplayer-back")
+            }
             ToolbarItem(placement: .principal) {
                 Text("Multiplayer")
                     .font(palette.appFont(size: 19, weight: .black, relativeTo: .headline))
                     .foregroundStyle(Color(hex: palette.foreground))
+                    .accessibilityIdentifier("multiplayer-title")
             }
         }
         .accessibilityIdentifier("multiplayer-hub")
@@ -249,7 +276,13 @@ struct MultiplayerHubView: View {
                             Text("\(count)")
                                 .font(palette.appFont(size: 18, weight: .black, relativeTo: .headline))
                             Text(count == 2 ? "players" : "players")
-                                .font(palette.appFont(size: 8, weight: .bold, relativeTo: .caption2))
+                                .font(
+                                    palette.appFont(
+                                        size: palette.legibleSmallCopySize(8),
+                                        weight: .bold,
+                                        relativeTo: .caption2
+                                    )
+                                )
                         }
                         .frame(maxWidth: .infinity, minHeight: 42)
                     }
@@ -378,13 +411,17 @@ struct MultiplayerHubView: View {
 
 enum MultiplayerWaitingRoomLayoutMetrics {
     static let participantTopOffset: CGFloat = 20
-    static let participantRowHeight: CGFloat = 48
+    static let participantRowHeight: CGFloat = 64
     static let participantCardPadding: CGFloat = 9
+    static let participantAvatarSide: CGFloat = 46
+    static let participantColorSide: CGFloat = 40
+    static let participantNameLeadingOffset: CGFloat = 10
     static let actionHeight: CGFloat = 48
 }
 
 struct MultiplayerWaitingRoomView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
+    @EnvironmentObject private var preferences: AppPreferences
 
     let state: MultiplayerPresentation.WaitingRoomState
     let onToggleReady: (Bool) -> Void
@@ -433,7 +470,16 @@ struct MultiplayerWaitingRoomView: View {
             }
         }
         .navigationTitle("Waiting Room")
+        .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Waiting Room")
+                    .font(palette.appFont(size: 19, weight: .black, relativeTo: .headline))
+                    .foregroundStyle(Color(hex: palette.foreground))
+                    .accessibilityIdentifier("multiplayer-waiting-title")
+            }
+        }
     }
 
     private func header(compact: Bool) -> some View {
@@ -549,34 +595,74 @@ struct MultiplayerWaitingRoomView: View {
 
     private func waitingParticipant(_ player: MultiplayerPresentation.Participant) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(Color(hex: palette.muted).opacity(0.72))
-                .frame(width: 32, height: 32)
+            Group {
+                if let petID = player.petID {
+                    PetCompanionView(
+                        petID: petID,
+                        size: MultiplayerWaitingRoomLayoutMetrics.participantAvatarSide,
+                        placement: .gameplay,
+                        facing: .halfRight
+                    )
+                    .accessibilityIdentifier("multiplayer-waiting-pet-\(player.seat)")
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundStyle(Color(hex: palette.muted).opacity(0.72))
+                }
+            }
+            .frame(
+                width: MultiplayerWaitingRoomLayoutMetrics.participantAvatarSide + 4,
+                height: MultiplayerWaitingRoomLayoutMetrics.participantAvatarSide
+            )
 
-            Circle()
-                .fill(palette.color(at: player.colorIndex))
-                .frame(width: 15, height: 15)
-                .overlay { Circle().stroke(.white.opacity(0.86), lineWidth: 2) }
-                .shadow(color: palette.color(at: player.colorIndex), radius: palette.isPixel ? 0 : 5)
             VStack(alignment: .leading, spacing: 2) {
                 Text(player.name)
-                    .font(palette.appFont(size: 13, weight: .black, relativeTo: .headline))
+                    .font(
+                        palette.appFont(
+                            size: palette.legibleSmallCopySize(13),
+                            weight: .black,
+                            relativeTo: .headline
+                        )
+                    )
                     .lineLimit(1)
                     .minimumScaleFactor(0.58)
                     .allowsTightening(true)
                     .layoutPriority(1)
                 Text(player.ready ? "READY" : (player.isConnected ? "NOT READY" : "RECONNECTING"))
-                    .font(palette.appFont(size: 8, weight: .black, relativeTo: .caption2))
+                    .font(
+                        palette.appFont(
+                            size: palette.legibleSmallCopySize(8),
+                            weight: .black,
+                            relativeTo: .caption2
+                        )
+                    )
                     .foregroundStyle(
                         player.ready
                             ? Color(hex: "#72e995")
                             : Color(hex: palette.muted)
                     )
             }
+            .padding(.leading, MultiplayerWaitingRoomLayoutMetrics.participantNameLeadingOffset)
             Spacer(minLength: 0)
+
+            GameCellPreview(
+                theme: palette,
+                colorIndex: player.colorIndex,
+                glyph: playerColorGlyph(player.colorIndex),
+                showsGlyphs: preferences.glyphsEnabled,
+                isTarget: false,
+                textureSeed: player.seat,
+                glyphScale: GameCellVisualMetrics.previewGlyphScale
+            )
+            .frame(
+                width: MultiplayerWaitingRoomLayoutMetrics.participantColorSide,
+                height: MultiplayerWaitingRoomLayoutMetrics.participantColorSide
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Player color \(playerColorName(player.colorIndex))")
+            .accessibilityValue(preferences.glyphsEnabled ? "Glyph shown" : "Glyph hidden")
+            .accessibilityIdentifier("multiplayer-waiting-color-\(player.seat)")
         }
-        .padding(.trailing, player.isCreator ? 18 : 0)
         .frame(
             maxWidth: .infinity,
             minHeight: MultiplayerWaitingRoomLayoutMetrics.participantRowHeight,
@@ -592,12 +678,28 @@ struct MultiplayerWaitingRoomView: View {
                 Image(systemName: "crown.fill")
                     .font(.system(size: 9, weight: .black))
                     .foregroundStyle(Color(hex: "#ffd84d"))
-                    .padding(8)
+                    .offset(x: 3, y: -4)
+                    .padding(6)
             }
         }
         .opacity(player.isConnected ? 1 : 0.60)
         .accessibilityElement(children: .combine)
+        .accessibilityValue(
+            "\(player.petID == nil ? "Default avatar" : "Pet half right"), "
+                + "\(playerColorName(player.colorIndex)), "
+                + "\(preferences.glyphsEnabled ? "glyph shown" : "glyph hidden")"
+        )
         .accessibilityIdentifier("multiplayer-waiting-player-\(player.seat)")
+    }
+
+    private func playerColorGlyph(_ colorIndex: Int) -> String {
+        guard gameColors.indices.contains(colorIndex) else { return "●" }
+        return gameColors[colorIndex].glyph
+    }
+
+    private func playerColorName(_ colorIndex: Int) -> String {
+        guard gameColors.indices.contains(colorIndex) else { return "Unknown" }
+        return gameColors[colorIndex].name
     }
 
     private func emptySeat(_ seat: Int) -> some View {
@@ -717,6 +819,7 @@ enum MultiplayerLiveLayoutMetrics {
 
 struct MultiplayerLiveView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
+    @EnvironmentObject private var preferences: AppPreferences
 
     let state: MultiplayerPresentation.LiveMatchState
     let onTapCell: (Int, Int) -> Void
@@ -841,7 +944,7 @@ struct MultiplayerLiveView: View {
                     glyph: gameColors.indices.contains(local.colorIndex)
                         ? gameColors[local.colorIndex].glyph
                         : "●",
-                    showsGlyphs: true,
+                    showsGlyphs: preferences.glyphsEnabled,
                     isTarget: true,
                     glyphScale: GameCellVisualMetrics.previewGlyphScale
                 )
@@ -949,7 +1052,7 @@ struct MultiplayerLiveView: View {
                             theme: palette,
                             colorIndex: cell.colorIndex,
                             glyph: cell.glyph,
-                            showsGlyphs: cell.colorIndex != nil,
+                            showsGlyphs: preferences.glyphsEnabled && cell.colorIndex != nil,
                             isTarget: cell.isTarget,
                             textureSeed: cell.id,
                             glyphScale: GameCellVisualMetrics.liveGlyphScale(gridDimension: 4)
@@ -1039,8 +1142,10 @@ struct MultiplayerLiveView: View {
                     PetCompanionView(
                         petID: petID,
                         size: petSide,
-                        placement: .gameplay
+                        placement: .gameplay,
+                        facing: .halfRight
                     )
+                    .accessibilityIdentifier("multiplayer-player-pet-\(player.seat)")
                 } else {
                     Image(systemName: "person.crop.circle.fill")
                         .font(.system(size: dense ? 21 : 25))
@@ -1130,6 +1235,7 @@ struct MultiplayerLiveView: View {
         .accessibilityLabel(
             "\(player.name), \(player.points) points, multiplier \(player.multiplier), \(player.lives) lives"
         )
+        .accessibilityValue(player.petID == nil ? "Default avatar" : "Pet half right")
         .accessibilityIdentifier("multiplayer-player-\(player.seat)")
     }
 

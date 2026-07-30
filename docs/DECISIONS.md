@@ -953,3 +953,20 @@ Use Debug-only deterministic waiting/live fixtures for presentation tests. Valid
 Consequences: The waiting room uses more neutral identity presentation and no longer implies that a selected pet participates before the match. Four-player badges intentionally use smaller score/name typography to preserve all required data in one row. Stroke-only glow avoids reintroducing Pixel label ghosting. The exact 5-point gap is a layout invariant rather than a device-specific exception.
 
 Revisit when: a supported phone width cannot fit four accessible badge summaries, the waiting room gains a separate avatar/profile system, Dynamic Type requirements demand a vertical compact fallback, or Multiplayer expands beyond four players.
+
+## P-063 — Use selected pets and game-cell identity in Multiplayer rosters
+
+- Date: 2026-07-30
+- Status: Accepted for TestFlight `1.02 (20)`; supersedes P-062's pet-free waiting-roster decision
+
+Context: The neutral build-19 waiting roster left too much unused identity space and no longer matched the live Multiplayer badges, which already used selected pets. Circular assigned-color dots also diverged from the square cells players recognize during play. Pixel supporting copy remained too small in several Multiplayer, mode, and pet surfaces.
+
+Decision: Show each participant's selected pet in the existing half-right pose in both the waiting roster and live player badge. Waiting-room pet avatars use sprite-only gameplay placement so no habitat appears. Increase waiting-row height and reserve more horizontal space between the pet and the public name. Replace the assigned-color circle with a trailing square game-cell preview using the active theme's material and the color's canonical glyph only when the user's Glyphs setting is enabled.
+
+Keep the leader crown outside the color cell, use the same title font for **Waiting Room** and **Multiplayer**, and replace the default navigation control with the theme-styled Multiplayer back button five points lower. In Pixel only, double the existing small-copy size for Zen and Multiplayer subtitles, pet species descriptions, capacity labels, waiting-room names, and readiness states; retain the established Pixel font's global scaling on top. Raise only the Foka and Kesha sprites seven points relative to their habitats in actual Leaderboard rows, without changing their waiting-room, results, menu, shop, or gameplay placement.
+
+Validate deterministic waiting-room and live-player fixtures in Classic, Disco, Light, and Pixel on the single named iPhone 17 Simulator, including glyphs both enabled and disabled. These presentation fixtures do not replace physical 2–4-player GameKit validation.
+
+Consequences: Waiting and live Multiplayer surfaces now share one recognizable player identity, while the square color preview teaches the exact gameplay visual. The larger Pixel copy is intentionally local rather than another global font increase. Leaderboard optical alignment no longer leaks into other surfaces that reuse pet placement primitives.
+
+Revisit when: four long public names cannot fit beside the pet and color cell at an accepted Dynamic Type size, waiting avatars need habitats or animation, or a future roster design replaces game colors with another team identity.

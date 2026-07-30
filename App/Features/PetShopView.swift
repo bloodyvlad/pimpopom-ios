@@ -105,7 +105,13 @@ struct PetShopView: View {
                     }
                 }
                 Text(presentation.kind)
-                    .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                    .font(
+                        palette.appFont(
+                            size: palette.legibleSmallCopySize(12),
+                            weight: .medium,
+                            relativeTo: .caption
+                        )
+                    )
                     .foregroundStyle(Color(hex: palette.muted))
                 if cosmetics.ownedPetIDs.contains(item.id) {
                     Text("Owned")
