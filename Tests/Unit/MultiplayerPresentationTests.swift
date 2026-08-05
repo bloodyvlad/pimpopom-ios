@@ -111,7 +111,7 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertFalse(nonCreatorState.canStart)
     }
 
-    func testWaitingRoomCanToggleReadyBeforeGameKitRosterCompletes() {
+    func testWaitingRoomBlocksReadyUntilFastRosterCompletes() {
         var state = MultiplayerPresentation.WaitingRoomState(
             matchID: "match",
             capacity: 2,
@@ -124,12 +124,15 @@ final class MultiplayerPresentationTests: XCTestCase {
             isMutationPending: false
         )
 
-        XCTAssertTrue(state.canToggleReady)
+        XCTAssertFalse(state.canToggleReady)
         XCTAssertFalse(state.canStart)
 
         state.connection = .confirmingRoster(confirmed: 1, total: 2)
-        XCTAssertTrue(state.canToggleReady)
+        XCTAssertFalse(state.canToggleReady)
         XCTAssertFalse(state.canStart)
+
+        state.connection = .ready
+        XCTAssertTrue(state.canToggleReady)
 
         state.isMutationPending = true
         XCTAssertFalse(state.canToggleReady)

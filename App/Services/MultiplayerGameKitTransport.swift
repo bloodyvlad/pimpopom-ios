@@ -294,11 +294,52 @@ extension LiveMultiplayerGameKitClient: @preconcurrency GKMatchDelegate {
     }
 }
 
+enum MultiplayerLiveCompatibility: Equatable {
+    case collecting
+    case unanimous
+    case incompatible
+}
+
+enum MultiplayerLiveWire {
+    static let version = 2
+    static let requiredCapabilities: Set<String> = [
+        "fast-input-v1",
+        "input-resolution-v1",
+        "sealed-frontier-v1",
+    ]
+
+    static func isCompatible(_ hello: MultiplayerHelloPacket) -> Bool {
+        guard hello.liveWireVersion == version,
+            let capabilities = hello.capabilities,
+            Set(capabilities).count == capabilities.count
+        else { return false }
+        return Set(capabilities) == requiredCapabilities
+    }
+}
+
 struct MultiplayerHelloPacket: Codable, Equatable {
     let participantId: String
     let seat: Int
     let colorIndex: Int
     let gamePlayerId: String
+    let liveWireVersion: Int?
+    let capabilities: [String]?
+
+    init(
+        participantId: String,
+        seat: Int,
+        colorIndex: Int,
+        gamePlayerId: String,
+        liveWireVersion: Int? = nil,
+        capabilities: [String]? = nil
+    ) {
+        self.participantId = participantId
+        self.seat = seat
+        self.colorIndex = colorIndex
+        self.gamePlayerId = gamePlayerId
+        self.liveWireVersion = liveWireVersion
+        self.capabilities = capabilities
+    }
 }
 
 struct MultiplayerRosterConfirmedPacket: Codable, Equatable {
@@ -651,6 +692,7 @@ enum MultiplayerGameKitError: LocalizedError, Equatable {
     case invalidPacket
     case packetTooLarge
     case notConnected
+    case incompatibleLiveWire
     case coordinatorRequired
     case clockNotSynchronized
 
@@ -672,6 +714,8 @@ enum MultiplayerGameKitError: LocalizedError, Equatable {
             "The multiplayer packet is too large."
         case .notConnected:
             "The multiplayer transport is not connected."
+        case .incompatibleLiveWire:
+            "Update Required"
         case .coordinatorRequired:
             "Only the elected multiplayer coordinator can send this packet."
         case .clockNotSynchronized:
@@ -686,6 +730,7 @@ protocol MultiplayerGameKitTransporting: AnyObject {
     var roster: MultiplayerGameKitRoster? { get }
     var clockEstimator: MultiplayerClockEstimator { get }
     var isCoordinator: Bool { get }
+    var liveCompatibility: MultiplayerLiveCompatibility { get }
     var eventHandler: ((MultiplayerGameKitTransportEvent) -> Void)? { get set }
 
     func connect(matchID: String, playerGroup: Int, participantCount: Int) async throws
@@ -749,6 +794,16 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
 
     var isCoordinator: Bool {
         roster?.coordinatorGamePlayerID == client.localGamePlayerID
+    }
+
+    var liveCompatibility: MultiplayerLiveCompatibility {
+        guard let roster,
+            helloRoster.count == requiredParticipantCount,
+            Set(helloRoster.keys) == Set(roster.gamePlayerIDs)
+        else { return .collecting }
+        return helloRoster.values.allSatisfy(MultiplayerLiveWire.isCompatible)
+            ? .unanimous
+            : .incompatible
     }
 
     var unacknowledgedPacketSequences: Set<Int> {
@@ -828,7 +883,9 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             participantId: participantID.lowercased(),
             seat: seat,
             colorIndex: colorIndex,
-            gamePlayerId: client.localGamePlayerID
+            gamePlayerId: client.localGamePlayerID,
+            liveWireVersion: MultiplayerLiveWire.version,
+            capabilities: MultiplayerLiveWire.requiredCapabilities.sorted()
         )
         helloRoster[client.localGamePlayerID] = hello
         try send(
@@ -910,6 +967,9 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         logicalMatchMilliseconds: Int
     ) throws {
         guard roster != nil else { throw MultiplayerGameKitError.notConnected }
+        guard liveCompatibility == .unanimous else {
+            throw MultiplayerGameKitError.incompatibleLiveWire
+        }
         // Every peer must witness immutable input evidence. Sending only to the
         // coordinator would let one modified coordinator fabricate another
         // participant's accepted taps before all peers submit the transcript.

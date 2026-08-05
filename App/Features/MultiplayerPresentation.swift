@@ -218,7 +218,9 @@ enum MultiplayerPresentation {
         }
 
         var canToggleReady: Bool {
-            currentPlayer != nil && !isMutationPending
+            currentPlayer != nil
+                && connection == .ready
+                && !isMutationPending
         }
 
         var startMatchControlState: StartMatchControlState {

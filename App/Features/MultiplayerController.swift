@@ -138,6 +138,7 @@ final class MultiplayerController: ObservableObject {
     private var matchmakingAttemptGate = MultiplayerMatchmakingAttemptGate()
     private var isApplicationActive = true
     private var isConfirmingRoster = false
+    private var didRejectIncompatibleLiveWire = false
     private var hasConfirmedRoster = false
     private var greatestRosterConfirmationCount = 0
     private var rosterConfirmationCounts: [String: Int] = [:]
@@ -484,7 +485,10 @@ final class MultiplayerController: ObservableObject {
     }
 
     func toggleReady(_ ready: Bool) {
-        guard let match = currentMatch, waitingState?.isMutationPending == false else {
+        guard let match = currentMatch,
+            waitingState?.isMutationPending == false,
+            !ready || waitingState?.canToggleReady == true
+        else {
             return
         }
         waitingState?.isMutationPending = true
@@ -506,6 +510,7 @@ final class MultiplayerController: ObservableObject {
 
     func startMatch() {
         guard let match = currentMatch,
+            transport.liveCompatibility == .unanimous,
             waitingState?.canStart == true,
             waitingState?.isMutationPending == false
         else { return }
@@ -846,6 +851,10 @@ final class MultiplayerController: ObservableObject {
                 "hello roster count=\(roster.count)/\(currentMatch?.capacity ?? 0)"
             )
             updateWaitingParticipantConnectivity()
+            if transport.liveCompatibility == .incompatible {
+                rejectIncompatibleLiveWire()
+                return
+            }
             confirmRosterIfComplete()
         case .packet(let received):
             handlePacket(received)
@@ -1020,6 +1029,7 @@ final class MultiplayerController: ObservableObject {
     private func confirmRosterIfComplete() {
         guard !isConfirmingRoster,
             !hasConfirmedRoster,
+            transport.liveCompatibility == .unanimous,
             let match = currentMatch,
             let roster = transport.roster,
             helloRoster.count == match.capacity,
@@ -1070,9 +1080,14 @@ final class MultiplayerController: ObservableObject {
 
     private func refreshWaitingConnectionState() {
         guard phase == .waiting, let match = currentMatch else { return }
+        if transport.liveCompatibility == .incompatible {
+            rejectIncompatibleLiveWire()
+            return
+        }
         let clockReady = transport.isCoordinator || transport.clockEstimator.hasEstimate
         if hasConfirmedRoster,
             greatestRosterConfirmationCount == match.capacity,
+            transport.liveCompatibility == .unanimous,
             clockReady,
             disconnectedGamePlayerIDs.isEmpty
         {
@@ -1089,12 +1104,31 @@ final class MultiplayerController: ObservableObject {
         }
     }
 
+    private func rejectIncompatibleLiveWire() {
+        guard phase == .waiting, !didRejectIncompatibleLiveWire else { return }
+        didRejectIncompatibleLiveWire = true
+        pollTask?.cancel()
+        pollTask = nil
+        matchmakingTask?.cancel()
+        matchmakingTask = nil
+        waitingState?.connection = .failed("Update Required")
+        waitingState?.message = "Every player needs the latest Multiplayer update."
+        transport.disconnect()
+        guard let matchID = currentMatch?.matchId else { return }
+        Task { @MainActor [weak self] in
+            _ = try? await self?.backend.leaveMultiplayerMatch(matchID)
+        }
+    }
+
     private func updateWaitingParticipantConnectivity() {
         guard let match = currentMatch else { return }
         applyMatch(match)
     }
 
     private func handleAvailableManifest(_ manifest: MultiplayerStartManifest) throws {
+        guard transport.liveCompatibility == .unanimous else {
+            throw MultiplayerGameKitError.incompatibleLiveWire
+        }
         guard transport.isCoordinator else { return }
         guard !didBroadcastStart else { return }
         let start = MultiplayerGameKitTransport.monotonicMilliseconds() + 1_000
@@ -1108,6 +1142,9 @@ final class MultiplayerController: ObservableObject {
     }
 
     private func beginLiveMatch(manifest: MultiplayerStartManifest) throws {
+        guard transport.liveCompatibility == .unanimous else {
+            throw MultiplayerGameKitError.incompatibleLiveWire
+        }
         guard !didBeginLiveMatch else { return }
         let core = try Self.coreManifest(from: manifest)
         let reducer = try MultiplayerStateReducer(manifest: core)
@@ -1997,6 +2034,7 @@ final class MultiplayerController: ObservableObject {
         pauseID = 0
         pausedAtLogicalMilliseconds = nil
         isConfirmingRoster = false
+        didRejectIncompatibleLiveWire = false
         hasConfirmedRoster = false
         greatestRosterConfirmationCount = 0
         rosterConfirmationCounts = [:]

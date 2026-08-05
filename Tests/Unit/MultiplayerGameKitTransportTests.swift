@@ -6,6 +6,105 @@ import XCTest
 
 @MainActor
 final class MultiplayerGameKitTransportTests: XCTestCase {
+    func testLegacyHelloDecodesButCannotEnableFastPackets() throws {
+        let data = Data(
+            #"{"participantId":"22222222-2222-4222-8222-222222222222","seat":0,"colorIndex":0,"gamePlayerId":"G:alpha"}"#
+                .utf8
+        )
+        let hello = try JSONDecoder().decode(MultiplayerHelloPacket.self, from: data)
+
+        XCTAssertNil(hello.liveWireVersion)
+        XCTAssertNil(hello.capabilities)
+        XCTAssertFalse(MultiplayerLiveWire.isCompatible(hello))
+    }
+
+    func testExactFastHelloRequiresTheFrozenCapabilitySet() {
+        let exact = MultiplayerHelloPacket(
+            participantId: Self.localParticipantID,
+            seat: 0,
+            colorIndex: 0,
+            gamePlayerId: "G:alpha",
+            liveWireVersion: MultiplayerLiveWire.version,
+            capabilities: MultiplayerLiveWire.requiredCapabilities.sorted()
+        )
+        let missing = MultiplayerHelloPacket(
+            participantId: Self.localParticipantID,
+            seat: 0,
+            colorIndex: 0,
+            gamePlayerId: "G:alpha",
+            liveWireVersion: MultiplayerLiveWire.version,
+            capabilities: ["fast-input-v1"]
+        )
+
+        XCTAssertTrue(MultiplayerLiveWire.isCompatible(exact))
+        XCTAssertFalse(MultiplayerLiveWire.isCompatible(missing))
+    }
+
+    func testGameplayPacketsStayBlockedUntilEverySeatSendsExactHello() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        try await transport.connect(
+            matchID: Self.matchID,
+            playerGroup: 8,
+            participantCount: 2
+        )
+        try transport.sendHello(
+            participantID: Self.localParticipantID,
+            seat: 0,
+            colorIndex: 0
+        )
+
+        XCTAssertEqual(transport.liveCompatibility, .collecting)
+        XCTAssertThrowsError(
+            try transport.sendInput(
+                MultiplayerInputPacket(
+                    inputSequence: 1,
+                    seat: 0,
+                    cell: 4,
+                    coordinatorInputMilliseconds: 90
+                ),
+                logicalMatchMilliseconds: 90
+            )
+        )
+
+        let remoteHello = MultiplayerPacketEnvelope(
+            version: 1,
+            matchId: Self.matchID,
+            packetSequence: 1,
+            eventSequence: 0,
+            logicalMatchMilliseconds: 0,
+            payload: .hello(
+                MultiplayerHelloPacket(
+                    participantId: Self.remoteParticipantID,
+                    seat: 1,
+                    colorIndex: 1,
+                    gamePlayerId: "G:beta",
+                    liveWireVersion: MultiplayerLiveWire.version,
+                    capabilities: MultiplayerLiveWire.requiredCapabilities.sorted()
+                )
+            )
+        )
+        client.receive(try JSONEncoder().encode(remoteHello), from: "G:beta")
+
+        XCTAssertEqual(transport.liveCompatibility, .unanimous)
+        XCTAssertNoThrow(
+            try transport.sendInput(
+                MultiplayerInputPacket(
+                    inputSequence: 1,
+                    seat: 0,
+                    cell: 4,
+                    coordinatorInputMilliseconds: 90
+                ),
+                logicalMatchMilliseconds: 90
+            )
+        )
+    }
+
     func testICloudUnavailableFailurePreservesGameKitCodeAndBlocksRetry() {
         let error = NSError(
             domain: GKErrorDomain,
@@ -276,6 +375,29 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
             playerGroup: 12,
             participantCount: 2
         )
+        try transport.sendHello(
+            participantID: Self.localParticipantID,
+            seat: 1,
+            colorIndex: 1
+        )
+        let remoteHello = MultiplayerPacketEnvelope(
+            version: 1,
+            matchId: Self.matchID,
+            packetSequence: 1,
+            eventSequence: 0,
+            logicalMatchMilliseconds: 0,
+            payload: .hello(
+                MultiplayerHelloPacket(
+                    participantId: Self.remoteParticipantID,
+                    seat: 0,
+                    colorIndex: 0,
+                    gamePlayerId: "G:alpha",
+                    liveWireVersion: MultiplayerLiveWire.version,
+                    capabilities: MultiplayerLiveWire.requiredCapabilities.sorted()
+                )
+            )
+        )
+        client.receive(try JSONEncoder().encode(remoteHello), from: "G:alpha")
 
         try transport.sendInput(
             MultiplayerInputPacket(
