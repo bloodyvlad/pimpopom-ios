@@ -147,7 +147,9 @@ public struct MultiplayerInputSeal: Codable, Equatable, Sendable {
 }
 ```
 
-`MultiplayerInputFrontier.recordInput` stores sequence/time per seat, `recordSeal` advances a seat only when all `1...highestInputSequence` inputs are present, and `publishWatermark` is the monotonic minimum effective seal over all seats. `MultiplayerInputLedger` stores complete evidence by InputID and exactly one resolution; identical duplicates dedupe, conflicting content throws, ignored pairs are removed immediately, and committed pairs are removed only when the named event is applied.
+`MultiplayerInputFrontier.recordInput` stores sequence/time per seat, `recordSeal` advances a seat only when all `1...highestInputSequence` inputs are present, and `publishWatermark` is the monotonic minimum effective seal over canonical living seats. Generate a seal only through the closed inclusive millisecond `max(0, logicalNow - 1)` so a later touch in the same rounded millisecond cannot violate an effective seal; remove a seat only after its canonical `playerOut` event commits. `MultiplayerInputLedger` stores complete evidence by InputID and exactly one resolution; identical duplicates dedupe, conflicting content throws, ignored pairs are removed immediately, and committed pairs are removed only when the named event is applied.
+
+Use the component-wise worst participant and integer policy `staleness = clamp(ceil(p95RTT / 2) + p95Jitter + 17, 40...100)` and `recovery = clamp(2 * p95RTT + 2 * p95Jitter, 120...250)`. Reject rather than clamp-and-start when the raw requirement exceeds either upper bound or loss/reorder exceeds 3%.
 
 - [ ] **Step 4: Run both focused suites and verify GREEN**
 
