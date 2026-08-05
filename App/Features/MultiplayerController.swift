@@ -939,6 +939,8 @@ final class MultiplayerController: ObservableObject {
                 recordInputEvidence(input, expectedSeat: hello.seat)
                 drainPendingCanonicalBatches()
             }
+        case .inputSeal, .inputResolution:
+            break
         case .activationPlans(let packet):
             guard !transport.isCoordinator else { return }
             for plan in packet.plans {

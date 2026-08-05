@@ -1,5 +1,6 @@
 import Foundation
 import GameKit
+import PimPoPomCore
 import XCTest
 
 @testable import PimPoPom
@@ -103,6 +104,78 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
                 logicalMatchMilliseconds: 90
             )
         )
+        XCTAssertEqual(Array(client.sent.suffix(2).map(\.mode)), [.unreliable, .reliable])
+        let inputEnvelopes = try client.sent.suffix(2).map {
+            try JSONDecoder().decode(MultiplayerPacketEnvelope.self, from: $0.data)
+        }
+        XCTAssertEqual(inputEnvelopes.map(\.lane), [.fastInput, .evidence])
+        XCTAssertEqual(inputEnvelopes.map(\.packetSequence), [1, 1])
+    }
+
+    func testReorderedFastLanePacketsAreDeliveredOnceWithoutSuppressingControl() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        var receivedSequences: [Int] = []
+        transport.eventHandler = { event in
+            guard case .packet(let packet) = event,
+                case .input(let input) = packet.envelope.payload
+            else { return }
+            receivedSequences.append(input.inputSequence)
+        }
+        try await transport.connect(
+            matchID: Self.matchID,
+            playerGroup: 7,
+            participantCount: 2
+        )
+        try transport.sendHello(
+            participantID: Self.localParticipantID,
+            seat: 0,
+            colorIndex: 0
+        )
+        let hello = MultiplayerHelloPacket(
+            participantId: Self.remoteParticipantID,
+            seat: 1,
+            colorIndex: 1,
+            gamePlayerId: "G:beta",
+            liveWireVersion: MultiplayerLiveWire.version,
+            capabilities: MultiplayerLiveWire.requiredCapabilities.sorted()
+        )
+        client.receive(
+            try encodedEnvelope(sequence: 1, lane: .control, payload: .hello(hello)),
+            from: "G:beta"
+        )
+        let second = MultiplayerInputPacket(
+            inputSequence: 2,
+            seat: 1,
+            cell: 8,
+            coordinatorInputMilliseconds: 91
+        )
+        let first = MultiplayerInputPacket(
+            inputSequence: 1,
+            seat: 1,
+            cell: 7,
+            coordinatorInputMilliseconds: 90
+        )
+
+        client.receive(
+            try encodedEnvelope(sequence: 2, lane: .fastInput, payload: .input(second)),
+            from: "G:beta"
+        )
+        client.receive(
+            try encodedEnvelope(sequence: 1, lane: .fastInput, payload: .input(first)),
+            from: "G:beta"
+        )
+        client.receive(
+            try encodedEnvelope(sequence: 1, lane: .fastInput, payload: .input(first)),
+            from: "G:beta"
+        )
+
+        XCTAssertEqual(receivedSequences, [2, 1])
     }
 
     func testICloudUnavailableFailurePreservesGameKitCodeAndBlocksRetry() {
@@ -208,6 +281,12 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         )
         XCTAssertEqual(transport.highestAppliedEventSequence, 1)
         XCTAssertEqual(transport.unacknowledgedPacketSequences, [1])
+        let eventEnvelope = try JSONDecoder().decode(
+            MultiplayerPacketEnvelope.self,
+            from: try XCTUnwrap(client.sent.last).data
+        )
+        XCTAssertEqual(eventEnvelope.lane, .canonical)
+        XCTAssertEqual(client.sent.last?.mode, .reliable)
 
         XCTAssertThrowsError(
             try transport.broadcastEvents(
@@ -225,6 +304,7 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
             payload: .acknowledgement(
                 MultiplayerAcknowledgementPacket(
                     acknowledgedPacketSequence: 1,
+                    acknowledgedLane: .canonical,
                     appliedEventSequence: 1
                 )
             )
@@ -409,7 +489,10 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
             logicalMatchMilliseconds: 420
         )
 
+        let fast = try XCTUnwrap(client.sent.dropLast().last)
         let sent = try XCTUnwrap(client.sent.last)
+        XCTAssertEqual(fast.mode, .unreliable)
+        XCTAssertEqual(sent.mode, .reliable)
         XCTAssertNil(sent.recipients)
         let envelope = try JSONDecoder().decode(
             MultiplayerPacketEnvelope.self,
@@ -421,6 +504,216 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         XCTAssertEqual(input.seat, 1)
         XCTAssertEqual(input.cell, 7)
         XCTAssertEqual(input.coordinatorInputMilliseconds, 420)
+        XCTAssertEqual(envelope.lane, .evidence)
+    }
+
+    func testSealsUseFastAndReliableCheckpointLanesAndResolutionIsCanonical() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        try await makeCompatible(transport, client: client, localSeat: 0)
+        let sentBefore = client.sent.count
+        let seal = MultiplayerInputSeal(
+            seat: 0,
+            throughInputAt: 99,
+            highestInputSequence: 1
+        )
+
+        try transport.sendInputSeal(
+            seal,
+            logicalMatchMilliseconds: 100,
+            includesReliableCheckpoint: true
+        )
+        try transport.sendInputResolution(
+            MultiplayerInputResolution(
+                inputID: MultiplayerInputID(seat: 0, inputSequence: 1),
+                disposition: .ignored(.staleTarget)
+            ),
+            logicalMatchMilliseconds: 100
+        )
+
+        let sends = Array(client.sent.dropFirst(sentBefore))
+        XCTAssertEqual(sends.map(\.mode), [.unreliable, .reliable, .reliable])
+        let envelopes = try sends.map {
+            try JSONDecoder().decode(MultiplayerPacketEnvelope.self, from: $0.data)
+        }
+        XCTAssertEqual(envelopes.map(\.lane), [.fastInput, .evidence, .canonical])
+        XCTAssertEqual(envelopes.map(\.packetSequence), [1, 1, 1])
+        guard case .inputSeal(let decodedSeal) = envelopes[1].payload else {
+            return XCTFail("Expected reliable input-seal checkpoint.")
+        }
+        XCTAssertEqual(decodedSeal, seal)
+        guard case .inputResolution(let decodedResolution) = envelopes[2].payload else {
+            return XCTFail("Expected canonical input resolution.")
+        }
+        XCTAssertEqual(
+            decodedResolution.inputID,
+            MultiplayerInputID(seat: 0, inputSequence: 1)
+        )
+    }
+
+    func testFastPayloadsAndResolutionsStayBlockedBeforeCapabilityUnanimity() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        try await transport.connect(
+            matchID: Self.matchID,
+            playerGroup: 14,
+            participantCount: 2
+        )
+
+        XCTAssertThrowsError(
+            try transport.sendInputSeal(
+                MultiplayerInputSeal(
+                    seat: 0,
+                    throughInputAt: 10,
+                    highestInputSequence: 0
+                ),
+                logicalMatchMilliseconds: 11,
+                includesReliableCheckpoint: true
+            )
+        )
+        XCTAssertThrowsError(
+            try transport.sendInputResolution(
+                MultiplayerInputResolution(
+                    inputID: MultiplayerInputID(seat: 0, inputSequence: 1),
+                    disposition: .ignored(.prePresentation)
+                ),
+                logicalMatchMilliseconds: 11
+            )
+        )
+        XCTAssertTrue(client.sent.isEmpty)
+    }
+
+    func testCumulativeEvidenceAcknowledgementClearsTheBoundedJournal() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        try await makeCompatible(transport, client: client, localSeat: 0)
+        for sequence in 1...2 {
+            try transport.sendInput(
+                MultiplayerInputPacket(
+                    inputSequence: sequence,
+                    seat: 0,
+                    cell: sequence,
+                    coordinatorInputMilliseconds: 90 + sequence
+                ),
+                logicalMatchMilliseconds: 90 + sequence
+            )
+        }
+        XCTAssertEqual(
+            transport.unacknowledgedEvidenceInputIDs,
+            [
+                MultiplayerInputID(seat: 0, inputSequence: 1),
+                MultiplayerInputID(seat: 0, inputSequence: 2),
+            ]
+        )
+
+        let acknowledgement = MultiplayerPacketEnvelope(
+            version: 1,
+            matchId: Self.matchID,
+            packetSequence: 2,
+            eventSequence: 0,
+            logicalMatchMilliseconds: 100,
+            payload: .acknowledgement(
+                MultiplayerAcknowledgementPacket(
+                    acknowledgedPacketSequence: 2,
+                    acknowledgedLane: .evidence,
+                    appliedEventSequence: 0
+                )
+            )
+        )
+        client.receive(try JSONEncoder().encode(acknowledgement), from: "G:beta")
+
+        XCTAssertTrue(transport.unacknowledgedEvidenceInputIDs.isEmpty)
+    }
+
+    func testReconnectReplaysOnlyUnacknowledgedReliableEvidence() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        try await makeCompatible(transport, client: client, localSeat: 0)
+        try transport.sendInput(
+            MultiplayerInputPacket(
+                inputSequence: 1,
+                seat: 0,
+                cell: 4,
+                coordinatorInputMilliseconds: 90
+            ),
+            logicalMatchMilliseconds: 90
+        )
+        let sentBeforeReconnect = client.sent.count
+
+        client.changeConnection("G:beta", status: .disconnected)
+        client.changeConnection("G:beta", status: .connected)
+
+        let replay = try XCTUnwrap(client.sent.dropFirst(sentBeforeReconnect).last)
+        XCTAssertEqual(replay.recipients, ["G:beta"])
+        XCTAssertEqual(replay.mode, .reliable)
+        let envelope = try JSONDecoder().decode(
+            MultiplayerPacketEnvelope.self,
+            from: replay.data
+        )
+        XCTAssertEqual(envelope.lane, .evidence)
+        guard case .input(let input) = envelope.payload else {
+            return XCTFail("Expected reliable evidence replay.")
+        }
+        XCTAssertEqual(input.inputSequence, 1)
+    }
+
+    func testEvidenceJournalRejectsOverflowBeforeSendingAnotherFastCopy() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(
+            client: client,
+            maximumEvidenceJournalEntries: 1
+        )
+        try await makeCompatible(transport, client: client, localSeat: 0)
+        try transport.sendInput(
+            MultiplayerInputPacket(
+                inputSequence: 1,
+                seat: 0,
+                cell: 4,
+                coordinatorInputMilliseconds: 90
+            ),
+            logicalMatchMilliseconds: 90
+        )
+        let sentBeforeOverflow = client.sent.count
+
+        XCTAssertThrowsError(
+            try transport.sendInput(
+                MultiplayerInputPacket(
+                    inputSequence: 2,
+                    seat: 0,
+                    cell: 5,
+                    coordinatorInputMilliseconds: 91
+                ),
+                logicalMatchMilliseconds: 91
+            )
+        ) { error in
+            XCTAssertEqual(error as? MultiplayerGameKitError, .evidenceJournalFull)
+        }
+        XCTAssertEqual(client.sent.count, sentBeforeOverflow)
     }
 
     func testRecoverySnapshotCarriesPlansAndResumeShiftsTheSharedClock() async throws {
@@ -529,6 +822,19 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
                     coordinatorInputMilliseconds: 300
                 )
             ),
+            .inputSeal(
+                MultiplayerInputSeal(
+                    seat: 0,
+                    throughInputAt: 300,
+                    highestInputSequence: 1
+                )
+            ),
+            .inputResolution(
+                MultiplayerInputResolution(
+                    inputID: MultiplayerInputID(seat: 0, inputSequence: 1),
+                    disposition: .committed(eventSequence: 1)
+                )
+            ),
             .activationPlans(
                 MultiplayerActivationPlansPacket(
                     plans: [
@@ -628,6 +934,60 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         ],
         manifestHash: hash
     )
+
+    private func encodedEnvelope(
+        sequence: Int,
+        lane: MultiplayerTransportLane,
+        payload: MultiplayerPacketPayload
+    ) throws -> Data {
+        try JSONEncoder().encode(
+            MultiplayerPacketEnvelope(
+                version: 1,
+                matchId: Self.matchID,
+                packetSequence: sequence,
+                eventSequence: 0,
+                logicalMatchMilliseconds: 0,
+                lane: lane,
+                payload: payload
+            )
+        )
+    }
+
+    private func makeCompatible(
+        _ transport: MultiplayerGameKitTransport,
+        client: MultiplayerGameKitClientFake,
+        localSeat: Int
+    ) async throws {
+        try await transport.connect(
+            matchID: Self.matchID,
+            playerGroup: 99,
+            participantCount: 2
+        )
+        try transport.sendHello(
+            participantID: Self.localParticipantID,
+            seat: localSeat,
+            colorIndex: localSeat
+        )
+        let remoteSeat = localSeat == 0 ? 1 : 0
+        let remoteID = client.remotePlayers[0].gamePlayerID
+        let remoteHello = MultiplayerHelloPacket(
+            participantId: Self.remoteParticipantID,
+            seat: remoteSeat,
+            colorIndex: remoteSeat,
+            gamePlayerId: remoteID,
+            liveWireVersion: MultiplayerLiveWire.version,
+            capabilities: MultiplayerLiveWire.requiredCapabilities.sorted()
+        )
+        client.receive(
+            try encodedEnvelope(
+                sequence: 1,
+                lane: .control,
+                payload: .hello(remoteHello)
+            ),
+            from: remoteID
+        )
+        XCTAssertEqual(transport.liveCompatibility, .unanimous)
+    }
 }
 
 @MainActor
@@ -635,6 +995,7 @@ private final class MultiplayerGameKitClientFake: MultiplayerGameKitClientProtoc
     struct Send: Equatable {
         let data: Data
         let recipients: [String]?
+        let mode: MultiplayerGameKitSendMode
     }
 
     var eventHandler: ((MultiplayerGameKitClientEvent) -> Void)?
@@ -660,8 +1021,12 @@ private final class MultiplayerGameKitClientFake: MultiplayerGameKitClientProtoc
         eventHandler?(.rosterChanged)
     }
 
-    func send(_ data: Data, to gamePlayerIDs: [String]?) throws {
-        sent.append(Send(data: data, recipients: gamePlayerIDs))
+    func send(
+        _ data: Data,
+        to gamePlayerIDs: [String]?,
+        mode: MultiplayerGameKitSendMode
+    ) throws {
+        sent.append(Send(data: data, recipients: gamePlayerIDs, mode: mode))
     }
 
     func cancel() {

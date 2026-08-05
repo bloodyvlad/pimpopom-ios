@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 @preconcurrency import GameKit
+import PimPoPomCore
 
 struct MultiplayerGameKitPlayer: Equatable, Identifiable, Sendable {
     let gamePlayerID: String
@@ -137,6 +138,11 @@ enum MultiplayerGameKitClientEvent: Equatable, Sendable {
     case failed(String)
 }
 
+enum MultiplayerGameKitSendMode: Equatable, Sendable {
+    case reliable
+    case unreliable
+}
+
 @MainActor
 protocol MultiplayerGameKitClientProtocol: AnyObject {
     var eventHandler: ((MultiplayerGameKitClientEvent) -> Void)? { get set }
@@ -147,7 +153,11 @@ protocol MultiplayerGameKitClientProtocol: AnyObject {
     var expectedPlayerCount: Int { get }
 
     func findMatch(configuration: MultiplayerMatchmakingConfiguration) async throws
-    func send(_ data: Data, to gamePlayerIDs: [String]?) throws
+    func send(
+        _ data: Data,
+        to gamePlayerIDs: [String]?,
+        mode: MultiplayerGameKitSendMode
+    ) throws
     func cancel()
 }
 
@@ -233,17 +243,23 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
         }
     }
 
-    func send(_ data: Data, to gamePlayerIDs: [String]?) throws {
+    func send(
+        _ data: Data,
+        to gamePlayerIDs: [String]?,
+        mode: MultiplayerGameKitSendMode
+    ) throws {
         guard let match else { throw MultiplayerGameKitError.matchUnavailable }
+        let gameKitMode: GKMatch.SendDataMode =
+            mode == .unreliable ? .unreliable : .reliable
         if let gamePlayerIDs {
             let requested = Set(gamePlayerIDs)
             let players = match.players.filter { requested.contains($0.gamePlayerID) }
             guard players.count == requested.count else {
                 throw MultiplayerGameKitError.playerUnavailable
             }
-            try match.send(data, to: players, dataMode: .reliable)
+            try match.send(data, to: players, dataMode: gameKitMode)
         } else {
-            try match.sendData(toAllPlayers: data, with: .reliable)
+            try match.sendData(toAllPlayers: data, with: gameKitMode)
         }
     }
 
@@ -370,6 +386,18 @@ struct MultiplayerInputPacket: Codable, Equatable {
     let seat: Int
     let cell: Int
     let coordinatorInputMilliseconds: Int
+
+    var id: MultiplayerInputID {
+        MultiplayerInputID(seat: seat, inputSequence: inputSequence)
+    }
+
+    var sealedInput: MultiplayerSealedInput {
+        MultiplayerSealedInput(
+            id: id,
+            cell: cell,
+            inputAt: coordinatorInputMilliseconds
+        )
+    }
 }
 
 enum MultiplayerWireActivationKind: String, Codable, Equatable {
@@ -404,7 +432,41 @@ struct MultiplayerEventBatchPacket: Codable, Equatable {
 
 struct MultiplayerAcknowledgementPacket: Codable, Equatable {
     let acknowledgedPacketSequence: Int
+    let acknowledgedLane: MultiplayerTransportLane
     let appliedEventSequence: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case acknowledgedPacketSequence
+        case acknowledgedLane
+        case appliedEventSequence
+    }
+
+    init(
+        acknowledgedPacketSequence: Int,
+        acknowledgedLane: MultiplayerTransportLane = .control,
+        appliedEventSequence: Int
+    ) {
+        self.acknowledgedPacketSequence = acknowledgedPacketSequence
+        self.acknowledgedLane = acknowledgedLane
+        self.appliedEventSequence = appliedEventSequence
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        acknowledgedPacketSequence = try container.decode(
+            Int.self,
+            forKey: .acknowledgedPacketSequence
+        )
+        acknowledgedLane =
+            try container.decodeIfPresent(
+                MultiplayerTransportLane.self,
+                forKey: .acknowledgedLane
+            ) ?? .control
+        appliedEventSequence = try container.decode(
+            Int.self,
+            forKey: .appliedEventSequence
+        )
+    }
 }
 
 struct MultiplayerSnapshotPacket: Codable, Equatable {
@@ -446,6 +508,8 @@ enum MultiplayerPacketPayload: Equatable {
     case clockPong(MultiplayerClockPongPacket)
     case startManifest(MultiplayerStartSignalPacket)
     case input(MultiplayerInputPacket)
+    case inputSeal(MultiplayerInputSeal)
+    case inputResolution(MultiplayerInputResolution)
     case activationPlans(MultiplayerActivationPlansPacket)
     case cancelActivationPlans(MultiplayerCancelActivationPlansPacket)
     case events(MultiplayerEventBatchPacket)
@@ -470,6 +534,8 @@ extension MultiplayerPacketPayload: Codable {
         case clockPong
         case startManifest
         case input
+        case inputSeal
+        case inputResolution
         case activationPlans
         case cancelActivationPlans
         case events
@@ -504,6 +570,14 @@ extension MultiplayerPacketPayload: Codable {
             )
         case .input:
             self = .input(try container.decode(MultiplayerInputPacket.self, forKey: .body))
+        case .inputSeal:
+            self = .inputSeal(
+                try container.decode(MultiplayerInputSeal.self, forKey: .body)
+            )
+        case .inputResolution:
+            self = .inputResolution(
+                try container.decode(MultiplayerInputResolution.self, forKey: .body)
+            )
         case .activationPlans:
             self = .activationPlans(
                 try container.decode(MultiplayerActivationPlansPacket.self, forKey: .body)
@@ -565,6 +639,12 @@ extension MultiplayerPacketPayload: Codable {
         case .input(let body):
             try container.encode(Kind.input, forKey: .kind)
             try container.encode(body, forKey: .body)
+        case .inputSeal(let body):
+            try container.encode(Kind.inputSeal, forKey: .kind)
+            try container.encode(body, forKey: .body)
+        case .inputResolution(let body):
+            try container.encode(Kind.inputResolution, forKey: .kind)
+            try container.encode(body, forKey: .body)
         case .activationPlans(let body):
             try container.encode(Kind.activationPlans, forKey: .kind)
             try container.encode(body, forKey: .body)
@@ -596,6 +676,22 @@ extension MultiplayerPacketPayload: Codable {
     }
 }
 
+enum MultiplayerTransportLane: String, Codable, CaseIterable, Equatable, Hashable {
+    case fastInput
+    case evidence
+    case canonical
+    case control
+
+    var sendMode: MultiplayerGameKitSendMode {
+        self == .fastInput ? .unreliable : .reliable
+    }
+}
+
+private struct MultiplayerLaneSequence: Hashable {
+    let lane: MultiplayerTransportLane
+    let sequence: Int
+}
+
 struct MultiplayerPacketEnvelope: Codable, Equatable {
     static let version = 1
 
@@ -604,7 +700,54 @@ struct MultiplayerPacketEnvelope: Codable, Equatable {
     let packetSequence: Int
     let eventSequence: Int
     let logicalMatchMilliseconds: Int
+    let lane: MultiplayerTransportLane
     let payload: MultiplayerPacketPayload
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case matchId
+        case packetSequence
+        case eventSequence
+        case logicalMatchMilliseconds
+        case lane
+        case payload
+    }
+
+    init(
+        version: Int,
+        matchId: String,
+        packetSequence: Int,
+        eventSequence: Int,
+        logicalMatchMilliseconds: Int,
+        lane: MultiplayerTransportLane = .control,
+        payload: MultiplayerPacketPayload
+    ) {
+        self.version = version
+        self.matchId = matchId
+        self.packetSequence = packetSequence
+        self.eventSequence = eventSequence
+        self.logicalMatchMilliseconds = logicalMatchMilliseconds
+        self.lane = lane
+        self.payload = payload
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        matchId = try container.decode(String.self, forKey: .matchId)
+        packetSequence = try container.decode(Int.self, forKey: .packetSequence)
+        eventSequence = try container.decode(Int.self, forKey: .eventSequence)
+        logicalMatchMilliseconds = try container.decode(
+            Int.self,
+            forKey: .logicalMatchMilliseconds
+        )
+        lane =
+            try container.decodeIfPresent(
+                MultiplayerTransportLane.self,
+                forKey: .lane
+            ) ?? .control
+        payload = try container.decode(MultiplayerPacketPayload.self, forKey: .payload)
+    }
 }
 
 struct MultiplayerReceivedPacket: Equatable {
@@ -693,6 +836,7 @@ enum MultiplayerGameKitError: LocalizedError, Equatable {
     case packetTooLarge
     case notConnected
     case incompatibleLiveWire
+    case evidenceJournalFull
     case coordinatorRequired
     case clockNotSynchronized
 
@@ -716,6 +860,8 @@ enum MultiplayerGameKitError: LocalizedError, Equatable {
             "The multiplayer transport is not connected."
         case .incompatibleLiveWire:
             "Update Required"
+        case .evidenceJournalFull:
+            "Multiplayer input recovery exceeded its safe bound."
         case .coordinatorRequired:
             "Only the elected multiplayer coordinator can send this packet."
         case .clockNotSynchronized:
@@ -744,6 +890,15 @@ protocol MultiplayerGameKitTransporting: AnyObject {
         presentationLeadMilliseconds: Int
     ) throws
     func sendInput(_ input: MultiplayerInputPacket, logicalMatchMilliseconds: Int) throws
+    func sendInputSeal(
+        _ seal: MultiplayerInputSeal,
+        logicalMatchMilliseconds: Int,
+        includesReliableCheckpoint: Bool
+    ) throws
+    func sendInputResolution(
+        _ resolution: MultiplayerInputResolution,
+        logicalMatchMilliseconds: Int
+    ) throws
     func sendActivationPlans(
         _ plans: [MultiplayerWireActivationPlan],
         logicalMatchMilliseconds: Int
@@ -807,19 +962,34 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
     }
 
     var unacknowledgedPacketSequences: Set<Int> {
-        Set(pendingAcknowledgements.filter { !$0.value.isEmpty }.keys)
+        Set(
+            pendingAcknowledgements
+                .filter { !$0.value.isEmpty }
+                .map(\.key.sequence)
+        )
+    }
+
+    var unacknowledgedEvidenceInputIDs: Set<MultiplayerInputID> {
+        Set(evidenceJournal.keys)
     }
 
     private let client: any MultiplayerGameKitClientProtocol
     private let monotonicMilliseconds: () -> Int
+    private let maximumEvidenceJournalEntries: Int
     private let encoder: JSONEncoder
     private let decoder = JSONDecoder()
     private var matchID: String?
     private var requiredParticipantCount = 0
-    private var nextPacketSequence = 1
+    private var nextPacketSequenceByLane = Dictionary(
+        uniqueKeysWithValues: MultiplayerTransportLane.allCases.map { ($0, 1) }
+    )
     private var nextClockNonce = 1
-    private var lastPacketSequenceByPlayer: [String: Int] = [:]
-    private var pendingAcknowledgements: [Int: Set<String>] = [:]
+    private var lastReliableSequenceByPlayerLane: [String: [MultiplayerTransportLane: Int]] = [:]
+    private var seenFastSequencesByPlayer: [String: Set<Int>] = [:]
+    private var pendingAcknowledgements: [MultiplayerLaneSequence: Set<String>] = [:]
+    private var evidenceJournal: [MultiplayerInputID: MultiplayerInputPacket] = [:]
+    private var evidenceInputIDByLaneSequence: [MultiplayerLaneSequence: MultiplayerInputID] =
+        [:]
     private var disconnectedPlayerIDs: Set<String> = []
     private var startSignal: MultiplayerStartSignalPacket?
     private var activePause:
@@ -831,10 +1001,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
 
     init(
         client: any MultiplayerGameKitClientProtocol = LiveMultiplayerGameKitClient(),
+        maximumEvidenceJournalEntries: Int = MultiplayerProtocolConstants.maximumEvents,
         monotonicMilliseconds: @escaping () -> Int = MultiplayerGameKitTransport
             .monotonicMilliseconds
     ) {
         self.client = client
+        self.maximumEvidenceJournalEntries = max(1, maximumEvidenceJournalEntries)
         self.monotonicMilliseconds = monotonicMilliseconds
         encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -970,13 +1142,87 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         guard liveCompatibility == .unanimous else {
             throw MultiplayerGameKitError.incompatibleLiveWire
         }
+        if let existing = evidenceJournal[input.id] {
+            guard existing == input else {
+                throw MultiplayerGameKitError.invalidPacket
+            }
+        } else {
+            guard evidenceJournal.count < maximumEvidenceJournalEntries else {
+                throw MultiplayerGameKitError.evidenceJournalFull
+            }
+            evidenceJournal[input.id] = input
+        }
         // Every peer must witness immutable input evidence. Sending only to the
         // coordinator would let one modified coordinator fabricate another
         // participant's accepted taps before all peers submit the transcript.
         try send(
             payload: .input(input),
             eventSequence: highestAppliedEventSequence,
-            logicalMatchMilliseconds: logicalMatchMilliseconds
+            logicalMatchMilliseconds: logicalMatchMilliseconds,
+            expectsAcknowledgement: false,
+            lane: .fastInput
+        )
+        let evidenceSequence = try send(
+            payload: .input(input),
+            eventSequence: highestAppliedEventSequence,
+            logicalMatchMilliseconds: logicalMatchMilliseconds,
+            lane: .evidence
+        )
+        evidenceInputIDByLaneSequence[evidenceSequence] = input.id
+    }
+
+    func sendInputSeal(
+        _ seal: MultiplayerInputSeal,
+        logicalMatchMilliseconds: Int,
+        includesReliableCheckpoint: Bool
+    ) throws {
+        guard liveCompatibility == .unanimous else {
+            throw MultiplayerGameKitError.incompatibleLiveWire
+        }
+        guard (0..<requiredParticipantCount).contains(seal.seat),
+            seal.throughInputAt >= 0,
+            seal.throughInputAt < logicalMatchMilliseconds,
+            seal.highestInputSequence >= 0,
+            seal.highestInputSequence <= MultiplayerProtocolConstants.maximumEvents
+        else {
+            throw MultiplayerGameKitError.invalidPacket
+        }
+        try send(
+            payload: .inputSeal(seal),
+            eventSequence: highestAppliedEventSequence,
+            logicalMatchMilliseconds: logicalMatchMilliseconds,
+            expectsAcknowledgement: false,
+            lane: .fastInput
+        )
+        if includesReliableCheckpoint {
+            try send(
+                payload: .inputSeal(seal),
+                eventSequence: highestAppliedEventSequence,
+                logicalMatchMilliseconds: logicalMatchMilliseconds,
+                lane: .evidence
+            )
+        }
+    }
+
+    func sendInputResolution(
+        _ resolution: MultiplayerInputResolution,
+        logicalMatchMilliseconds: Int
+    ) throws {
+        guard liveCompatibility == .unanimous else {
+            throw MultiplayerGameKitError.incompatibleLiveWire
+        }
+        guard isCoordinator,
+            resolution.version == MultiplayerInputResolution.currentVersion,
+            (0..<requiredParticipantCount).contains(resolution.inputID.seat),
+            resolution.inputID.inputSequence > 0
+        else {
+            throw MultiplayerGameKitError.coordinatorRequired
+        }
+        try send(
+            payload: .inputResolution(resolution),
+            eventSequence: highestAppliedEventSequence,
+            logicalMatchMilliseconds: logicalMatchMilliseconds,
+            lane: .canonical
         )
     }
 
@@ -1048,6 +1294,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
 
     func sendAcknowledgement(
         packetSequence: Int,
+        lane acknowledgedLane: MultiplayerTransportLane = .control,
         appliedEventSequence: Int,
         to gamePlayerID: String,
         logicalMatchMilliseconds: Int
@@ -1056,6 +1303,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             payload: .acknowledgement(
                 MultiplayerAcknowledgementPacket(
                     acknowledgedPacketSequence: packetSequence,
+                    acknowledgedLane: acknowledgedLane,
                     appliedEventSequence: appliedEventSequence
                 )
             ),
@@ -1277,6 +1525,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         case .connected:
             disconnectedPlayerIDs.remove(playerID)
             refreshRoster()
+            try? resendUnacknowledgedEvidence(to: playerID)
             eventHandler?(.playerReconnected(playerID))
             if roster?.coordinatorGamePlayerID == playerID, !isCoordinator {
                 try? requestSnapshot(
@@ -1296,9 +1545,9 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         else {
             return
         }
-        let previousPacket = lastPacketSequenceByPlayer[senderGamePlayerID] ?? 0
-        guard envelope.packetSequence > previousPacket else { return }
-        lastPacketSequenceByPlayer[senderGamePlayerID] = envelope.packetSequence
+        guard acceptIncomingSequence(envelope, from: senderGamePlayerID) else {
+            return
+        }
 
         switch envelope.payload {
         case .hello(let hello):
@@ -1345,8 +1594,11 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                 activePause = nil
             }
         case .acknowledgement(let acknowledgement):
-            pendingAcknowledgements[acknowledgement.acknowledgedPacketSequence]?
-                .remove(senderGamePlayerID)
+            acknowledge(
+                through: acknowledgement.acknowledgedPacketSequence,
+                lane: acknowledgement.acknowledgedLane,
+                from: senderGamePlayerID
+            )
         case .finish(let finish):
             if finish.finalEventSequence >= highestAppliedEventSequence {
                 highestAppliedEventSequence = finish.finalEventSequence
@@ -1361,14 +1613,17 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             coordinatorMatchStartMonotonicMilliseconds =
                 resume.coordinatorMatchStartMonotonicMilliseconds
             activePause = nil
-        case .rosterConfirmed, .input, .activationPlans, .cancelActivationPlans,
-            .snapshotRequest:
+        case .rosterConfirmed, .input, .inputSeal, .inputResolution,
+            .activationPlans, .cancelActivationPlans, .snapshotRequest:
             break
         }
 
-        if envelope.payload.expectsAcknowledgement {
+        if envelope.payload.expectsAcknowledgement,
+            envelope.lane.sendMode == .reliable
+        {
             try? sendAcknowledgement(
                 packetSequence: envelope.packetSequence,
+                lane: envelope.lane,
                 appliedEventSequence: highestAppliedEventSequence,
                 to: senderGamePlayerID,
                 logicalMatchMilliseconds: currentLogicalMillisecondsOrZero()
@@ -1391,7 +1646,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         guard isCoordinator else { return }
         let receive = monotonicMilliseconds()
         let send = monotonicMilliseconds()
-        try? self.send(
+        _ = try? self.send(
             payload: .clockPong(
                 MultiplayerClockPongPacket(
                     nonce: ping.nonce,
@@ -1423,13 +1678,15 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         )
     }
 
+    @discardableResult
     private func send(
         payload: MultiplayerPacketPayload,
         eventSequence: Int,
         logicalMatchMilliseconds: Int,
         to gamePlayerIDs: [String]? = nil,
-        expectsAcknowledgement: Bool = true
-    ) throws {
+        expectsAcknowledgement: Bool = true,
+        lane requestedLane: MultiplayerTransportLane? = nil
+    ) throws -> MultiplayerLaneSequence {
         guard state.isConnected, let matchID else {
             throw MultiplayerGameKitError.notConnected
         }
@@ -1439,25 +1696,113 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         else {
             throw MultiplayerGameKitError.invalidPacket
         }
-        let packetSequence = nextPacketSequence
-        nextPacketSequence += 1
+        let lane = requestedLane ?? payload.defaultLane
+        guard payload.isValid(on: lane) else {
+            throw MultiplayerGameKitError.invalidPacket
+        }
+        let packetSequence = nextPacketSequenceByLane[lane, default: 1]
+        nextPacketSequenceByLane[lane] = packetSequence + 1
         let envelope = MultiplayerPacketEnvelope(
             version: MultiplayerPacketEnvelope.version,
             matchId: matchID,
             packetSequence: packetSequence,
             eventSequence: eventSequence,
             logicalMatchMilliseconds: logicalMatchMilliseconds,
+            lane: lane,
             payload: payload
         )
         let data = try encoder.encode(envelope)
         guard data.count <= Self.maximumPacketBytes else {
             throw MultiplayerGameKitError.packetTooLarge
         }
-        try client.send(data, to: gamePlayerIDs)
+        try client.send(data, to: gamePlayerIDs, mode: lane.sendMode)
         if expectsAcknowledgement {
-            pendingAcknowledgements[packetSequence] =
+            pendingAcknowledgements[
+                MultiplayerLaneSequence(lane: lane, sequence: packetSequence)
+            ] =
                 Set(gamePlayerIDs ?? roster?.observedGamePlayerIDs ?? [])
         }
+        return MultiplayerLaneSequence(lane: lane, sequence: packetSequence)
+    }
+
+    private func acknowledge(
+        through packetSequence: Int,
+        lane: MultiplayerTransportLane,
+        from senderGamePlayerID: String
+    ) {
+        let acknowledgedKeys = pendingAcknowledgements.keys.filter {
+            $0.lane == lane && $0.sequence <= packetSequence
+        }
+        for key in acknowledgedKeys {
+            pendingAcknowledgements[key]?.remove(senderGamePlayerID)
+        }
+        removeFullyAcknowledgedEvidence()
+    }
+
+    private func removeFullyAcknowledgedEvidence() {
+        let completedKeys = Set(
+            pendingAcknowledgements.compactMap { key, players in
+                players.isEmpty ? key : nil
+            }
+        )
+        for key in completedKeys {
+            pendingAcknowledgements.removeValue(forKey: key)
+            evidenceInputIDByLaneSequence.removeValue(forKey: key)
+        }
+        let retainedInputIDs = Set(evidenceInputIDByLaneSequence.values)
+        evidenceJournal = evidenceJournal.filter { retainedInputIDs.contains($0.key) }
+    }
+
+    private func resendUnacknowledgedEvidence(to gamePlayerID: String) throws {
+        let inputIDs = Set(
+            evidenceInputIDByLaneSequence.compactMap { key, inputID in
+                pendingAcknowledgements[key]?.contains(gamePlayerID) == true
+                    ? inputID
+                    : nil
+            }
+        ).sorted {
+            if $0.seat != $1.seat { return $0.seat < $1.seat }
+            return $0.inputSequence < $1.inputSequence
+        }
+        for inputID in inputIDs {
+            guard let input = evidenceJournal[inputID] else { continue }
+            let oldKeys = evidenceInputIDByLaneSequence.compactMap { key, value in
+                value == inputID ? key : nil
+            }
+            let newKey = try send(
+                payload: .input(input),
+                eventSequence: highestAppliedEventSequence,
+                logicalMatchMilliseconds: currentLogicalMillisecondsOrZero(),
+                to: [gamePlayerID],
+                lane: .evidence
+            )
+            evidenceInputIDByLaneSequence[newKey] = inputID
+            for key in oldKeys where key != newKey {
+                pendingAcknowledgements[key]?.remove(gamePlayerID)
+            }
+        }
+        removeFullyAcknowledgedEvidence()
+    }
+
+    private func acceptIncomingSequence(
+        _ envelope: MultiplayerPacketEnvelope,
+        from senderGamePlayerID: String
+    ) -> Bool {
+        if envelope.lane == .fastInput {
+            var seen = seenFastSequencesByPlayer[senderGamePlayerID] ?? []
+            guard seen.insert(envelope.packetSequence).inserted else { return false }
+            let oldestRetained = max(1, (seen.max() ?? 1) - 128)
+            seen = Set(seen.filter { $0 >= oldestRetained })
+            seenFastSequencesByPlayer[senderGamePlayerID] = seen
+            return true
+        }
+
+        var laneSequences = lastReliableSequenceByPlayerLane[senderGamePlayerID] ?? [:]
+        let previous = laneSequences[envelope.lane] ?? 0
+        guard envelope.packetSequence > previous else { return false }
+        laneSequences[envelope.lane] = envelope.packetSequence
+        lastReliableSequenceByPlayerLane[senderGamePlayerID] = laneSequences
+        return true
     }
 
     private func isValidIncoming(
@@ -1468,6 +1813,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             envelope.matchId.lowercased() == matchID,
             envelope.packetSequence > 0,
             envelope.eventSequence >= 0,
+            envelope.payload.isValid(on: envelope.lane),
             (0...MultiplayerAPIContract.maximumDurationMilliseconds)
                 .contains(envelope.logicalMatchMilliseconds)
         else { return false }
@@ -1505,6 +1851,24 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                 && (0..<requiredParticipantCount).contains(input.seat)
                 && (0...15).contains(input.cell)
                 && input.coordinatorInputMilliseconds >= 0
+        case .inputSeal(let seal):
+            return (0..<requiredParticipantCount).contains(seal.seat)
+                && seal.throughInputAt >= 0
+                && seal.throughInputAt < envelope.logicalMatchMilliseconds
+                && seal.highestInputSequence >= 0
+                && seal.highestInputSequence
+                    <= MultiplayerProtocolConstants.maximumEvents
+        case .inputResolution(let resolution):
+            return senderGamePlayerID == roster?.coordinatorGamePlayerID
+                && resolution.version == MultiplayerInputResolution.currentVersion
+                && (0..<requiredParticipantCount).contains(resolution.inputID.seat)
+                && resolution.inputID.inputSequence > 0
+                && {
+                    if case .committed(let eventSequence) = resolution.disposition {
+                        return eventSequence > 0
+                    }
+                    return true
+                }()
         case .activationPlans(let packet):
             return senderGamePlayerID == roster?.coordinatorGamePlayerID
                 && !packet.plans.isEmpty
@@ -1528,6 +1892,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                 && batch.events.last?[safe: 1] == envelope.eventSequence
         case .acknowledgement(let acknowledgement):
             return acknowledgement.acknowledgedPacketSequence > 0
+                && acknowledgement.acknowledgedLane != .fastInput
+                && acknowledgement.acknowledgedPacketSequence
+                    < nextPacketSequenceByLane[
+                        acknowledgement.acknowledgedLane,
+                        default: 1
+                    ]
                 && acknowledgement.appliedEventSequence >= 0
         case .snapshot(let snapshot):
             return senderGamePlayerID == roster?.coordinatorGamePlayerID
@@ -1581,10 +1951,15 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         if !keepingClient { client.cancel() }
         matchID = nil
         requiredParticipantCount = 0
-        nextPacketSequence = 1
+        nextPacketSequenceByLane = Dictionary(
+            uniqueKeysWithValues: MultiplayerTransportLane.allCases.map { ($0, 1) }
+        )
         nextClockNonce = 1
-        lastPacketSequenceByPlayer = [:]
+        lastReliableSequenceByPlayerLane = [:]
+        seenFastSequencesByPlayer = [:]
         pendingAcknowledgements = [:]
+        evidenceJournal = [:]
+        evidenceInputIDByLaneSequence = [:]
         disconnectedPlayerIDs = []
         roster = nil
         helloRoster = [:]
@@ -1630,6 +2005,28 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
 }
 
 extension MultiplayerPacketPayload {
+    fileprivate var defaultLane: MultiplayerTransportLane {
+        switch self {
+        case .input, .inputSeal:
+            .evidence
+        case .events, .inputResolution:
+            .canonical
+        default:
+            .control
+        }
+    }
+
+    fileprivate func isValid(on lane: MultiplayerTransportLane) -> Bool {
+        switch self {
+        case .input, .inputSeal:
+            lane == .fastInput || lane == .evidence
+        case .events, .inputResolution:
+            lane == .canonical
+        default:
+            lane == .control
+        }
+    }
+
     fileprivate var expectsAcknowledgement: Bool {
         switch self {
         case .acknowledgement, .clockPing, .clockPong:
