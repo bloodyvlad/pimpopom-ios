@@ -1790,6 +1790,9 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
     ) -> Bool {
         if envelope.lane == .fastInput {
             var seen = seenFastSequencesByPlayer[senderGamePlayerID] ?? []
+            if let newest = seen.max(), envelope.packetSequence < newest - 128 {
+                return false
+            }
             guard seen.insert(envelope.packetSequence).inserted else { return false }
             let oldestRetained = max(1, (seen.max() ?? 1) - 128)
             seen = Set(seen.filter { $0 >= oldestRetained })

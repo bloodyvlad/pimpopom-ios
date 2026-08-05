@@ -178,6 +178,57 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         XCTAssertEqual(receivedSequences, [2, 1])
     }
 
+    func testFastLaneRejectsPacketsOlderThanItsBoundedReorderWindow() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        var receivedSequences: [Int] = []
+        transport.eventHandler = { event in
+            guard case .packet(let packet) = event,
+                case .input(let input) = packet.envelope.payload
+            else { return }
+            receivedSequences.append(input.inputSequence)
+        }
+        try await makeCompatible(transport, client: client, localSeat: 0)
+
+        client.receive(
+            try encodedEnvelope(
+                sequence: 130,
+                lane: .fastInput,
+                payload: .input(
+                    MultiplayerInputPacket(
+                        inputSequence: 130,
+                        seat: 1,
+                        cell: 8,
+                        coordinatorInputMilliseconds: 130
+                    )
+                )
+            ),
+            from: "G:beta"
+        )
+        client.receive(
+            try encodedEnvelope(
+                sequence: 1,
+                lane: .fastInput,
+                payload: .input(
+                    MultiplayerInputPacket(
+                        inputSequence: 1,
+                        seat: 1,
+                        cell: 7,
+                        coordinatorInputMilliseconds: 1
+                    )
+                )
+            ),
+            from: "G:beta"
+        )
+
+        XCTAssertEqual(receivedSequences, [130])
+    }
+
     func testICloudUnavailableFailurePreservesGameKitCodeAndBlocksRetry() {
         let error = NSError(
             domain: GKErrorDomain,
