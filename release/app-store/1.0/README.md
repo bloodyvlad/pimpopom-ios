@@ -1,45 +1,29 @@
-# PimPoPom App Store launch kit
+# App Store source kit
 
-Status: **draft for owner review**. These assets were prepared from TestFlight build `1.01 (6)` and archived source commit `2d55f71`. Nothing in this folder has been submitted to the production App Store version.
+Status: retained draft/provenance material, not current release evidence and never
+submitted to the production App Store.
 
-## Review first
+The rendered screenshot/contact-sheet assets came from TestFlight `1.01 (6)`,
+source `2d55f71`. They are intentionally retained because their UI captures,
+ImageGen sources, prompts, and deterministic renderer establish provenance. They
+must not be uploaded as build-20 or future production screenshots.
 
-- [`review/app-store-screenshot-contact-sheet.png`](review/app-store-screenshot-contact-sheet.png) — all six proposed storefront screenshots at a glance.
-- [`review/banner-options-contact-sheet.png`](review/banner-options-contact-sheet.png) — dark-neon and Light/crystal hero directions side by side.
-- [`banners/pimpopom-hero-dark-1920x1080.png`](banners/pimpopom-hero-dark-1920x1080.png) — primary dark campaign direction.
-- [`banners/pimpopom-hero-light-1920x1080.png`](banners/pimpopom-hero-light-1920x1080.png) — alternate Light/crystal direction.
-- [`metadata/en-US.md`](metadata/en-US.md) — copy-ready English (U.S.) metadata.
-- [`launch-checklist.md`](launch-checklist.md) — launch gates and App Store Connect sequence.
-- [`video-shot-list.md`](video-shot-list.md) — optional 25-second App Preview plan.
-- [`legal/privacy.html`](legal/privacy.html) and [`legal/support.html`](legal/support.html) — upload-ready static page drafts; replace the documented legal/contact placeholders before publishing.
-- [`game-center/en-US.md`](game-center/en-US.md) — concise Arcade leaderboard copy plus the proposed five-achievement catalog and exact permanent vendor IDs.
+## Current-use map
 
-## Upload mapping
+- `metadata/en-US.md`: current copy draft plus TestFlight build-20 text.
+- `game-center/en-US.md`: current configured vendor IDs/copy.
+- `legal/`: static Privacy/Support drafts with owner placeholders.
+- `source/`: original UI captures and ImageGen generations.
+- `review/`, `screenshots/`, `banners/`: historical build-6 render outputs.
+- `video-shot-list.md`: recapture plan for a future production candidate.
+- `Scripts/render_app_store_launch_kit.py`: deterministic renderer for the retained
+  sources; new release assets require new current captures.
 
-The six PNG files in `screenshots/6.9-inch/` are 1260×2736, RGB, and have no alpha channel. Apple accepts that as one of the 6.9-inch portrait sizes. Upload them in numbered order for English (U.S.). One 6.9-inch set is normally sufficient when the same UI applies to smaller displays; App Store Connect performs the downscaling.
+ImageGen produced only text-free abstract backgrounds. App UI, icon, text, captions,
+and output sizes were composed from repository sources. Exact prompts are in
+`source/imagegen/PROMPTS.md`.
 
-The banner files are for the PimPoPom website, social sharing, press, or a future Apple featuring request. App Store Connect has no generic product-page “banner” field.
-
-## What is real and what is generated
-
-- Every app screen is an untouched Build 6 UI capture with deterministic fictional test data.
-- The app icon is the shipped repository asset.
-- Captions, feature labels, crops, and output sizes are rendered deterministically by [`Scripts/render_app_store_launch_kit.py`](../../../Scripts/render_app_store_launch_kit.py).
-- ImageGen created only the abstract midnight-neon and light-crystal background art. It did not generate app UI, words, logos, pets, scores, or purchase claims. Exact prompts are retained in [`source/imagegen/PROMPTS.md`](source/imagegen/PROMPTS.md).
-
-Run from the repository root:
-
-```sh
-python3 Scripts/render_app_store_launch_kit.py
-```
-
-## Public-release blockers
-
-Do not submit the production app until these are closed:
-
-1. Retain public-release rights evidence for every bundled pet asset and the Disco texture set. Their current source records approve internal migration use but explicitly leave public distribution pending.
-2. Complete final PimPoPom trademark/brand clearance and confirm the exact rights-owning seller/copyright entity.
-3. Fill, review, publish, and verify the included Privacy Policy and Support/account-deletion pages, then add a Terms URL if counsel or the final service model requires one.
-4. Complete the archive-derived App Privacy answers, production AdMob/UMP review, StoreKit Sandbox/Production verification, and the remaining gates in [`launch-checklist.md`](launch-checklist.md).
-
-Jersey 10 is already covered by the retained SIL Open Font License 1.1.
+Before production submission, replace every stale build-6 screen, close public
+branding/pet/Disco rights gates, publish reviewed legal/support URLs, complete
+archive-derived privacy/age/ads/IAP answers, and pass the release/physical gates in
+`../../../docs/RELEASE.md` and `../../../docs/TESTING.md`.

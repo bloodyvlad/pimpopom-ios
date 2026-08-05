@@ -1,6 +1,6 @@
 # Marketing asset sources
 
-## App Store launch kit 1.0 draft
+## Retained App Store build-6 source kit
 
 - Delivery folder: `release/app-store/1.0/`
 - Source build: TestFlight `1.01 (6)`
@@ -14,4 +14,6 @@
 
 ImageGen was constrained to text-free abstract background art. No generated output is evidence of app behavior. App UI, icon, copy, captions, sizes, and claims are composited deterministically from reviewed sources.
 
-Before any public use, also satisfy the independent public-release rights gates documented for pet art, Disco textures, and final PimPoPom branding. This source record does not override those restrictions.
+This is historical source/provenance, not current screenshot evidence. Before any
+production use, recapture the current candidate and close the independent pet,
+Disco, and branding rights gates. This record does not override them.

@@ -1,103 +1,116 @@
 # Native architecture
 
-## Goals
+This document describes the current targets and runtime boundaries. It contains no
+future module plan.
 
-- Preserve deterministic rules while using native rendering, touch timestamps, audio, haptics, purchases, identity, and lifecycle APIs.
-- Keep the reaction path free of networking, file I/O, decoding, analytics, ads, and actor hops that are not required for presentation.
-- Make every server mutation idempotent and every external SDK replaceable behind an app-owned protocol.
-- Support simulator development while treating physical-device evidence as mandatory for timing, audio, haptics, ads, and StoreKit.
+## Repository shape
 
-## Dependency direction
-
-```mermaid
-flowchart TD
-    App["PimPoPom App composition root"] --> Features["Feature modules / SwiftUI"]
-    App --> Gameplay["Gameplay / SpriteKit"]
-    App --> Services["Services / platform adapters"]
-    Features --> Core["PimPoPomCore / pure Swift"]
-    Gameplay --> Core
-    Services --> Core
-    Features --> Contracts["Service protocols"]
-    Gameplay --> Contracts
-    Services -. implements .-> Contracts
-    Contracts --> Core
+```text
+PimPoPom.xcodeproj / project.yml
+App/
+  Design/       theme, cell, pet, typography, reusable views
+  Features/     SwiftUI screens and feature coordinators
+  Gameplay/     SpriteKit board, touch bridge, local run coordinator
+  Services/     HTTP, identity, GameKit, StoreKit, ads, audio, preferences
+  Testing/      Debug-only fixtures
+Packages/
+  PimPoPomCore/ deterministic rules and replay package
+Tests/          app unit and UI tests
 ```
 
-`PimPoPomCore` has no outward dependency on Apple UI frameworks or infrastructure. Feature code depends on protocols; the app target injects live, preview, staging, or test implementations.
+Only `PimPoPomCore` is a separate package. The other names are app-target folders,
+not independent modules.
 
-## Proposed modules
+## Dependency rules
 
-The playable alpha currently keeps Gameplay, Features, and Services as folders in the app target while their APIs stabilize; only `PimPoPomCore` is a separate package. The dependency rules below still apply. Split targets later only when the boundary pays for its build and maintenance cost.
-
-| Module | Owns | Must not own |
+| Area | Owns | Must not own |
 | --- | --- | --- |
-| `PimPoPomCore` | Modes, config, state machine, scoring, ratings, streak, decoys, injected RNG/time, proof events, snapshots | UI, timers, storage, network, audio, ads, purchases |
-| `PimPoPomContracts` | Service-facing protocols, shared request/result models, capability abstractions | Live SDK clients, UI, server authority |
-| `PimPoPomGameplay` | `SKScene`, node layout, animation, presentation callback, touch bridge, board accessibility proxy | Scoring, life loss, random choices, server submission |
-| `PimPoPomFeatures` | App routes, menu, Arcade/Zen hosts, results, leaderboard, profile, settings, achievements, shops, paywalls | Authoritative balance, ledger, StoreKit verification |
-| `PimPoPomServices` | API, auth, Keychain, StoreKit, ads/consent, audio, haptics, preferences, reachability hints, Game Center | Game rules, UI layout, client-authoritative value |
-| `PimPoPomDesign` | Typography, colors, surfaces, spacing, theme/pet presentation contracts | Rules, prices, entitlements |
+| Core | Rules, configuration, injected randomness/time, state transitions, score, proofs, Multiplayer reducer/coordinator | Apple UI, network, storage, audio, ads, purchases |
+| Gameplay | SpriteKit nodes/layout, render boundary, UIKit touch timestamp bridge, local feedback | Rule duplication, server submission |
+| Features | Navigation, screens, presentation state, user intent | Authoritative score, value, identity, settlement |
+| Services | Codable HTTP, Apple/Google identity, Game Center/GameKit, StoreKit, UMP/GMA, audio, preferences, lifecycle | Gameplay rules or UI layout |
+| Design | Stable presentation mapping for themes, cells, pets, typography, spacing | Timing, price, entitlement, hit semantics |
 
-If separate Swift packages slow iteration, use framework targets with the same dependency boundaries first. Do not collapse boundaries just to reduce project files.
+The app composition root injects live, local-fixture, and test implementations.
+Services may depend on core value types; core never depends outward.
 
 ## State and concurrency
 
-- One main-actor app coordinator owns navigation and feature presentation.
-- A run coordinator owns one engine instance and serializes commands. The engine itself is synchronous, deterministic value/state logic.
-- SpriteKit updates and UIKit touch callbacks stay on the main thread. Convert timestamps and issue engine commands immediately; schedule decoration afterward.
-- Service clients use `async` APIs and isolated mutable state. Cancellation follows the screen/run lifecycle.
-- A background transition atomically freezes local gameplay, abandons any issued ranked attempt when possible, silences audio/haptics, and prevents later queued input from resolving the old round.
-- Never make a network request or await an actor before resolving a reaction touch.
+- SwiftUI, SpriteKit, feature controllers, and UI-facing SDK callbacks run on the
+  main actor.
+- The local `GameCoordinator` owns one synchronous `GameEngine`; it passes input
+  directly to the engine before scheduling decoration.
+- Network and SDK work use asynchronous service boundaries with screen/match/run
+  cancellation. Stale account/session and Multiplayer callbacks are rejected.
+- Account and cosmetic mutations are serialized where ordering affects state.
+- A background transition freezes gameplay, abandons an issued Arcade run when
+  possible, silences audio/haptics, and rejects stale commands.
+- No network, file I/O, JSON decoding, advertising, or purchase work is allowed on
+  the reaction touch path.
 
-## Timing model
+## Timing
 
-1. The engine requests a target activation with a chosen cell, color, and absolute response window.
-2. Gameplay constructs the target node before the presentation boundary.
-3. On the render/update frame that makes it visible, Gameplay records a monotonic presentation timestamp and tells the engine the target is presented.
-4. The input bridge uses the original compatible `UITouch.timestamp` and the same uptime timebase. It falls back to handler time only if a measured compatibility check fails.
-5. Target expiry is an absolute deadline from presentation, not a new relative delay.
-6. A single engine transition wins the expiry/input race. Input exactly at the deadline is late. Pre-presentation and already-resolved input is ignored without a second penalty.
+Arcade and Zen use one monotonic uptime domain:
 
-Test on 60 Hz and 120 Hz hardware. `CADisplayLink`/SpriteKit callback time is still an approximation of pixel emission, and `UITouch.timestamp` is still an approximation of physical contact; do not claim photon-to-contact accuracy without external measurement.
+1. Create the target before exposure.
+2. On the first SpriteKit frame that exposes it, record presentation.
+3. Resolve the original compatible `UITouch.timestamp` synchronously.
+4. Use an absolute deadline from presentation; exact-deadline input is late.
+5. Let one transition win input/expiry and ignore already-resolved input.
 
-## Rendering and layout
+`CADisplayLink`/SpriteKit presentation and `UITouch.timestamp` are practical
+proxies, not photon-to-contact measurement. Validate both 60 Hz and 120 Hz devices.
 
-- SwiftUI owns safe areas, navigation, menus, shops, result screens, and the fixed bottom ad host.
-- SpriteKit receives a stable gameplay viewport whose size does not change when an ad fills, fails, or is removed during a run.
-- The board maps cells deterministically and disables interpolation or effects that make target boundaries ambiguous.
-- Theme/pet visuals are data-driven presentation. The hit target and game semantics do not depend on texture pixels.
-- Dynamic Type applies to app surfaces. The reaction board provides clear VoiceOver labels and an alternate interaction/accessibility strategy without introducing hidden automatic play.
+Multiplayer v1 currently differs. The coordinator schedules future plans, advances
+on an approximately 33 ms tick, queues input behind a fixed 250 ms watermark, and
+feeds presentation only after canonical events. All GameKit envelopes currently use
+reliable delivery. That architecture explains its visible delay and is the explicit
+change target in [MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md).
 
 ## Platform services
 
-- **Audio:** one app-owned audio service with independent Sound FX and Music buses using `AVAudioEngine`; bounded predecoded buffers, scene fades, interruption/route handling, and no-late-cue behavior.
-- **Haptics:** a Core Haptics adapter with system-feedback fallback and a no-op implementation for unsupported devices, Simulator, or user opt-out.
-- **Persistence:** `UserDefaults`/`AppStorage` only for nonsecret device preferences; Keychain for app sessions and sensitive identifiers; server for durable profile/economy.
-- **Networking:** `URLSession`, `Codable`, environment-specific base URLs, explicit request IDs/idempotency keys, bounded retry policy, no silent production fallback.
-- **Identity:** an app-owned identity-provider boundary exchanges short-lived provider proof for an app session. Google Sign-In is the only implemented provider today; Sign in with Apple requires the accepted multi-provider backend/linking and deletion flow before its native AuthenticationServices button can ship.
-- **Purchases:** StoreKit 2 client plus server verification/notification path. The UI observes server-confirmed entitlement and balance.
-- **Ads:** provider SDK behind app-owned `ConsentServing`/`AdsServing` protocols and one main-actor `AdsController`, with consent, authoritative server ad-free gating, test/live configuration separation, no-fill handling, persistent interstitial cadence, and zero-network fakes for tests/previews.
-- **Game Center:** explicit optional social surface. `GameCenterService` installs `GKLocalPlayer` authentication only after a Profile opt-in and owns Apple-controller presentation, persistent-scoped-ID validation, and ephemeral identity-verification material. `BackendClient` owns the cookie/CSRF challenge, exact proof/link request, additive server status, reauthentication restart, and publication-disable request. PHP owns one-to-one identity binding, explicit publication consent, prerelease/production routing, idempotent score/achievement backfill and retry, and every Apple write. The client never submits scores or achievements directly; Game Center is never a prerequisite for local play or another service, and Apple exposes no app-level Game Center sign-out API.
-- **Integrity:** App Attest challenge/assertion around selected sensitive server requests, with explicit unsupported/recovery policy.
+- **HTTP:** one cookie-enabled `URLSession`, typed `Codable` requests, CSRF on
+  mutations, bounded timeouts, no production fallback.
+- **Identity:** Apple and Google provider proofs are exchanged for the PHP session.
+  Game Center authenticates independently and supplies a verified secondary link.
+- **Game Center publication:** PHP owns allowlisted leaderboard/achievement writes;
+  iOS only opens Apple's dashboard.
+- **Multiplayer:** PHP owns lobby/manifest/replay/settlement; `GKMatch` owns live
+  packets. The client persists only a bounded exact pending transcript submission.
+- **StoreKit:** one StoreKit 2 service and purchase controller validate local signed
+  transactions, reconcile with PHP, then finish the transaction.
+- **Ads:** app-owned UMP/GMA adapters start only after consent and authoritative
+  non-ad-free state. The board never knows Google SDK types.
+- **Audio/haptics:** one audio controller owns independent Sound FX and Music buses;
+  haptics and lifecycle effects remain outside core.
+- **Persistence:** `UserDefaults` stores nonsecret preferences/cadence; pending
+  Multiplayer settlement uses a bounded application-support file. Durable account
+  and economy state stays server-side.
 
-### Current internal-alpha implementations
+## Multiplayer data flow
 
-- `BackendClient` coalesces session bootstrap and uses session/player generations so a superseded request cannot replace a newer login, logout, or account profile.
-- `AchievementsController` owns only native loading, claim progress, error copy, menu summary, and theme-aware presentation state. It resets on account identity changes and rejects stale responses; the PHP catalog, unlock state, rewards, idempotency, and coin balance remain authoritative.
-- `CosmeticsController` merges public catalog reads with authenticated server profiles, but never computes authoritative prices, purchases, ownership, or balance. It serializes all economy mutations across both shops. Signed-out local selection is limited to the two always-free theme IDs.
-- `ThemePalette` and `PetPresentation` map stable backend IDs to native presentation only. The backend alone supplies the special-pet override. Pancake uses the retained native replacement sprite/floor while its price, ownership, selection, and visibility remain server-authoritative.
-- `AudioController` owns one `AVAudioEngine` with independent Sound FX/Music mixer buses. It lazy-decodes only enabled categories, keeps shared loss/sting buffers across enabled theme swaps, rejects stale loads, routes menu/gameplay/silent contexts, and stops immediately on background/interruption.
-- `AppPreferences` stores only nonsecret local audio values, the glyph toggle, and the signed-out free-theme choice in `UserDefaults`.
-- `GameCenterService` installs GameKit authentication independently of `BackendClient`, exposes truthful status/retry to Profile, and suppresses system UI under deterministic UI tests. It does not persist player identifiers or signature material and has no path to alter PimPoPom identity, results, achievements, coins, cosmetics, or StoreKit state.
-- StoreKit 2 is implemented behind an app-owned actor/protocol and one app-wide purchase controller. Production submits only a locally verified transaction JWS plus the current server-issued `appAccountToken`, accepts only a strictly validated authoritative wallet/entitlement response, and finishes the transaction afterward. A Debug-only local scheme combines real local StoreKit transactions with an offline fake credit service; it cannot call Hostinger.
-- `AdsController` starts only after `BackendClient` completes session restoration. `nil`/malformed entitlement state fails closed, signed-out resolved sessions and authenticated `adFree == false` may enter UMP, and authenticated `adFree == true` tears down GMA without consulting coins or StoreKit-local state. Google types remain inside `GoogleConsentService`/`GoogleAdsService`; gameplay emits only an app-local completion UUID. An ad-supported run freezes a 50-point footer below the Speed Bar for geometry stability and may attach the one fixed banner there; menu/results rehost that same banner. Disabled or already ad-free sessions construct neither an ad surface nor a spacer. A versioned `UserDefaults` record stores only the completion cadence and recent UUIDs, never an advertising identifier or consent decision.
+```text
+PHP lobby + fresh identity proof
+        ↓ immutable manifest / seats / colors
+GameKit roster → fixed coordinator → canonical compact event stream
+        ↓                              ↓
+  live peer UI                    identical peer transcripts
+                                        ↓
+                         PHP replay + matching settlement
+```
 
-## Configuration and environments
+PHP is never a per-tap relay. Peer aggregates are never authoritative. If exact
+stream/evidence recovery fails, cancel or review the match rather than synthesize
+proof. Protocol v1 has no coordinator migration.
 
-Use `Debug`, `Staging`, `OwnerAdsQA`, and `Release` configurations. The first named-cohort Staging configuration is release-optimized but intentionally points to the same P-027 Hostinger compatibility service because no separate native staging backend exists; it must not be mistaken for data isolation. Debug uses Google demo inventory. The explicitly accepted owner-split Staging candidate compares committed SHA-256 fingerprints for the owner's cable and TestFlight IDFVs locally to select the committed owner production units plus that phone's GMA test-device ID; a missing/nonmatching identifier selects demo units and no custom test-device ID. An exact owner production no-fill may make one bounded request with the configured official demo fallback; official demo inventory does not require clearing the owner test-device registration. The raw IDFV is emitted only when the process is deliberately launched with `--ad-diagnostics`; it is not transmitted through PimPoPom. Owner Ads QA retains the cable-only path. Checked-in Release is disabled; a separately controlled, explicitly authorized archive supplies live units and no test identifier. AdMob application/unit identifiers are public configuration; private keys and server secrets never ship in the app.
+## Configurations
 
-Each configuration has an unmistakable API base URL, ad mode, StoreKit environment expectation, logging policy, attestation environment, and display suffix/icon treatment where appropriate. A release build fails closed if placeholder or test identifiers remain.
+| Configuration | Current purpose |
+| --- | --- |
+| Debug | Local development, demo ads, test fixtures |
+| Staging | Release-optimized TestFlight, live compatibility backend, owner-split Test-mode ads |
+| OwnerAdsQA | Cable-only production-unit/Test-mode diagnostics |
+| Release | Disabled ads unless ignored private live configuration is explicitly supplied |
 
-## Backend ownership
-
-The iOS repository owns the client, contract fixtures, and compatibility expectations. It does not duplicate PHP server code. A backend change is implemented and deployed from the backend-owning repository, then the PimPoPom client is upgraded against staging. Both sides preserve older supported API/ruleset versions through a documented compatibility window.
+The Staging backend is shared production Season 1 data, not an isolated staging
+database. Secrets and private signing/App Store material never belong in Git.

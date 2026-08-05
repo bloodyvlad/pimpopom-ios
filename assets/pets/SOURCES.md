@@ -1,8 +1,17 @@
 # Pet asset sources
 
-The internal native alpha copies reviewed runtime pet and habitat PNGs byte-for-byte from the SpeedyTapper repository, except for the native-only Pancake replacement documented below. The current 64-pixel animal/rabbit sheets were accepted in commit `d4f087e15eeba2f52e5f1a371c205368c457446b`; Muse was accepted in `5a7453b31b1ffbf9eb6972952fd99c6663a07772`. PHP visual behavior was most recently compared with clean web `main` commit `209ee6ca84b17bc81144d2dc60c613feeae05dc0` on 2026-07-17. Runtime files live in `App/Resources/Pets/`; exact rollback/source copies live in `assets/pets/sources/`. `Scripts/validate-assets.sh` verifies their hashes, equality, and geometry.
+The iOS beta copies reviewed runtime pet/habitat PNGs byte-for-byte from the
+SpeedyTapper source except for the native-only Pancake replacement below. The
+64-pixel sheets were accepted in `d4f087e15eeba2f52e5f1a371c205368c457446b`;
+Muse in `5a7453b31b1ffbf9eb6972952fd99c6663a07772`. Runtime files live in
+`App/Resources/Pets/`; rollback/source copies live in `assets/pets/sources/` and
+are hash/geometry checked.
 
-The source repository records Foka, Kesha, Tauta, Misha, Mitsuri, Muse, and their habitats as built with OpenAI image generation plus local chroma-keying, nearest-neighbor reduction, and sheet assembly. Misha was designed against a user-supplied cat photo. Muse was designed from a user-supplied adult photo and accepted pose/layout references; the source repository retains the reviewed chroma and alpha masters. The source record does not contain complete public-release paperwork for every asset, so these copies are approved only for the current owner-only internal migration build until that evidence is completed.
+The source repository records Foka, Kesha, Tauta, Misha, Mitsuri, Muse, and their
+habitats as OpenAI-generated plus local chroma-keying/reduction/assembly. Misha used
+a user-supplied cat photo; Muse used a user-supplied adult photo and accepted pose
+references. Complete public-release paperwork is not retained for every asset.
+TestFlight inclusion is not public-production rights clearance.
 
 Sprites are transparent `640×64` ten-frame sheets. Habitats are transparent `64×48` two-layer sheets. SwiftUI crops them into `64×64` sprite frames and `32×48` back/front habitat layers with nearest-neighbor rendering.
 
@@ -38,6 +47,9 @@ The image-generation result paths at creation time were `/Users/vlad/.codex/gene
 
 The standard imagegen chroma helper ran with `--auto-key border --soft-matte --transparent-threshold 12 --opaque-threshold 220 --despill`, producing the retained alpha masters under `assets/pets/sources/alpha/`. `Scripts/build-pancake-assets.swift` then uses deterministic nearest-neighbor sampling and binary alpha to create the `640×64` ten-frame runtime sprite and `64×48` two-layer habitat. The right habitat layer is deliberately transparent so the blue floor never obscures the character.
 
-The owner approved this replacement for the internal port by requesting it from the supplied concept. Public-release ownership/redistribution evidence still needs the later legal review already deferred for all generated pet art; this is not a statement of third-party clearance.
+The owner approved this replacement for the iOS port from the supplied concept.
+Production ownership/redistribution review remains open for generated pet art; this
+record is not a statement of third-party clearance.
 
-First shipped build: not shipped. Rollback checkpoint `fd34cf4` contains no migrated pet assets.
+Distribution status: bundled in TestFlight 1.02 (20). Production rights review
+remains open. Rollback checkpoint `fd34cf4` contains no migrated pet assets.

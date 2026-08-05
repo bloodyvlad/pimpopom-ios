@@ -16,6 +16,11 @@ The native app resolves Google Sign-In, Google Mobile Ads, and Google User Messa
 | Google User Messaging Platform SwiftPM wrapper/binary distribution | 3.1.0 | `https://github.com/googleads/swift-package-manager-google-user-messaging-platform` | Apache-2.0 wrapper licence; Google UMP/Ads terms also apply |
 | Jersey 10 | Regular 400 | `https://github.com/google/fonts/tree/main/ofl/jersey10` | SIL Open Font License 1.1 |
 
-Each resolved source wrapper package contains its Apache-2.0 `LICENSE`; use of Google's binary advertising SDKs is also governed by the applicable Google developer/advertising terms. The Jersey 10 licence is retained at `assets/fonts/OFL-Jersey10.txt`. Before external distribution, retain required licence/terms links in the release acknowledgement bundle and re-audit the resolved graph, signed XCFrameworks, privacy manifests, and notices. No third-party game artwork has been accepted.
+Each resolved wrapper contains its Apache-2.0 `LICENSE`; Google's binary advertising
+SDK terms also apply. The Jersey 10 licence is retained at
+`assets/fonts/OFL-Jersey10.txt`. Before production distribution, re-audit the exact
+resolved graph, signed XCFrameworks, privacy manifests, terms, and notices. Artwork
+rights are tracked separately in `assets/**/SOURCES.md`; this notice does not clear
+them.
 
 The 2026-07-19 privacy-manifest review found that the pinned Google Mobile Ads binary declares required-reason access for system boot time, UserDefaults, and disk space; linked coarse location, advertising data, product interaction, and Device ID (Device ID marked for tracking); and unlinked crash, performance, and diagnostic data. The pinned UMP binary declares UserDefaults access plus unlinked coarse location, performance, and product interaction for app functionality. These are vendor declarations, not a claim that every category is exercised in PimPoPom's current contextual configuration. Re-run Xcode's aggregate archive privacy report and reconcile App Store privacy answers whenever either SDK pin or runtime ad configuration changes.

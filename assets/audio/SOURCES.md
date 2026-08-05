@@ -1,6 +1,8 @@
 # Audio sources
 
-This record covers the audio included in the internal native alpha. Runtime hashes, retained-master hashes, and pet hashes are machine-checked by `Scripts/validate-assets.sh` against `Scripts/asset-hashes.sha256`.
+This record covers audio bundled in the current iOS beta. Runtime and retained-master
+hashes are machine-checked by `Scripts/validate-assets.sh` against
+`Scripts/asset-hashes.sha256`.
 
 ## Migrated theme suites and life-loss cue
 
@@ -28,7 +30,11 @@ The copied AAC files retain their original embedded `artist=SpeedyTapper` metada
 
 ## Original PimPoPom activation cue
 
-`audio-pimpopom-sting.wav` is an original deterministic formant-synthesis candidate created for this native alpha. It contains no human or model-generated voice, recording, or third-party sample. `assets/audio/generation/generate-pimpopom-sting.py` uses NumPy oscillators and seeded noise to generate three voice-like syllables with rising fundamental ranges: Pim `158–174 Hz`, Po `205–224 Hz`, Pom `258–286 Hz`.
+`audio-pimpopom-sting.wav` is original deterministic formant synthesis created for
+the native app. It contains no human/model-generated voice, recording, or third-party
+sample. `assets/audio/generation/generate-pimpopom-sting.py` uses NumPy oscillators
+and seeded noise for three rising voice-like syllables: Pim `158–174 Hz`, Po
+`205–224 Hz`, Pom `258–286 Hz`.
 
 | Field | Value |
 | --- | --- |
@@ -39,8 +45,8 @@ The copied AAC files retain their original embedded `artist=SpeedyTapper` metada
 | Master SHA-256 | `82eae27528b07ae75cee8613960f6cae4a41e451b539c0159959920b7806dfcb` |
 | Generator/tool | Repository script plus NumPy; deterministic RNG seed `0x50494D504F504F4D` |
 | Licence/source | Original project-authored synthesis; no external source input |
-| First shipped build | Not shipped; internal-alpha candidate only |
-| Rollback | Git checkpoint `fd34cf4` contains the proven alpha without this cue |
+| Distribution status | Bundled in TestFlight 1.02 (20); not a production App Store release |
+| Rollback | Git checkpoint `fd34cf4` contains the app before this cue |
 
 The system launch screen remains silent. The app requests this cue once after its SwiftUI root becomes active, only when Sound Effects are enabled. It plays only if decoded within one second; otherwise it is discarded rather than delivered late. It never blocks navigation or gameplay.
 

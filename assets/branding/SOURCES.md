@@ -1,6 +1,9 @@
 # Branding sources
 
-The PimPoPom development app-icon system uses the live wordmark colors in an exact stacked `Pim` / `Po` / `Pom` lockup. The ImageGen Glow primary plus Light and Pixel alternates remain subject to physical Home Screen review and final acceptance. The retired outlined and earlier disc-based candidates are retained only as rollback/provenance sources and are not bundled.
+The current app-icon system uses the live wordmark colors in an exact stacked
+`Pim` / `Po` / `Pom` lockup. ImageGen Glow is primary; Light and Pixel are bundled
+alternates. Physical Home Screen review and final production clearance remain open.
+Retired outlined/disc candidates are provenance only and are not bundled.
 
 ## Retired outlined stacked-wordmark candidate
 
@@ -29,7 +32,7 @@ The PimPoPom development app-icon system uses the live wordmark colors in an exa
 | Editable master | No layered/vector master; the lossless 1254×1254 ImageGen output is retained with the reviewed 1024×1024 export and full prompt |
 | Export sizes/color profile | Primary icon: 1024×1024 opaque PNG, sRGB IEC61966-2.1; Settings preview: 180×180 opaque PNG; no baked corner mask |
 | SHA-256 | Original: `de744fc396a300358ba98494d5f3c164294194509a2fea6d6bd19a610a8672ed`; final master/runtime: `a7a9553d4c74081e6406e47afe2aab4425ae779334870793d1b6e7844c0bb54c`; prompt: `f49efce8dbb11b7dcc5f8127c9c6b8d1f74943d5bb8f21d727f156cdb7ac7110`; Settings preview: `b080a68cb6e37b5490dcdd3b55ad23acfd3b6fe4512c2f16241e4528d9357c33` |
-| First included build | Unreleased internal development candidate for 0.1.0 (1); not installed on physical hardware or shipped |
+| Distribution status | Bundled in TestFlight 1.02 (20); original introduction remains in Git history |
 | Rollback source | Passing `nil` to the native alternate-icon API selects this primary; the complete ImageGen source and prompt are retained |
 
 ## PimPoPom ImageGen Light alternate app icon
@@ -44,7 +47,7 @@ The PimPoPom development app-icon system uses the live wordmark colors in an exa
 | Editable master | No layered/vector master; the lossless 1254×1254 ImageGen output, reviewed 1024×1024 export, reference path, and prompt are retained |
 | Export sizes/color profile | 1024×1024 opaque sRGB alternate icon; 180×180 opaque Settings preview; no baked corner mask |
 | SHA-256 | Original: `d03402b44b43ed1e284e2d5700a51dcec0c861fff347b6b826e1b0779fba28c1`; master/runtime: `8090eaee590f161cf81e5d548c2da0675160424a63cf9a03f37e5ea7fe3ed60e`; prompt: `3e1a6f5a4e21eef53fc087516852e6810772b8a865062bf4e63bd3ef35d3ddd3`; preview: `85351303271a3c1b217f27d376faa1a96e32afcf75bac956a520280edef6210c` |
-| First included build | Unreleased internal development candidate for 0.1.0 (1); not installed on physical hardware or shipped |
+| Distribution status | Bundled in TestFlight 1.02 (20); original introduction remains in Git history |
 | Rollback source | Select Glow through Settings; this alternate remains independently removable without changing the primary icon |
 
 ## PimPoPom ImageGen Pixel alternate app icon
@@ -59,7 +62,7 @@ The PimPoPom development app-icon system uses the live wordmark colors in an exa
 | Editable master | No layered/vector master; the lossless 1254×1254 ImageGen output, reviewed 1024×1024 export, reference path, and prompt are retained |
 | Export sizes/color profile | 1024×1024 opaque sRGB alternate icon; 180×180 opaque Settings preview; no baked corner mask |
 | SHA-256 | Original: `addfded0aa0739efc47580ac908dce78e9fd7133fe485d278d7acd6593d2e15d`; master/runtime: `d32332c4086c6b5022dbee8110ff1ffa24193947b87114071474be69210f0b50`; prompt: `7dd4171700daf7f7457a8a4799ba3a666fe1d65521f3760f581cfafce7dbd3b6`; preview: `da60ef6175cdfe6255eddfa32a2981c4a0844271ed5c51e5b1099f43ac5c5ed3` |
-| First included build | Unreleased internal development candidate for 0.1.0 (1); not installed on physical hardware or shipped |
+| Distribution status | Bundled in TestFlight 1.02 (20); original introduction remains in Git history |
 | Rollback source | Select Glow through Settings; this alternate remains independently removable without changing the primary icon |
 
 ## Previous disc-based development app icon
@@ -85,18 +88,3 @@ The PimPoPom development app-icon system uses the live wordmark colors in an exa
 - Avoid important detail outside Apple's icon mask/safe composition and do not bake rounded corners into source art unless current platform guidance explicitly calls for it.
 - Retain editable vector/layered masters, color definitions, monochrome variants, export presets, prompts and references used for generation, creator/tool identity, licence/assignment, and review contact.
 - Hash approved masters and every shipped export. Record the exact app version/build that first includes each asset.
-
-## Record template for future assets
-
-| Field | Value |
-| --- | --- |
-| Asset name/path | Pending |
-| Creator/tool/model | Pending |
-| Creation date | Pending |
-| Prompt/brief/reference rights | Pending |
-| Licence/assignment | Pending |
-| Editable master | Pending |
-| Export sizes/color profile | Pending |
-| SHA-256 | Pending |
-| First shipped build | Not shipped |
-| Rollback source | Pending |

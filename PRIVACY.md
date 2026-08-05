@@ -1,17 +1,35 @@
 # PimPoPom privacy status
 
-This is an engineering privacy inventory, **not yet the final public Privacy Policy**. AdMob/UMP is the accepted initial ad implementation, but the seller identity, support contact, launch regions, retention schedule, live ad/consent configuration, analytics, age strategy, and final account-deletion disclosures must be accepted before public release.
+This is the current engineering inventory, not the final public Privacy Policy.
 
-PimPoPom is designed to minimize account data. The deployed first-party profile stores an internal random identifier, a player-chosen public nickname, one-way Google/Apple subject digests, gameplay/ranking records, cosmetic/economy state, and purchase audit information needed to provide and secure the service. It does not store passwords, raw Google/Apple subject identifiers, provider display names, or email addresses merely because a provider returns them. Provider tokens are exchanged rather than used as PimPoPom sessions; the backend retains only encrypted Apple revocation/refresh material needed to revoke authorization during account deletion.
+Local Arcade and Zen work without an account. Ranked results, durable progression,
+Multiplayer, coin purchases, and cross-device ownership require the relevant
+profile/identity gates.
 
-Local practice works without an account. Ranked results, durable progression, coin purchases, and cross-device ownership require an account. The deployed native compatibility contract verifies Sign in with Apple and Google identity on the server and maps explicitly linked providers to one internal UUID. It never merges accounts from email, nickname, device, StoreKit, or Game Center information.
+The first-party service stores only the data needed to operate and protect the game:
+an internal random UUID, confirmed public nickname, one-way Apple/Google subject
+digests, sessions, narrowly required encrypted Apple revocation material, hashed
+Game Center binding/destination data, gameplay proofs/transcripts/results,
+moderation/publication state, achievements/cosmetics/coin ledger, StoreKit status,
+consent/ad-free state, and bounded security/support records.
 
-Game Center authentication is optional and cannot authenticate a PimPoPom wallet. After an explicit Profile Link/Verify action, the app sends a fresh challenge-bound Apple identity-verification tuple to the backend. The backend validates it and persists a one-way digest of `teamPlayerID` as a one-to-one secondary profile binding; the raw scoped identifier, signature, salt, and display name are not retained in the PimPoPom database. The app does not submit Game Center scores or achievements. Before the server-fed mirror is enabled, the final privacy inventory and API must add server-held publication consent, unlink semantics, outbox identifiers/retention, and Apple's leaderboard/achievement retention behavior.
+PimPoPom does not store passwords, provider display names, email/relay addresses,
+raw provider subjects/tokens, or raw Game Center IDs merely because they are
+available. Apple and Google providers never merge profiles by email, nickname,
+device, StoreKit, or Game Center. Game Center authenticates independently at launch,
+then silently reconciles as a secondary link after primary sign-in; it cannot log
+into a wallet. PHP, not iOS, publishes allowlisted scores and achievements.
 
-Advertising now has a test-safe native implementation, but production policy and disclosures are not final. The app waits for authoritative backend `adFree` resolution, makes no UMP/GMA request for unknown or ad-free state, requests updated UMP information on each eligible launch, and requests ads only when UMP reports that it may. Required UMP privacy options appear in Settings. GMA is configured for General content, publisher personalization and publisher first-party ID are disabled, and PimPoPom contains no ATT request, IDFA access, or `NSUserTrackingUsageDescription`. Debug uses Google demo units. Staging uses committed owner fingerprints to select production units in programmatic Test mode only on the accepted owner installation and uses demo units with no custom test-device ID everywhere else. Owner Ads QA is the explicit cable-only production/Test-mode path; checked-in Release is disabled.
+Advertising starts only after current UMP permission and authoritative non-ad-free
+state. The app does not request ATT or access IDFA. Debug/nonowner beta uses Google
+demo units; owner production units run only in registered Test mode; checked-in
+Release is disabled. SDK privacy manifests still govern App Store disclosure.
 
-The pinned SDK disclosures still matter independently of those runtime restrictions. Google Mobile Ads 13.6.0 declares linked coarse location, advertising data, product interaction, and Device ID (with Device ID marked for tracking), plus unlinked diagnostics. UMP 3.1.0 declares unlinked coarse location, performance, and product interaction for app functionality. The final App Store privacy answers and public policy must follow the aggregate archive privacy report and actual configured behavior; omitting ATT does not by itself justify a “no tracking” answer. UMP dashboard messages, age/teen treatment, `app-ads.txt`, and live-ad activation remain release gates.
+StoreKit-signed transactions are reconciled with the source-aware server ledger.
+Every direct coin pack and the standalone Remove Ads product can be an ad-free
+source. Refund/revocation removes ad-free only after the final valid source ends.
 
-Remove Ads and every verified direct coin pack can produce server-authoritative ad-free entitlement sources. Spending coins does not restore ads. Refund/revocation removes advertising only after the final valid source disappears; the client never derives this from balance or an ad SDK flag.
-
-The release must provide an in-app account-deletion path and explain which immutable financial, anti-fraud, leaderboard, and moderation records must be retained or anonymized for legitimate/legal purposes. See [`docs/MONETIZATION_AND_PRIVACY.md`](docs/MONETIZATION_AND_PRIVACY.md) for the working inventory and release gates.
+Before production, publish and verify reviewed Privacy, Support, account-deletion,
+and Terms pages; finalize seller/contact, retention/anonymization, regions, age/ad
+policy, moderation/reporting, DSAR, `app-ads.txt`, and archive-derived App Store
+privacy answers. See [MONETIZATION_AND_PRIVACY](docs/MONETIZATION_AND_PRIVACY.md).

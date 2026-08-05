@@ -1,129 +1,103 @@
 # PimPoPom
 
-PimPoPom is the native iOS edition of a fast color-reaction game. **PimPoPom** is the product name in the app, App Store metadata, icons, audio branding, analytics, support material, and player-facing copy.
+PimPoPom is an iPhone-only color-reaction game built with SwiftUI, SpriteKit,
+GameKit, StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade,
+Zen, and a 2–4-player Multiplayer beta are implemented.
 
-## Built with Codex & GPT-5.6
+The owner directed the product and accepted each release. Codex and GPT-5.6
+supported implementation, tests, asset generation, documentation, and release
+automation; generated work was reviewed through the same gates as hand-written
+work.
 
-**PimPoPom was built with Codex and GPT-5.6 through a human-directed, agentic development workflow for the OpenAI Build Week Hackathon.** Codex helped turn an existing web/PHP game into a native iOS product; the owner directed the product, reviewed each iteration on real devices, and made the final design and release decisions.
+## Current version
 
-- **Visual asset generation:** generated and refined app icons, theme artwork and textures, promotional graphics, pet sprites, directional frames, animation-ready sprite sheets, and character animation behavior, while retaining source prompts, masters, provenance, and rollback assets.
-- **Music generation:** created original theme-specific menu and gameplay music, prepared seamless runtime loops, retained lossless masters, and integrated independent native music playback.
-- **Sound generation:** created themed tap-tone banks, the life-loss cue, and the original rising **Pim → Po → Pom** launch sting, then integrated and tested low-latency playback.
-- **Web-browser UI tests:** used browser automation to inspect the original game, exercise responsive states, compare behavior and layouts, capture visual evidence, and guide the native parity work.
-- **iOS Simulator tests:** generated the Xcode project, built Swift targets, ran deterministic core/unit/UI suites, and exercised the app across the iPhone SE (2022), iPhone 13 mini, and iPhone 13 Pro simulator profiles.
-- **Computer use:** operated Xcode and signed-in web consoles to configure and validate App Store Connect, TestFlight, Game Center, StoreKit, AdMob, and UMP consent flows.
-- **Automatic deployments:** prepared versioned release artifacts, performed configuration and privacy checks, uploaded TestFlight builds, and ran repeatable backend packaging, migration, deployment, and smoke-test workflows.
-- **Vercel and Hostinger MCP usage:** used the Vercel and Hostinger MCP integrations to inspect deployment state, deploy and verify the PHP/API runtime on Hostinger, validate live endpoints, and preserve the immutable Vercel deployment as the rollback generation.
-
-Codex also supported the Swift/SwiftUI/SpriteKit architecture, PHP API integration, StoreKit and advertising adapters, test generation, debugging, documentation, decision records, source/licence tracking, Git history, and release checklists. AI-generated output was reviewed, tested, and accepted through the same project gates as hand-written work.
-
-This repository is intentionally independent from the legacy web implementation. It now contains a playable native Arcade/Zen alpha, a pure Swift rules engine, SpriteKit rendering, SwiftUI app surfaces, and an internal integration with the existing Hostinger PHP service.
-
-The current named-cohort TestFlight build is **1.02 (19)** from exact archived source commit `95d9cde7f1b594208461b450b9023a5cec3fabc0`. App Store Connect accepted it as build `81190b4a-a909-46c5-82b1-74055c47dc93`; Apple approved its Beta App Review and it is in beta testing for both Internal QA and External QA with automatic notification enabled. Build 18 remains available in both groups as the rollback build while physical multiplayer checks continue.
-
-This corrective release decouples PHP Ready status from GameKit roster completion, consolidates Arcade/Zen/Multiplayer into one Leaderboard screen, removes the obsolete nested Multiplayer leaderboard navigation, prevents Pixel card shadows from duplicating their labels, and gives waiting-room player names enough width. It returns the marketing version to the existing Game Center-enabled App Store version `1.02`. The Arcade ticket tuple (`20260729-1` / `reaction-proof-v3` / proof 2) remains a separate backend compatibility concern.
-
-TestFlight build **1.02 (19)** retains build 18's terminal transcript chronology, exact seat-only submission recovery, and stale-callback protection. It removes every waiting-room pet, standardizes waiting roster rows and actions across iPhone heights, adds the requested 20-point roster offset, makes the assigned-color cell and color name the live HUD hero, fixes the HUD-to-board gap at 5 points, and keeps 2–4 smaller glowing player badges in one horizontal row below the Speed Bar.
-
-Build 15's expanded color-bearing tuples require build `20260729-1`, ruleset `reaction-proof-v3`, and proof version 2. That parallel replay path is now part of Hostinger backend release `20260729-1`, alongside retained compatibility for already distributed clients. The historical build-15 archive did not modify or deploy the parent PHP repository.
-
-The TestFlight **Multiplayer candidate** supports 2–4 signed-in players. Hostinger backend release `20260729-1` owns authenticated lobbies, stable seats/colors, immutable manifests, transcript replay, settlement, and ranked rows; `GKMatch` owns reaction-critical peer traffic. The mode is own-color only, awards no coins or achievements, and requires a confirmed nickname plus a recently verified, publishing-enabled Game Center link. A fixed coordinator sequences the live stream, holds inputs behind a 250 ms reorder watermark, and sends reliable plans/events/snapshots so every peer can retain the same bounded integer transcript for PHP replay. A player who loses all lives becomes a noninteractive spectator: the event stream, HUD, pets, crown, tones, and remaining players continue until everyone is out and the shared result can settle. Accepted rows are **protocol-verified, peer-consistent**—never server-authoritative, human-verified, bot-proof, or collusion-proof. The exact release passed deterministic and mocked Simulator coverage; real 2-, 3-, and 4-device GameKit matches remain required before Multiplayer is described as device-validated. See [`docs/TESTING.md`](docs/TESTING.md) and [`docs/RELEASE.md`](docs/RELEASE.md).
-
-Build 15 retains build 14's unique whitespace-free player-name workflow plus build 13's automatic nonblocking Game Center flow and pre-run Arcade color fix. End-to-end nickname uniqueness still depends on the matching PHP endpoint and confirmed-name database constraint being deployed from the parent backend repository.
-
-PHP remains the only score/achievement publisher. The separate backend task required to make a valid current profile take ownership of the active Game Center destination is copy-ready in [`docs/GAME_CENTER_AUTOLINK_PHP_TASK.md`](docs/GAME_CENTER_AUTOLINK_PHP_TASK.md); until that deployment lands, the existing service may still reject an old cross-profile binding and iOS will defer it without blocking play.
-
-## Migration baseline
-
-- Behavioral source reviewed: legacy web repository commit `675551adc715942ce2512c14d396d5d14e763f02` on 2026-07-14.
-- That commit is a migration baseline, not evidence of what is currently deployed.
-- The multiplayer API source of truth is Hostinger backend release `20260729-1`. Its exact routes, manifests, compact transcript tuples, settlement states, and Game Center prerequisites are recorded in [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md). The native client must not infer live rules from the older web baseline.
-- The current PHP client contract was most recently audited at legacy repository release commit `1debeaf16210bc6d2fbe9fd406adc158c9e4aa80` on 2026-07-20. Live health and signed-out session probes confirmed Hostinger Season 1, Apple identity enabled for `com.otcsoftware.pimpopom`, and the identity/wallet/ad-free/StoreKit response shape, matching retained annotated deployment tag `hostinger-20260720-1`. A fresh 2026-07-25 signed-out probe additionally confirmed the deployed additive Game Center publication shape (`serverPublicationAvailable`, prerelease routing, publication/mirror state, pending/held job counts, and reset state) consumed by build 9. Hostinger does not expose the exact backend commit in that response, so this is compatibility evidence rather than a claim about an unrecorded deployment SHA.
-- Copy only reviewed behavior, deterministic fixtures, and assets with documented redistribution rights.
-- Do not modify the legacy repository to implement PimPoPom. Backend changes needed by both clients require their own reviewed task in the repository that owns the backend.
-
-## Recommended native stack
-
-- Swift and Swift concurrency with strict concurrency checking.
-- SwiftUI for navigation, menus, shops, profile, settings, results, and accessibility-first app surfaces.
-- SpriteKit for the latency-sensitive reaction board and visual effects.
-- A framework-independent `PimPoPomCore` module for deterministic rules, configuration, injected time/randomness, state transitions, and proof events. Tests use seeded randomness; production does not imply a server seed.
-- `AVAudioEngine`/`AVAudioPlayerNode` for preloaded low-latency audio and `Core Haptics` for supported devices. App lifecycle and AVAudioSession events share an explicit resume state so an interruption ending before foreground cannot permanently silence enabled music or Sound FX; genuine route loss remains user-gated.
-- `URLSession` with typed `Codable` requests. The internal alpha temporarily reuses the PHP secure cookie plus CSRF contract; a versioned native session remains the external-release direction.
-- StoreKit 2 for Remove Ads and coin packs; GameKit may mirror verified scores and achievements but never owns the coin economy.
-- `GKMatch` plus a versioned reliable packet envelope for 2–4-player Multiplayer. PHP remains the lobby/manifest/replay/settlement authority and is never used as a per-tap relay.
-- An ad SDK only behind an app-owned adapter, consent gate, test configuration, and stable reserved layout.
-
-The app currently uses SwiftUI, SpriteKit, `PimPoPomCore`, `URLSession`, Google Sign-In for iOS, GameKit, StoreKit 2, Google Mobile Ads 13.6.0, UMP 3.1.0, and app-owned audio/ads adapters. Every ads-enabled launch refreshes UMP and presents any required form before identity restoration; login changes never initiate consent. Actual ads still fail closed until the backend resolves `sessionState.adFree` as false and UMP permits requests. Debug uses Google demo inventory. Named-cohort Staging uses the committed owner-device selector: the matching owner fingerprint receives PimPoPom production units in Google Test mode, while every other device receives official demo units without a custom test-device identifier. Checked-in Release remains disabled. StoreKit uses a server-authoritative wallet/entitlement bridge and a Debug-only offline configuration; real value still requires Sandbox/TestFlight validation. Google identity activates only when a real iOS OAuth client ID is supplied through the ignored local configuration.
-
-## Start here
-
-1. Use Xcode 26.2 or newer and XcodeGen 2.45.4 (`brew install xcodegen`). Swift Package Manager resolves the pinned Google Sign-In, Google Mobile Ads, and UMP dependencies.
-2. Create the single named iPhone 17 simulator once with `Scripts/create-alpha-simulators.sh`, then generate/build/test everything with `Scripts/check.sh`.
-3. Open `PimPoPom.xcodeproj`, select an Apple Team under Signing & Capabilities, select the connected iPhone SE 2022, and Run. Local Arcade/Zen and public leaderboards need no Google setup.
-4. To enable Google, create an iOS OAuth client in the same Google Cloud project for bundle ID `com.otcsoftware.pimpopom`, copy `Config/Local.example.xcconfig` to ignored `Config/Local.xcconfig`, and replace its two example values. The existing Web server audience is committed as public build configuration; no client secret belongs in the app. An older iOS client registered for `com.otcsoft.pimpopom.alpha` does not match this app.
-5. For deterministic local purchase testing, run the **PimPoPom StoreKit Local** Debug scheme. It uses the committed `.storekit` catalog plus a clearly isolated in-memory credit fixture and never sends local test transactions to Hostinger.
-6. For owner-device real-unit QA, use **PimPoPom Owner Ads QA**. The public AdMob App ID, production unit IDs, registered GMA test-device ID, and closed-beta owner fingerprints are committed in the named `.xcconfig` files. Never click an owner-device creative unless it visibly says **Test mode**.
-7. Follow the exact internal-alpha flow and limitations in [`docs/ALPHA_FAST_PATH.md`](docs/ALPHA_FAST_PATH.md).
-
-## Documentation map
-
-| Concern | Source of truth |
+| Item | Current truth |
 | --- | --- |
-| Committed repository status and setup | This README |
-| Durable accepted and proposed choices | [`docs/DECISIONS.md`](docs/DECISIONS.md) |
-| Ordered migration work and exit gates | [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md) |
-| Current local-device execution track | [`docs/ALPHA_FAST_PATH.md`](docs/ALPHA_FAST_PATH.md) |
-| Dependency direction and module boundaries | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| Rules that native parity must preserve | [`docs/GAMEPLAY_SPEC.md`](docs/GAMEPLAY_SPEC.md) |
-| Native API, identity, Multiplayer/GameKit, and server responsibilities | [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md); current Game Center PHP handoff: [`docs/GAME_CENTER_AUTOLINK_PHP_TASK.md`](docs/GAME_CENTER_AUTOLINK_PHP_TASK.md) |
-| Ads, purchases, coin accounting, and privacy | [`docs/MONETIZATION_AND_PRIVACY.md`](docs/MONETIZATION_AND_PRIVACY.md) |
-| Test matrix and quality gates | [`docs/TESTING.md`](docs/TESTING.md) |
-| Signing, TestFlight, App Store, and rollback | [`docs/RELEASE.md`](docs/RELEASE.md) |
-| Unresolved product and platform choices | [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md) |
-| Visual review history | [`docs/DESIGN_QA.md`](docs/DESIGN_QA.md) |
-| Branding, audio, pet, font, and theme source records | [`assets/branding/SOURCES.md`](assets/branding/SOURCES.md), [`assets/audio/SOURCES.md`](assets/audio/SOURCES.md), [`assets/pets/SOURCES.md`](assets/pets/SOURCES.md), [`assets/fonts/SOURCES.md`](assets/fonts/SOURCES.md), [`assets/themes/SOURCES.md`](assets/themes/SOURCES.md) |
-| Privacy engineering status and security rules | [`PRIVACY.md`](PRIVACY.md), [`SECURITY.md`](SECURITY.md), [`AGENTS.md`](AGENTS.md) |
-| Contribution and change history | [`CONTRIBUTING.md`](CONTRIBUTING.md), [`CHANGELOG.md`](CHANGELOG.md) |
-| Licence and third-party notices | [`LICENSE.md`](LICENSE.md), [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
+| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (20)` |
+| Current TestFlight | Build 20, approved and assigned to Internal QA and External QA |
+| Archived runtime source | `69fe7422719dd4953e90354a2ae3f3c976995db7` |
+| Build-20 release record | `d182ecf62d8bd360b64b97d8c1080d3389a2c239` |
+| Rollback beta | Build 19 from `95d9cde7f1b594208461b450b9023a5cec3fabc0` |
+| Production App Store | Not released |
+| Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-## Repository shape
+Build 20 adds selected-pet and square assigned-color identity to Multiplayer
+waiting/live surfaces and improves Pixel-theme small text. Its focused tests and
+archive validation passed, but the final spacing rerun and full `Scripts/check.sh`
+were skipped for that archive. Real 2-, 3-, and 4-device Multiplayer, 60/120 Hz
+touch timing, ads, StoreKit, audio, and public-release rights remain physical or
+owner gates. See [the current slice](docs/CURRENT_VERSION.md) for the exact status.
 
-```text
-PimPoPom/
-├── PimPoPom.xcodeproj
-├── project.yml             # Reproducible XcodeGen source
-├── App/                     # SwiftUI, SpriteKit gameplay, API and identity client
-├── Packages/
-│   └── PimPoPomCore/        # Pure deterministic rules and tests
-├── Config/                  # Committed examples; local secrets ignored
-├── Tests/                   # Native unit and UI smoke tests
-├── Scripts/                 # Reproducible checks and asset validation
-├── assets/                  # Reviewed runtime assets and retained masters
-└── docs/
+## Implemented product
+
+- **Arcade:** endless three-life play with progressive boards, decoys, reaction
+  ratings, streak multipliers, protocol-verified ranking, coins, and achievements.
+- **Zen:** endless local practice with no lives, deadline, decoys, ranking, coins,
+  achievements, or durable result.
+- **Multiplayer beta:** 2–4 signed-in players, own-color targets, GameKit live
+  traffic, PHP lobby/manifest/replay/settlement, no coins or achievements, and
+  protocol-verified peer-consistent results.
+- **Identity:** Sign in with Apple and Google map to one internal profile; Game
+  Center is a verified secondary link and never authenticates a wallet.
+- **Economy:** the server owns coins, achievements, catalogs, purchases, and
+  cosmetics. StoreKit-signed transactions are reconciled before value is shown.
+- **Ads:** UMP-gated AdMob with demo/test routing in committed builds and
+  server-authoritative ad-free state. Checked-in Release advertising is disabled.
+- **Presentation:** Default, Disco, Light, and Pixel themes; selectable icons;
+  pets; independent Sound FX, music, haptics, and glyph settings.
+
+The shipped Multiplayer implementation is currently slower than Arcade because
+it waits for coordinator ordering and canonical feedback. The approved client-side
+redesign is specified in [FAST Multiplayer task](docs/MULTIPLAYER_FAST_TASK.md).
+It is a task, not implemented release behavior.
+
+## Build and test
+
+Requirements: Xcode 26.2 or newer and XcodeGen 2.45.4.
+
+```sh
+brew install xcodegen
+Scripts/create-alpha-simulators.sh
+Scripts/check.sh
 ```
 
-## Current status
+Open `PimPoPom.xcodeproj`, select an Apple development team, and run an iPhone
+target. `project.yml` is the project source; regenerate rather than hand-editing
+generated project structure.
 
-- Separate local Git repository: created.
-- Product name: accepted as PimPoPom.
-- Native migration documentation: bootstrapped.
-- Xcode project: generated reproducibly for Debug, release-optimized Staging, owner-device real-unit test QA, and Release signing with bundle ID `com.otcsoftware.pimpopom`.
-- Arcade and Zen: playable through a native deterministic engine and SpriteKit board, including lives/recovery, difficulty phases, decoys, scoring, ratings, multipliers, proof events, Zen cadence, results, restart, and lifecycle abandonment.
-- Multiplayer: TestFlight build 19 contains the 2–4-player own-color candidate, corrected independent Ready control, terminal transcript chronology, durable exact-submission recovery, a pet-free uniform waiting roster, and a compact one-row live player strip. The deterministic core validates the exact `multiplayer-own-color-v1` manifest/transcript, score, multiplier, dodge, life, placement, and 250 ms coordinator-reorder rules. Native lobby/GameKit transport, waiting room, live player strip, reliable recovery packets, settlement, leaderboard, and eliminated-player spectating surfaces passed the exact-commit automated matrix. Real 2-, 3-, and 4-device/account GameKit exercises remain a release gate. Multiplayer grants no coins or achievements.
-- Hostinger integration: live public session/leaderboard/achievement reads plus provider-neutral Google/Apple identity, explicit account registration/linking/reauthentication, verified Game Center secondary binding/publication status, profile/nickname, ranked start/abandon/finish, authenticated achievement claims, StoreKit credit, account deletion, and the release-`20260729-1` Multiplayer lobby/replay/settlement API. The last exact backend Git commit retained in this repository is older annotated release `hostinger-20260720-1` at `1debeaf16210bc6d2fbe9fd406adc158c9e4aa80`; the newer release label is compatibility truth but does not identify an unrecorded PHP commit SHA here. Eligible signed-in Arcade runs use the server's native compatibility gate, must obtain a PHP ticket before play, and submit their chronological proof at Game Over. A verified finish must echo the exact run UUID as `submittedEntryId`; review/quarantine outcomes remain saved but are described as withheld. The result screen confirms a successful save, while a PHP session-bootstrap failure—or a ranked-ticket failure for an eligible signed-in player—blocks play instead of silently creating an unsaved game. Anonymous and Zen play never create a ranked result.
-- Shared economy/cosmetics: live theme, pet, and five-goal achievement catalogs; server-confirmed coin balance; atomic signed-in buy/select/hide/show and idempotent reward-claim mutations; free signed-out Default/Disco selection; and server-derived special-pet presentation. An authenticated tap on an unaffordable unowned theme or pet opens the real Buy Coins sheet directly instead of leaving shortfall copy in the shop. The themed Achievements screen shows progress plus locked, ready, and claimed server states without repeating the current wallet balance, while the menu marks rewards ready to collect. The PHP service remains the sole authority for unlocks, rewards, ownership, and balance.
-- App icons: ImageGen Glow is the primary, with Light glass and Pixel alternates. All three spell the name on progressively indented `Pim`, `Po`, and `Pom` lines; the retired black-outline icon is no longer bundled. Settings exposes whole-tile choices through iOS's native alternate-icon API, and the Home Screen context menu's **Change Icon** quick action follows `pimpopom://settings/icon` directly to that selector. iOS owns icon persistence and confirmation. Sources, masters, prompts, previews, and hashes are retained separately; physical Home Screen/context-menu review and final acceptance remain pending.
-- Visual parity: the fixed, non-scrolling native main menu, darker-green Pim wordmark, illuminated intro/slogan treatments, Arcade/Zen controls, feature hierarchy, backgrounds, two-column Theme Shop, detailed Leaderboard/Profile/results surfaces, custom gameplay header/HUD, near-full-width board, centered announcements, and Speed Bar/multiplier translate the reviewed web design into SwiftUI and SpriteKit. The first three rule stamps return once per cold app launch, sit 10 points farther right, and yield to rotating slogans placed 10 points farther left after that launch's first completed Arcade or Zen game. On wider iPhones, those stamps, slogans, and menu pets scale proportionally from the 375-point reference width up to an 18% cap. Tall gameplay layouts place up to 44 additional points above the board while preserving a fixed 14-point board-to-Speed-Bar gap; any surplus space remains below the bar instead of splitting the two surfaces. Multiplier promotion visibly completes the outgoing fifth step first—even when a Godlike tap carries a step into the next tier—then keeps that full tier as a 60%-opacity layer while the next brighter layer grows over it. Leaderboard rows reserve a right-aligned score column and omit the obsolete Legacy badge. Early/empty and wrong-cell mistakes share a centered yellow **Missed** stamp, late expiry remains **Too slow**, and reaction feedback renders above every board refresh. Every accepted hit shows one upright, borderless two-line presentation at the exact tap: `+N points` in the larger type and `Perfect • 270ms` beneath it in smaller type. The grouped copy stays local and fades completely within 980 milliseconds without traveling into the HUD or Speed Bar. The Zen Your Color preview is a normal 40-point horizontal gradient using the logo color sequence, and both Arcade hearts and Zen infinity use semantic red `#ff5370`. Arcade **Your Color** stays empty throughout run preparation/Get Ready and reveals the engine-selected color only when that run actually starts; once revealed, the panel uses its actual cell color for the four-point outline and stronger outward glow, including in Light. The opaque web coin art and black-bordered coin/rank badges are shared across native surfaces and sit on the expected button corners; the menu trophy shows the signed-in player's Arcade position. Live cells, Theme Shop screenshots, and Your Color use one equal-bounds code-native glyph geometry: the retained reduced box stays 1× on a one-cell board and uses 2× on both 2×2 and 4×4/16-cell boards; Theme Shop and Your Color previews use the same 2× multiplier. Classic remains clean, Light adds a crystal/glass surface, Pixel adds clipped deterministic brighter square grain and true pixel paths—including the supplied exact 50×50 stepped star mask on its original square canvas—and Disco combines visible black concrete/reflected-light backing, near-black inactive tiles, retained scratch/glaze texture, mixed silver borders, 22/15/11-point live radii, no square cell underlays, and a cached transparent-center additive halo above active cells and below feedback. Pixel uses the reviewed Jersey 10 font at a native 25% scale increase. Light also keeps its sky gradient, logo readability plate, and transparent SpriteKit scene exposing the white rounded board shell.
-- Themes and pets: all four theme palettes plus reviewed current Foka/Kesha/Tauta/Misha/Mitsuri sprite sheets, server-derived Muse special-pet art, and the owner-approved native Pancake replacement with a glowing blue floor are native resources. A theme is selected or bought by tapping its whole tile; each preview is a stable candidate-theme game screenshot whose pixels do not depend on the currently selected theme and uses the same glyph/material renderer as the live board. Placement is surface-specific and shop previews stay static until tapped. Shop, menu, and gameplay share one horizontal facing resolver: a centered corridor extending 5% of interaction width to either side of the visible pet center is front-facing, the remainder through 15% is half-turned, and farther taps are fully turned. The center corridor is clamped to 4–20 points so it stays usable in compact previews without swallowing directional poses. Vertical distance does not change the result: tapping the pet or directly above/below it restores front. Every gameplay-screen touch may orient the pet. A touch between cells is also mapped to a valid non-target/empty engine action and produces a protocol-valid **Missed** result; only the outer 12-point shell padding remains ignored by gameplay scoring. Turns proceed from the currently displayed pose through adjacent directional frames without returning to center first. Foka's clean left and half-left source cells are mirrored for the corresponding right poses, avoiding the mismatched authored right-side frames without changing any other pet. Menu pets sleep after inactivity; their reviewed left-shifted placement is nudged 10 points back to the right, while the gameplay pet remains at 40% of screen width. Pancake is fifteen points lower relative to its floor on the menu and Leaderboard only, and its clean full-right sprite is mirrored for full-left; gameplay and Pet Shop placement are unchanged by this adjustment. Pancake uses the normal 500-coin server purchase path; the client does not invent ownership or price.
-- Audio: four migrated menu/gameplay/tap suites, the shared life-loss cue, independent persistent Music/Sound FX controls, deterministic gameplay-start and terminal-silence routing, and an original rising Pim–Po–Pom activation-cue candidate. Assets, masters, and deterministic generators are retained and hash-checked.
-- Google: package integrated and server audience configured; real iOS/reversed client values are supplied only through ignored `Config/Local.xcconfig`, while committed examples remain placeholders.
-- Ads/StoreKit: Google Mobile Ads and UMP are pinned behind app-owned protocols. An ads-enabled launch requests updated UMP information and presents any required first-run form before PHP/Google/Apple session restoration; later login, logout, and account-link changes only update ad-free authority and never replay consent. The resulting consent snapshot is retained for the launch. GMA remains unconfigured and unstarted while account authority is unknown or ad-free, and starts only when UMP permits requests and `sessionState.adFree` resolves false; a confirmed transition to ad-free tears down loaded inventory and clears the interstitial cadence. A failed launch refresh may retry once after account bootstrap and on later foreground transitions, but a valid consent-blocked state never retries automatically. UMP exposes required **Privacy choices** in Settings. Maximum ad content is General; publisher personalization and publisher first-party ID are disabled, and the app contains no ATT prompt, IDFA path, or tracking purpose string. Eligible menu, gameplay, and results surfaces can show one centered fixed 320×50 banner; gameplay keeps it in the fixed safe-area footer below the Speed Bar. An ad-supported run snapshots that 50-point reservation so load/no-fill cannot move the board; a run that starts disabled or ad-free constructs no host, placeholder, or ad note. If authoritative ad-free state arrives during a run, the ad container disappears immediately while an invisible run-lifetime spacer preserves board geometry until the current run ends, restarts, or leaves gameplay. Google v13 large adaptive banners can exceed 50 points, so PimPoPom deliberately uses the fixed format rather than clipping a creative or moving the board. One persistent, deduplicated Arcade/Zen counter makes an interstitial due after three terminal sessions, attempts it only from results after ranked submission reaches a terminal state, retains due state on no-fill/failure, and resets only when SDK presentation begins. Debug uses demo units with no custom test-device ID. Named Staging compares the committed SHA-256 owner fingerprints and uses production units plus `65889f215752fbc9ad39e52b00d92987` only on a match; every other device stays on demo units. Demo units remain valid test inventory even while the owner test-device registration is configured. Owner Ads QA retains the cable-only production-unit path, and checked-in Release remains disabled pending explicit live authorization. On standard-height iPhone 6/7/8/SE menus (667 points or shorter), Remove Ads is a compact 44-point crossed-AD header control immediately left of Coins; taller menus retain the full text control at the bottom above the banner. Coins/Remove Ads retain their bright outlines, while Leaderboard, Profile, and Settings now use blue, green, and 85%-white border accents without recoloring their content. The control and every banner container are absent when the authoritative session is ad-free. Remove Ads, Theme Shop Buy Coins, and Pet Shop Buy Coins share the real StoreKit 2 sheet. It loads localized App Store products, requires a signed-in server-bound PimPoPom profile, submits only the verified JWS and server-issued `appAccountToken`, waits for authoritative PHP credit before finishing, recovers unfinished transactions from launch/foreground, and restores only the non-consumable. The coin-pack surface displays the authoritative wallet and refund debt; the dedicated Remove Ads surface omits irrelevant coin-balance presentation and shows only the ad-free purchase/restore path.
-- Identity/profile/account deletion: Profile places Apple's native sign-in control above Google, always attempts explicit login before offering separately confirmed new-profile registration, and exposes deliberate Apple↔Google linking without email-based merging. Linked-provider state comes from the server. The destructive account flow remains isolated at the bottom, requires matching recent Apple or Google reauthentication plus the exact phrase `DELETE MY ACCOUNT`, and clears local identity only after the server confirms deletion.
-- Game Center: P-011/P-042/P-054 select one permanent PHP-fed mirror of protocol-verified Arcade personal-best scores and the five authoritative achievements. PimPoPom installs Apple's standard authentication handler at launch; cancellation, restrictions, sign-out, or service failure remain nonblocking. When both a persistent GameKit player and an authenticated Apple/Google PimPoPom profile are available, the app silently requests a one-use PHP challenge, obtains fresh GameKit signature material, and submits the exact `teamPlayerID`, persistent `gamePlayerID`, proof, and `publish: true`. It deduplicates an unchanged profile/player pair in-process and reconciles again after foreground, primary-session, or Game Center player changes. Profile shows only **Game Center** and **See stats**; there is no local participation preference, Connect/Verify/Disable workflow, conflict copy, or Apple-delivery status. PHP still owns binding policy, idempotent backfill/retry outbox, prerelease lane, score/achievement eligibility, and Apple writes; the app never calls `GKLeaderboard.submitScore` or `GKAchievement.report`. The current-profile-wins backend reassignment is a separate parent-repository task and must be deployed before old cross-profile bindings can move silently. Local play, primary login, PHP ranking, achievements, shops, and purchases remain independent when Game Center is unavailable or linking is deferred.
-- Device evidence: exact implementation commit `bab0709`, using the selected `com.otcsoftware.pimpopom` identity, was development-signed, passed strict signature verification, installed, and launched successfully through CoreDevice on the owner's wired iPhone SE (3rd generation) on iOS 26.3. CoreDevice reports its installed name as **PimPoPom**. This is an install-and-launch checkpoint, not a structured physical visual/touch/listening review. The earlier `d3ffd87` checkpoint used retired identity `com.otcsoft.pimpopom.alpha`; other historical installs remain recorded in `docs/DESIGN_QA.md`, and the 13 mini/13 Pro remain Simulator-only.
-- Native StoreKit integration evidence: exact build-3 preparation commit `eb1cd09` passed 29 core checks, 113 native unit tests, and all 25 XCUITest paths on the named iPhone SE 2022 Simulator with iOS 26.5. Xcode reported 138 passed tests with zero failures or skips, for 167 checks including the core package. The two added review paths capture all four coin products plus Remove Ads at 750×1334, keep the coin wallet only where relevant, and confirm that Remove Ads omits the coin balance. The Debug local-StoreKit scheme and generic Release simulator build also pass. Coverage includes the exact five-product catalog/scheme, acknowledgement-before-finish, unfinished recovery, account switching, Family Sharing limits, exact PHP request/response validation, offline local credit, localized store entry points, and secure account deletion. No real App Store purchase or authenticated Hostinger write was sent.
-- AdMob/UMP integration evidence: exact layout implementation commit `f4f9be4` passed the complete gate with 29 core checks, 132 native unit tests, and all 28 XCUITest paths on the same named SE Simulator. Xcode reported 160 passed native/UI tests and zero failures/skips, for 189 checks including the core package. Zero-network app-owned fakes prove the centered 320×50 menu/results creative, compact SE header placement, taller-screen bottom placement, authoritative startup ad-free removal, absent disabled/ad-free gameplay hosts, stable eligible-run spacing, pushed-screen banner lifecycle, unchanged board width, and required Privacy choices route. A focused iPhone 13 mini Simulator path also passed the taller-menu branch. The exact layout commit passed the generic Debug build plus package/configuration, privacy/Info-manifest, and current 50-entry SKAdNetwork guards; generic Staging/Release builds and the compiled disabled Release metadata were established at the immediately preceding configuration-equivalent AdMob commit `3c2e461`. No direct automated mid-run entitlement-flip path, real consent form, creative, test-device registration, physical install, TestFlight upload, or live activation was performed.
-- Earlier visual regression evidence: implementation commit `6743fc2` directly confirmed matching rounded Disco shell/cell curves with no rectangular ghost, outgoing active-cell light, transparent fading rating stamps, grouped score flyouts, Godlike absorption into the Speed Bar, the Zen rainbow/red HUD treatment, the 50-point banner host, and a retained 351-point board with a pet present. The earlier 13 mini/13 Pro regression remains recorded at commit `ec71d21` and was not rerun for this batch.
-- App Store Connect record `PimPoPom` and explicit App ID `com.otcsoftware.pimpopom` exist under team `APX2925X66`; TestFlight `1.02 (19)` from exact archived source commit `95d9cde7f1b594208461b450b9023a5cec3fabc0` is VALID, approved, and in beta testing for both Internal QA and External QA with automatic notification enabled. Build 18 remains assigned as rollback; superseded builds 15 and 16 are expired and no longer assigned to either group. The accepted signing profile contains Sign in with Apple, Game Center, and the required iCloud container. The Multiplayer score leaderboard and its still-unsubmitted production-review association are recorded in [`docs/RELEASE.md`](docs/RELEASE.md); TestFlight approval is not production App Store approval. All five accepted StoreKit products are configured for the United States and Canada, with Family Sharing enabled only for the standalone Remove Ads non-consumable. They remain in pre-review state pending screenshots/metadata and Sandbox validation. AdMob application/banner/interstitial identifiers exist, but final App Store privacy answers, physical QA, app-readiness review, and explicit production activation remain release gates.
-- No production App Store release has occurred. TestFlight availability is not an App Store submission or production-release claim.
+Google sign-in needs matching ignored local OAuth configuration. The Debug
+**PimPoPom StoreKit Local** scheme uses the committed StoreKit catalog and an
+offline credit fixture. **PimPoPom Owner Ads QA** is the explicit cable-only
+production-unit/Test-mode lane. Never click a production-unit creative unless it
+visibly says **Test mode**.
+
+## Documentation
+
+| Concern | Current source |
+| --- | --- |
+| Version, release state, and known gaps | [CURRENT_VERSION](docs/CURRENT_VERSION.md) |
+| Binding product/technical choices | [DECISIONS](docs/DECISIONS.md) |
+| Dependency and concurrency boundaries | [ARCHITECTURE](docs/ARCHITECTURE.md) |
+| Gameplay rules | [GAMEPLAY_SPEC](docs/GAMEPLAY_SPEC.md) |
+| Deployed iOS/backend compatibility | [API_CONTRACT](docs/API_CONTRACT.md) |
+| Ads, StoreKit, economy, and privacy | [MONETIZATION_AND_PRIVACY](docs/MONETIZATION_AND_PRIVACY.md) |
+| Automated and physical quality gates | [TESTING](docs/TESTING.md) |
+| TestFlight/App Store release process | [RELEASE](docs/RELEASE.md) |
+| Approved Multiplayer latency work | [MULTIPLAYER_FAST_TASK](docs/MULTIPLAYER_FAST_TASK.md) |
+| Current visual evidence | [DESIGN_QA](docs/DESIGN_QA.md) |
+| Asset provenance | `assets/**/SOURCES.md` |
+| Privacy and security summaries | [PRIVACY](PRIVACY.md), [SECURITY](SECURITY.md) |
+
+Superseded plans, contracts, decision chronology, and release notes are available
+from Git history, not duplicated in the current working tree.
+
+## Repository boundaries
+
+This repository owns the native client, pure Swift rules, tests, resources, and
+iOS compatibility contracts. It does not own or contain the PHP implementation.
+Backend changes require a separate reviewed task in the backend repository; an
+iOS task must never edit, restore, stage, commit, or deploy that repository.
+
+Code and release contents are proven by an exact Git commit. A TestFlight build
+is not an App Store production release, Simulator evidence is not physical-device
+validation, and a protocol-verified result is not human-verified or bot-proof.

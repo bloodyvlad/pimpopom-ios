@@ -1,6 +1,7 @@
-# Optional App Preview — 25-second shot list
+# Optional App Preview — current recapture plan
 
-Apple App Preview video is optional. The safest version is a clean portrait screen recording of the submitted build with short deterministic overlays. Keep the UI understandable with sound muted because product-page previews autoplay silently.
+Apple App Preview video is optional. Record the final submitted build; do not reuse
+the retained build-6 source captures. Keep the story understandable when muted.
 
 ## Capture target
 
@@ -18,10 +19,10 @@ Apple App Preview video is optional. The safest version is a clean portrait scre
 | 0:02–0:06 | Start Arcade; first clean target tap | `TAP YOUR COLOR` | One crisp tap tone |
 | 0:06–0:10 | Faster board state with points/rating feedback and Speed Bar movement | `EVERY MILLISECOND MATTERS` | Quick four-note tap sequence |
 | 0:10–0:12 | One deliberate miss and visible life change | `KEEP YOUR FOCUS` | Existing “oops” cue |
-| 0:12–0:16 | Zen with rainbow Any target and several relaxed taps | `FIND YOUR FLOW` | Softer theme loop |
-| 0:16–0:19 | Theme Shop: tap Default → Light → Pixel/Disco tiles | `SWITCH UP YOUR STYLE` | Three light UI cues |
-| 0:19–0:22 | Menu companion followed by current Leaderboard | `CHASE YOUR BEST` | Small rising accent |
-| 0:22–0:25 | Return to live menu/logo; keep it inside actual app capture | `PimPoPom` / `Tap fast. Find your flow.` | Pim–Po–Pom resolve |
+| 0:12–0:16 | Two-device Multiplayer waiting/live montage from the same submitted build | `RACE YOUR COLOR` | Short neutral rise |
+| 0:16–0:19 | Zen with rainbow Any target and relaxed taps | `FIND YOUR FLOW` | Softer theme loop |
+| 0:19–0:22 | Theme/pet selection followed by Leaderboard | `MAKE IT YOURS` | Three light cues |
+| 0:22–0:25 | Return to live menu/logo inside the app | `PimPoPom` / `Tap fast. Find your flow.` | Pim–Po–Pom resolve |
 
 ## Recording checklist
 

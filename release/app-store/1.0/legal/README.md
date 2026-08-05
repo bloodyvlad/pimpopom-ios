@@ -30,7 +30,11 @@ Then:
 2. Confirm the retention periods with the deployed backend and applicable accounting requirements.
 3. Review the children/general-audience paragraph against the final age questionnaire and ad treatment.
 4. Compare the privacy disclosures with the exact Release archive's aggregate privacy report and App Store privacy answers.
-5. Update the provider/sign-in sections before shipping Sign in with Apple or any other new identity provider.
+5. Verify provider/sign-in sections against current Apple, Google, and Game Center
+   behavior before production; update them when another provider is added.
 6. Publish over HTTPS, test both pages on phone and desktop, and add the final URLs in App Store Connect.
 
-The pages deliberately say that the current client does **not** submit scores or achievements to Game Center. Update that statement only after the accepted Hostinger-owned Game Center mirrors are actually implemented and released.
+The pages must state that iOS does **not** submit Game Center scores or achievements
+directly. PHP owns the implemented prerelease publication lanes. Before production,
+verify that the public text describes current Arcade/Multiplayer publication,
+Apple retention, account deletion, and any disabled/held delivery accurately.
