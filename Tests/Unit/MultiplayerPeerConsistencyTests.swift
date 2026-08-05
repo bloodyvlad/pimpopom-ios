@@ -4,6 +4,120 @@ import XCTest
 @testable import PimPoPom
 
 final class MultiplayerPeerConsistencyTests: XCTestCase {
+    func testInputLedgerKeepsSameMillisecondSequencesDistinct() throws {
+        var ledger = MultiplayerInputLedger()
+        let first = evidence(sequence: 1)
+        let second = evidence(sequence: 2)
+
+        XCTAssertEqual(try ledger.recordEvidence(first), .inserted)
+        XCTAssertEqual(try ledger.recordEvidence(second), .inserted)
+        XCTAssertEqual(
+            ledger.unresolvedInputIDs,
+            [first.id, second.id]
+        )
+    }
+
+    func testInputLedgerConvergesEvidenceBeforeResolution() throws {
+        var ledger = MultiplayerInputLedger()
+        let input = evidence(sequence: 1)
+        let resolution = MultiplayerInputResolution(
+            inputID: input.id,
+            disposition: .committed(eventSequence: 2)
+        )
+
+        XCTAssertEqual(try ledger.recordEvidence(input), .inserted)
+        XCTAssertEqual(try ledger.recordResolution(resolution), .inserted)
+        XCTAssertTrue(try ledger.consume(events: [hit(sequence: 2)]))
+        XCTAssertTrue(ledger.isTerminallyComplete)
+    }
+
+    func testInputLedgerConvergesResolutionBeforeEvidence() throws {
+        var ledger = MultiplayerInputLedger()
+        let input = evidence(sequence: 1)
+        let resolution = MultiplayerInputResolution(
+            inputID: input.id,
+            disposition: .committed(eventSequence: 2)
+        )
+
+        XCTAssertEqual(try ledger.recordResolution(resolution), .inserted)
+        XCTAssertEqual(try ledger.recordEvidence(input), .inserted)
+        XCTAssertTrue(try ledger.consume(events: [hit(sequence: 2)]))
+        XCTAssertTrue(ledger.isTerminallyComplete)
+    }
+
+    func testIgnoredResolutionClosesEvidenceWithoutTranscriptTuple() throws {
+        var ledger = MultiplayerInputLedger()
+        let input = evidence(sequence: 1)
+        _ = try ledger.recordEvidence(input)
+
+        XCTAssertEqual(
+            try ledger.recordResolution(
+                MultiplayerInputResolution(
+                    inputID: input.id,
+                    disposition: .ignored(.recovery)
+                )
+            ),
+            .resolvedIgnored
+        )
+        XCTAssertTrue(ledger.isTerminallyComplete)
+        XCTAssertEqual(try ledger.recordEvidence(input), .duplicate)
+        XCTAssertTrue(ledger.isTerminallyComplete)
+    }
+
+    func testInputLedgerRejectsConflictingEvidenceAndResolution() throws {
+        var ledger = MultiplayerInputLedger()
+        let input = evidence(sequence: 1)
+        _ = try ledger.recordEvidence(input)
+        _ = try ledger.recordResolution(
+            MultiplayerInputResolution(
+                inputID: input.id,
+                disposition: .committed(eventSequence: 2)
+            )
+        )
+
+        XCTAssertThrowsError(
+            try ledger.recordEvidence(
+                MultiplayerSealedInput(id: input.id, cell: 8, inputAt: input.inputAt)
+            )
+        )
+        XCTAssertThrowsError(
+            try ledger.recordResolution(
+                MultiplayerInputResolution(
+                    inputID: input.id,
+                    disposition: .ignored(.alreadyResolved)
+                )
+            )
+        )
+    }
+
+    func testCommittedResolutionMustMatchTheExactCanonicalInputEvent() throws {
+        var ledger = MultiplayerInputLedger()
+        let input = evidence(sequence: 1)
+        _ = try ledger.recordEvidence(input)
+        _ = try ledger.recordResolution(
+            MultiplayerInputResolution(
+                inputID: input.id,
+                disposition: .committed(eventSequence: 2)
+            )
+        )
+
+        XCTAssertThrowsError(
+            try ledger.consume(
+                events: [
+                    .hit(
+                        sequence: 2,
+                        inputAt: input.inputAt,
+                        handledAt: 430,
+                        seat: input.id.seat,
+                        targetId: 1,
+                        cell: 8
+                    )
+                ]
+            )
+        )
+        XCTAssertFalse(ledger.isTerminallyComplete)
+    }
+
     func testFabricatedHitCannotConsumeMissingPeerInput() {
         var evidence: [MultiplayerInputEvidenceKey: Int] = [:]
         let accepted = MultiplayerPeerConsistency.consume(
@@ -106,6 +220,25 @@ final class MultiplayerPeerConsistencyTests: XCTestCase {
                 mutated,
                 participants: participants
             )
+        )
+    }
+
+    private func evidence(sequence: Int) -> MultiplayerSealedInput {
+        MultiplayerSealedInput(
+            id: MultiplayerInputID(seat: 1, inputSequence: sequence),
+            cell: 7,
+            inputAt: 420
+        )
+    }
+
+    private func hit(sequence: Int) -> MultiplayerEvent {
+        .hit(
+            sequence: sequence,
+            inputAt: 420,
+            handledAt: 430,
+            seat: 1,
+            targetId: 1,
+            cell: 7
         )
     }
 }
