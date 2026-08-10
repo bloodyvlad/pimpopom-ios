@@ -175,7 +175,7 @@ struct MultiplayerHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
-            if #available(iOS 26.0, *), palette.isPixel {
+            if #available(iOS 26.0, *) {
                 ToolbarItem(placement: .navigationBarLeading) {
                     multiplayerBackButton
                 }
@@ -213,8 +213,10 @@ struct MultiplayerHubView: View {
             .accessibilityIdentifier("multiplayer-back")
         } else {
             multiplayerBackButtonCore
-                .frame(width: palette.isPixel ? 44 : 40)
+                .frame(width: 40)
                 .offset(y: 5)
+                .frame(width: 44, height: 44, alignment: .topLeading)
+                .contentShape(Rectangle())
                 .accessibilityLabel("Back")
                 .accessibilityIdentifier("multiplayer-back")
         }

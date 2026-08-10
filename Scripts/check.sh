@@ -122,6 +122,7 @@ xcodebuild -quiet \
   -destination 'platform=iOS Simulator,name=PimPoPom iPhone 17' \
   -only-testing:PimPoPomTests \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testFourPlayerMultiplayerLiveLayoutAcrossThemes \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerHubBackButtonUsesCompleteToolbarFootprintAcrossThemes \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testPixelMultiplayerHubUsesThemedLoweredBackButtonAndLegibleSmallCopy \
   test
 git diff --check

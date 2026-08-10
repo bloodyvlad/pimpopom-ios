@@ -911,6 +911,48 @@ final class PimPoPomUITests: XCTestCase {
         attachScreenshot(of: app, name: "iPhone 17 Pixel pet descriptions")
     }
 
+    func testMultiplayerHubBackButtonUsesCompleteToolbarFootprintAcrossThemes() {
+        let app = XCUIApplication()
+
+        for theme in ["classic", "disco", "light", "pixel"] {
+            app.launchArguments = [
+                "--deterministic-game",
+                "--uitesting",
+                "--ui-test-theme=\(theme)",
+                "--ui-test-multiplayer-hub-fixture",
+            ]
+            app.launch()
+
+            let title = app.descendants(matching: .any)["multiplayer-title"]
+            let back = app.buttons["multiplayer-back"]
+            XCTAssertTrue(title.waitForExistence(timeout: 6))
+            XCTAssertTrue(back.waitForExistence(timeout: 2))
+            attachScreenshot(of: app, name: "iPhone 17 \(theme) Multiplayer back button")
+            XCTAssertEqual(back.frame.width, 44, accuracy: 1)
+            XCTAssertEqual(back.frame.height, 44, accuracy: 1)
+            XCTAssertEqual(back.frame.midY, title.frame.midY, accuracy: 2)
+
+            back.coordinate(
+                withNormalizedOffset: CGVector(dx: 0.96, dy: 0.96)
+            ).tap()
+            let hub = app.descendants(matching: .any)["multiplayer-hub"]
+            XCTAssertEqual(
+                XCTWaiter.wait(
+                    for: [
+                        XCTNSPredicateExpectation(
+                            predicate: NSPredicate(format: "exists == false"),
+                            object: hub
+                        )
+                    ],
+                    timeout: 2
+                ),
+                .completed,
+                "The complete \(theme) back-button footprint must be interactive."
+            )
+            app.terminate()
+        }
+    }
+
     func testScreenshotFixtureOpensSyntheticMarketingScreens() {
         let app = XCUIApplication()
 
