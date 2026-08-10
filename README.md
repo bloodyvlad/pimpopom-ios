@@ -14,16 +14,15 @@ work.
 | Item | Current truth |
 | --- | --- |
 | App configuration | iOS 17+, iPhone, Swift 6, `1.02 (21)` |
-| Current TestFlight | Build 20, approved and assigned to Internal QA and External QA |
-| Release candidate | Build 21; upload/processing and physical-device acceptance pending |
-| Archived runtime source | `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Build-20 release record | `d182ecf62d8bd360b64b97d8c1080d3389a2c239` |
-| Rollback beta | Build 19 from `95d9cde7f1b594208461b450b9023a5cec3fabc0` |
+| Current TestFlight | Build 21; valid, approved, Internal QA and External QA testing |
+| Archived runtime source | `66ffd0b3687d198682e85aa4bfcf40ac4dcbb88d` |
+| Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
+| Open release gate | Physical 2/3/4-device and 60/120 Hz FAST acceptance |
 | Production App Store | Not released |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-Build 21 is the FAST Multiplayer candidate. It schedules local feedback for the
-next display frame and adds
+Build 21 is the current FAST Multiplayer TestFlight build. It schedules local
+feedback for the next display frame and adds
 sealed-frontier canonical ordering, reliable evidence recovery, exact Arcade-style
 hit fly-outs, and the Pixel back-button fix while retaining PHP transcript/proof v1.
 Real 2-, 3-, and 4-device Multiplayer and 60/120 Hz timing remain open physical

@@ -1,6 +1,6 @@
 # Current version slice
 
-Snapshot date: 2026-08-10. This file describes the build-21 release candidate.
+Snapshot date: 2026-08-10. This file describes the current build-21 TestFlight slice.
 
 ## Release identity
 
@@ -11,17 +11,15 @@ Snapshot date: 2026-08-10. This file describes the build-21 release candidate.
 | Language | Swift 6 with complete strict concurrency |
 | Configured version | `1.02 (21)` |
 | Bundle / team | `com.otcsoftware.pimpopom` / `APX2925X66` |
-| Current TestFlight archive source | `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Release-record commit | `d182ecf62d8bd360b64b97d8c1080d3389a2c239` |
-| App Store Connect build ID | `a98b6bcf-1560-4c17-84cb-dffef47c0778` |
+| Current TestFlight archive source | `66ffd0b3687d198682e85aa4bfcf40ac4dcbb88d` |
+| App Store Connect build ID | `1d82306d-5fe7-42a2-a89d-cd779e9e0402` |
 | Beta state | Valid, Beta App Review approved, Internal QA and External QA testing |
-| Candidate | Build 21; TestFlight upload/processing pending |
-| Rollback | Build 19, source `95d9cde7f1b594208461b450b9023a5cec3fabc0` |
+| Open acceptance | Physical 2/3/4-device and 60/120 Hz FAST verification |
+| Rollback | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7` |
 | Production App Store | Not released |
 
-Build 20 remains the current beta until Apple validates build 21. Build 21 contains
-the safe FAST client milestone, shared Arcade-style hit fly-outs, the Pixel
-Multiplayer back-button fix, and an exact five-point HUD-to-board spacer.
+Build 21 contains the safe FAST client milestone, shared Arcade-style hit fly-outs,
+the Pixel Multiplayer back-button fix, and an exact five-point HUD-to-board spacer.
 
 ## Runtime contracts
 
@@ -60,10 +58,10 @@ coins or achievements.
 
 ## Evidence and open gates
 
-Build 20 has focused presentation/cosmetics coverage, inspected Simulator captures,
-format/diff checks, archive compilation/signing validation, and successful App
-Store processing. The owner explicitly skipped the last spacing UI rerun and the
-full `Scripts/check.sh` pass for the archived build.
+Build 21 passed the clean `Scripts/check.sh` gate with 69 core and 272 native tests
+on the named iPhone 17 Simulator. Its exact source was archived and signature,
+entitlement, privacy-manifest, secret-absence, symbol, upload, processing, beta-review,
+and tester-group checks passed.
 
 The following are not closed by that evidence:
 
@@ -76,7 +74,7 @@ The following are not closed by that evidence:
 - complete public-release rights/trademark review for generated/migrated assets;
 - a production App Store submission and post-release smoke test.
 
-## FAST candidate and remaining gaps
+## FAST TestFlight state and remaining gaps
 
 Build 21 is designed to acknowledge local contact on the next display frame, sends a small
 unreliable fast copy plus reliable evidence, orders canonical input through sealed

@@ -5,62 +5,48 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 ## Current beta and rollback
 
-### PimPoPom 1.02 (21) — release candidate
-
-Configured build 21 contains the safe FAST Multiplayer client milestone, shared
-Arcade-style Multiplayer fly-outs, the Pixel back-button fix, and the exact
-five-point HUD-to-board spacer. The clean pre-archive gate passed with 69 core and
-272 native tests. Its source SHA, archive hashes, symbols, and App Store Connect
-state are recorded only after archive/upload completes. Physical 2/3/4-device
-acceptance remains open.
-
-### PimPoPom 1.02 (20) — current TestFlight
+### PimPoPom 1.02 (21) — current TestFlight
 
 | Record | Value |
 | --- | --- |
-| Archive source | `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Release-record commit | `d182ecf62d8bd360b64b97d8c1080d3389a2c239` |
+| Archive source | `66ffd0b3687d198682e85aa4bfcf40ac4dcbb88d` |
 | Toolchain | Xcode 26.6 (`17F113`), Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.5.2 |
-| Identity | `com.otcsoftware.pimpopom`, team `APX2925X66`, `1.02 (20)` |
+| Identity | `com.otcsoftware.pimpopom`, team `APX2925X66`, `1.02 (21)` |
 | Capabilities | Sign in with Apple, Game Center, `iCloud.com.otcsoftware.pimpopom` |
-| Archive manifest SHA-256 | `8ed8bd8140547a858befeadc0bfa03a9c1dc1207c69fdb43b6f2677843e36516` |
-| App Store Connect ID | `a98b6bcf-1560-4c17-84cb-dffef47c0778` |
+| Archive manifest SHA-256 | `164038c574d012e4fc636e3e311a89504e1169375f08b5d3329b44bf8d483564` |
+| App Store Connect ID | `1d82306d-5fe7-42a2-a89d-cd779e9e0402` |
 | App Store Connect state | VALID; Beta Review APPROVED; Internal/External QA testing |
 
-The reproducible archive/export/DerivedData were removed after acceptance. Retained
-app dSYM UUID `AC66885A-C79E-375E-A299-D8472AE8D7C1` is stored at
-`/Users/vlad/Documents/PimPoPom-symbols/1.02-20/PimPoPom-1.02-20-69fe742-AC66885A-C79E-375E-A299-D8472AE8D7C1.dSYM.zip`, SHA-256
-`0fb5c5ccdab44c7f1b9466cff8b5280edaa870f1be4eef7fe569f19ac4cf5510`.
+Retained app dSYM UUID `B2C6A380-0E9D-3506-89D3-F434A8DBA9A9` is stored at
+`/Users/vlad/Documents/PimPoPom-symbols/1.02-21/PimPoPom-1.02-21-66ffd0b-B2C6A380-0E9D-3506-89D3-F434A8DBA9A9.dSYM.zip`, SHA-256
+`4be20ad821a3f92df2cd05fa11def9f1d53b288d73b29cdd373207dd58220a0c`.
 
 The exact archive source was clean, and signature/absence-of-secret checks passed.
 The retained local archive used Apple Development signing, including
 `get-task-allow`; App Store upload re-signed it for distribution. Apple accepted
 the known missing vendor-framework dSYM warnings for Google Mobile Ads UUID
-`90EDFF16-0A30-3944-A8D1-DC4FB9D1E710` and UMP UUID
-`3C3DB97D-600E-3898-906E-3AE471432865`; the app dSYM is retained.
+`EB9A4FC5-240A-3B25-8A64-0502A26A5426` and UMP UUID
+`A7A40082-1EE7-31CA-AA1B-93BABE913CAB`; the app dSYM is retained.
 
-Focused presentation/cosmetics checks passed, but the owner explicitly skipped the
-final spacing rerun and full `Scripts/check.sh`. Real 2/3/4-device Multiplayer and
-the physical gates in `TESTING.md` remain open. Build 20 is not production.
+The clean release commit passed 69 core and 272 native tests, including the shared
+four-theme fly-outs and Pixel back-button edge tap. Build 21 contains FAST local
+prediction, sealed input frontiers, measured policy gating, reliable evidence and
+resolution recovery, the exact five-point HUD-to-board spacer, and unchanged PHP v1
+transcripts. Real 2/3/4-device and 60/120 Hz FAST acceptance remains open. Build 21
+is TestFlight beta software, not a production App Store release.
 
-### PimPoPom 1.02 (19) — beta rollback
+### PimPoPom 1.02 (20) — beta rollback
 
 | Record | Value |
 | --- | --- |
-| Archive source | `95d9cde7f1b594208461b450b9023a5cec3fabc0` |
-| App Store Connect ID | `81190b4a-a909-46c5-82b1-74055c47dc93` |
-| Archive manifest SHA-256 | `16d93d1e1931553626d86f7965524f745e6d14601903480ec419f819f89d50d2` |
-| App dSYM UUID | `7A027C4C-FFE4-33B5-9695-C7033895D8F7` |
-| dSYM SHA-256 | `0b2b51de5b5cf57b08df12ac0e321cc9809921e8b38ec074dd2a04150ae70b3d` |
-| Verification | Full `Scripts/check.sh`; 52 core and 224 native paths passed |
+| Archive source | `69fe7422719dd4953e90354a2ae3f3c976995db7` |
+| Release record | `d182ecf62d8bd360b64b97d8c1080d3389a2c239` |
+| App Store Connect ID | `a98b6bcf-1560-4c17-84cb-dffef47c0778` |
+| State | VALID; Beta Review APPROVED; retained in both QA groups |
 
-Build 19 remains assigned as rollback. Its waiting room is pet-free and therefore
-does not represent current build-20 presentation.
+Older beta records and detailed evidence remain in Git/App Store Connect history.
 
-Older beta records are retained in Git/App Store Connect history, not repeated in
-the current document.
-
-## Candidate identity record
+## Release identity record
 
 For every archive record:
 

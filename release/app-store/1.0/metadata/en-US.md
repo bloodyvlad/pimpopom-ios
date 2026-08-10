@@ -74,7 +74,7 @@ Tap your color. Find your rhythm. See how fast you can go.
 Capture these only from the final submitted build with fictional test data and no
 debug/Test-mode/private information.
 
-## TestFlight build-21 candidate copy
+## TestFlight build-21 current copy
 
 **Beta App Description**
 

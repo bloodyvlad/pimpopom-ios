@@ -10,7 +10,7 @@ must not be uploaded as build-21 or future production screenshots.
 
 ## Current-use map
 
-- `metadata/en-US.md`: current copy draft plus TestFlight build-21 candidate text.
+- `metadata/en-US.md`: current copy draft plus TestFlight build-21 text.
 - `game-center/en-US.md`: current configured vendor IDs/copy.
 - `legal/`: static Privacy/Support drafts with owner placeholders.
 - `source/`: original UI captures and ImageGen generations.
