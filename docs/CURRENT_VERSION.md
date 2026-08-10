@@ -1,8 +1,6 @@
 # Current version slice
 
-Snapshot date: 2026-08-05. This file describes the code and release state at the
-documentation cleanup baseline `d182ecf62d8bd360b64b97d8c1080d3389a2c239`.
-The cleanup changes documentation only.
+Snapshot date: 2026-08-10. This file describes the build-21 release candidate.
 
 ## Release identity
 
@@ -11,18 +9,19 @@ The cleanup changes documentation only.
 | Product | PimPoPom |
 | Platform | iPhone, iOS 17+ |
 | Language | Swift 6 with complete strict concurrency |
-| Configured version | `1.02 (20)` |
+| Configured version | `1.02 (21)` |
 | Bundle / team | `com.otcsoftware.pimpopom` / `APX2925X66` |
 | Current TestFlight archive source | `69fe7422719dd4953e90354a2ae3f3c976995db7` |
 | Release-record commit | `d182ecf62d8bd360b64b97d8c1080d3389a2c239` |
 | App Store Connect build ID | `a98b6bcf-1560-4c17-84cb-dffef47c0778` |
 | Beta state | Valid, Beta App Review approved, Internal QA and External QA testing |
+| Candidate | Build 21; TestFlight upload/processing pending |
 | Rollback | Build 19, source `95d9cde7f1b594208461b450b9023a5cec3fabc0` |
 | Production App Store | Not released |
 
-Build 20 is the current beta. It shows selected pets and square, glyph-aware
-assigned-color cells in Multiplayer waiting/live identity surfaces and improves
-Pixel-theme small text. Build 19 remains the available beta rollback.
+Build 20 remains the current beta until Apple validates build 21. Build 21 contains
+the safe FAST client milestone, shared Arcade-style hit fly-outs, the Pixel
+Multiplayer back-button fix, and an exact five-point HUD-to-board spacer.
 
 ## Runtime contracts
 
@@ -77,28 +76,18 @@ The following are not closed by that evidence:
 - complete public-release rights/trademark review for generated/migrated assets;
 - a production App Store submission and post-release smoke test.
 
-## Known Multiplayer latency gap
+## FAST candidate and remaining gaps
 
-The current live path is deterministic but visibly delayed:
+Build 21 is designed to acknowledge local contact on the next display frame, sends a small
+unreliable fast copy plus reliable evidence, orders canonical input through sealed
+per-seat frontiers, records one resolution per witnessed input, and retries pending
+evidence/resolution until cumulative acknowledgement. Mixed live-wire versions are
+rejected before play and incomplete clock measurement fails instead of hanging.
 
-- all GameKit envelopes use reliable delivery;
-- the coordinator holds inputs behind a fixed 250 ms reorder watermark;
-- the live loop advances about every 33 ms;
-- tap tone, rating, score, target removal, and life feedback wait for the canonical
-  event instead of acknowledging the local touch immediately;
-- non-coordinators add peer transit to the coordinator and the canonical return;
-- planned target time is used as presentation time even when the first rendered
-  frame is later;
-- a second tap can arrive while the old target still appears active;
-- one global target rotates across seats, so an individual sees only every second,
-  third, or fourth target.
-
-PHP final replay is not the per-tap latency source. The approved remediation is
-the versioned [FAST Multiplayer task](MULTIPLAYER_FAST_TASK.md): immediate local
-prediction, a small unreliable input lane, reliable canonical/evidence lanes,
-sealed per-seat input frontiers, bounded late-evidence recovery, explicit input
-resolutions, live-wire capability rejection, first-render timing, better coordinator
-choice, and then concurrent per-seat targets. None is shipped in build 20.
+PHP final replay and the `20260729-1`/protocol-proof-v1 tuple are unchanged. Physical
+2/3/4-device latency, loss/reconnect, settlement, audio, and haptic acceptance is
+still open. Lexical coordinator choice, planned target presentation time, and one
+global rotating target remain until separately versioned follow-up work.
 
 ## Repository scope
 

@@ -208,7 +208,7 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertEqual(MultiplayerWaitingRoomLayoutMetrics.actionHeight, 48)
     }
 
-    func testLiveLayoutUsesFivePointHUDGapAndOneHorizontalPlayerRow() {
+    func testLiveLayoutReservesFivePointsBetweenHUDAndBoard() {
         let compact = MultiplayerLiveLayoutMetrics.resolve(
             availableSize: CGSize(width: 375, height: 667),
             playerCount: 4

@@ -4,6 +4,14 @@ This file keeps only evidence relevant to the current TestFlight presentation.
 Earlier checkpoints and screenshot paths remain in Git history. Evidence here does
 not override `CURRENT_VERSION.md` or prove physical-device behavior.
 
+## Build 21 candidate — 2026-08-10
+
+- The named iPhone 17 Simulator gate passed 272/272 native tests.
+- Current Classic, Disco, Light, and Pixel captures show the straight borderless
+  `+points` / `Rating • ms` glow on the tapped target.
+- The Pixel Multiplayer back button passed a lower-right-edge tap inside its full
+  44-point hit region.
+
 ## TestFlight 1.02 (20) — 2026-07-30
 
 - Exact archive source: `69fe7422719dd4953e90354a2ae3f3c976995db7`.
@@ -26,7 +34,7 @@ processed, but the final spacing is not backed by a post-edit capture in this re
 
 ## Still required
 
-- Physical iPhone review of build 20 on compact/tall 60 Hz and ProMotion layouts.
+- Physical iPhone review of build 21 on compact/tall 60 Hz and ProMotion layouts.
 - Real 2-, 3-, and 4-player waiting/live/results states with distinct accounts.
 - Long/localized names, largest supported text, VoiceOver, bold text, Increase
   Contrast, Reduce Motion, and glyph-off review in every theme.

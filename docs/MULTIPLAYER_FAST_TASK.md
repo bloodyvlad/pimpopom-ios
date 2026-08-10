@@ -1,13 +1,13 @@
 # iOS task — FAST Multiplayer response and pacing
 
-Status: approved design, not implemented. Owner priority: make Multiplayer feel
-immediate. PHP is not edited by this iOS task.
+Status: safe client-only milestone implemented in the build-21 candidate. TestFlight
+processing and physical 2/3/4-device acceptance remain open. PHP is unchanged.
 
 ## Outcome
 
 Make a local Multiplayer tap visibly respond within one display frame while
 preserving deterministic peer reconciliation and PHP replay. Under normal network
-conditions canonical state should follow within 150 ms, not the current 250–300+
+conditions canonical state should follow within 150 ms, not build 20's 250–300+
 ms floor. Then give every active player an independent target cadence so four-player
 play does not feel four times slower.
 
@@ -31,12 +31,12 @@ audio/state/scene feedback in the same call path. Multiplayer instead:
 6. measures from planned target time rather than its later first-render frame; and
 7. rotates one global target among 2–4 seats.
 
-Expected current coordinator feedback floor is about 250–283 ms. A remote player
+Build 20's coordinator feedback floor is about 250–283 ms. A remote player
 also pays network/frame delay and reliable head-of-line blocking. PHP sees only
 lobby/start/final settlement traffic, so tap verification on PHP is not the live
 latency source.
 
-Current correctness defects amplify the feeling:
+Build-20 correctness defects amplify the feeling:
 
 - no local pending-tap latch leaves the old target visibly tappable;
 - a rapid second tap can become another miss or unresolved evidence;
@@ -85,7 +85,7 @@ Do not mutate the reducer to make prediction look authoritative.
 
 ### Transport lanes
 
-The current receiver has one monotonic per-sender packet sequence. Mixing reliable
+The build-20 receiver has one monotonic per-sender packet sequence. Mixing reliable
 and unreliable delivery under it is unsafe: unreliable `N+1` can arrive first and
 cause later reliable `N` to be discarded. Introduce explicit lanes with independent
 per-sender sequences:

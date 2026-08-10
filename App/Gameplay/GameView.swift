@@ -36,8 +36,6 @@ struct GameView: View {
     @State private var gameplayPetActivity = 0
     @State private var gameplayScreenWidth: CGFloat = 0
     @State private var didFreezePresentation = false
-    @State private var hitFeedbackPresentations: [GameplayHitPresentation] = []
-    @State private var hitFeedbackTasks: [Int: Task<Void, Never>] = [:]
     @State private var reservesAdSpacingForRun: Bool
     private let onRunFinished: (UUID) -> Void
 
@@ -137,7 +135,6 @@ struct GameView: View {
             coordinator.onSoundEvent = nil
             coordinator.onLifecycleEvent = nil
             coordinator.onBoardTap = nil
-            clearHitFeedback()
             abandonTicketIfNeeded()
             audio.setMusicContext(.menu)
         }
@@ -152,10 +149,6 @@ struct GameView: View {
             } else if !coordinator.isFinished, !coordinator.wasAbandoned {
                 audio.setMusicContext(.gameplay)
             }
-        }
-        .onChange(of: coordinator.hitFeedbackEvent) { _, event in
-            guard let event else { return }
-            showHitFeedback(event)
         }
         .onChange(of: submissionStarted) { _, isSubmitting in
             if !isSubmitting {
@@ -517,40 +510,12 @@ struct GameView: View {
                 .allowsHitTesting(false)
                 .zIndex(GameplayOverlayLayer.boardShellBorder)
 
-            ForEach(hitFeedbackPresentations) { presentation in
-                GeometryReader { proxy in
-                    ZStack {
-                        Text(presentation.scoreText)
-                            .font(
-                                palette.appFont(
-                                    size: GameplayHitFeedbackMetrics.pointsFontSize,
-                                    weight: .black,
-                                    relativeTo: .headline
-                                )
-                            )
-                            .monospacedDigit()
-                            .position(presentation.tapPosition(in: proxy.size))
-
-                        Text(presentation.ratingText)
-                            .font(
-                                palette.appFont(
-                                    size: GameplayHitFeedbackMetrics.ratingFontSize,
-                                    weight: .bold,
-                                    relativeTo: .subheadline
-                                )
-                            )
-                            .monospacedDigit()
-                            .position(presentation.ratingPosition(in: proxy.size))
-                    }
-                    .foregroundStyle(presentation.tone)
-                    .shadow(color: presentation.tone.opacity(0.98), radius: 5)
-                    .shadow(color: presentation.tone.opacity(0.64), radius: 11)
-                    .opacity(presentation.opacity)
-                }
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-                .zIndex(GameplayOverlayLayer.tapFeedback)
-            }
+            GameplayHitFeedbackLayer(
+                event: coordinator.hitFeedbackEvent,
+                theme: palette
+            )
+            .allowsHitTesting(false)
+            .zIndex(GameplayOverlayLayer.tapFeedback)
 
             if let announcement {
                 GameplayCenterAnnouncementView(
@@ -870,7 +835,6 @@ struct GameView: View {
 
     private func prepareAndStart() async {
         coordinator.stop()
-        clearHitFeedback()
         preparationGeneration += 1
         let preparation = preparationGeneration
         preparing = true
@@ -1054,52 +1018,6 @@ struct GameView: View {
                 gameplayPetActivity += 1
             }
         #endif
-    }
-
-    private func showHitFeedback(_ event: GameplayHitFeedbackEvent) {
-        if hitFeedbackPresentations.count >= 8,
-            let oldest = hitFeedbackPresentations.first
-        {
-            hitFeedbackTasks.removeValue(forKey: oldest.id)?.cancel()
-            hitFeedbackPresentations.removeFirst()
-        }
-
-        hitFeedbackPresentations.append(
-            GameplayHitPresentation(
-                event: event,
-                phase: .visible
-            )
-        )
-        let task = Task { @MainActor in
-            // Keep both local to the tap, then fade them together. The 680 ms
-            // hold plus 300 ms fade keeps their complete lifetime under one second.
-            try? await Task.sleep(for: GameplayHitFeedbackMetrics.visibleHoldDuration)
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: GameplayHitFeedbackMetrics.fadeDurationSeconds)) {
-                updateHitFeedback(id: event.id, phase: .hidden)
-            }
-            try? await Task.sleep(for: GameplayHitFeedbackMetrics.fadeDuration)
-            guard !Task.isCancelled else { return }
-            hitFeedbackPresentations.removeAll { $0.id == event.id }
-            hitFeedbackTasks.removeValue(forKey: event.id)
-        }
-        hitFeedbackTasks[event.id] = task
-    }
-
-    private func updateHitFeedback(
-        id: Int,
-        phase: GameplayHitAnimationPhase
-    ) {
-        guard let index = hitFeedbackPresentations.firstIndex(where: { $0.id == id }) else {
-            return
-        }
-        hitFeedbackPresentations[index].phase = phase
-    }
-
-    private func clearHitFeedback() {
-        for task in hitFeedbackTasks.values { task.cancel() }
-        hitFeedbackTasks.removeAll(keepingCapacity: true)
-        hitFeedbackPresentations.removeAll(keepingCapacity: true)
     }
 
     private func freezePresentationIfNeeded() {
@@ -1344,6 +1262,105 @@ struct GameplayHitPresentation: Equatable, Identifiable {
             x: tap.x,
             y: tap.y + GameplayHitFeedbackMetrics.ratingVerticalOffset
         )
+    }
+}
+
+struct GameplayHitFeedbackLayer: View {
+    let event: GameplayHitFeedbackEvent?
+    let theme: ThemePalette
+    var retainsFeedback: Bool = false
+
+    @State private var presentations: [GameplayHitPresentation] = []
+    @State private var removalTasks: [Int: Task<Void, Never>] = [:]
+
+    var body: some View {
+        ZStack {
+            ForEach(presentations) { presentation in
+                GeometryReader { proxy in
+                    ZStack {
+                        Text(presentation.scoreText)
+                            .font(
+                                theme.appFont(
+                                    size: GameplayHitFeedbackMetrics.pointsFontSize,
+                                    weight: .black,
+                                    relativeTo: .headline
+                                )
+                            )
+                            .monospacedDigit()
+                            .position(presentation.tapPosition(in: proxy.size))
+                            .accessibilityIdentifier("gameplay-hit-points-\(presentation.id)")
+
+                        Text(presentation.ratingText)
+                            .font(
+                                theme.appFont(
+                                    size: GameplayHitFeedbackMetrics.ratingFontSize,
+                                    weight: .bold,
+                                    relativeTo: .subheadline
+                                )
+                            )
+                            .monospacedDigit()
+                            .position(presentation.ratingPosition(in: proxy.size))
+                            .accessibilityIdentifier("gameplay-hit-rating-\(presentation.id)")
+                    }
+                    .foregroundStyle(presentation.tone)
+                    .shadow(color: presentation.tone.opacity(0.98), radius: 5)
+                    .shadow(color: presentation.tone.opacity(0.64), radius: 11)
+                    .opacity(presentation.opacity)
+                }
+                .accessibilityHidden(hidesFeedbackFromAccessibility)
+            }
+        }
+        .onAppear {
+            if let event { show(event) }
+        }
+        .onChange(of: event) { _, event in
+            if let event {
+                show(event)
+            } else {
+                clear()
+            }
+        }
+        .onDisappear(perform: clear)
+    }
+
+    private var hidesFeedbackFromAccessibility: Bool {
+        #if DEBUG
+            !ProcessInfo.processInfo.arguments.contains("--uitesting")
+        #else
+            true
+        #endif
+    }
+
+    private func show(_ event: GameplayHitFeedbackEvent) {
+        guard !presentations.contains(where: { $0.id == event.id }) else { return }
+        if presentations.count >= 8, let oldest = presentations.first {
+            removalTasks.removeValue(forKey: oldest.id)?.cancel()
+            presentations.removeFirst()
+        }
+        presentations.append(GameplayHitPresentation(event: event, phase: .visible))
+        guard !retainsFeedback else { return }
+        removalTasks[event.id] = Task { @MainActor in
+            try? await Task.sleep(for: GameplayHitFeedbackMetrics.visibleHoldDuration)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: GameplayHitFeedbackMetrics.fadeDurationSeconds)) {
+                update(id: event.id, phase: .hidden)
+            }
+            try? await Task.sleep(for: GameplayHitFeedbackMetrics.fadeDuration)
+            guard !Task.isCancelled else { return }
+            presentations.removeAll { $0.id == event.id }
+            removalTasks.removeValue(forKey: event.id)
+        }
+    }
+
+    private func update(id: Int, phase: GameplayHitAnimationPhase) {
+        guard let index = presentations.firstIndex(where: { $0.id == id }) else { return }
+        presentations[index].phase = phase
+    }
+
+    private func clear() {
+        for task in removalTasks.values { task.cancel() }
+        removalTasks.removeAll(keepingCapacity: true)
+        presentations.removeAll(keepingCapacity: true)
     }
 }
 

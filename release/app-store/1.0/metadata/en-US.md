@@ -74,30 +74,23 @@ Tap your color. Find your rhythm. See how fast you can go.
 Capture these only from the final submitted build with fictional test data and no
 debug/Test-mode/private information.
 
-## TestFlight build 20 copy
+## TestFlight build-21 candidate copy
 
 **Beta App Description**
 
 PimPoPom is a reaction game with Arcade, Zen, and a 2–4-player Multiplayer beta.
-This build makes Multiplayer players easier to recognize and improves Pixel-theme
-readability throughout the waiting and selection flow.
+Build 21 adds immediate local Multiplayer tap acknowledgement with deterministic
+reconciliation, reliable evidence recovery, and a fully tappable Pixel back button.
 
 **What to Test**
 
-Multiplayer!!!
-
 Using two to four distinct Game Center and PimPoPom accounts, create or join the
-same lobby. Confirm every waiting row shows the selected pet facing half-right, a
-readable public name/readiness state, and a square assigned-color cell. Toggle
-Glyphs and verify those cells update.
-
-Start a match and verify the horizontal badges below the Speed Bar retain pet,
-assigned-color outline/glow, score, name, multiplier, and leader crown in Classic,
-Disco, Light, and Pixel. Check Pixel supporting copy, theme-styled waiting-room back
-control, and Leaderboard habitat alignment for Foka/Kesha. Finish with creator and
-joined-player winners; verify terminal Results and eligible Multiplayer rows. Report
-roster/settlement stalls, clipped text, incorrect pets/colors/glyphs, purchase
-errors, or ads shown to ad-free accounts.
+same lobby. Rapidly tap valid, wrong, and late cells and verify every contact responds
+immediately while canonical score/life changes happen exactly once. Confirm the
+points-and-speed fly-out matches Arcade in all themes, reconnect does not leave a
+pending input or settlement overlay, and all devices finish with the same Results.
+Mixed build-20/build-21 rooms must stop with Update Required before Ready/start.
+In Pixel, tap the full 44-point back-button face, including its lower-right edge.
 
 **Beta Review Notes**
 

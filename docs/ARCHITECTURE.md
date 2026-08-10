@@ -61,11 +61,10 @@ Arcade and Zen use one monotonic uptime domain:
 `CADisplayLink`/SpriteKit presentation and `UITouch.timestamp` are practical
 proxies, not photon-to-contact measurement. Validate both 60 Hz and 120 Hz devices.
 
-Multiplayer v1 currently differs. The coordinator schedules future plans, advances
-on an approximately 33 ms tick, queues input behind a fixed 250 ms watermark, and
-feeds presentation only after canonical events. All GameKit envelopes currently use
-reliable delivery. That architecture explains its visible delay and is the explicit
-change target in [MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md).
+Build 21 retains Multiplayer transcript v1 but splits GameKit live traffic into a
+small unreliable input lane and reliable evidence/canonical lanes. Local contact is
+predicted for presentation only; sealed per-seat frontiers and explicit resolutions
+produce the single canonical stream. Pending reliable evidence is retried until ACK.
 
 ## Platform services
 

@@ -5,6 +5,15 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 ## Current beta and rollback
 
+### PimPoPom 1.02 (21) — release candidate
+
+Configured build 21 contains the safe FAST Multiplayer client milestone, shared
+Arcade-style Multiplayer fly-outs, the Pixel back-button fix, and the exact
+five-point HUD-to-board spacer. The clean pre-archive gate passed with 69 core and
+272 native tests. Its source SHA, archive hashes, symbols, and App Store Connect
+state are recorded only after archive/upload completes. Physical 2/3/4-device
+acceptance remains open.
+
 ### PimPoPom 1.02 (20) — current TestFlight
 
 | Record | Value |
@@ -77,8 +86,9 @@ For every archive record:
    and credentials.
 5. Confirm public Privacy/Support/account-deletion/Terms URLs, seller/rights, export,
    age, privacy, IAP, Game Center, ads/UMP, and reviewer metadata.
-6. Complete the named physical matrix. Multiplayer needs real 2/3/4-device matches;
-   FAST changes need the latency/loss/reorder acceptance plan.
+6. A TestFlight QA candidate may upload with physical gates explicitly open. Complete
+   real 2/3/4-device and latency/loss/reorder acceptance before FAST acceptance or
+   production submission.
 
 ### Configuration gates
 

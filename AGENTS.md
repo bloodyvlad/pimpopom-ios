@@ -71,8 +71,8 @@ the reaction path.
 - Zen is local, unranked, unrewarded, and ephemeral.
 - Multiplayer v1 is 2–4-player, own-color, GameKit live traffic with PHP replay,
   no coins/achievements, and peer-consistent rather than server-authoritative.
-- The shipped 250 ms Multiplayer reorder path remains current until the versioned
-  FAST task is implemented and verified; do not silently change its proof contract.
+- Build 21 uses capability-gated FAST GameKit lanes and sealed input frontiers while
+  retaining the exact Multiplayer v1 PHP transcript/proof contract.
 - The server owns identity, names, ranked attempts, proof replay, score, coins,
   achievements, catalogs, cosmetics, moderation, and account ledger state.
 - StoreKit proves purchase/refund state; value appears only after verified server

@@ -6,6 +6,15 @@ physical-device evidence.
 
 ## Current release evidence
 
+### Build 21 candidate
+
+- `Scripts/check.sh` passed on 2026-08-10: 69 pure-core tests and 272 native tests
+  passed on the named iPhone 17 Simulator, including FAST policy/transport/terminal,
+  four-theme shared fly-outs, and the Pixel lower-right back-button tap.
+- Archive validation and TestFlight processing must be recorded before beta
+  promotion. Physical 2/3/4-device acceptance remains required for FAST acceptance
+  or production submission.
+
 ### TestFlight 1.02 (20)
 
 - Archive source: `69fe7422719dd4953e90354a2ae3f3c976995db7`.
@@ -40,7 +49,8 @@ git diff --check
 
 The check regenerates the project, enforces Swift format, validates assets/hashes,
 privacy and ad configuration, builds the generic Simulator target, checks Staging
-version/configuration, runs pure core tests, and runs native unit/UI automation.
+version/configuration, runs pure core tests, the native unit suite, and the focused
+four-theme Multiplayer/Pixel back-button UI regressions.
 Behavior changes require focused tests before the full gate.
 
 ## Test layers
@@ -51,8 +61,8 @@ Behavior changes require focused tests before the full gate.
   multiplier, proof, and terminal boundaries.
 - Exact Arcade v3 color-bearing proof tuples and monotonic timestamps.
 - Multiplayer manifest/tuple validation, reducer replay, lives/recovery, target and
-  dodge rotation, score/streak, placement, snapshot, coordinator planning, and the
-  current 250 ms reorder rule.
+  dodge rotation, score/streak, placement, snapshot, coordinator planning, sealed
+  input frontiers, live resolutions, and terminal drain.
 - Seeded/property fixtures only; production randomness is not implied deterministic.
 
 ### Gameplay and presentation
@@ -107,8 +117,8 @@ Sandbox/TestFlight for value integration:
 
 The full deterministic packet, prediction, evidence, disposition, reorder, host,
 latency, and 2/3/4-seat network matrix is defined in
-[MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md). Before that implementation is
-released, require:
+[MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md). Before build 21 is accepted,
+require:
 
 - local acknowledgement p95 at or below 33 ms on 60/120 Hz hardware;
 - normal-network canonical application p95 at or below 150 ms;

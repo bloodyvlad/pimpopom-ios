@@ -186,15 +186,90 @@ func multiplayerFastMonotonicSeals() throws {
         MultiplayerInputSeal(seat: 0, throughInputAt: 150, highestInputSequence: 0)
     )
     #expect(frontier.publishWatermark == 100)
-    #expect(throws: MultiplayerFastPolicyError.regressingSeal) {
-        try frontier.recordSeal(
-            MultiplayerInputSeal(seat: 1, throughInputAt: 99, highestInputSequence: 0)
-        )
-    }
     try frontier.recordSeal(
-        MultiplayerInputSeal(seat: 1, throughInputAt: 150, highestInputSequence: 0)
+        MultiplayerInputSeal(seat: 1, throughInputAt: 99, highestInputSequence: 0)
+    )
+    #expect(frontier.publishWatermark == 100)
+    _ = try frontier.recordInput(
+        MultiplayerSealedInput(
+            id: MultiplayerInputID(seat: 1, inputSequence: 1),
+            cell: 4,
+            inputAt: 125
+        )
+    )
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 150, highestInputSequence: 1)
     )
     #expect(frontier.publishWatermark == 150)
+    #expect(throws: MultiplayerFastPolicyError.regressingSeal) {
+        try frontier.recordSeal(
+            MultiplayerInputSeal(seat: 1, throughInputAt: 200, highestInputSequence: 0)
+        )
+    }
+}
+
+@Test("A dominated seal may arrive after its newer cumulative checkpoint")
+func multiplayerFastReorderedDominatedSeal() throws {
+    var frontier = try MultiplayerInputFrontier(seats: [0, 1])
+    _ = try frontier.recordInput(
+        MultiplayerSealedInput(
+            id: MultiplayerInputID(seat: 1, inputSequence: 1),
+            cell: 4,
+            inputAt: 80
+        )
+    )
+    _ = try frontier.recordInput(
+        MultiplayerSealedInput(
+            id: MultiplayerInputID(seat: 1, inputSequence: 2),
+            cell: 5,
+            inputAt: 150
+        )
+    )
+    let newer = MultiplayerInputSeal(
+        seat: 1,
+        throughInputAt: 200,
+        highestInputSequence: 2
+    )
+    try frontier.recordSeal(newer)
+
+    try frontier.recordSeal(
+        MultiplayerInputSeal(
+            seat: 1,
+            throughInputAt: 100,
+            highestInputSequence: 1
+        )
+    )
+
+    #expect(frontier.effectiveSeal(for: 1) == newer)
+}
+
+@Test("A reordered older seal still constrains evidence missing from a newer seal")
+func multiplayerFastReorderedPendingSealBoundary() throws {
+    var frontier = try MultiplayerInputFrontier(seats: [0, 1])
+    try frontier.recordSeal(
+        MultiplayerInputSeal(
+            seat: 1,
+            throughInputAt: 200,
+            highestInputSequence: 2
+        )
+    )
+    try frontier.recordSeal(
+        MultiplayerInputSeal(
+            seat: 1,
+            throughInputAt: 100,
+            highestInputSequence: 1
+        )
+    )
+
+    #expect(throws: MultiplayerFastPolicyError.inputOutsideDeclaredSeal) {
+        try frontier.recordInput(
+            MultiplayerSealedInput(
+                id: MultiplayerInputID(seat: 1, inputSequence: 1),
+                cell: 4,
+                inputAt: 150
+            )
+        )
+    }
 }
 
 @Test("A seat leaves the minimum frontier only after canonical elimination")
@@ -209,6 +284,31 @@ func multiplayerFastCanonicalSeatRemoval() throws {
     #expect(frontier.publishWatermark == 100)
     try frontier.removeSeatAfterPlayerOut(1)
     #expect(frontier.publishWatermark == 200)
+}
+
+@Test("Late evidence from an eliminated seat is retained without reopening the frontier")
+func multiplayerFastInactiveSeatEvidence() throws {
+    var frontier = try MultiplayerInputFrontier(seats: [0, 1])
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 0, throughInputAt: 200, highestInputSequence: 0)
+    )
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 100, highestInputSequence: 0)
+    )
+    try frontier.removeSeatAfterPlayerOut(1)
+
+    let late = MultiplayerSealedInput(
+        id: MultiplayerInputID(seat: 1, inputSequence: 1),
+        cell: 4,
+        inputAt: 150
+    )
+    #expect(try frontier.recordInput(late) == .inserted)
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 200, highestInputSequence: 1)
+    )
+
+    #expect(frontier.publishWatermark == 200)
+    #expect(frontier.takeReadyInputs().isEmpty)
 }
 
 @Test("Network policy freezes the clean, normal, and edge budgets")
@@ -258,6 +358,143 @@ func multiplayerFastUnsupportedNetwork() {
                     reorderPercent: 1
                 )
             ]
+        )
+    }
+}
+
+@Test("Network policy proposal includes measured loss and reordering")
+func multiplayerFastNetworkPolicyIncludesMeasuredLossAndReorder() throws {
+    var supported = try MultiplayerNetworkPolicyConsensus(
+        seats: [0, 1],
+        coordinatorSeat: 0
+    )
+    try supported.recordMeasurement(
+        MultiplayerSeatNetworkMeasurement(
+            seat: 1,
+            attemptedSampleCount: 100,
+            completedSampleCount: 97,
+            reorderedSampleCount: 2,
+            p95RoundTripMilliseconds: 60,
+            p95RoundTripVariationMilliseconds: 15
+        ),
+        from: 1
+    )
+    #expect(
+        supported.proposal?.policy
+            == MultiplayerFrozenNetworkPolicy(
+                frontierStalenessMilliseconds: 62,
+                evidenceRecoveryMilliseconds: 150
+            )
+    )
+
+    var unsupported = try MultiplayerNetworkPolicyConsensus(
+        seats: [0, 1],
+        coordinatorSeat: 0
+    )
+    #expect(throws: MultiplayerFastPolicyError.unsupportedNetwork) {
+        try unsupported.recordMeasurement(
+            MultiplayerSeatNetworkMeasurement(
+                seat: 1,
+                attemptedSampleCount: 100,
+                completedSampleCount: 96,
+                reorderedSampleCount: 1,
+                p95RoundTripMilliseconds: 60,
+                p95RoundTripVariationMilliseconds: 15
+            ),
+            from: 1
+        )
+    }
+}
+
+@Test("Network policy freezes only after every seat votes for measured worst-peer data")
+func multiplayerFastNetworkPolicyConsensus() throws {
+    let measurements = [
+        MultiplayerSeatNetworkMeasurement(
+            seat: 1,
+            attemptedSampleCount: 4,
+            completedSampleCount: 4,
+            reorderedSampleCount: 0,
+            p95RoundTripMilliseconds: 10,
+            p95RoundTripVariationMilliseconds: 2
+        ),
+        MultiplayerSeatNetworkMeasurement(
+            seat: 2,
+            attemptedSampleCount: 5,
+            completedSampleCount: 5,
+            reorderedSampleCount: 0,
+            p95RoundTripMilliseconds: 60,
+            p95RoundTripVariationMilliseconds: 15
+        ),
+        MultiplayerSeatNetworkMeasurement(
+            seat: 3,
+            attemptedSampleCount: 4,
+            completedSampleCount: 4,
+            reorderedSampleCount: 0,
+            p95RoundTripMilliseconds: 40,
+            p95RoundTripVariationMilliseconds: 8
+        ),
+    ]
+    let proposal = MultiplayerNetworkPolicyProposal(
+        measurements: measurements,
+        policy: MultiplayerFrozenNetworkPolicy(
+            frontierStalenessMilliseconds: 62,
+            evidenceRecoveryMilliseconds: 150
+        )
+    )
+    var consensus = try MultiplayerNetworkPolicyConsensus(
+        seats: [0, 1, 2, 3],
+        coordinatorSeat: 0
+    )
+
+    try consensus.recordVote(
+        MultiplayerNetworkPolicyVote(seat: 3, proposal: proposal),
+        from: 3
+    )
+    try consensus.recordMeasurement(measurements[2], from: 3)
+    try consensus.recordMeasurement(measurements[0], from: 1)
+    try consensus.recordMeasurement(measurements[1], from: 2)
+    #expect(consensus.proposal == proposal)
+    #expect(consensus.frozenProposal == nil)
+
+    for seat in [0, 1, 2] {
+        try consensus.recordVote(
+            MultiplayerNetworkPolicyVote(seat: seat, proposal: proposal),
+            from: seat
+        )
+    }
+    #expect(consensus.frozenProposal == proposal)
+}
+
+@Test("Network policy rejects insufficient, conflicting, and unsupported measurements")
+func multiplayerFastNetworkPolicyRejectsBadEvidence() throws {
+    var consensus = try MultiplayerNetworkPolicyConsensus(
+        seats: [0, 1],
+        coordinatorSeat: 0
+    )
+    #expect(throws: MultiplayerFastPolicyError.invalidNetworkMeasurement) {
+        try consensus.recordMeasurement(
+            MultiplayerSeatNetworkMeasurement(
+                seat: 1,
+                attemptedSampleCount: 4,
+                completedSampleCount: 3,
+                reorderedSampleCount: 0,
+                p95RoundTripMilliseconds: 60,
+                p95RoundTripVariationMilliseconds: 15
+            ),
+            from: 1
+        )
+    }
+    #expect(throws: MultiplayerFastPolicyError.unsupportedNetwork) {
+        try consensus.recordMeasurement(
+            MultiplayerSeatNetworkMeasurement(
+                seat: 1,
+                attemptedSampleCount: 4,
+                completedSampleCount: 4,
+                reorderedSampleCount: 0,
+                p95RoundTripMilliseconds: 120,
+                p95RoundTripVariationMilliseconds: 30
+            ),
+            from: 1
         )
     }
 }

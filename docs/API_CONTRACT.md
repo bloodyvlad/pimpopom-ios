@@ -1,6 +1,7 @@
 # Current native API contract
 
-This file describes only the deployed compatibility surface used by iOS build 20.
+This file describes the deployed build-20 backend surface retained unchanged by
+the iOS build-21 candidate.
 Server implementation and deployment remain owned by the separate PHP repository.
 
 ## Transport and session
@@ -205,23 +206,22 @@ contain seats and integers, never names, pets, profile UUIDs, or Game Center IDs
 
 PHP is not a live relay. One versioned `GKMatch` envelope carries roster, clock,
 future plan/cancel, input, canonical event batch, acknowledgement, snapshot,
-pause/resume, start, and finish packets. Build 20 sends every envelope with
-`GKMatch.SendDataMode.reliable`.
+pause/resume, start, and finish packets. Build 21 capability-gates its new live wire
+before play, uses an unreliable fast-input lane, and keeps evidence, canonical,
+control, snapshot, and terminal traffic reliable.
 
 The fixed sender map is frozen after roster confirmation. Inputs are broadcast to
-all peers and witnessed against sender/seat before an input-derived tuple is
-accepted. The coordinator converts touch time, sorts `(inputAt, seat, inputSequence)`,
-and commits only through `coordinatorNow - 250 ms`. `handledAt` is delay evidence;
-it cannot move canonical logical time beyond the watermark.
+all peers and witnessed against sender/seat. Build 21 publishes only through the
+minimum complete sealed per-seat frontier and sends an explicit live-only resolution
+for each witnessed input. Prediction and resolutions never enter the PHP transcript.
 
 Peers acknowledge contiguous canonical sequences and request snapshots after gaps.
 Snapshots carry reducer state, pending plans, and the shared clock anchor. Historical
 catch-up is silent. A bounded disconnect pauses logical time; v1 does not migrate
 coordinator authority. Unrecoverable stream or evidence cancels/withholds.
 
-This reliable, 250 ms path is the current contract and latency source. The approved
-FAST design must use new per-lane sequencing and explicitly version any changed
-evidence/tuple meaning; it cannot reinterpret v1 in place.
+Build 20's reliable 250 ms path is legacy live behavior. Build 21 changes only the
+capability-gated GameKit wire; transcript tuples and backend proof semantics remain v1.
 
 ## Exact Multiplayer transcript
 

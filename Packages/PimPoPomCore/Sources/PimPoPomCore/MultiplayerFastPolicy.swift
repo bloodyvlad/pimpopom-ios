@@ -50,6 +50,10 @@ public enum MultiplayerFastPolicyError: Error, Equatable, Sendable {
     case inputOutsideDeclaredSeal
     case inputAtOrBeforeEffectiveSeal
     case unsupportedNetwork
+    case invalidNetworkMeasurement
+    case conflictingNetworkMeasurement(Int)
+    case invalidNetworkVote
+    case conflictingNetworkVote(Int)
 }
 
 public struct MultiplayerInputFrontier: Sendable {
@@ -114,7 +118,7 @@ public struct MultiplayerInputFrontier: Sendable {
     public mutating func recordInput(
         _ input: MultiplayerSealedInput
     ) throws -> MultiplayerInputRecordResult {
-        guard var state = states[input.id.seat], state.isActive else {
+        guard var state = states[input.id.seat] else {
             throw MultiplayerFastPolicyError.unknownSeat(input.id.seat)
         }
         guard input.id.inputSequence > 0,
@@ -165,7 +169,7 @@ public struct MultiplayerInputFrontier: Sendable {
     }
 
     public mutating func recordSeal(_ seal: MultiplayerInputSeal) throws {
-        guard var state = states[seal.seat], state.isActive else {
+        guard var state = states[seal.seat] else {
             throw MultiplayerFastPolicyError.unknownSeat(seal.seat)
         }
         guard seal.throughInputAt >= 0,
@@ -175,47 +179,41 @@ public struct MultiplayerInputFrontier: Sendable {
         else {
             throw MultiplayerFastPolicyError.invalidSeal
         }
-        if let previous = state.lastDeclaredSeal {
-            if seal == previous { return }
-            guard seal.throughInputAt >= previous.throughInputAt,
-                seal.highestInputSequence >= previous.highestInputSequence
-            else {
-                throw MultiplayerFastPolicyError.regressingSeal
-            }
+        let declaredSeals = [state.effectiveSeal].compactMap { $0 } + state.pendingSeals
+        if declaredSeals.contains(seal) { return }
+        guard
+            declaredSeals.allSatisfy({ existing in
+                Self.dominates(seal, existing) || Self.dominates(existing, seal)
+            })
+        else {
+            throw MultiplayerFastPolicyError.regressingSeal
         }
-        if let effective = state.effectiveSeal {
-            guard seal.throughInputAt >= effective.throughInputAt,
-                seal.highestInputSequence >= effective.highestInputSequence
-            else {
-                throw MultiplayerFastPolicyError.regressingSeal
-            }
-        }
-
-        let previousBoundary = state.lastDeclaredSeal ?? state.effectiveSeal
-        if let previousBoundary,
-            seal.highestInputSequence > previousBoundary.highestInputSequence
-        {
-            for sequence
-                in (previousBoundary.highestInputSequence + 1)...seal
-                .highestInputSequence
+        for (sequence, input) in state.inputs {
+            if sequence <= seal.highestInputSequence,
+                input.inputAt > seal.throughInputAt
             {
-                if let input = state.inputs[sequence],
-                    input.inputAt <= previousBoundary.throughInputAt
-                {
-                    throw MultiplayerFastPolicyError.inputAtOrBeforeEffectiveSeal
-                }
+                throw MultiplayerFastPolicyError.inputOutsideDeclaredSeal
+            }
+            if sequence > seal.highestInputSequence,
+                input.inputAt <= seal.throughInputAt
+            {
+                throw MultiplayerFastPolicyError.inputAtOrBeforeEffectiveSeal
             }
         }
-        if seal.highestInputSequence > 0 {
-            for sequence in 1...seal.highestInputSequence {
-                if let input = state.inputs[sequence], input.inputAt > seal.throughInputAt {
-                    throw MultiplayerFastPolicyError.inputOutsideDeclaredSeal
-                }
-            }
+        if let effective = state.effectiveSeal,
+            Self.dominates(effective, seal)
+        {
+            return
         }
 
-        state.lastDeclaredSeal = seal
         state.pendingSeals.append(seal)
+        state.pendingSeals.sort {
+            if $0.throughInputAt != $1.throughInputAt {
+                return $0.throughInputAt < $1.throughInputAt
+            }
+            return $0.highestInputSequence < $1.highestInputSequence
+        }
+        state.lastDeclaredSeal = state.pendingSeals.last ?? state.effectiveSeal
         try Self.advanceEffectiveSeal(&state)
         states[seal.seat] = state
     }
@@ -224,7 +222,7 @@ public struct MultiplayerInputFrontier: Sendable {
         guard let watermark = publishWatermark else { return [] }
         var ready: [MultiplayerSealedInput] = []
         for seat in states.keys.sorted() {
-            guard var state = states[seat] else { continue }
+            guard var state = states[seat], state.isActive else { continue }
             let newInputs = state.inputs.values.filter {
                 $0.inputAt <= watermark
                     && !state.processedSequences.contains($0.id.inputSequence)
@@ -275,6 +273,14 @@ public struct MultiplayerInputFrontier: Sendable {
             state.pendingSeals.removeFirst()
         }
     }
+
+    private static func dominates(
+        _ lhs: MultiplayerInputSeal,
+        _ rhs: MultiplayerInputSeal
+    ) -> Bool {
+        lhs.throughInputAt >= rhs.throughInputAt
+            && lhs.highestInputSequence >= rhs.highestInputSequence
+    }
 }
 
 public struct MultiplayerNetworkQuality: Codable, Equatable, Sendable {
@@ -293,6 +299,73 @@ public struct MultiplayerNetworkQuality: Codable, Equatable, Sendable {
         self.p95JitterMilliseconds = p95JitterMilliseconds
         self.lossPercent = lossPercent
         self.reorderPercent = reorderPercent
+    }
+}
+
+public struct MultiplayerSeatNetworkMeasurement: Codable, Equatable, Sendable {
+    public let seat: Int
+    public let attemptedSampleCount: Int
+    public let completedSampleCount: Int
+    public let reorderedSampleCount: Int
+    public let p95RoundTripMilliseconds: Int
+    public let p95RoundTripVariationMilliseconds: Int
+
+    public var lossPercent: Int {
+        Self.roundedUpPercent(
+            numerator: attemptedSampleCount - completedSampleCount,
+            denominator: attemptedSampleCount
+        )
+    }
+
+    public var reorderPercent: Int {
+        Self.roundedUpPercent(
+            numerator: reorderedSampleCount,
+            denominator: completedSampleCount
+        )
+    }
+
+    public init(
+        seat: Int,
+        attemptedSampleCount: Int,
+        completedSampleCount: Int,
+        reorderedSampleCount: Int,
+        p95RoundTripMilliseconds: Int,
+        p95RoundTripVariationMilliseconds: Int
+    ) {
+        self.seat = seat
+        self.attemptedSampleCount = attemptedSampleCount
+        self.completedSampleCount = completedSampleCount
+        self.reorderedSampleCount = reorderedSampleCount
+        self.p95RoundTripMilliseconds = p95RoundTripMilliseconds
+        self.p95RoundTripVariationMilliseconds = p95RoundTripVariationMilliseconds
+    }
+
+    private static func roundedUpPercent(numerator: Int, denominator: Int) -> Int {
+        guard numerator > 0, denominator > 0 else { return 0 }
+        return (numerator * 100 + denominator - 1) / denominator
+    }
+}
+
+public struct MultiplayerNetworkPolicyProposal: Codable, Equatable, Sendable {
+    public let measurements: [MultiplayerSeatNetworkMeasurement]
+    public let policy: MultiplayerFrozenNetworkPolicy
+
+    public init(
+        measurements: [MultiplayerSeatNetworkMeasurement],
+        policy: MultiplayerFrozenNetworkPolicy
+    ) {
+        self.measurements = measurements.sorted { $0.seat < $1.seat }
+        self.policy = policy
+    }
+}
+
+public struct MultiplayerNetworkPolicyVote: Codable, Equatable, Sendable {
+    public let seat: Int
+    public let proposal: MultiplayerNetworkPolicyProposal
+
+    public init(seat: Int, proposal: MultiplayerNetworkPolicyProposal) {
+        self.seat = seat
+        self.proposal = proposal
     }
 }
 
@@ -338,6 +411,128 @@ public struct MultiplayerFrozenNetworkPolicy: Codable, Equatable, Sendable {
             frontierStalenessMilliseconds: min(100, max(40, rawStaleness)),
             evidenceRecoveryMilliseconds: min(250, max(120, rawRecovery))
         )
+    }
+}
+
+public struct MultiplayerNetworkPolicyConsensus: Sendable {
+    private let seats: Set<Int>
+    private let coordinatorSeat: Int
+    private var measurements: [Int: MultiplayerSeatNetworkMeasurement] = [:]
+    private var votes: [Int: MultiplayerNetworkPolicyVote] = [:]
+
+    public init(seats: [Int], coordinatorSeat: Int) throws {
+        let uniqueSeats = Set(seats)
+        guard
+            (MultiplayerProtocolConstants
+                .minimumPlayers...MultiplayerProtocolConstants
+                .maximumPlayers).contains(seats.count),
+            uniqueSeats.count == seats.count,
+            uniqueSeats == Set(0..<seats.count),
+            uniqueSeats.contains(coordinatorSeat)
+        else {
+            throw MultiplayerFastPolicyError.invalidSeats
+        }
+        self.seats = uniqueSeats
+        self.coordinatorSeat = coordinatorSeat
+    }
+
+    public var proposal: MultiplayerNetworkPolicyProposal? {
+        try? makeProposal(measurements)
+    }
+
+    public var frozenProposal: MultiplayerNetworkPolicyProposal? {
+        guard let proposal,
+            Set(votes.keys) == seats,
+            votes.values.allSatisfy({ $0.proposal == proposal })
+        else { return nil }
+        return proposal
+    }
+
+    public mutating func recordMeasurement(
+        _ measurement: MultiplayerSeatNetworkMeasurement,
+        from seat: Int
+    ) throws {
+        guard seat == measurement.seat,
+            seats.contains(seat),
+            seat != coordinatorSeat,
+            measurement.attemptedSampleCount >= 4,
+            measurement.completedSampleCount >= 4,
+            measurement.completedSampleCount <= measurement.attemptedSampleCount,
+            measurement.reorderedSampleCount >= 0,
+            measurement.reorderedSampleCount <= measurement.completedSampleCount,
+            measurement.p95RoundTripMilliseconds >= 0,
+            measurement.p95RoundTripVariationMilliseconds >= 0
+        else {
+            throw MultiplayerFastPolicyError.invalidNetworkMeasurement
+        }
+        if let existing = measurements[seat] {
+            guard existing == measurement else {
+                throw MultiplayerFastPolicyError.conflictingNetworkMeasurement(seat)
+            }
+            return
+        }
+        var candidate = measurements
+        candidate[seat] = measurement
+        if Set(candidate.keys) == seats.subtracting([coordinatorSeat]) {
+            _ = try makeProposal(candidate)
+        }
+        measurements = candidate
+        try validateVotesAgainstProposalIfComplete()
+    }
+
+    public mutating func recordVote(
+        _ vote: MultiplayerNetworkPolicyVote,
+        from seat: Int
+    ) throws {
+        guard seat == vote.seat, seats.contains(seat) else {
+            throw MultiplayerFastPolicyError.invalidNetworkVote
+        }
+        if let existing = votes[seat] {
+            guard existing == vote else {
+                throw MultiplayerFastPolicyError.conflictingNetworkVote(seat)
+            }
+            return
+        }
+        votes[seat] = vote
+        do {
+            try validateVotesAgainstProposalIfComplete()
+        } catch {
+            votes.removeValue(forKey: seat)
+            throw error
+        }
+    }
+
+    private func makeProposal(
+        _ measurements: [Int: MultiplayerSeatNetworkMeasurement]
+    ) throws -> MultiplayerNetworkPolicyProposal {
+        let expectedSeats = seats.subtracting([coordinatorSeat])
+        guard Set(measurements.keys) == expectedSeats else {
+            throw MultiplayerFastPolicyError.invalidNetworkMeasurement
+        }
+        let sorted = measurements.values.sorted { $0.seat < $1.seat }
+        let policy = try MultiplayerFrozenNetworkPolicy.negotiate(
+            sorted.map {
+                MultiplayerNetworkQuality(
+                    p95RoundTripMilliseconds: $0.p95RoundTripMilliseconds,
+                    p95JitterMilliseconds:
+                        $0.p95RoundTripVariationMilliseconds,
+                    lossPercent: $0.lossPercent,
+                    reorderPercent: $0.reorderPercent
+                )
+            }
+        )
+        return MultiplayerNetworkPolicyProposal(
+            measurements: sorted,
+            policy: policy
+        )
+    }
+
+    private func validateVotesAgainstProposalIfComplete() throws {
+        guard let proposal else { return }
+        guard votes.values.allSatisfy({ $0.proposal == proposal }) else {
+            let seat = votes.first(where: { $0.value.proposal != proposal })?.key ?? -1
+            throw MultiplayerFastPolicyError.conflictingNetworkVote(seat)
+        }
     }
 }
 

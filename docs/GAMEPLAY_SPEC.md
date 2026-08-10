@@ -1,6 +1,6 @@
 # Current gameplay specification
 
-These are the rules implemented by TestFlight build 20. Presentation and economy
+These are the rules retained by the build-21 candidate. Presentation and economy
 cannot silently change them.
 
 ## Modes
@@ -149,7 +149,7 @@ The fixed coordinator currently:
 1. authors future activation plans;
 2. converts touch time to coordinator logical time;
 3. sorts queued input by `(inputAt, seat, inputSequence)`;
-4. commits only through `coordinatorNow - 250 ms`; and
+4. commits only through the minimum complete sealed per-seat input frontier; and
 5. broadcasts one canonical event stream and recovery snapshots reliably.
 
 The v1 transcript has contiguous sequence numbers and nondecreasing logical time:
@@ -169,11 +169,10 @@ stream plus sender evidence and submit the same manifest hash/transcript. Missin
 evidence, sequence recovery, or coordinator loss cancels/withholds rather than
 fabricating a result. Placement is score, hits, rounded average reaction, then seat.
 
-Current limitation: presentation uses the plan's scheduled `at`, feedback waits
-for canonical commit, and one target rotates among all seats. The first-render and
-immediate-response contract is therefore not met in Multiplayer build 20. The
-approved correction is [MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md); it must
-version any changed transcript semantics rather than reinterpret v1.
+Build 21 acknowledges local contact immediately without mutating canonical score,
+life, rating, or transcript state. Canonical reconciliation applies those changes
+once. Presentation still uses the plan's scheduled `at`, and one target rotates
+among all seats; changing either requires separately versioned follow-up work.
 
 ## Presentation, rewards, and cosmetics
 

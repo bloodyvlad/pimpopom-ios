@@ -112,15 +112,15 @@ handle lifecycle/interruption without blocking play.
 Status: implemented in TestFlight build 20.
 
 PHP owns authenticated lobbies, stable seats/colors, immutable manifests, replay,
-settlement, and ranked rows. `GKMatch` owns live traffic. A fixed coordinator
-currently uses reliable packets and a 250 ms reorder watermark to produce one
+settlement, and ranked rows. `GKMatch` owns live traffic. Build 20's fixed coordinator
+used reliable packets and a 250 ms reorder watermark to produce one
 compact transcript. Every participant submits the same seat-only transcript. Clean
 matching results are protocol-verified and peer-consistent, not server-authoritative
 or collusion-proof. Protocol v1 has no coordinator migration.
 
 ## D-13 — Make Multiplayer feel immediate with prediction plus reconciliation
 
-Status: approved on 2026-08-05; not implemented or released.
+Status: safe client-only milestone implemented in the build-21 candidate.
 
 Preserve deterministic canonical replay while acknowledging a local tap within one
 display frame. Separate predicted presentation from canonical state, send small
@@ -129,11 +129,10 @@ canonical lanes, replace the fixed reorder delay with sealed input frontiers and
 measured 40–100 ms health budget, record a live resolution for every witnessed
 input, and publish canonical events only through the minimum complete per-seat input
 frontier. A bounded 120–250 ms
-recovery window closes declared evidence gaps without rollback. Anchor timing to
-first render, reject incompatible live-wire peers before start, and choose the best
-coordinator rather than a lexicographic identifier. A second milestone adds
-concurrent per-seat targets so 2–4 players do not divide one target cadence. The
-complete task and gates are in `docs/MULTIPLAYER_FAST_TASK.md`.
+recovery window closes declared evidence gaps without rollback. Build 21 rejects
+incompatible live-wire peers before start. First-render protocol timing, best-host
+election, and concurrent per-seat targets remain separately versioned follow-up
+work. The complete task and gates are in `docs/MULTIPLAYER_FAST_TASK.md`.
 
 Any tuple/proof/backend change required by this work is separately versioned and
 implemented in the backend-owning repository. No iOS-only release may silently

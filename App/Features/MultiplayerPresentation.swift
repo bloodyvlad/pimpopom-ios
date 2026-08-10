@@ -251,6 +251,8 @@ enum MultiplayerPresentation {
         let glyph: String
         let isTarget: Bool
         let isDecoy: Bool
+        let activationID: MultiplayerPresentedActivationID?
+        let isPendingLocalInput: Bool
 
         init(
             id: Int,
@@ -258,7 +260,9 @@ enum MultiplayerPresentation {
             ownerSeat: Int? = nil,
             glyph: String = "●",
             isTarget: Bool = false,
-            isDecoy: Bool = false
+            isDecoy: Bool = false,
+            activationID: MultiplayerPresentedActivationID? = nil,
+            isPendingLocalInput: Bool = false
         ) {
             self.id = id
             self.colorIndex = colorIndex
@@ -266,6 +270,8 @@ enum MultiplayerPresentation {
             self.glyph = glyph
             self.isTarget = isTarget
             self.isDecoy = isDecoy
+            self.activationID = activationID
+            self.isPendingLocalInput = isPendingLocalInput
         }
     }
 
@@ -283,6 +289,13 @@ enum MultiplayerPresentation {
         let isConnected: Bool
     }
 
+    enum LiveInputMode: Equatable, Sendable {
+        case interactive
+        case pending
+        case syncing
+        case spectating
+    }
+
     struct LiveMatchState: Equatable, Sendable {
         let matchID: String
         let elapsedMilliseconds: Int
@@ -292,13 +305,39 @@ enum MultiplayerPresentation {
         let streakSteps: Int
         let isRecovering: Bool
         let announcement: String?
+        let hitFeedbackEvent: GameplayHitFeedbackEvent?
+        let inputMode: LiveInputMode
+
+        init(
+            matchID: String,
+            elapsedMilliseconds: Int,
+            cells: [Cell],
+            players: [LivePlayer],
+            localSeat: Int,
+            streakSteps: Int,
+            isRecovering: Bool,
+            announcement: String?,
+            hitFeedbackEvent: GameplayHitFeedbackEvent? = nil,
+            inputMode: LiveInputMode = .interactive
+        ) {
+            self.matchID = matchID
+            self.elapsedMilliseconds = elapsedMilliseconds
+            self.cells = cells
+            self.players = players
+            self.localSeat = localSeat
+            self.streakSteps = streakSteps
+            self.isRecovering = isRecovering
+            self.announcement = announcement
+            self.hitFeedbackEvent = hitFeedbackEvent
+            self.inputMode = inputMode
+        }
 
         var localPlayer: LivePlayer? {
             players.first(where: { $0.seat == localSeat })
         }
 
         var isSpectating: Bool {
-            localPlayer?.lives == 0
+            inputMode == .spectating || localPlayer?.lives == 0
         }
 
         var orderedCells: [Cell] {

@@ -13,20 +13,21 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (20)` |
+| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (21)` |
 | Current TestFlight | Build 20, approved and assigned to Internal QA and External QA |
+| Release candidate | Build 21; upload/processing and physical-device acceptance pending |
 | Archived runtime source | `69fe7422719dd4953e90354a2ae3f3c976995db7` |
 | Build-20 release record | `d182ecf62d8bd360b64b97d8c1080d3389a2c239` |
 | Rollback beta | Build 19 from `95d9cde7f1b594208461b450b9023a5cec3fabc0` |
 | Production App Store | Not released |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-Build 20 adds selected-pet and square assigned-color identity to Multiplayer
-waiting/live surfaces and improves Pixel-theme small text. Its focused tests and
-archive validation passed, but the final spacing rerun and full `Scripts/check.sh`
-were skipped for that archive. Real 2-, 3-, and 4-device Multiplayer, 60/120 Hz
-touch timing, ads, StoreKit, audio, and public-release rights remain physical or
-owner gates. See [the current slice](docs/CURRENT_VERSION.md) for the exact status.
+Build 21 is the FAST Multiplayer candidate. It schedules local feedback for the
+next display frame and adds
+sealed-frontier canonical ordering, reliable evidence recovery, exact Arcade-style
+hit fly-outs, and the Pixel back-button fix while retaining PHP transcript/proof v1.
+Real 2-, 3-, and 4-device Multiplayer and 60/120 Hz timing remain open physical
+gates. See [the current slice](docs/CURRENT_VERSION.md) for the exact status.
 
 ## Implemented product
 
@@ -46,10 +47,9 @@ owner gates. See [the current slice](docs/CURRENT_VERSION.md) for the exact stat
 - **Presentation:** Default, Disco, Light, and Pixel themes; selectable icons;
   pets; independent Sound FX, music, haptics, and glyph settings.
 
-The shipped Multiplayer implementation is currently slower than Arcade because
-it waits for coordinator ordering and canonical feedback. The approved client-side
-redesign is specified in [FAST Multiplayer task](docs/MULTIPLAYER_FAST_TASK.md).
-It is a task, not implemented release behavior.
+The safe client-only slice of [FAST Multiplayer](docs/MULTIPLAYER_FAST_TASK.md) is
+implemented in build 21. PHP compatibility remains v1; better-host election,
+first-render protocol changes, and concurrent per-seat targets remain deferred.
 
 ## Build and test
 

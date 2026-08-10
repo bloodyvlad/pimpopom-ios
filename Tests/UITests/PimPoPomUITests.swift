@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 final class PimPoPomUITests: XCTestCase {
@@ -778,6 +779,25 @@ final class PimPoPomUITests: XCTestCase {
                 XCTAssertTrue(element.waitForExistence(timeout: 2))
             }
             XCTAssertTrue(color.label.contains("Cyan"))
+            let flyoutPoints = app.staticTexts["gameplay-hit-points-9"]
+            let flyoutRating = app.staticTexts["gameplay-hit-rating-9"]
+            XCTAssertTrue(
+                flyoutPoints.waitForExistence(timeout: 2),
+                "Missing shared points fly-out for \(theme)."
+            )
+            XCTAssertTrue(flyoutRating.waitForExistence(timeout: 2))
+            XCTAssertEqual(flyoutPoints.label, "+541 points")
+            XCTAssertEqual(flyoutRating.label, "Godlike • 200ms")
+            XCTAssertEqual(flyoutPoints.frame.midX, flyoutRating.frame.midX, accuracy: 1)
+            XCTAssertEqual(
+                flyoutRating.frame.midY - flyoutPoints.frame.midY,
+                19,
+                accuracy: 1
+            )
+            XCTAssertFalse(
+                app.descendants(matching: .any)["multiplayer-announcement"].exists,
+                "A correct tap must not use the old tilted bordered announcement."
+            )
 
             let firstPlayer = app.descendants(matching: .any)["multiplayer-player-0"]
             XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
@@ -814,8 +834,56 @@ final class PimPoPomUITests: XCTestCase {
         let back = app.buttons["multiplayer-back"]
         XCTAssertTrue(title.waitForExistence(timeout: 6))
         XCTAssertTrue(back.waitForExistence(timeout: 2))
-        XCTAssertGreaterThanOrEqual(back.frame.height, 38)
-        attachScreenshot(of: app, name: "iPhone 17 Pixel Multiplayer hub typography and back")
+        XCTAssertEqual(back.frame.width, 44, accuracy: 1)
+        XCTAssertEqual(back.frame.height, 44, accuracy: 1)
+        XCTAssertEqual(back.frame.midY, title.frame.midY, accuracy: 2)
+        let visualBackFrame = back.frame.offsetBy(dx: 0, dy: 5)
+        let screenshot = app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "iPhone 17 Pixel Multiplayer hub typography and back"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        XCTAssertLessThanOrEqual(
+            pixelToolbarBackdropMismatch(
+                screenshot.image,
+                around: visualBackFrame,
+                viewportSize: app.frame.size
+            ),
+            0.05,
+            "Pixel back button must not draw system/shared glass outside its square surface. "
+                + "back=\(back.frame) app=\(app.frame) image=\(screenshot.image.size)"
+        )
+        let probe = pixelToolbarProbe(
+            screenshot.image,
+            around: visualBackFrame,
+            viewportSize: app.frame.size
+        )
+        XCTAssertGreaterThanOrEqual(probe.topEdgeCoverage, 0.60)
+        XCTAssertGreaterThanOrEqual(probe.bottomEdgeCoverage, 0.60)
+        XCTAssertGreaterThanOrEqual(probe.leftEdgeCoverage, 0.60)
+        XCTAssertGreaterThanOrEqual(probe.rightEdgeCoverage, 0.60)
+        XCTAssertLessThanOrEqual(
+            probe.shadowMismatch,
+            0.35,
+            "The Pixel face must retain its exposed 4-point right/bottom cyan shadow."
+        )
+        back.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.96, dy: 0.96)
+        ).tap()
+        let hub = app.descendants(matching: .any)["multiplayer-hub"]
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [
+                    XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "exists == false"),
+                        object: hub
+                    )
+                ],
+                timeout: 2
+            ),
+            .completed,
+            "The complete 44-point Pixel footprint must be interactive."
+        )
 
         app.terminate()
         app.launchArguments = [
@@ -1327,6 +1395,289 @@ final class PimPoPomUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func pixelToolbarBackdropMismatch(
+        _ image: UIImage,
+        around elementFrame: CGRect,
+        viewportSize: CGSize
+    ) -> Double {
+        guard let cgImage = image.cgImage else { return 1 }
+        let width = cgImage.width
+        let height = cgImage.height
+        guard viewportSize.width > 0 else { return 1 }
+        let scale = CGFloat(width) / viewportSize.width
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let rendered = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard
+                let context = CGContext(
+                    data: buffer.baseAddress,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: width * 4,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                        | CGBitmapInfo.byteOrder32Big.rawValue
+                )
+            else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard rendered else { return 1 }
+
+        let expanded = elementFrame.insetBy(dx: -10, dy: -10)
+        let searchMinX = max(0, Int((expanded.minX * scale).rounded(.down)))
+        let searchMaxX = min(width - 1, Int((expanded.maxX * scale).rounded(.up)))
+        let searchMinY = max(0, Int((expanded.minY * scale).rounded(.down)))
+        let searchMaxY = min(height - 1, Int((expanded.maxY * scale).rounded(.up)))
+        var cyanPoints: [(x: Int, y: Int)] = []
+        for y in searchMinY...searchMaxY {
+            for x in searchMinX...searchMaxX {
+                let color = pixel(atX: x, y: y, width: width, pixels: pixels)
+                if abs(Int(color.r) - 99) <= 44,
+                    abs(Int(color.g) - 239) <= 44,
+                    abs(Int(color.b) - 255) <= 44
+                {
+                    cyanPoints.append((x, y))
+                }
+            }
+        }
+        guard let borderMinX = cyanPoints.map(\.x).min(),
+            let borderMaxX = cyanPoints.map(\.x).max(),
+            let borderMinY = cyanPoints.map(\.y).min(),
+            let borderMaxY = cyanPoints.map(\.y).max()
+        else { return 1 }
+
+        let bandNear = max(1, Int((2 * scale).rounded()))
+        let bandFar = max(bandNear, Int((6 * scale).rounded()))
+        let referenceOffset = Int((64 * scale).rounded())
+        let leftBand = pixelMismatchFraction(
+            xs: (borderMinX - bandFar)...(borderMinX - bandNear),
+            ys: borderMinY...borderMaxY,
+            referenceOffset: referenceOffset,
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        let topBand = pixelMismatchFraction(
+            xs: borderMinX...borderMaxX,
+            ys: (borderMinY - bandFar)...(borderMinY - bandNear),
+            referenceOffset: referenceOffset,
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        return max(leftBand, topBand)
+    }
+
+    private struct PixelToolbarProbe {
+        let topEdgeCoverage: Double
+        let bottomEdgeCoverage: Double
+        let leftEdgeCoverage: Double
+        let rightEdgeCoverage: Double
+        let shadowMismatch: Double
+    }
+
+    private func pixelToolbarProbe(
+        _ image: UIImage,
+        around elementFrame: CGRect,
+        viewportSize: CGSize
+    ) -> PixelToolbarProbe {
+        let failed = PixelToolbarProbe(
+            topEdgeCoverage: 0,
+            bottomEdgeCoverage: 0,
+            leftEdgeCoverage: 0,
+            rightEdgeCoverage: 0,
+            shadowMismatch: 1
+        )
+        guard let cgImage = image.cgImage,
+            viewportSize.width > 0
+        else { return failed }
+        let width = cgImage.width
+        let height = cgImage.height
+        let scale = CGFloat(width) / viewportSize.width
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let rendered = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard
+                let context = CGContext(
+                    data: buffer.baseAddress,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: width * 4,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                        | CGBitmapInfo.byteOrder32Big.rawValue
+                )
+            else { return false }
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard rendered else { return failed }
+
+        let faceMinX = Int((elementFrame.minX * scale).rounded())
+        let faceMinY = Int((elementFrame.minY * scale).rounded())
+        let faceSide = max(1, Int((40 * scale).rounded()))
+        let faceMaxX = faceMinX + faceSide - 1
+        let faceMaxY = faceMinY + faceSide - 1
+        let edge = max(1, Int((1 * scale).rounded()))
+        let corner = max(edge, Int((4 * scale).rounded()))
+        let shadow = max(1, Int((4 * scale).rounded()))
+
+        let top = cyanCoverage(
+            xs: (faceMinX + corner)...(faceMaxX - corner),
+            ys: faceMinY...(faceMinY + edge - 1),
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        let bottom = cyanCoverage(
+            xs: (faceMinX + corner)...(faceMaxX - corner),
+            ys: (faceMaxY - edge + 1)...faceMaxY,
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        let left = cyanCoverage(
+            xs: faceMinX...(faceMinX + edge - 1),
+            ys: (faceMinY + corner)...(faceMaxY - corner),
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        let right = cyanCoverage(
+            xs: (faceMaxX - edge + 1)...faceMaxX,
+            ys: (faceMinY + corner)...(faceMaxY - corner),
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        let referenceOffset = Int((64 * scale).rounded())
+        let rightShadow = shadowMismatchFraction(
+            xs: (faceMaxX + 1)...(faceMaxX + shadow),
+            ys: (faceMinY + shadow)...(faceMaxY + shadow),
+            referenceOffset: referenceOffset,
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        let bottomShadow = shadowMismatchFraction(
+            xs: (faceMinX + shadow)...faceMaxX,
+            ys: (faceMaxY + 1)...(faceMaxY + shadow),
+            referenceOffset: referenceOffset,
+            width: width,
+            height: height,
+            pixels: pixels
+        )
+        return PixelToolbarProbe(
+            topEdgeCoverage: top,
+            bottomEdgeCoverage: bottom,
+            leftEdgeCoverage: left,
+            rightEdgeCoverage: right,
+            shadowMismatch: max(rightShadow, bottomShadow)
+        )
+    }
+
+    private func cyanCoverage(
+        xs: ClosedRange<Int>,
+        ys: ClosedRange<Int>,
+        width: Int,
+        height: Int,
+        pixels: [UInt8]
+    ) -> Double {
+        var compared = 0
+        var cyan = 0
+        for y in ys where y >= 0 && y < height {
+            for x in xs where x >= 0 && x < width {
+                let color = pixel(atX: x, y: y, width: width, pixels: pixels)
+                compared += 1
+                if Int(color.g) > Int(color.r) + 35,
+                    Int(color.b) > Int(color.r) + 45,
+                    color.g > 120,
+                    color.b > 140,
+                    abs(Int(color.b) - Int(color.g)) < 100
+                {
+                    cyan += 1
+                }
+            }
+        }
+        return compared == 0 ? 0 : Double(cyan) / Double(compared)
+    }
+
+    private func shadowMismatchFraction(
+        xs: ClosedRange<Int>,
+        ys: ClosedRange<Int>,
+        referenceOffset: Int,
+        width: Int,
+        height: Int,
+        pixels: [UInt8]
+    ) -> Double {
+        var compared = 0
+        var mismatched = 0
+        for y in ys where y >= 0 && y < height {
+            for x in xs where x >= 0 && x + referenceOffset < width {
+                let sample = pixel(atX: x, y: y, width: width, pixels: pixels)
+                let base = pixel(
+                    atX: x + referenceOffset,
+                    y: y,
+                    width: width,
+                    pixels: pixels
+                )
+                let expected = (
+                    r: Int((Double(base.r) * 0.76 + 99 * 0.24).rounded()),
+                    g: Int((Double(base.g) * 0.76 + 239 * 0.24).rounded()),
+                    b: Int((Double(base.b) * 0.76 + 255 * 0.24).rounded())
+                )
+                let delta =
+                    abs(Int(sample.r) - expected.r)
+                    + abs(Int(sample.g) - expected.g)
+                    + abs(Int(sample.b) - expected.b)
+                compared += 1
+                if delta > 60 { mismatched += 1 }
+            }
+        }
+        return compared == 0 ? 1 : Double(mismatched) / Double(compared)
+    }
+
+    private func pixelMismatchFraction(
+        xs: ClosedRange<Int>,
+        ys: ClosedRange<Int>,
+        referenceOffset: Int,
+        width: Int,
+        height: Int,
+        pixels: [UInt8]
+    ) -> Double {
+        var compared = 0
+        var mismatched = 0
+        for y in ys where y >= 0 && y < height {
+            for x in xs where x >= 0 && x + referenceOffset < width {
+                let sample = pixel(atX: x, y: y, width: width, pixels: pixels)
+                let reference = pixel(
+                    atX: x + referenceOffset,
+                    y: y,
+                    width: width,
+                    pixels: pixels
+                )
+                compared += 1
+                let delta =
+                    abs(Int(sample.r) - Int(reference.r))
+                    + abs(Int(sample.g) - Int(reference.g))
+                    + abs(Int(sample.b) - Int(reference.b))
+                if delta > 18 { mismatched += 1 }
+            }
+        }
+        return compared == 0 ? 1 : Double(mismatched) / Double(compared)
+    }
+
+    private func pixel(
+        atX x: Int,
+        y: Int,
+        width: Int,
+        pixels: [UInt8]
+    ) -> (r: UInt8, g: UInt8, b: UInt8) {
+        let index = (y * width + x) * 4
+        return (pixels[index], pixels[index + 1], pixels[index + 2])
     }
 
     private func waitForLabel(

@@ -108,6 +108,39 @@ private struct MultiplayerModeButtonStyle: ButtonStyle {
     }
 }
 
+private struct PixelMultiplayerToolbarButtonStyle: ButtonStyle {
+    let theme: ThemePalette
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 44, height: 44, alignment: .topLeading)
+            .foregroundStyle(Color(hex: theme.chromeAccent))
+            .background(alignment: .topLeading) {
+                ZStack {
+                    Rectangle()
+                        .fill(Color(hex: theme.chromeAccent).opacity(0.24))
+                        .offset(x: 4, y: 4)
+                    LinearGradient(
+                        colors: [
+                            Color(hex: theme.chromeAccent).opacity(0.10),
+                            Color(hex: theme.surface).opacity(0.86),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Rectangle()
+                        .stroke(
+                            Color(hex: theme.chromeAccent).opacity(0.78),
+                            lineWidth: 2
+                        )
+                }
+                .frame(width: 40, height: 40)
+                .offset(y: 5 + (configuration.isPressed ? 1 : 0))
+            }
+            .contentShape(Rectangle())
+    }
+}
+
 struct MultiplayerHubView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var cosmetics: CosmeticsController
@@ -142,23 +175,15 @@ struct MultiplayerHubView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .black))
-                        .frame(width: 38, height: 38)
+            if #available(iOS 26.0, *), palette.isPixel {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    multiplayerBackButton
                 }
-                .buttonStyle(
-                    WebSecondaryButtonStyle(
-                        theme: palette,
-                        accent: Color(hex: palette.chromeAccent),
-                        minimumHeight: 38
-                    )
-                )
-                .frame(width: 40)
-                .offset(y: 5)
-                .accessibilityLabel("Back")
-                .accessibilityIdentifier("multiplayer-back")
+                .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    multiplayerBackButton
+                }
             }
             ToolbarItem(placement: .principal) {
                 Text("Multiplayer")
@@ -168,6 +193,46 @@ struct MultiplayerHubView: View {
             }
         }
         .accessibilityIdentifier("multiplayer-hub")
+    }
+
+    @ViewBuilder
+    private var multiplayerBackButton: some View {
+        if #available(iOS 26.0, *), palette.isPixel {
+            Button(action: { dismiss() }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .black))
+                    .offset(y: 5)
+                    .frame(width: 40, height: 40)
+                    .frame(width: 44, height: 44, alignment: .topLeading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PixelMultiplayerToolbarButtonStyle(theme: palette))
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+            .accessibilityLabel("Back")
+            .accessibilityIdentifier("multiplayer-back")
+        } else {
+            multiplayerBackButtonCore
+                .frame(width: palette.isPixel ? 44 : 40)
+                .offset(y: 5)
+                .accessibilityLabel("Back")
+                .accessibilityIdentifier("multiplayer-back")
+        }
+    }
+
+    private var multiplayerBackButtonCore: some View {
+        Button(action: { dismiss() }) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 17, weight: .black))
+                .frame(width: 38, height: 38)
+        }
+        .buttonStyle(
+            WebSecondaryButtonStyle(
+                theme: palette,
+                accent: Color(hex: palette.chromeAccent),
+                minimumHeight: 38
+            )
+        )
     }
 
     private var header: some View {
@@ -822,7 +887,7 @@ struct MultiplayerLiveView: View {
     @EnvironmentObject private var preferences: AppPreferences
 
     let state: MultiplayerPresentation.LiveMatchState
-    let onTapCell: (Int, Int) -> Void
+    let onTapCell: (Int, Int, CGPoint) -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 4)
     private var palette: ThemePalette { cosmetics.theme }
@@ -1057,6 +1122,8 @@ struct MultiplayerLiveView: View {
                             textureSeed: cell.id,
                             glyphScale: GameCellVisualMetrics.liveGlyphScale(gridDimension: 4)
                         )
+                        .scaleEffect(cell.isPendingLocalInput ? 0.94 : 1)
+                        .opacity(cell.isPendingLocalInput ? 0.72 : 1)
                         .overlay(alignment: .topTrailing) {
                             if cell.isDecoy {
                                 Image(systemName: "bolt.fill")
@@ -1065,13 +1132,34 @@ struct MultiplayerLiveView: View {
                                     .padding(5)
                             }
                         }
+                        .overlay {
+                            if cell.isPendingLocalInput {
+                                RoundedRectangle(
+                                    cornerRadius: palette.isPixel ? 0 : 10,
+                                    style: .continuous
+                                )
+                                .fill(Color(hex: palette.foreground).opacity(0.12))
+                                .overlay {
+                                    Circle()
+                                        .stroke(
+                                            Color(hex: palette.foreground).opacity(0.48),
+                                            lineWidth: palette.isPixel ? 3 : 2
+                                        )
+                                        .frame(width: 22, height: 22)
+                                }
+                            }
+                        }
 
                         MultiplayerTouchCell(
-                            isEnabled: !state.isRecovering && !state.isSpectating,
+                            isEnabled: state.inputMode == .interactive,
                             accessibilityLabel: cellAccessibilityLabel(cell),
                             accessibilityIdentifier: "multiplayer-cell-\(cell.id)"
                         ) { touchTimestampMilliseconds in
-                            onTapCell(cell.id, touchTimestampMilliseconds)
+                            onTapCell(
+                                cell.id,
+                                touchTimestampMilliseconds,
+                                normalizedCenter(of: cell.id)
+                            )
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -1079,11 +1167,18 @@ struct MultiplayerLiveView: View {
             }
             .padding(12)
 
+            GameplayHitFeedbackLayer(
+                event: state.hitFeedbackEvent,
+                theme: palette,
+                retainsFeedback: retainsFixtureHitFeedback
+            )
+            .allowsHitTesting(false)
+
             MultiplayerBoardGapTouchLayer(
-                isEnabled: !state.isRecovering && !state.isSpectating
+                isEnabled: state.inputMode == .interactive
             ) {
-                cell, touchTimestampMilliseconds in
-                onTapCell(cell, touchTimestampMilliseconds)
+                cell, touchTimestampMilliseconds, normalizedLocation in
+                onTapCell(cell, touchTimestampMilliseconds, normalizedLocation)
             }
             .accessibilityHidden(true)
         }
@@ -1103,6 +1198,14 @@ struct MultiplayerLiveView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("multiplayer-board")
+    }
+
+    private var retainsFixtureHitFeedback: Bool {
+        #if DEBUG
+            ProcessInfo.processInfo.arguments.contains("--ui-test-multiplayer-live-fixture")
+        #else
+            false
+        #endif
     }
 
     private var speedBar: some View {
@@ -1240,6 +1343,9 @@ struct MultiplayerLiveView: View {
     }
 
     private func cellAccessibilityLabel(_ cell: MultiplayerPresentation.Cell) -> String {
+        if cell.isPendingLocalInput {
+            return "Input pending, cell \(cell.id + 1)"
+        }
         if cell.isTarget {
             return cell.ownerSeat == state.localSeat
                 ? "Your active target, cell \(cell.id + 1)"
@@ -1247,6 +1353,13 @@ struct MultiplayerLiveView: View {
         }
         if cell.isDecoy { return "Decoy, cell \(cell.id + 1)" }
         return "Inactive cell \(cell.id + 1)"
+    }
+
+    private func normalizedCenter(of cell: Int) -> CGPoint {
+        CGPoint(
+            x: (CGFloat(cell % 4) + 0.5) / 4,
+            y: (CGFloat(cell / 4) + 0.5) / 4
+        )
     }
 
 }
@@ -1300,7 +1413,7 @@ private final class MultiplayerTouchCellView: UIView {
 
 private struct MultiplayerBoardGapTouchLayer: UIViewRepresentable {
     let isEnabled: Bool
-    let onTap: (Int, Int) -> Void
+    let onTap: (Int, Int, CGPoint) -> Void
 
     func makeUIView(context _: Context) -> MultiplayerBoardGapTouchView {
         MultiplayerBoardGapTouchView()
@@ -1313,7 +1426,7 @@ private struct MultiplayerBoardGapTouchLayer: UIViewRepresentable {
 }
 
 private final class MultiplayerBoardGapTouchView: UIView {
-    var onTap: ((Int, Int) -> Void)?
+    var onTap: ((Int, Int, CGPoint) -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1351,7 +1464,14 @@ private final class MultiplayerBoardGapTouchView: UIView {
                 abs(centersY[$0] - location.y) < abs(centersY[$1] - location.y)
             })
         else { return }
-        onTap?(row * 4 + column, Int((touch.timestamp * 1_000).rounded()))
+        onTap?(
+            row * 4 + column,
+            Int((touch.timestamp * 1_000).rounded()),
+            CGPoint(
+                x: min(1, max(0, location.x / max(1, bounds.width))),
+                y: min(1, max(0, location.y / max(1, bounds.height)))
+            )
+        )
     }
 }
 
