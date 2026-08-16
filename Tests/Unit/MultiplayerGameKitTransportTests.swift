@@ -7,6 +7,223 @@ import XCTest
 
 @MainActor
 final class MultiplayerGameKitTransportTests: XCTestCase {
+    func testLiveGameKitCallbackFromDetachedExecutorArrivesOnMainActor() async throws {
+        let client = LiveMultiplayerGameKitClient()
+        let match = GKMatch()
+        let player = GKPlayer()
+        let expectedPlayerID = player.gamePlayerID
+        let payload = Data([0x50, 0x49, 0x4D])
+        let delivered = expectation(description: "Main-actor GameKit callback delivery")
+
+        client.eventHandler = { event in
+            MainActor.preconditionIsolated()
+            XCTAssertEqual(
+                event,
+                .received(payload, fromGamePlayerID: expectedPlayerID)
+            )
+            delivered.fulfill()
+        }
+        client.adoptMatch(match)
+        let relay = try XCTUnwrap(client.activeDelegateRelay)
+        XCTAssertTrue(match.delegate === relay)
+        let uncheckedMatch = UncheckedGameKitValue(value: match)
+        let uncheckedPlayer = UncheckedGameKitValue(value: player)
+
+        await Task.detached {
+            relay.match(
+                uncheckedMatch.value,
+                didReceive: payload,
+                fromRemotePlayer: uncheckedPlayer.value
+            )
+        }.value
+
+        await fulfillment(of: [delivered], timeout: 1)
+    }
+
+    func testLiveGameKitCallbackDropsOldGenerationAndWrongMatch() async throws {
+        let client = LiveMultiplayerGameKitClient()
+        let firstMatch = GKMatch()
+        let secondMatch = GKMatch()
+        let player = GKPlayer()
+        let payload = Data([0x01])
+        var deliveredEvents: [MultiplayerGameKitClientEvent] = []
+        let currentDelivered = expectation(description: "Current match callback delivery")
+
+        client.eventHandler = { event in
+            MainActor.preconditionIsolated()
+            deliveredEvents.append(event)
+            currentDelivered.fulfill()
+        }
+        client.adoptMatch(firstMatch)
+        let oldRelay = try XCTUnwrap(client.activeDelegateRelay)
+        client.adoptMatch(secondMatch)
+        let currentRelay = try XCTUnwrap(client.activeDelegateRelay)
+        XCTAssertNil(firstMatch.delegate)
+        XCTAssertTrue(secondMatch.delegate === currentRelay)
+        let uncheckedFirstMatch = UncheckedGameKitValue(value: firstMatch)
+        let uncheckedSecondMatch = UncheckedGameKitValue(value: secondMatch)
+        let uncheckedPlayer = UncheckedGameKitValue(value: player)
+
+        await Task.detached {
+            oldRelay.match(
+                uncheckedFirstMatch.value,
+                didReceive: Data([0x00]),
+                fromRemotePlayer: uncheckedPlayer.value
+            )
+            currentRelay.match(
+                uncheckedFirstMatch.value,
+                didReceive: Data([0x00]),
+                fromRemotePlayer: uncheckedPlayer.value
+            )
+            currentRelay.match(
+                uncheckedSecondMatch.value,
+                didReceive: payload,
+                fromRemotePlayer: uncheckedPlayer.value
+            )
+        }.value
+
+        await fulfillment(of: [currentDelivered], timeout: 1)
+        XCTAssertEqual(
+            deliveredEvents,
+            [.received(payload, fromGamePlayerID: player.gamePlayerID)]
+        )
+        client.cancel()
+        XCTAssertNil(secondMatch.delegate)
+    }
+
+    func testLiveGameKitConnectionCallbackPreservesBatchOrder() async throws {
+        let client = LiveMultiplayerGameKitClient()
+        let match = GKMatch()
+        let player = GKPlayer()
+        let delivered = expectation(description: "Ordered connection callback batch")
+        delivered.expectedFulfillmentCount = 2
+        var deliveredEvents: [MultiplayerGameKitClientEvent] = []
+
+        client.eventHandler = { event in
+            MainActor.preconditionIsolated()
+            deliveredEvents.append(event)
+            delivered.fulfill()
+        }
+        client.adoptMatch(match)
+        let relay = try XCTUnwrap(client.activeDelegateRelay)
+        let uncheckedMatch = UncheckedGameKitValue(value: match)
+        let uncheckedPlayer = UncheckedGameKitValue(value: player)
+
+        await Task.detached {
+            relay.match(
+                uncheckedMatch.value,
+                player: uncheckedPlayer.value,
+                didChange: .connected
+            )
+        }.value
+
+        await fulfillment(of: [delivered], timeout: 1)
+        XCTAssertEqual(
+            deliveredEvents,
+            [
+                .connectionChanged(player.gamePlayerID, .connected),
+                .rosterChanged,
+            ]
+        )
+    }
+
+    func testStaleMatchmakingSuccessCannotReplaceNewAttempt() async throws {
+        let matchmaker = MultiplayerGameKitMatchmakerFake()
+        var discardedMatchIdentities: [ObjectIdentifier] = []
+        let client = LiveMultiplayerGameKitClient(
+            matchmaker: matchmaker,
+            discardMatch: { match in
+                discardedMatchIdentities.append(ObjectIdentifier(match))
+                match.delegate = nil
+                match.disconnect()
+            }
+        )
+        let configuration = try MultiplayerMatchmakingConfiguration(
+            playerGroup: 17,
+            participantCount: 2
+        )
+
+        let firstAttempt = Task { @MainActor in
+            do {
+                try await client.findAuthenticatedMatch(configuration: configuration)
+                return nil as (any Error)?
+            } catch {
+                return error
+            }
+        }
+        await Task.yield()
+        XCTAssertEqual(matchmaker.pendingCompletionCount, 1)
+
+        client.cancel()
+        let secondAttempt = Task { @MainActor in
+            do {
+                try await client.findAuthenticatedMatch(configuration: configuration)
+                return nil as (any Error)?
+            } catch {
+                return error
+            }
+        }
+        await Task.yield()
+        XCTAssertEqual(matchmaker.pendingCompletionCount, 2)
+
+        let staleMatch = GKMatch()
+        let currentMatch = GKMatch()
+        matchmaker.complete(at: 0, match: staleMatch)
+        matchmaker.complete(at: 1, match: currentMatch)
+
+        let firstError = await firstAttempt.value
+        let secondError = await secondAttempt.value
+        XCTAssertTrue(firstError is CancellationError)
+        XCTAssertNil(secondError)
+        XCTAssertNil(staleMatch.delegate)
+        XCTAssertEqual(discardedMatchIdentities, [ObjectIdentifier(staleMatch)])
+        XCTAssertEqual(
+            matchmaker.finishedMatchIdentities,
+            [ObjectIdentifier(currentMatch)]
+        )
+        let currentRelay = try XCTUnwrap(client.activeDelegateRelay)
+        XCTAssertTrue(currentMatch.delegate === currentRelay)
+        XCTAssertEqual(
+            currentRelay.context.matchIdentity,
+            ObjectIdentifier(currentMatch)
+        )
+    }
+
+    func testDisconnectedTransportIgnoresLateMatchmakingFailure() async throws {
+        let client = SuspendingMultiplayerGameKitClientFake()
+        let transport = MultiplayerGameKitTransport(client: client)
+        var deliveredEvents: [MultiplayerGameKitTransportEvent] = []
+        transport.eventHandler = { deliveredEvents.append($0) }
+
+        let connection = Task { @MainActor in
+            do {
+                try await transport.connect(
+                    matchID: Self.matchID,
+                    playerGroup: 19,
+                    participantCount: 2
+                )
+                return nil as (any Error)?
+            } catch {
+                return error
+            }
+        }
+        await Task.yield()
+        XCTAssertTrue(client.hasPendingFind)
+
+        transport.disconnect()
+        client.completeFind(throwing: CancellationError())
+        let connectionError = await connection.value
+
+        XCTAssertTrue(connectionError is CancellationError)
+        XCTAssertEqual(transport.state, .idle)
+        XCTAssertFalse(
+            deliveredEvents.contains(where: {
+                if case .failed = $0 { return true }
+                return false
+            })
+        )
+    }
+
     func testLegacyHelloDecodesButCannotEnableFastPackets() throws {
         let data = Data(
             #"{"participantId":"22222222-2222-4222-8222-222222222222","seat":0,"colorIndex":0,"gamePlayerId":"G:alpha"}"#
@@ -1765,6 +1982,68 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
             from: "G:beta"
         )
         XCTAssertEqual(transport.frozenNetworkPolicy, proposal.policy)
+    }
+}
+
+private struct UncheckedGameKitValue<Value>: @unchecked Sendable {
+    let value: Value
+}
+
+@MainActor
+private final class MultiplayerGameKitMatchmakerFake: MultiplayerGameKitMatchmaking {
+    private var completions: [@Sendable (GKMatch?, (any Error)?) -> Void] = []
+    private(set) var finishedMatchIdentities: [ObjectIdentifier] = []
+
+    var pendingCompletionCount: Int { completions.count }
+
+    func findMatch(
+        for _: GKMatchRequest,
+        completion: @escaping @Sendable (GKMatch?, (any Error)?) -> Void
+    ) {
+        completions.append(completion)
+    }
+
+    func finishMatchmaking(for match: GKMatch) {
+        finishedMatchIdentities.append(ObjectIdentifier(match))
+    }
+
+    func cancel() {}
+
+    func complete(at index: Int, match: GKMatch?, error: (any Error)? = nil) {
+        completions[index](match, error)
+    }
+}
+
+@MainActor
+private final class SuspendingMultiplayerGameKitClientFake: MultiplayerGameKitClientProtocol {
+    var eventHandler: ((MultiplayerGameKitClientEvent) -> Void)?
+    var isAuthenticated = true
+    var scopedIDsArePersistent = true
+    var localGamePlayerID = "G:alpha"
+    var remotePlayers: [MultiplayerGameKitPlayer] = []
+    var expectedPlayerCount = 1
+    private var findContinuation: CheckedContinuation<Void, any Error>?
+
+    var hasPendingFind: Bool { findContinuation != nil }
+
+    func findMatch(configuration _: MultiplayerMatchmakingConfiguration) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            findContinuation = continuation
+        }
+    }
+
+    func send(
+        _: Data,
+        to _: [String]?,
+        mode _: MultiplayerGameKitSendMode
+    ) throws {}
+
+    func cancel() {}
+
+    func completeFind(throwing error: any Error) {
+        let continuation = findContinuation
+        findContinuation = nil
+        continuation?.resume(throwing: error)
     }
 }
 

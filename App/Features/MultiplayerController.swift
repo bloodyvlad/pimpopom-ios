@@ -136,6 +136,7 @@ final class MultiplayerController: ObservableObject {
     private var recoveryTask: Task<Void, Never>?
     private var announcementTask: Task<Void, Never>?
     private var matchmakingTask: Task<Void, Never>?
+    private var matchmakingGeneration: UInt64 = 0
     private var clockSynchronizationTask: Task<Void, Never>?
     private var clockSynchronizationGeneration: UUID?
     private var matchmakingAttemptGate = MultiplayerMatchmakingAttemptGate()
@@ -562,6 +563,9 @@ final class MultiplayerController: ObservableObject {
 
     func retryGameKitConnection() {
         guard phase == .waiting else { return }
+        matchmakingGeneration &+= 1
+        matchmakingTask?.cancel()
+        matchmakingTask = nil
         clockSynchronizationGeneration = nil
         clockSynchronizationTask?.cancel()
         clockSynchronizationTask = nil
@@ -871,17 +875,31 @@ final class MultiplayerController: ObservableObject {
         )
         guard matchmakingAttemptGate.beginAttempt() else { return }
         waitingState?.connection = .matching
+        matchmakingGeneration &+= 1
+        let generation = matchmakingGeneration
         matchmakingTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { matchmakingTask = nil }
+            defer {
+                if matchmakingGeneration == generation {
+                    matchmakingTask = nil
+                }
+            }
             do {
                 try await ensureFreshGameCenterProof()
+                try Task.checkCancellation()
+                guard matchmakingGeneration == generation,
+                    currentMatch?.matchId == match.matchId
+                else { return }
                 try await transport.connect(
                     matchID: match.matchId,
                     playerGroup: match.playerGroup,
                     participantCount: match.capacity
                 )
             } catch {
+                guard !Task.isCancelled,
+                    matchmakingGeneration == generation,
+                    currentMatch?.matchId == match.matchId
+                else { return }
                 presentMatchmakingFailure(error)
             }
         }
@@ -1280,6 +1298,7 @@ final class MultiplayerController: ObservableObject {
         didRejectIncompatibleLiveWire = true
         pollTask?.cancel()
         pollTask = nil
+        matchmakingGeneration &+= 1
         matchmakingTask?.cancel()
         matchmakingTask = nil
         clockSynchronizationGeneration = nil
@@ -2794,6 +2813,7 @@ final class MultiplayerController: ObservableObject {
         submissionTask?.cancel()
         recoveryTask?.cancel()
         announcementTask?.cancel()
+        matchmakingGeneration &+= 1
         matchmakingTask?.cancel()
         clockSynchronizationGeneration = nil
         clockSynchronizationTask?.cancel()

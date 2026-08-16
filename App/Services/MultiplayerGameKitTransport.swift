@@ -143,6 +143,111 @@ enum MultiplayerGameKitSendMode: Equatable, Sendable {
     case unreliable
 }
 
+struct MultiplayerGameKitCallbackContext: Equatable, Sendable {
+    let generation: UInt64
+    let matchIdentity: ObjectIdentifier
+}
+
+final class LiveMultiplayerGameKitDelegateRelay: NSObject, @unchecked Sendable {
+    typealias Sink =
+        @MainActor @Sendable (
+            MultiplayerGameKitCallbackContext,
+            [MultiplayerGameKitClientEvent]
+        ) -> Void
+
+    let context: MultiplayerGameKitCallbackContext
+    private let sink: Sink
+
+    init(context: MultiplayerGameKitCallbackContext, sink: @escaping Sink) {
+        self.context = context
+        self.sink = sink
+    }
+
+    private func belongs(to match: GKMatch) -> Bool {
+        ObjectIdentifier(match) == context.matchIdentity
+    }
+
+    private func deliver(_ events: [MultiplayerGameKitClientEvent]) {
+        let context = context
+        let sink = sink
+        DispatchQueue.main.async {
+            sink(context, events)
+        }
+    }
+}
+
+@MainActor
+protocol MultiplayerGameKitMatchmaking: AnyObject {
+    func findMatch(
+        for request: GKMatchRequest,
+        completion: @escaping @Sendable (GKMatch?, (any Error)?) -> Void
+    )
+    func finishMatchmaking(for match: GKMatch)
+    func cancel()
+}
+
+@MainActor
+final class LiveMultiplayerGameKitMatchmaker: MultiplayerGameKitMatchmaking {
+    func findMatch(
+        for request: GKMatchRequest,
+        completion: @escaping @Sendable (GKMatch?, (any Error)?) -> Void
+    ) {
+        GKMatchmaker.shared().findMatch(for: request, withCompletionHandler: completion)
+    }
+
+    func finishMatchmaking(for match: GKMatch) {
+        GKMatchmaker.shared().finishMatchmaking(for: match)
+    }
+
+    func cancel() {
+        GKMatchmaker.shared().cancel()
+    }
+}
+
+extension LiveMultiplayerGameKitDelegateRelay: GKMatchDelegate {
+    func match(
+        _ match: GKMatch,
+        didReceive data: Data,
+        fromRemotePlayer player: GKPlayer
+    ) {
+        guard belongs(to: match) else { return }
+        deliver([.received(data, fromGamePlayerID: player.gamePlayerID)])
+    }
+
+    func match(
+        _ match: GKMatch,
+        player: GKPlayer,
+        didChange state: GKPlayerConnectionState
+    ) {
+        guard belongs(to: match) else { return }
+        let status: MultiplayerGameKitConnectionStatus =
+            switch state {
+            case .connected: .connected
+            case .disconnected: .disconnected
+            default: .unknown
+            }
+        deliver([
+            .connectionChanged(player.gamePlayerID, status),
+            .rosterChanged,
+        ])
+    }
+
+    func match(_ match: GKMatch, didFailWithError error: (any Error)?) {
+        guard belongs(to: match) else { return }
+        let message = error?.localizedDescription ?? "The Game Center match failed."
+        deliver([.failed(message)])
+    }
+
+    func match(
+        _ match: GKMatch,
+        shouldReinviteDisconnectedPlayer _: GKPlayer
+    ) -> Bool {
+        guard belongs(to: match) else { return false }
+        // Apple's automatic reinvite path is supported only for a 1v1 match.
+        return match.players.count <= 1
+    }
+}
+
 @MainActor
 protocol MultiplayerGameKitClientProtocol: AnyObject {
     var eventHandler: ((MultiplayerGameKitClientEvent) -> Void)? { get set }
@@ -179,9 +284,51 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
     var expectedPlayerCount: Int { match?.expectedPlayerCount ?? 0 }
 
     private var match: GKMatch?
+    private var callbackGeneration: UInt64 = 0
+    private var activeCallbackContext: MultiplayerGameKitCallbackContext?
+    private(set) var activeDelegateRelay: LiveMultiplayerGameKitDelegateRelay?
+    private let matchmaker: any MultiplayerGameKitMatchmaking
+    private let discardMatch: @MainActor (GKMatch) -> Void
 
     private struct UncheckedMatch: @unchecked Sendable {
         let value: GKMatch
+    }
+
+    init(
+        matchmaker: any MultiplayerGameKitMatchmaking = LiveMultiplayerGameKitMatchmaker(),
+        discardMatch: @escaping @MainActor (GKMatch) -> Void = { match in
+            match.delegate = nil
+            match.disconnect()
+        }
+    ) {
+        self.matchmaker = matchmaker
+        self.discardMatch = discardMatch
+        super.init()
+    }
+
+    func adoptMatch(_ newMatch: GKMatch) {
+        activeCallbackContext = nil
+        match?.delegate = nil
+        if let match, match !== newMatch {
+            match.disconnect()
+        }
+        activeDelegateRelay = nil
+        callbackGeneration &+= 1
+        let context = MultiplayerGameKitCallbackContext(
+            generation: callbackGeneration,
+            matchIdentity: ObjectIdentifier(newMatch)
+        )
+        let relay = LiveMultiplayerGameKitDelegateRelay(context: context) {
+            [weak self] callbackContext, events in
+            guard let self, self.activeCallbackContext == callbackContext else { return }
+            for event in events {
+                self.eventHandler?(event)
+            }
+        }
+        match = newMatch
+        activeCallbackContext = context
+        activeDelegateRelay = relay
+        newMatch.delegate = relay
     }
 
     func findMatch(configuration: MultiplayerMatchmakingConfiguration) async throws {
@@ -197,7 +344,14 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
         guard isAuthenticated, scopedIDsArePersistent, !localGamePlayerID.isEmpty else {
             throw MultiplayerGameKitError.notAuthenticated
         }
+        try await findAuthenticatedMatch(configuration: configuration)
+    }
+
+    func findAuthenticatedMatch(
+        configuration: MultiplayerMatchmakingConfiguration
+    ) async throws {
         cancel()
+        let attemptGeneration = callbackGeneration
         let request = GKMatchRequest()
         request.minPlayers = configuration.participantCount
         request.maxPlayers = configuration.participantCount
@@ -206,38 +360,42 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
 
         try await withCheckedThrowingContinuation {
             (continuation: CheckedContinuation<Void, any Error>) in
-            GKMatchmaker.shared().findMatch(for: request) { match, error in
-                if let error {
-                    let failure = MultiplayerGameKitFailure(error: error)
-                    Task { @MainActor in
+            let discardMatch = discardMatch
+            matchmaker.findMatch(for: request) { [weak self] match, error in
+                let uncheckedMatch = match.map(UncheckedMatch.init(value:))
+                let failure = error.map(MultiplayerGameKitFailure.init(error:))
+                Task { @MainActor in
+                    guard let self else {
+                        if let match = uncheckedMatch?.value { discardMatch(match) }
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
+                    guard self.callbackGeneration == attemptGeneration else {
+                        if let match = uncheckedMatch?.value { discardMatch(match) }
+                        continuation.resume(throwing: CancellationError())
+                        return
+                    }
+                    if let failure {
                         continuation.resume(throwing: failure)
+                        return
                     }
-                } else if let match {
-                    let uncheckedMatch = UncheckedMatch(value: match)
-                    Task { @MainActor [weak self] in
-                        guard let self else {
-                            continuation.resume(
-                                throwing: MultiplayerGameKitError.matchUnavailable
-                            )
-                            return
-                        }
-                        self.match = uncheckedMatch.value
-                        uncheckedMatch.value.delegate = self
-                        GKMatchmaker.shared().finishMatchmaking(for: uncheckedMatch.value)
-                        #if DEBUG
-                            print(
-                                "[PimPoPom Multiplayer] GameKit match acquired "
-                                    + "remotePlayers=\(uncheckedMatch.value.players.count) "
-                                    + "expectedPlayers=\(uncheckedMatch.value.expectedPlayerCount)"
-                            )
-                        #endif
-                        self.eventHandler?(.rosterChanged)
-                        continuation.resume()
+                    guard let match = uncheckedMatch?.value else {
+                        continuation.resume(
+                            throwing: MultiplayerGameKitError.matchUnavailable
+                        )
+                        return
                     }
-                } else {
-                    Task { @MainActor in
-                        continuation.resume(throwing: MultiplayerGameKitError.matchUnavailable)
-                    }
+                    self.adoptMatch(match)
+                    self.matchmaker.finishMatchmaking(for: match)
+                    #if DEBUG
+                        print(
+                            "[PimPoPom Multiplayer] GameKit match acquired "
+                                + "remotePlayers=\(match.players.count) "
+                                + "expectedPlayers=\(match.expectedPlayerCount)"
+                        )
+                    #endif
+                    self.eventHandler?(.rosterChanged)
+                    continuation.resume()
                 }
             }
         }
@@ -264,49 +422,13 @@ final class LiveMultiplayerGameKitClient: NSObject, MultiplayerGameKitClientProt
     }
 
     func cancel() {
-        GKMatchmaker.shared().cancel()
+        activeCallbackContext = nil
+        callbackGeneration &+= 1
+        matchmaker.cancel()
         match?.delegate = nil
+        activeDelegateRelay = nil
         match?.disconnect()
         match = nil
-    }
-}
-
-extension LiveMultiplayerGameKitClient: @preconcurrency GKMatchDelegate {
-    func match(
-        _: GKMatch,
-        didReceive data: Data,
-        fromRemotePlayer player: GKPlayer
-    ) {
-        eventHandler?(.received(data, fromGamePlayerID: player.gamePlayerID))
-    }
-
-    func match(
-        _: GKMatch,
-        player: GKPlayer,
-        didChange state: GKPlayerConnectionState
-    ) {
-        let status: MultiplayerGameKitConnectionStatus =
-            switch state {
-            case .connected: .connected
-            case .disconnected: .disconnected
-            default: .unknown
-            }
-        eventHandler?(.connectionChanged(player.gamePlayerID, status))
-        eventHandler?(.rosterChanged)
-    }
-
-    func match(_: GKMatch, didFailWithError error: (any Error)?) {
-        eventHandler?(
-            .failed(error?.localizedDescription ?? "The Game Center match failed.")
-        )
-    }
-
-    func match(
-        _ match: GKMatch,
-        shouldReinviteDisconnectedPlayer _: GKPlayer
-    ) -> Bool {
-        // Apple's automatic reinvite path is supported only for a 1v1 match.
-        match.players.count <= 1
     }
 }
 
@@ -1132,6 +1254,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
     private let maximumEvidenceJournalEntries: Int
     private let encoder: JSONEncoder
     private let decoder = JSONDecoder()
+    private var sessionGeneration: UInt64 = 0
     private var matchID: String?
     private var requiredParticipantCount = 0
     private var nextPacketSequenceByLane = Dictionary(
@@ -1204,13 +1327,20 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             participantCount: participantCount
         )
         resetSession(keepingClient: true)
+        let connectionGeneration = sessionGeneration
         self.matchID = matchID.lowercased()
         requiredParticipantCount = participantCount
         state = .matching
         do {
             try await client.findMatch(configuration: configuration)
+            guard sessionGeneration == connectionGeneration else {
+                throw CancellationError()
+            }
             refreshRoster()
         } catch {
+            guard sessionGeneration == connectionGeneration else {
+                throw CancellationError()
+            }
             let message = error.localizedDescription
             state = .failed(message)
             eventHandler?(.failed(message))
@@ -2538,6 +2668,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
     }
 
     private func resetSession(keepingClient: Bool) {
+        sessionGeneration &+= 1
         if !keepingClient { client.cancel() }
         matchID = nil
         requiredParticipantCount = 0
