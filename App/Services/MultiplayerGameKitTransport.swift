@@ -439,12 +439,13 @@ enum MultiplayerLiveCompatibility: Equatable {
 }
 
 enum MultiplayerLiveWire {
-    static let version = 2
+    static let version = 3
     static let requiredCapabilities: Set<String> = [
         "fast-input-v1",
         "input-resolution-v1",
         "network-policy-v1",
         "sealed-frontier-v1",
+        "stable-recovery-v1",
         "terminal-cancel-v1",
         "terminal-drain-v1",
     ]
@@ -1403,16 +1404,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
 
     func sendClockPing(localMonotonicMilliseconds: Int) throws {
         guard let roster, !isCoordinator, !clockEstimator.hasNetworkMeasurement else { return }
+        guard outstandingClockPings.count < Self.maximumOutstandingClockPings else { return }
         let ping = MultiplayerClockPingPacket(
             nonce: nextClockNonce,
             requesterSendMonotonicMilliseconds: localMonotonicMilliseconds
         )
         nextClockNonce += 1
-        while outstandingClockPings.count >= Self.maximumOutstandingClockPings,
-            let oldestNonce = outstandingClockPings.keys.min()
-        {
-            outstandingClockPings.removeValue(forKey: oldestNonce)
-        }
         outstandingClockPings[ping.nonce] = localMonotonicMilliseconds
         do {
             try send(

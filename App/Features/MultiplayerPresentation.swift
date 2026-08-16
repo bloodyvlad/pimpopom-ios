@@ -212,6 +212,29 @@ enum MultiplayerPresentation {
         var isMutationPending: Bool
         var message: String?
         var expiresAt: Date?
+        var pendingReadyIntent: Bool?
+
+        init(
+            matchID: String,
+            capacity: Int,
+            isCreator: Bool,
+            participants: [Participant],
+            connection: WaitingConnectionState,
+            isMutationPending: Bool,
+            message: String? = nil,
+            expiresAt: Date? = nil,
+            pendingReadyIntent: Bool? = nil
+        ) {
+            self.matchID = matchID
+            self.capacity = capacity
+            self.isCreator = isCreator
+            self.participants = participants
+            self.connection = connection
+            self.isMutationPending = isMutationPending
+            self.message = message
+            self.expiresAt = expiresAt
+            self.pendingReadyIntent = pendingReadyIntent
+        }
 
         var currentPlayer: Participant? {
             participants.first(where: \.isCurrentPlayer)
@@ -219,8 +242,11 @@ enum MultiplayerPresentation {
 
         var canToggleReady: Bool {
             currentPlayer != nil
-                && connection == .ready
                 && !isMutationPending
+        }
+
+        var displayedCurrentPlayerReady: Bool {
+            pendingReadyIntent ?? currentPlayer?.ready ?? false
         }
 
         var startMatchControlState: StartMatchControlState {

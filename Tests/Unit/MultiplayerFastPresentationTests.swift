@@ -318,6 +318,160 @@ final class MultiplayerFastPresentationTests: XCTestCase {
         XCTAssertEqual(watchdog.inputID, inputID)
     }
 
+    func testReadyIntentRespondsLocallyAndFlushesOnceAfterCompatibility() {
+        var intent = MultiplayerReadyIntent()
+
+        intent.request(true)
+        XCTAssertTrue(intent.displayedReady(serverReady: false))
+        XCTAssertNil(
+            intent.takePendingMutation(
+                serverReady: false,
+                compatibility: .collecting
+            )
+        )
+        XCTAssertNil(
+            intent.takePendingMutation(
+                serverReady: false,
+                compatibility: .incompatible
+            )
+        )
+        XCTAssertEqual(
+            intent.takePendingMutation(
+                serverReady: false,
+                compatibility: .unanimous
+            ),
+            true
+        )
+        XCTAssertNil(
+            intent.takePendingMutation(
+                serverReady: false,
+                compatibility: .unanimous
+            )
+        )
+
+        intent.acknowledge(serverReady: true)
+        XCTAssertTrue(intent.displayedReady(serverReady: true))
+        XCTAssertNil(
+            intent.takePendingMutation(
+                serverReady: true,
+                compatibility: .unanimous
+            )
+        )
+    }
+
+    func testReadyIntentCanUndoQueuedReadyAndClearsOnRetryOrLeave() {
+        var intent = MultiplayerReadyIntent()
+        intent.request(false)
+        XCTAssertEqual(
+            intent.takePendingMutation(
+                serverReady: true,
+                compatibility: .collecting
+            ),
+            false
+        )
+        intent.acknowledge(serverReady: false)
+
+        intent.request(true)
+        intent.request(false)
+
+        XCTAssertFalse(intent.displayedReady(serverReady: false))
+        XCTAssertNil(
+            intent.takePendingMutation(
+                serverReady: false,
+                compatibility: .collecting
+            )
+        )
+
+        intent.request(true)
+        intent.reset()
+        XCTAssertFalse(intent.displayedReady(serverReady: false))
+        XCTAssertNil(
+            intent.takePendingMutation(
+                serverReady: false,
+                compatibility: .unanimous
+            )
+        )
+
+        intent.request(true)
+        XCTAssertEqual(
+            intent.takePendingMutation(
+                serverReady: false,
+                compatibility: .unanimous
+            ),
+            true
+        )
+        intent.mutationFailed()
+        XCTAssertFalse(intent.displayedReady(serverReady: false))
+    }
+
+    func testClockSynchronizationKeepsProbingUntilTheTenSecondDeadline() {
+        XCTAssertTrue(
+            MultiplayerClockSynchronizationPolicy.shouldContinue(
+                now: 1_680,
+                deadline: 10_000,
+                hasMeasurement: false
+            )
+        )
+        XCTAssertTrue(
+            MultiplayerClockSynchronizationPolicy.shouldContinue(
+                now: 9_999,
+                deadline: 10_000,
+                hasMeasurement: false
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerClockSynchronizationPolicy.shouldContinue(
+                now: 10_000,
+                deadline: 10_000,
+                hasMeasurement: false
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerClockSynchronizationPolicy.shouldContinue(
+                now: 1_000,
+                deadline: 10_000,
+                hasMeasurement: true
+            )
+        )
+    }
+
+    func testLobbyOperationIdentityRejectsStaleRuntimeAndResponseRevision() {
+        let identity = MultiplayerLobbyOperationIdentity(
+            matchID: "match-a",
+            runtimeGeneration: 7,
+            revision: 11
+        )
+
+        XCTAssertTrue(
+            identity.isCurrent(
+                matchID: "match-a",
+                runtimeGeneration: 7,
+                revision: 11
+            )
+        )
+        XCTAssertFalse(
+            identity.isCurrent(
+                matchID: "match-a",
+                runtimeGeneration: 8,
+                revision: 11
+            )
+        )
+        XCTAssertFalse(
+            identity.isCurrent(
+                matchID: "match-a",
+                runtimeGeneration: 7,
+                revision: 12
+            )
+        )
+        XCTAssertFalse(
+            identity.isCurrent(
+                matchID: "match-b",
+                runtimeGeneration: 7,
+                revision: 11
+            )
+        )
+    }
+
     func testTerminalDrainWaitsForEveryDeclaredInputAcrossAllSeats() throws {
         var drain = try MultiplayerTerminalDrainTracker(seats: [0, 1, 2])
         try drain.recordEvidence(

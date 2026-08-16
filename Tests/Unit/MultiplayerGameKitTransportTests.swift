@@ -237,6 +237,10 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
     }
 
     func testExactFastHelloRequiresTheFrozenCapabilitySet() {
+        XCTAssertEqual(MultiplayerLiveWire.version, 3)
+        XCTAssertTrue(
+            MultiplayerLiveWire.requiredCapabilities.contains("stable-recovery-v1")
+        )
         let exact = MultiplayerHelloPacket(
             participantId: Self.localParticipantID,
             seat: 0,
@@ -729,16 +733,22 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
     }
 
     func testOutstandingClockPingsStayBoundedWhileResponsesAreLost() async throws {
+        let clock = MultiplayerTestClock(value: 0)
         let client = MultiplayerGameKitClientFake(
             localGamePlayerID: "G:beta",
             remotePlayers: [
                 MultiplayerGameKitPlayer(gamePlayerID: "G:alpha", displayName: "Alpha")
             ]
         )
-        let transport = MultiplayerGameKitTransport(client: client)
+        let transport = MultiplayerGameKitTransport(
+            client: client,
+            monotonicMilliseconds: { clock.value }
+        )
         try await makeCompatible(transport, client: client, localSeat: 1)
+        let firstClockSendIndex = client.sent.count
 
         for milliseconds in 0..<32 {
+            clock.value = milliseconds * 140
             try transport.sendClockPing(localMonotonicMilliseconds: milliseconds)
         }
 
@@ -746,6 +756,45 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
             transport.outstandingClockPingCount,
             MultiplayerGameKitTransport.maximumOutstandingClockPings
         )
+
+        let retainedPings = try client.sent.dropFirst(firstClockSendIndex).map { sent in
+            let envelope = try JSONDecoder().decode(
+                MultiplayerPacketEnvelope.self,
+                from: sent.data
+            )
+            guard case .clockPing(let ping) = envelope.payload else {
+                throw MultiplayerGameKitError.invalidPacket
+            }
+            return ping
+        }
+        XCTAssertEqual(
+            retainedPings.count,
+            MultiplayerGameKitTransport.maximumOutstandingClockPings
+        )
+
+        for (index, ping) in retainedPings.prefix(4).enumerated() {
+            clock.value = ping.requesterSendMonotonicMilliseconds + 3_000
+            client.receive(
+                try encodedEnvelope(
+                    sequence: index + 2,
+                    lane: .control,
+                    payload: .clockPong(
+                        MultiplayerClockPongPacket(
+                            nonce: ping.nonce,
+                            requesterSendMonotonicMilliseconds:
+                                ping.requesterSendMonotonicMilliseconds,
+                            coordinatorReceiveMonotonicMilliseconds:
+                                ping.requesterSendMonotonicMilliseconds + 1_500,
+                            coordinatorSendMonotonicMilliseconds:
+                                ping.requesterSendMonotonicMilliseconds + 1_500
+                        )
+                    )
+                ),
+                from: "G:alpha"
+            )
+        }
+
+        XCTAssertTrue(transport.clockEstimator.hasNetworkMeasurement)
     }
 
     func testClockMeasurementCountsLossAndReorderAndFreezesAfterFourthPong() async throws {

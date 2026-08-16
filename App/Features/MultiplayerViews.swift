@@ -796,19 +796,20 @@ struct MultiplayerWaitingRoomView: View {
                 connectionCard
             }
 
-            if let current = state.currentPlayer {
+            if state.currentPlayer != nil {
                 Button {
-                    onToggleReady(!current.ready)
+                    onToggleReady(!state.displayedCurrentPlayerReady)
                 } label: {
                     Label(
-                        current.ready ? "Not ready" : "Ready",
-                        systemImage: current.ready ? "xmark.circle.fill" : "checkmark.circle.fill"
+                        state.displayedCurrentPlayerReady ? "Not ready" : "Ready",
+                        systemImage: state.displayedCurrentPlayerReady
+                            ? "xmark.circle.fill" : "checkmark.circle.fill"
                     )
                 }
                 .buttonStyle(
                     WebSecondaryButtonStyle(
                         theme: palette,
-                        accent: current.ready
+                        accent: state.displayedCurrentPlayerReady
                             ? Color(hex: palette.muted)
                             : Color(hex: "#72e995"),
                         minimumHeight: MultiplayerWaitingRoomLayoutMetrics.actionHeight

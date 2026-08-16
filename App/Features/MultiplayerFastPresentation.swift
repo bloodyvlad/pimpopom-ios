@@ -78,6 +78,83 @@ enum MultiplayerLocalReconciliation: Equatable, Sendable {
     case unchanged
 }
 
+struct MultiplayerReadyIntent: Equatable, Sendable {
+    private var desiredReady: Bool?
+    private var inFlightReady: Bool?
+
+    var projectedReady: Bool? {
+        desiredReady ?? inFlightReady
+    }
+
+    mutating func request(_ ready: Bool) {
+        desiredReady = ready
+    }
+
+    func displayedReady(serverReady: Bool) -> Bool {
+        projectedReady ?? serverReady
+    }
+
+    mutating func takePendingMutation(
+        serverReady: Bool,
+        compatibility: MultiplayerLiveCompatibility
+    ) -> Bool? {
+        guard inFlightReady == nil, let desiredReady else { return nil }
+        guard desiredReady != serverReady else {
+            self.desiredReady = nil
+            return nil
+        }
+        guard !desiredReady || compatibility == .unanimous else { return nil }
+        inFlightReady = desiredReady
+        return desiredReady
+    }
+
+    mutating func observe(serverReady: Bool) {
+        guard inFlightReady == nil, desiredReady == serverReady else { return }
+        desiredReady = nil
+    }
+
+    mutating func acknowledge(serverReady _: Bool) {
+        inFlightReady = nil
+        desiredReady = nil
+    }
+
+    mutating func mutationFailed() {
+        inFlightReady = nil
+        desiredReady = nil
+    }
+
+    mutating func reset() {
+        desiredReady = nil
+        inFlightReady = nil
+    }
+}
+
+enum MultiplayerClockSynchronizationPolicy {
+    static func shouldContinue(
+        now: Int,
+        deadline: Int,
+        hasMeasurement: Bool
+    ) -> Bool {
+        !hasMeasurement && now < deadline
+    }
+}
+
+struct MultiplayerLobbyOperationIdentity: Equatable, Sendable {
+    let matchID: String
+    let runtimeGeneration: UInt64
+    let revision: UInt64
+
+    func isCurrent(
+        matchID: String?,
+        runtimeGeneration: UInt64,
+        revision: UInt64
+    ) -> Bool {
+        self.matchID == matchID
+            && self.runtimeGeneration == runtimeGeneration
+            && self.revision == revision
+    }
+}
+
 struct MultiplayerLocalInputPrediction: Equatable, Sendable {
     private(set) var nextInputSequence = 1
     private(set) var pendingInput: MultiplayerPendingLocalInput?
