@@ -74,23 +74,25 @@ Tap your color. Find your rhythm. See how fast you can go.
 Capture these only from the final submitted build with fictional test data and no
 debug/Test-mode/private information.
 
-## TestFlight build-21 current copy
+## TestFlight build-23 current copy
 
 **Beta App Description**
 
 PimPoPom is a reaction game with Arcade, Zen, and a 2–4-player Multiplayer beta.
-Build 21 adds immediate local Multiplayer tap acknowledgement with deterministic
-reconciliation, reliable evidence recovery, and a fully tappable Pixel back button.
+Build 23 keeps immediate local Multiplayer tap feedback while ordinary network
+delay catches up without freezing the board. It also aligns Multiplayer hit
+fly-outs with single player and fixes the back button in every theme.
 
 **What to Test**
 
 Using two to four distinct Game Center and PimPoPom accounts, create or join the
 same lobby. Rapidly tap valid, wrong, and late cells and verify every contact responds
 immediately while canonical score/life changes happen exactly once. Confirm the
-points-and-speed fly-out matches Arcade in all themes, reconnect does not leave a
-pending input or settlement overlay, and all devices finish with the same Results.
-Mixed build-20/build-21 rooms must stop with Update Required before Ready/start.
-In Pixel, tap the full 44-point back-button face, including its lower-right edge.
+points-and-speed fly-out matches Arcade in all themes, short delays do not show a
+centered Syncing overlay, and `Catching up` after one second does not block eligible
+taps. Reconnect within 15 seconds and confirm all devices finish with the same
+Results. Mixed build-22/build-23 rooms must stop with Update Required before Start.
+In every theme, tap the full 44-point back-button face including its lower-right edge.
 
 **Beta Review Notes**
 

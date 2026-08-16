@@ -175,6 +175,15 @@ enum MultiplayerPresentation {
         }
     }
 
+    enum WaitingConnectionRefreshPolicy {
+        static func canRefresh(
+            isTransportConnected: Bool,
+            current: WaitingConnectionState
+        ) -> Bool {
+            isTransportConnected && !current.shouldPresentFailure
+        }
+    }
+
     enum StartMatchControlState: Equatable, Sendable {
         case waitingForPlayers
         case loadingRoster
@@ -319,7 +328,25 @@ enum MultiplayerPresentation {
         case interactive
         case pending
         case syncing
+        case finalizing
         case spectating
+    }
+
+    enum LiveNetworkStatus: Equatable, Sendable {
+        case catchingUp
+        case reconnecting
+        case finalizing
+
+        var title: String {
+            switch self {
+            case .catchingUp:
+                "Catching up"
+            case .reconnecting:
+                "Reconnecting"
+            case .finalizing:
+                "Finalizing"
+            }
+        }
     }
 
     struct LiveMatchState: Equatable, Sendable {
@@ -330,6 +357,7 @@ enum MultiplayerPresentation {
         let localSeat: Int
         let streakSteps: Int
         let isRecovering: Bool
+        let networkStatus: LiveNetworkStatus?
         let announcement: String?
         let hitFeedbackEvent: GameplayHitFeedbackEvent?
         let inputMode: LiveInputMode
@@ -342,6 +370,7 @@ enum MultiplayerPresentation {
             localSeat: Int,
             streakSteps: Int,
             isRecovering: Bool,
+            networkStatus: LiveNetworkStatus? = nil,
             announcement: String?,
             hitFeedbackEvent: GameplayHitFeedbackEvent? = nil,
             inputMode: LiveInputMode = .interactive
@@ -353,6 +382,7 @@ enum MultiplayerPresentation {
             self.localSeat = localSeat
             self.streakSteps = streakSteps
             self.isRecovering = isRecovering
+            self.networkStatus = networkStatus
             self.announcement = announcement
             self.hitFeedbackEvent = hitFeedbackEvent
             self.inputMode = inputMode

@@ -6,18 +6,12 @@ physical-device evidence.
 
 ## Current release evidence
 
-### TestFlight 1.02 (21)
-
-- `Scripts/check.sh` passed on 2026-08-10: 69 pure-core tests and 272 native tests
-  passed on the named iPhone 17 Simulator, including FAST policy/transport/terminal,
-  four-theme shared fly-outs, and the Pixel lower-right back-button tap.
-- Archive source `66ffd0b3687d198682e85aa4bfcf40ac4dcbb88d` passed signing,
-  entitlement, privacy, secret-absence, symbol, and upload checks. App Store Connect
-  reports VALID, Beta App Review APPROVED, and both QA groups in beta testing.
-- Physical 2/3/4-device acceptance remains required for FAST acceptance or
-  production submission.
-
-Build 20 is the immediate beta rollback. Older evidence remains in Git history.
+- `1.02 (23)` is a source candidate only. Its exact commit must pass the full local
+  gate before merge and has not been archived or uploaded.
+- TestFlight `1.02 (22)` is VALID and assigned only to Internal QA, but its
+  Multiplayer recovery is known unstable.
+- Build 20 is the retained beta rollback. Physical 2/3/4-device and 60/120 Hz
+  acceptance remains required before FAST or production acceptance.
 
 ## Required local gate
 
@@ -96,16 +90,18 @@ Sandbox/TestFlight for value integration:
 
 ### FAST Multiplayer
 
-The full deterministic packet, prediction, evidence, disposition, reorder, host,
-latency, and 2/3/4-seat network matrix is defined in
-[MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md). Before build 21 is accepted,
-require:
+The current packet, prediction, evidence, control, snapshot, and 2/3/4-seat matrix
+is defined in [MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md). Before build 23 is
+physically accepted, require:
 
 - local acknowledgement p95 at or below 33 ms on 60/120 Hz hardware;
-- normal-network canonical application p95 at or below 150 ms;
+- no intentional canonical wait on local presentation;
 - zero burst-tap double penalties and zero orphaned evidence;
 - exactly one disposition per InputID and byte-identical transcripts;
 - sealed-frontier preservation of earlier inputs after fast-copy loss;
+- no notice below 1 second, interactive `Catching up` from 1–15 seconds, and no
+  cancellation before the bounded deadline;
+- no unseen-target miss/finish while Start, plan, pause, or Resume delivery recovers;
 - mixed live-wire versions rejected before Ready/start;
 - 100% valid settlement across supported loss/reorder/duplicate cases.
 

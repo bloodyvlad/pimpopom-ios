@@ -13,20 +13,22 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (21)` |
-| Current TestFlight | Build 21; valid, approved, Internal QA and External QA testing |
-| Archived runtime source | `66ffd0b3687d198682e85aa4bfcf40ac4dcbb88d` |
+| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (23)` candidate |
+| Current TestFlight | Build 22; valid, Internal QA only; known unstable Multiplayer recovery |
+| Candidate | Build 23 source; not archived or uploaded |
 | Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Open release gate | Physical 2/3/4-device and 60/120 Hz FAST acceptance |
+| Open release gate | Physical 2/3/4-device, reconnect, and 60/120 Hz acceptance |
 | Production App Store | Not released |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-Build 21 is the current FAST Multiplayer TestFlight build. It schedules local
-feedback for the next display frame and adds
-sealed-frontier canonical ordering, reliable evidence recovery, exact Arcade-style
-hit fly-outs, and the Pixel back-button fix while retaining PHP transcript/proof v1.
-Real 2-, 3-, and 4-device Multiplayer and 60/120 Hz timing remain open physical
-gates. See [the current slice](docs/CURRENT_VERSION.md) for the exact status.
+Build 23 keeps next-frame local feedback but replaces build 22's harsh recovery:
+ordinary gaps stay interactive, `Catching up` appears only after one second, and
+recovery has a 15-second ceiling. Start, pause, Resume, Finish, cancel, evidence,
+and snapshots are retained or retried without changing PHP transcript/proof v1.
+Resume advances after its reliable send reaches every intended peer; exact ACK
+recovery continues in the background.
+It is a tested source candidate, not a TestFlight deployment. See
+[the current slice](docs/CURRENT_VERSION.md).
 
 ## Implemented product
 
@@ -46,9 +48,9 @@ gates. See [the current slice](docs/CURRENT_VERSION.md) for the exact status.
 - **Presentation:** Default, Disco, Light, and Pixel themes; selectable icons;
   pets; independent Sound FX, music, haptics, and glyph settings.
 
-The safe client-only slice of [FAST Multiplayer](docs/MULTIPLAYER_FAST_TASK.md) is
-implemented in build 21. PHP compatibility remains v1; better-host election,
-first-render protocol changes, and concurrent per-seat targets remain deferred.
+The current [FAST Multiplayer slice](docs/MULTIPLAYER_FAST_TASK.md) is implemented
+in build 23. PHP compatibility remains v1; host migration, custom LAN routing, and
+concurrent per-seat targets remain deferred.
 
 ## Build and test
 

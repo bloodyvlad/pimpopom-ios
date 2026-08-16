@@ -596,10 +596,16 @@ struct MultiplayerAcknowledgementPacket: Codable, Equatable {
 }
 
 struct MultiplayerSnapshotPacket: Codable, Equatable {
+    static let maximumEventsPerChunk = 100
+    static let maximumChunkCount =
+        (MultiplayerProtocolConstants.maximumEvents + maximumEventsPerChunk - 1)
+        / maximumEventsPerChunk
+
     let afterEventSequence: Int
     let throughEventSequence: Int
     let chunkIndex: Int
     let chunkCount: Int
+    let controlWatermark: Int
     let events: [[Int]]
     let pendingPlans: [MultiplayerWireActivationPlan]
     let coordinatorMatchStartMonotonicMilliseconds: Int
@@ -625,6 +631,24 @@ struct MultiplayerFinishPacket: Codable, Equatable {
     let finalEventSequence: Int
     let manifestHash: String
     let transcriptDigest: String
+}
+
+private enum MultiplayerReliableControlRecoveryID: Hashable {
+    case rosterConfirmed
+    case start
+    case pause(Int)
+    case resume(Int)
+    case finish(Int)
+    case terminalCancel(Int)
+}
+
+private struct MultiplayerReliableControlRecoveryEntry {
+    let payload: MultiplayerPacketPayload
+    let eventSequence: Int
+    let logicalMilliseconds: Int
+    let beganAtMonotonicMilliseconds: Int
+    var recipients: Set<String>
+    var successfullySentRecipients: Set<String>
 }
 
 struct MultiplayerTerminalInputSealPacket: Codable, Equatable {
@@ -1133,6 +1157,10 @@ protocol MultiplayerGameKitTransporting: AnyObject {
     var liveCompatibility: MultiplayerLiveCompatibility { get }
     var frozenNetworkPolicy: MultiplayerFrozenNetworkPolicy? { get }
     var networkPolicyError: String? { get }
+    var hasPendingReliableRecovery: Bool { get }
+    var oldestPendingReliableRecoveryMonotonicMilliseconds: Int? { get }
+    var hasActivePause: Bool { get }
+    var hasPendingResumeRecovery: Bool { get }
     var eventHandler: ((MultiplayerGameKitTransportEvent) -> Void)? { get set }
 
     func connect(matchID: String, playerGroup: Int, participantCount: Int) async throws
@@ -1144,6 +1172,11 @@ protocol MultiplayerGameKitTransporting: AnyObject {
         _ manifest: MultiplayerStartManifest,
         coordinatorStartMonotonicMilliseconds: Int,
         presentationLeadMilliseconds: Int
+    ) throws
+    func stageInput(_ input: MultiplayerInputPacket) throws
+    func sendStagedInput(
+        _ input: MultiplayerInputPacket,
+        logicalMatchMilliseconds: Int
     ) throws
     func sendInput(_ input: MultiplayerInputPacket, logicalMatchMilliseconds: Int) throws
     func sendInputSeal(
@@ -1202,7 +1235,7 @@ protocol MultiplayerGameKitTransporting: AnyObject {
 final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTransporting {
     static let defaultPresentationLeadMilliseconds = 180
     static let maximumPacketBytes = 64 * 1_024
-    static let snapshotChunkEventCount = 100
+    static let snapshotChunkEventCount = MultiplayerSnapshotPacket.maximumEventsPerChunk
     static let recoveryRetryIntervalMilliseconds = 80
     static let maximumOutstandingClockPings = 16
 
@@ -1246,6 +1279,16 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         )
     }
 
+    func unacknowledgedPacketSequences(
+        in lane: MultiplayerTransportLane
+    ) -> Set<Int> {
+        Set(
+            pendingAcknowledgements
+                .filter { $0.key.lane == lane && !$0.value.isEmpty }
+                .map(\.key.sequence)
+        )
+    }
+
     var unacknowledgedEvidenceInputIDs: Set<MultiplayerInputID> {
         Set(evidenceJournal.keys)
     }
@@ -1272,13 +1315,18 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
     private var seenFastSequencesByPlayer: [String: Set<Int>] = [:]
     private var pendingAcknowledgements: [MultiplayerLaneSequence: Set<String>] = [:]
     private var evidenceJournal: [MultiplayerInputID: MultiplayerInputPacket] = [:]
+    private var evidenceJournalBeganAt: [MultiplayerInputID: Int] = [:]
     private var evidenceInputIDByLaneSequence: [MultiplayerLaneSequence: MultiplayerInputID] =
         [:]
     private var pendingEvidenceRecipients: [MultiplayerInputID: Set<String>] = [:]
     private var latestLocalInputSeal: (seal: MultiplayerInputSeal, logicalMilliseconds: Int)?
     private var resolutionJournal: [MultiplayerInputID: MultiplayerInputResolution] = [:]
+    private var resolutionJournalBeganAt: [MultiplayerInputID: Int] = [:]
     private var resolutionInputIDByLaneSequence: [MultiplayerLaneSequence: MultiplayerInputID] = [:]
     private var pendingResolutionRecipients: [MultiplayerInputID: Set<String>] = [:]
+    private var reliableControlJournal:
+        [MultiplayerReliableControlRecoveryID: MultiplayerReliableControlRecoveryEntry] = [:]
+    private var reliableControlIDByLaneSequence: [MultiplayerLaneSequence: MultiplayerReliableControlRecoveryID] = [:]
     private var lastRecoveryServiceMonotonicMilliseconds: Int?
     private var latestLocalTerminalSeal: (packet: MultiplayerTerminalInputSealPacket, logicalMilliseconds: Int)?
     private var terminalCancellation: (packet: MultiplayerTerminalCancelPacket, logicalMilliseconds: Int)?
@@ -1290,6 +1338,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             coordinatorBeganMonotonicMilliseconds: Int,
             logicalMilliseconds: Int
         )?
+    private var pendingResume:
+        (
+            pauseID: Int,
+            coordinatorMatchStartMonotonicMilliseconds: Int
+        )?
+    private var latestSnapshotMetadataControlSequence = 0
 
     var pendingEvidenceRecipientsByInputID: [MultiplayerInputID: Set<String>] {
         pendingEvidenceRecipients
@@ -1297,6 +1351,59 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
 
     var pendingResolutionRecipientsByInputID: [MultiplayerInputID: Set<String>] {
         pendingResolutionRecipients
+    }
+
+    var hasPendingReliableRecovery: Bool {
+        pendingEvidenceRecipients.values.contains(where: { !$0.isEmpty })
+            || pendingResolutionRecipients.values.contains(where: { !$0.isEmpty })
+            || reliableControlJournal.contains(where: Self.isBlockingControlRecovery)
+    }
+
+    var hasRetainedReliableControlAcknowledgements: Bool {
+        reliableControlJournal.values.contains(where: { !$0.recipients.isEmpty })
+    }
+
+    var oldestPendingReliableRecoveryMonotonicMilliseconds: Int? {
+        let evidenceDates = pendingEvidenceRecipients.compactMap { inputID, recipients in
+            recipients.isEmpty ? nil : evidenceJournalBeganAt[inputID]
+        }
+        let resolutionDates = pendingResolutionRecipients.compactMap {
+            inputID, recipients in
+            recipients.isEmpty ? nil : resolutionJournalBeganAt[inputID]
+        }
+        let controlDates = reliableControlJournal.compactMap { id, entry in
+            Self.isBlockingControlRecovery((key: id, value: entry))
+                ? entry.beganAtMonotonicMilliseconds
+                : nil
+        }
+        return (evidenceDates + resolutionDates + controlDates).min()
+    }
+
+    var hasActivePause: Bool { activePause != nil }
+
+    var hasPendingResumeRecovery: Bool { pendingResume != nil }
+
+    var canSendCoordinatorOutput: Bool {
+        guard isCoordinator, startSignal != nil, pendingResume == nil else { return false }
+        guard let activePause else { return true }
+        return reliableControlJournal[.pause(activePause.id)] == nil
+    }
+
+    private static func isBlockingControlRecovery(
+        _ element: (
+            key: MultiplayerReliableControlRecoveryID,
+            value: MultiplayerReliableControlRecoveryEntry
+        )
+    ) -> Bool {
+        guard !element.value.recipients.isEmpty else { return false }
+        if case .resume = element.key,
+            element.value.recipients.isSubset(
+                of: element.value.successfullySentRecipients
+            )
+        {
+            return false
+        }
+        return true
     }
 
     var outstandingClockPingCount: Int {
@@ -1390,7 +1497,8 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         else {
             throw MultiplayerGameKitError.invalidPacket
         }
-        try send(
+        try sendReliableControl(
+            id: .rosterConfirmed,
             payload: .rosterConfirmed(
                 MultiplayerRosterConfirmedPacket(
                     confirmedCount: confirmedCount,
@@ -1445,20 +1553,33 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             coordinatorStartMonotonicMilliseconds: coordinatorStartMonotonicMilliseconds,
             presentationLeadMilliseconds: presentationLeadMilliseconds
         )
+        do {
+            try sendReliableControl(
+                id: .start,
+                payload: .startManifest(signal),
+                eventSequence: 0,
+                logicalMatchMilliseconds: 0
+            )
+        } catch {
+            discardReliableControls { $0 == .start }
+            startSignal = nil
+            self.coordinatorMatchStartMonotonicMilliseconds = nil
+            throw error
+        }
         startSignal = signal
         self.coordinatorMatchStartMonotonicMilliseconds =
             coordinatorStartMonotonicMilliseconds
-        try send(
-            payload: .startManifest(signal),
-            eventSequence: 0,
-            logicalMatchMilliseconds: 0
-        )
     }
 
     func sendInput(
         _ input: MultiplayerInputPacket,
         logicalMatchMilliseconds: Int
     ) throws {
+        try stageInput(input)
+        try sendStagedInput(input, logicalMatchMilliseconds: logicalMatchMilliseconds)
+    }
+
+    func stageInput(_ input: MultiplayerInputPacket) throws {
         guard roster != nil else { throw MultiplayerGameKitError.notConnected }
         guard liveCompatibility == .unanimous else {
             throw MultiplayerGameKitError.incompatibleLiveWire
@@ -1472,9 +1593,19 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                 throw MultiplayerGameKitError.evidenceJournalFull
             }
             evidenceJournal[input.id] = input
+            evidenceJournalBeganAt[input.id] = monotonicMilliseconds()
             pendingEvidenceRecipients[input.id] = Set(
                 roster?.observedGamePlayerIDs ?? []
             )
+        }
+    }
+
+    func sendStagedInput(
+        _ input: MultiplayerInputPacket,
+        logicalMatchMilliseconds: Int
+    ) throws {
+        guard evidenceJournal[input.id] == input else {
+            throw MultiplayerGameKitError.invalidPacket
         }
         // Every peer must witness immutable input evidence. Sending only to the
         // coordinator would let one modified coordinator fabricate another
@@ -1558,6 +1689,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             }
         } else {
             resolutionJournal[resolution.inputID] = resolution
+            resolutionJournalBeganAt[resolution.inputID] = monotonicMilliseconds()
             pendingResolutionRecipients[resolution.inputID] = Set(
                 roster?.observedGamePlayerIDs ?? []
             )
@@ -1634,12 +1766,19 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         } else {
             terminalCancellation = (packet, logicalMatchMilliseconds)
         }
-        try send(
-            payload: .terminalCancel(packet),
-            eventSequence: throughEventSequence,
-            logicalMatchMilliseconds: logicalMatchMilliseconds,
-            lane: .control
+        let recoveryID = MultiplayerReliableControlRecoveryID.terminalCancel(
+            throughEventSequence
         )
+        do {
+            try sendReliableControl(
+                id: recoveryID,
+                payload: .terminalCancel(packet),
+                eventSequence: throughEventSequence,
+                logicalMatchMilliseconds: logicalMatchMilliseconds
+            )
+        } catch {
+            if reliableControlJournal[recoveryID] == nil { throw error }
+        }
     }
 
     func sendActivationPlans(
@@ -1647,6 +1786,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         logicalMatchMilliseconds: Int
     ) throws {
         guard isCoordinator,
+            canSendCoordinatorOutput,
             !plans.isEmpty,
             Set(plans.map(\.planId)).count == plans.count,
             plans.allSatisfy({
@@ -1672,6 +1812,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         logicalMatchMilliseconds: Int
     ) throws {
         guard isCoordinator,
+            canSendCoordinatorOutput,
             !planIDs.isEmpty,
             planIDs.allSatisfy({ $0 > 0 }),
             Set(planIDs).count == planIDs.count
@@ -1692,6 +1833,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         logicalMatchMilliseconds: Int
     ) throws {
         guard isCoordinator,
+            canSendCoordinatorOutput,
             Self.eventsAreContiguous(
                 events,
                 afterEventSequence: highestAppliedEventSequence
@@ -1738,6 +1880,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         to gamePlayerID: String
     ) throws {
         guard isCoordinator,
+            pendingResume == nil,
             events.first?[safe: 1] == afterEventSequence + 1 || events.isEmpty,
             let coordinatorMatchStartMonotonicMilliseconds
         else {
@@ -1745,6 +1888,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         }
         let chunks = events.chunked(into: Self.snapshotChunkEventCount)
         let snapshotChunks = chunks.isEmpty ? [[]] : chunks
+        let controlWatermark = nextPacketSequenceByLane[.control, default: 1] - 1
         for (index, chunk) in snapshotChunks.enumerated() {
             try send(
                 payload: .snapshot(
@@ -1753,6 +1897,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                         throughEventSequence: events.last?[safe: 1] ?? afterEventSequence,
                         chunkIndex: index,
                         chunkCount: snapshotChunks.count,
+                        controlWatermark: controlWatermark,
                         events: chunk,
                         pendingPlans: pendingPlans.sorted { $0.planId < $1.planId },
                         coordinatorMatchStartMonotonicMilliseconds:
@@ -1790,26 +1935,43 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         else {
             throw MultiplayerGameKitError.coordinatorRequired
         }
+        discardReliableControls { id in
+            if case .resume = id { return true }
+            return false
+        }
         let packet = MultiplayerPausePacket(
             pauseId: pauseID,
             pausedAtLogicalMilliseconds: logicalMatchMilliseconds
-        )
-        try send(
-            payload: .pause(packet),
-            eventSequence: highestAppliedEventSequence,
-            logicalMatchMilliseconds: logicalMatchMilliseconds
         )
         activePause = (
             id: pauseID,
             coordinatorBeganMonotonicMilliseconds: monotonicMilliseconds(),
             logicalMilliseconds: logicalMatchMilliseconds
         )
+        let recoveryID = MultiplayerReliableControlRecoveryID.pause(pauseID)
+        do {
+            try sendReliableControl(
+                id: recoveryID,
+                payload: .pause(packet),
+                eventSequence: highestAppliedEventSequence,
+                logicalMatchMilliseconds: logicalMatchMilliseconds
+            )
+        } catch {
+            if reliableControlJournal[recoveryID] == nil { throw error }
+        }
     }
 
     func sendResume(pauseID: Int, logicalMatchMilliseconds: Int) throws {
+        if let pendingResume {
+            guard pendingResume.pauseID == pauseID else {
+                throw MultiplayerGameKitError.coordinatorRequired
+            }
+            return
+        }
         guard isCoordinator,
             let pause = activePause,
             pause.id == pauseID,
+            reliableControlJournal[.pause(pauseID)] == nil,
             let start = coordinatorMatchStartMonotonicMilliseconds
         else {
             throw MultiplayerGameKitError.coordinatorRequired
@@ -1817,17 +1979,29 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         let resumedAt = monotonicMilliseconds()
         let adjustedStart =
             start + max(0, resumedAt - pause.coordinatorBeganMonotonicMilliseconds)
-        coordinatorMatchStartMonotonicMilliseconds = adjustedStart
         let packet = MultiplayerResumePacket(
             pauseId: pauseID,
             coordinatorMatchStartMonotonicMilliseconds: adjustedStart
         )
-        try send(
-            payload: .resume(packet),
-            eventSequence: highestAppliedEventSequence,
-            logicalMatchMilliseconds: logicalMatchMilliseconds
+        let recoveryID = MultiplayerReliableControlRecoveryID.resume(pauseID)
+        pendingResume = (
+            pauseID: pauseID,
+            coordinatorMatchStartMonotonicMilliseconds: adjustedStart
         )
-        activePause = nil
+        do {
+            try sendReliableControl(
+                id: recoveryID,
+                payload: .resume(packet),
+                eventSequence: highestAppliedEventSequence,
+                logicalMatchMilliseconds: logicalMatchMilliseconds
+            )
+        } catch {
+            if reliableControlJournal[recoveryID] == nil {
+                pendingResume = nil
+                throw error
+            }
+        }
+        commitPendingResumeIfPhysicallySent()
     }
 
     func sendFinish(
@@ -1843,17 +2017,82 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         else {
             throw MultiplayerGameKitError.coordinatorRequired
         }
-        try send(
-            payload: .finish(
-                MultiplayerFinishPacket(
-                    finalEventSequence: finalEventSequence,
-                    manifestHash: manifestHash,
-                    transcriptDigest: transcriptDigest
-                )
-            ),
-            eventSequence: finalEventSequence,
-            logicalMatchMilliseconds: logicalMatchMilliseconds
+        let recoveryID = MultiplayerReliableControlRecoveryID.finish(finalEventSequence)
+        do {
+            try sendReliableControl(
+                id: recoveryID,
+                payload: .finish(
+                    MultiplayerFinishPacket(
+                        finalEventSequence: finalEventSequence,
+                        manifestHash: manifestHash,
+                        transcriptDigest: transcriptDigest
+                    )
+                ),
+                eventSequence: finalEventSequence,
+                logicalMatchMilliseconds: logicalMatchMilliseconds
+            )
+        } catch {
+            if reliableControlJournal[recoveryID] == nil { throw error }
+        }
+    }
+
+    private func sendReliableControl(
+        id: MultiplayerReliableControlRecoveryID,
+        payload: MultiplayerPacketPayload,
+        eventSequence: Int,
+        logicalMatchMilliseconds: Int,
+        to requestedRecipients: Set<String>? = nil
+    ) throws {
+        let recipients = requestedRecipients ?? Set(roster?.observedGamePlayerIDs ?? [])
+        if let existing = reliableControlJournal[id] {
+            guard existing.payload == payload,
+                existing.eventSequence == eventSequence,
+                existing.logicalMilliseconds == logicalMatchMilliseconds
+            else {
+                throw MultiplayerGameKitError.invalidPacket
+            }
+        } else {
+            reliableControlJournal[id] = MultiplayerReliableControlRecoveryEntry(
+                payload: payload,
+                eventSequence: eventSequence,
+                logicalMilliseconds: logicalMatchMilliseconds,
+                beganAtMonotonicMilliseconds: monotonicMilliseconds(),
+                recipients: recipients,
+                successfullySentRecipients: []
+            )
+        }
+        guard !recipients.isEmpty else {
+            reliableControlJournal.removeValue(forKey: id)
+            return
+        }
+        let laneSequence = try send(
+            payload: payload,
+            eventSequence: eventSequence,
+            logicalMatchMilliseconds: logicalMatchMilliseconds,
+            to: Array(recipients).sorted(),
+            lane: .control
         )
+        reliableControlIDByLaneSequence[laneSequence] = id
+        reliableControlJournal[id]?.successfullySentRecipients.formUnion(recipients)
+    }
+
+    private func discardReliableControls(
+        matching predicate: (MultiplayerReliableControlRecoveryID) -> Bool
+    ) {
+        let discardedIDs = Set(reliableControlJournal.keys.filter(predicate))
+        for id in discardedIDs {
+            reliableControlJournal.removeValue(forKey: id)
+            if case .resume(let pauseID) = id,
+                pendingResume?.pauseID == pauseID
+            {
+                pendingResume = nil
+            }
+        }
+        for key in Array(reliableControlIDByLaneSequence.keys)
+        where reliableControlIDByLaneSequence[key].map(discardedIDs.contains) == true {
+            reliableControlIDByLaneSequence.removeValue(forKey: key)
+            pendingAcknowledgements.removeValue(forKey: key)
+        }
     }
 
     func coordinatorLogicalMilliseconds(
@@ -1941,8 +2180,10 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         case .connected:
             disconnectedPlayerIDs.remove(playerID)
             refreshRoster()
-            try? resendNetworkPolicyState(to: playerID)
             try? resendRecoveryState(to: playerID)
+            try? resendNetworkPolicyState(to: playerID)
+            publishLocalNetworkMeasurementIfReady()
+            publishLocalNetworkVoteIfReady()
             eventHandler?(.playerReconnected(playerID))
             if roster?.coordinatorGamePlayerID == playerID, !isCoordinator {
                 try? requestSnapshot(
@@ -1983,9 +2224,17 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         case .networkPolicyVote(let vote):
             receiveNetworkPolicyVote(vote, from: senderGamePlayerID)
         case .startManifest(let signal):
-            startSignal = signal
-            coordinatorMatchStartMonotonicMilliseconds =
-                signal.coordinatorStartMonotonicMilliseconds
+            if let startSignal {
+                guard startSignal == signal else { return }
+            } else {
+                startSignal = signal
+                latestSnapshotMetadataControlSequence = max(
+                    latestSnapshotMetadataControlSequence,
+                    envelope.packetSequence
+                )
+                coordinatorMatchStartMonotonicMilliseconds =
+                    signal.coordinatorStartMonotonicMilliseconds
+            }
         case .events(let batch):
             if Self.eventsAreContiguous(
                 batch.events,
@@ -1993,30 +2242,32 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             ) {
                 highestAppliedEventSequence =
                     batch.events.last?[safe: 1] ?? highestAppliedEventSequence
-            } else if !isCoordinator {
-                try? requestSnapshot(
-                    afterEventSequence: highestAppliedEventSequence,
-                    logicalMatchMilliseconds: currentLogicalMillisecondsOrZero()
-                )
-                return
             }
         case .snapshot(let snapshot):
+            let appliedBeforeSnapshot = highestAppliedEventSequence
             if snapshot.events.first?[safe: 1] == highestAppliedEventSequence + 1 {
                 highestAppliedEventSequence =
                     snapshot.events.last?[safe: 1] ?? highestAppliedEventSequence
             }
-            coordinatorMatchStartMonotonicMilliseconds =
-                snapshot.coordinatorMatchStartMonotonicMilliseconds
-            if let pauseID = snapshot.pauseId,
-                let pausedAt = snapshot.pausedAtLogicalMilliseconds
-            {
-                activePause = (
-                    id: pauseID,
-                    coordinatorBeganMonotonicMilliseconds: monotonicMilliseconds(),
-                    logicalMilliseconds: pausedAt
-                )
-            } else {
-                activePause = nil
+            if MultiplayerSnapshotMetadataPolicy.shouldStageInTransport(
+                snapshotThroughEventSequence: snapshot.throughEventSequence,
+                appliedEventSequence: appliedBeforeSnapshot,
+                snapshotControlWatermark: snapshot.controlWatermark,
+                latestMetadataControlSequence: latestSnapshotMetadataControlSequence
+            ) {
+                coordinatorMatchStartMonotonicMilliseconds =
+                    snapshot.coordinatorMatchStartMonotonicMilliseconds
+                if let pauseID = snapshot.pauseId,
+                    let pausedAt = snapshot.pausedAtLogicalMilliseconds
+                {
+                    activePause = (
+                        id: pauseID,
+                        coordinatorBeganMonotonicMilliseconds: monotonicMilliseconds(),
+                        logicalMilliseconds: pausedAt
+                    )
+                } else {
+                    activePause = nil
+                }
             }
         case .acknowledgement(let acknowledgement):
             acknowledge(
@@ -2024,21 +2275,27 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                 lane: acknowledgement.acknowledgedLane,
                 from: senderGamePlayerID
             )
-        case .finish(let finish):
-            if finish.finalEventSequence >= highestAppliedEventSequence {
-                highestAppliedEventSequence = finish.finalEventSequence
-            }
+        case .finish:
+            break
         case .terminalCancel(let cancellation):
             if cancellation.throughEventSequence >= highestAppliedEventSequence {
                 highestAppliedEventSequence = cancellation.throughEventSequence
             }
         case .pause(let pause):
+            latestSnapshotMetadataControlSequence = max(
+                latestSnapshotMetadataControlSequence,
+                envelope.packetSequence
+            )
             activePause = (
                 id: pause.pauseId,
                 coordinatorBeganMonotonicMilliseconds: monotonicMilliseconds(),
                 logicalMilliseconds: pause.pausedAtLogicalMilliseconds
             )
         case .resume(let resume):
+            latestSnapshotMetadataControlSequence = max(
+                latestSnapshotMetadataControlSequence,
+                envelope.packetSequence
+            )
             coordinatorMatchStartMonotonicMilliseconds =
                 resume.coordinatorMatchStartMonotonicMilliseconds
             activePause = nil
@@ -2148,7 +2405,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             try consensus.recordMeasurement(measurement, from: localSeat)
             networkPolicyConsensus = consensus
             localNetworkMeasurement = measurement
-            if !didSendNetworkMeasurement {
+        } catch {
+            failNetworkPolicy(error)
+            return
+        }
+        if !didSendNetworkMeasurement {
+            do {
                 try send(
                     payload: .networkMeasurement(measurement),
                     eventSequence: highestAppliedEventSequence,
@@ -2156,11 +2418,11 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                     lane: .control
                 )
                 didSendNetworkMeasurement = true
+            } catch {
+                return
             }
-            publishLocalNetworkVoteIfReady()
-        } catch {
-            failNetworkPolicy(error)
         }
+        publishLocalNetworkVoteIfReady()
     }
 
     private func receiveNetworkMeasurement(
@@ -2192,7 +2454,12 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             try consensus.recordVote(vote, from: localSeat)
             networkPolicyConsensus = consensus
             localNetworkVote = vote
-            if !didSendNetworkVote {
+        } catch {
+            failNetworkPolicy(error)
+            return
+        }
+        if !didSendNetworkVote {
+            do {
                 try send(
                     payload: .networkPolicyVote(vote),
                     eventSequence: highestAppliedEventSequence,
@@ -2200,9 +2467,9 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
                     lane: .control
                 )
                 didSendNetworkVote = true
+            } catch {
+                return
             }
-        } catch {
-            failNetworkPolicy(error)
         }
     }
 
@@ -2281,16 +2548,27 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         lane: MultiplayerTransportLane,
         from senderGamePlayerID: String
     ) {
-        let acknowledgedKeys = pendingAcknowledgements.keys.filter {
+        let cumulativeAcknowledgedKeys = pendingAcknowledgements.keys.filter {
             $0.lane == lane
                 && $0.sequence <= packetSequence
                 && pendingAcknowledgements[$0]?.contains(senderGamePlayerID) == true
+        }
+        let exactKey = MultiplayerLaneSequence(lane: lane, sequence: packetSequence)
+        let acknowledgedKeys = cumulativeAcknowledgedKeys.filter {
+            reliableControlIDByLaneSequence[$0] == nil || $0 == exactKey
         }
         let acknowledgedEvidenceIDs = Set(
             acknowledgedKeys.compactMap { evidenceInputIDByLaneSequence[$0] }
         )
         let acknowledgedResolutionIDs = Set(
             acknowledgedKeys.compactMap { resolutionInputIDByLaneSequence[$0] }
+        )
+        let acknowledgedControlIDs = Set<MultiplayerReliableControlRecoveryID>(
+            [exactKey].compactMap { key in
+                guard pendingAcknowledgements[key]?.contains(senderGamePlayerID) == true
+                else { return nil }
+                return reliableControlIDByLaneSequence[key]
+            }
         )
         for inputID in acknowledgedEvidenceIDs {
             pendingEvidenceRecipients[inputID]?.remove(senderGamePlayerID)
@@ -2303,6 +2581,13 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             pendingResolutionRecipients[inputID]?.remove(senderGamePlayerID)
             for key in Array(resolutionInputIDByLaneSequence.keys)
             where resolutionInputIDByLaneSequence[key] == inputID {
+                pendingAcknowledgements[key]?.remove(senderGamePlayerID)
+            }
+        }
+        for id in acknowledgedControlIDs {
+            reliableControlJournal[id]?.recipients.remove(senderGamePlayerID)
+            for key in Array(reliableControlIDByLaneSequence.keys)
+            where reliableControlIDByLaneSequence[key] == id {
                 pendingAcknowledgements[key]?.remove(senderGamePlayerID)
             }
         }
@@ -2322,6 +2607,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             pendingAcknowledgements.removeValue(forKey: key)
             evidenceInputIDByLaneSequence.removeValue(forKey: key)
             resolutionInputIDByLaneSequence.removeValue(forKey: key)
+            reliableControlIDByLaneSequence.removeValue(forKey: key)
         }
         let completedEvidenceIDs = pendingEvidenceRecipients.compactMap {
             $0.value.isEmpty ? $0.key : nil
@@ -2329,6 +2615,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         for inputID in completedEvidenceIDs {
             pendingEvidenceRecipients.removeValue(forKey: inputID)
             evidenceJournal.removeValue(forKey: inputID)
+            evidenceJournalBeganAt.removeValue(forKey: inputID)
             for key in Array(evidenceInputIDByLaneSequence.keys)
             where evidenceInputIDByLaneSequence[key] == inputID {
                 evidenceInputIDByLaneSequence.removeValue(forKey: key)
@@ -2341,25 +2628,58 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         for inputID in completedResolutionIDs {
             pendingResolutionRecipients.removeValue(forKey: inputID)
             resolutionJournal.removeValue(forKey: inputID)
+            resolutionJournalBeganAt.removeValue(forKey: inputID)
             for key in Array(resolutionInputIDByLaneSequence.keys)
             where resolutionInputIDByLaneSequence[key] == inputID {
                 resolutionInputIDByLaneSequence.removeValue(forKey: key)
                 pendingAcknowledgements.removeValue(forKey: key)
             }
         }
+        let completedControlIDs = reliableControlJournal.compactMap {
+            $0.value.recipients.isEmpty ? $0.key : nil
+        }
+        for id in completedControlIDs {
+            reliableControlJournal.removeValue(forKey: id)
+            for key in Array(reliableControlIDByLaneSequence.keys)
+            where reliableControlIDByLaneSequence[key] == id {
+                reliableControlIDByLaneSequence.removeValue(forKey: key)
+                pendingAcknowledgements.removeValue(forKey: key)
+            }
+        }
+        commitPendingResumeIfPhysicallySent()
+    }
+
+    private func commitPendingResumeIfPhysicallySent() {
+        guard let pendingResume else { return }
+        if let recovery = reliableControlJournal[.resume(pendingResume.pauseID)] {
+            guard recovery.recipients.isSubset(of: recovery.successfullySentRecipients)
+            else { return }
+        }
+        coordinatorMatchStartMonotonicMilliseconds =
+            pendingResume.coordinatorMatchStartMonotonicMilliseconds
+        activePause = nil
+        self.pendingResume = nil
     }
 
     private func resendRecoveryState(to gamePlayerID: String) throws {
-        if let terminalCancellation, isCoordinator {
-            _ = try send(
-                payload: .terminalCancel(terminalCancellation.packet),
-                eventSequence: terminalCancellation.packet.throughEventSequence,
-                logicalMatchMilliseconds: terminalCancellation.logicalMilliseconds,
-                to: [gamePlayerID],
-                lane: .control
-            )
+        if try resendReliableControl(
+            matching: { if case .terminalCancel = $0 { true } else { false } },
+            to: gamePlayerID
+        ) {
             return
         }
+        _ = try resendReliableControl(
+            matching: { $0 == .rosterConfirmed },
+            to: gamePlayerID
+        )
+        _ = try resendReliableControl(
+            matching: { $0 == .start },
+            to: gamePlayerID
+        )
+        _ = try resendReliableControl(
+            matching: { if case .pause = $0 { true } else { false } },
+            to: gamePlayerID
+        )
         let inputIDs = pendingEvidenceRecipients.compactMap { inputID, recipients in
             recipients.contains(gamePlayerID) ? inputID : nil
         }.sorted {
@@ -2415,10 +2735,42 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             )
             resolutionInputIDByLaneSequence[newKey] = inputID
         }
+        _ = try resendReliableControl(
+            matching: { if case .resume = $0 { true } else { false } },
+            to: gamePlayerID
+        )
+        _ = try resendReliableControl(
+            matching: { if case .finish = $0 { true } else { false } },
+            to: gamePlayerID
+        )
         removeFullyAcknowledgedRecoveryState()
     }
 
+    private func resendReliableControl(
+        matching predicate: (MultiplayerReliableControlRecoveryID) -> Bool,
+        to gamePlayerID: String
+    ) throws -> Bool {
+        guard
+            let (id, entry) = reliableControlJournal.first(where: {
+                predicate($0.key) && $0.value.recipients.contains(gamePlayerID)
+            })
+        else { return false }
+        let laneSequence = try send(
+            payload: entry.payload,
+            eventSequence: entry.eventSequence,
+            logicalMatchMilliseconds: entry.logicalMilliseconds,
+            to: [gamePlayerID],
+            lane: .control
+        )
+        reliableControlIDByLaneSequence[laneSequence] = id
+        reliableControlJournal[id]?.successfullySentRecipients.insert(gamePlayerID)
+        commitPendingResumeIfPhysicallySent()
+        return true
+    }
+
     func serviceRecovery() throws {
+        publishLocalNetworkMeasurementIfReady()
+        publishLocalNetworkVoteIfReady()
         let now = monotonicMilliseconds()
         guard let lastRecoveryServiceMonotonicMilliseconds else {
             self.lastRecoveryServiceMonotonicMilliseconds = now
@@ -2433,6 +2785,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         let recipients = Set(
             pendingEvidenceRecipients.values.flatMap { $0 }
                 + pendingResolutionRecipients.values.flatMap { $0 }
+                + reliableControlJournal.values.flatMap { $0.recipients }
         ).subtracting(disconnectedPlayerIDs)
         var firstError: (any Error)?
         for gamePlayerID in recipients.sorted() {
@@ -2620,10 +2973,19 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             return senderGamePlayerID == roster?.coordinatorGamePlayerID
                 && snapshot.afterEventSequence >= 0
                 && snapshot.throughEventSequence >= snapshot.afterEventSequence
+                && snapshot.throughEventSequence
+                    <= MultiplayerProtocolConstants.maximumEvents
                 && snapshot.chunkIndex >= 0
                 && snapshot.chunkIndex < snapshot.chunkCount
                 && snapshot.chunkCount > 0
+                && snapshot.chunkCount <= MultiplayerSnapshotPacket.maximumChunkCount
+                && snapshot.controlWatermark >= 0
+                && snapshot.controlWatermark < envelope.packetSequence
+                && snapshot.events.count
+                    <= MultiplayerSnapshotPacket.maximumEventsPerChunk
                 && snapshot.coordinatorMatchStartMonotonicMilliseconds > 0
+                && Set(snapshot.pendingPlans.map(\.planId)).count
+                    == snapshot.pendingPlans.count
                 && snapshot.pendingPlans.allSatisfy({
                     Self.isValidActivationPlan(
                         $0,
@@ -2684,12 +3046,16 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         seenFastSequencesByPlayer = [:]
         pendingAcknowledgements = [:]
         evidenceJournal = [:]
+        evidenceJournalBeganAt = [:]
         evidenceInputIDByLaneSequence = [:]
         pendingEvidenceRecipients = [:]
         latestLocalInputSeal = nil
         resolutionJournal = [:]
+        resolutionJournalBeganAt = [:]
         resolutionInputIDByLaneSequence = [:]
         pendingResolutionRecipients = [:]
+        reliableControlJournal = [:]
+        reliableControlIDByLaneSequence = [:]
         lastRecoveryServiceMonotonicMilliseconds = nil
         latestLocalTerminalSeal = nil
         terminalCancellation = nil
@@ -2700,6 +3066,8 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
         clockEstimator = MultiplayerClockEstimator()
         startSignal = nil
         activePause = nil
+        pendingResume = nil
+        latestSnapshotMetadataControlSequence = 0
         coordinatorMatchStartMonotonicMilliseconds = nil
         state = .idle
     }

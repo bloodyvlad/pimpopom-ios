@@ -22,7 +22,7 @@ Split them into modules only when a concrete build/ownership benefit justifies i
 
 ## D-03 — Measure reaction input at presentation/contact boundaries
 
-Status: implemented for Arcade/Zen; Multiplayer correction approved in D-13.
+Status: implemented.
 
 The reaction clock begins on the first frame that exposes a target. Resolve from
 the original compatible `UITouch.timestamp` on the same monotonic timebase. Input
@@ -109,30 +109,32 @@ handle lifecycle/interruption without blocking play.
 
 ## D-12 — Use peer-consistent Multiplayer v1
 
-Status: implemented in TestFlight build 20.
+Status: implemented and retained by the build-23 candidate.
 
 PHP owns authenticated lobbies, stable seats/colors, immutable manifests, replay,
-settlement, and ranked rows. `GKMatch` owns live traffic. Build 20's fixed coordinator
-used reliable packets and a 250 ms reorder watermark to produce one
-compact transcript. Every participant submits the same seat-only transcript. Clean
-matching results are protocol-verified and peer-consistent, not server-authoritative
-or collusion-proof. Protocol v1 has no coordinator migration.
+settlement, and ranked rows. `GKMatch` owns live traffic. A fixed coordinator
+produces one compact transcript and every participant submits that same seat-only
+stream. Clean matching results are protocol-verified and peer-consistent, not
+server-authoritative or collusion-proof. Protocol v1 has no coordinator migration.
 
 ## D-13 — Make Multiplayer feel immediate with prediction plus reconciliation
 
-Status: safe client-only milestone implemented in the build-21 candidate.
+Status: implemented in the build-23 source candidate; not yet uploaded.
 
-Preserve deterministic canonical replay while acknowledging a local tap within one
-display frame. Separate predicted presentation from canonical state, send small
-latency-sensitive inputs on GameKit unreliable mode, retain reliable evidence and
-canonical lanes, replace the fixed reorder delay with sealed input frontiers and a
-measured 40–100 ms health budget, record a live resolution for every witnessed
-input, and publish canonical events only through the minimum complete per-seat input
-frontier. A bounded 120–250 ms
-recovery window closes declared evidence gaps without rollback. Build 21 rejects
-incompatible live-wire peers before start. First-render protocol timing, best-host
-election, and concurrent per-seat targets remain separately versioned follow-up
-work. The complete task and gates are in `docs/MULTIPLAYER_FAST_TASK.md`.
+Preserve deterministic canonical replay while acknowledging local contact within
+one display frame. Prediction changes presentation only; reliable evidence,
+resolutions, cumulative seals, exact control acknowledgements, and bounded causal
+snapshots converge every peer on one transcript. Ordinary loss remains interactive:
+recovery is hidden below one second, uses a small `Catching up` HUD from 1–15
+seconds, and cancels only after the 15-second recovery bound. Real disconnects
+coordinate a logical pause. Start/plan output cannot advance until its reliable
+ordering barrier is physically established, and pause remains authoritative until
+Resume has been physically accepted for every intended peer. Its exact-ACK retry is
+retained in the background and cannot create a second recovery window. Build 23
+rejects incompatible live-wire peers before start.
+Host migration, custom LAN routing, and concurrent per-seat targets remain
+separately versioned work. Current behavior and gates are in
+`docs/MULTIPLAYER_FAST_TASK.md`.
 
 Any tuple/proof/backend change required by this work is separately versioned and
 implemented in the backend-owning repository. No iOS-only release may silently

@@ -218,8 +218,11 @@ public struct MultiplayerInputFrontier: Sendable {
         states[seal.seat] = state
     }
 
-    public mutating func takeReadyInputs() -> [MultiplayerSealedInput] {
-        guard let watermark = publishWatermark else { return [] }
+    public mutating func takeReadyInputs(
+        through maximumInputAt: Int? = nil
+    ) -> [MultiplayerSealedInput] {
+        guard let publishedWatermark = publishWatermark else { return [] }
+        let watermark = min(publishedWatermark, maximumInputAt ?? publishedWatermark)
         var ready: [MultiplayerSealedInput] = []
         for seat in states.keys.sorted() {
             guard var state = states[seat], state.isActive else { continue }

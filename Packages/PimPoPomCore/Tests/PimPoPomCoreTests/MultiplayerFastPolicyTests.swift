@@ -132,6 +132,27 @@ func multiplayerFastReadyOrdering() throws {
     )
 }
 
+@Test("A future recovery input waits for the resumed logical clock")
+func multiplayerFastFutureInputWaitsForLogicalClock() throws {
+    var frontier = try MultiplayerInputFrontier(seats: [0, 1])
+    let future = MultiplayerSealedInput(
+        id: MultiplayerInputID(seat: 1, inputSequence: 1),
+        cell: 7,
+        inputAt: 5_000
+    )
+    _ = try frontier.recordInput(future)
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 0, throughInputAt: 5_000, highestInputSequence: 0)
+    )
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 5_000, highestInputSequence: 1)
+    )
+
+    #expect(frontier.publishWatermark == 5_000)
+    #expect(frontier.takeReadyInputs(through: 1_000).isEmpty)
+    #expect(frontier.takeReadyInputs(through: 5_000) == [future])
+}
+
 @Test("Pending seal boundaries cannot be erased by a newer seal")
 func multiplayerFastPendingSealBoundary() throws {
     var frontier = try MultiplayerInputFrontier(seats: [0, 1])

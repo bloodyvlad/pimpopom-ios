@@ -101,43 +101,30 @@ final class MultiplayerFastNetworkTests: XCTestCase {
         )
     }
 
-    func testSupportedTwoThreeAndFourSeatProfilesStayBelowNormalLatencyGate() throws {
-        let profiles: [(MultiplayerNetworkQuality, Int)] = [
-            (.init(p95RoundTripMilliseconds: 10, p95JitterMilliseconds: 2), 40),
-            (
-                .init(
-                    p95RoundTripMilliseconds: 60,
-                    p95JitterMilliseconds: 15,
-                    lossPercent: 1,
-                    reorderPercent: 1
-                ),
-                62
+    func testTwoThreeAndFourSeatProfilesUseTheStableRecoveryWindow() throws {
+        let profiles: [MultiplayerNetworkQuality] = [
+            .init(p95RoundTripMilliseconds: 10, p95JitterMilliseconds: 2),
+            .init(
+                p95RoundTripMilliseconds: 60,
+                p95JitterMilliseconds: 15,
+                lossPercent: 1,
+                reorderPercent: 1
             ),
-            (
-                .init(
-                    p95RoundTripMilliseconds: 100,
-                    p95JitterMilliseconds: 25,
-                    lossPercent: 3,
-                    reorderPercent: 3
-                ),
-                92
+            .init(
+                p95RoundTripMilliseconds: 120,
+                p95JitterMilliseconds: 30,
+                lossPercent: 20,
+                reorderPercent: 25
             ),
         ]
 
         for seats in 2...4 {
-            for (quality, expectedStaleness) in profiles {
+            for quality in profiles {
                 let policy = try MultiplayerFrozenNetworkPolicy.negotiate(
                     Array(repeating: quality, count: seats)
                 )
-                XCTAssertEqual(policy.frontierStalenessMilliseconds, expectedStaleness)
-                if quality.p95RoundTripMilliseconds == 60 {
-                    XCTAssertLessThanOrEqual(
-                        quality.p95RoundTripMilliseconds
-                            + policy.frontierStalenessMilliseconds
-                            + 17,
-                        150
-                    )
-                }
+                XCTAssertEqual(policy.frontierStalenessMilliseconds, 1_000)
+                XCTAssertEqual(policy.evidenceRecoveryMilliseconds, 15_000)
             }
         }
     }
@@ -201,10 +188,10 @@ final class MultiplayerFastNetworkTests: XCTestCase {
 
     func testDeterministicTwoThreeFourSeatRoleAndNetworkMatrix() throws {
         let profiles = [
-            MatrixProfile(name: "clean", roundTrip: 10, variation: 2, supported: true),
-            MatrixProfile(name: "normal", roundTrip: 60, variation: 15, supported: true),
-            MatrixProfile(name: "edge", roundTrip: 100, variation: 25, supported: true),
-            MatrixProfile(name: "unsupported", roundTrip: 120, variation: 30, supported: false),
+            MatrixProfile(name: "clean", roundTrip: 10, variation: 2),
+            MatrixProfile(name: "normal", roundTrip: 60, variation: 15),
+            MatrixProfile(name: "edge", roundTrip: 100, variation: 25),
+            MatrixProfile(name: "high-latency", roundTrip: 120, variation: 30),
         ]
         var exercisedCases = 0
 
@@ -230,24 +217,6 @@ final class MultiplayerFastNetworkTests: XCTestCase {
                             )
                     }
 
-                    if !profile.supported {
-                        XCTAssertThrowsError(
-                            try {
-                                for measurement in measurements.reversed() {
-                                    try consensus.recordMeasurement(
-                                        measurement,
-                                        from: measurement.seat
-                                    )
-                                }
-                            }(),
-                            "Unsupported profile started for \(seatCount) seats, coordinator \(coordinatorSeat)."
-                        )
-                        gate.cancel()
-                        XCTAssertFalse(gate.authorizeSubmission(ifConsistent: true))
-                        XCTAssertFalse(gate.submissionAuthorized)
-                        continue
-                    }
-
                     for measurement in measurements.reversed() {
                         try consensus.recordMeasurement(measurement, from: measurement.seat)
                     }
@@ -259,16 +228,8 @@ final class MultiplayerFastNetworkTests: XCTestCase {
                         )
                     }
                     XCTAssertEqual(consensus.frozenProposal, proposal)
-
-                    if profile.name == "clean" || profile.name == "normal" {
-                        XCTAssertLessThanOrEqual(
-                            profile.roundTrip
-                                + proposal.policy.frontierStalenessMilliseconds
-                                + 17,
-                            150,
-                            "Normal canonical p95 gate failed for \(seatCount) seats, coordinator \(coordinatorSeat)."
-                        )
-                    }
+                    XCTAssertEqual(proposal.policy.frontierStalenessMilliseconds, 1_000)
+                    XCTAssertEqual(proposal.policy.evidenceRecoveryMilliseconds, 15_000)
 
                     let run = try makeFinishedRun(seatCount: seatCount)
                     var encodedSubmissions: [Data] = []
@@ -350,7 +311,6 @@ final class MultiplayerFastNetworkTests: XCTestCase {
         let name: String
         let roundTrip: Int
         let variation: Int
-        let supported: Bool
     }
 
     private struct MatrixInputPair {

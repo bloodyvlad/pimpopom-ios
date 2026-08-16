@@ -177,6 +177,27 @@ final class MultiplayerPresentationTests: XCTestCase {
         )
     }
 
+    func testFailedWaitingConnectionCannotBeRestoredByLateRosterCallbacks() {
+        XCTAssertTrue(
+            MultiplayerPresentation.WaitingConnectionRefreshPolicy.canRefresh(
+                isTransportConnected: true,
+                current: .confirmingRoster(confirmed: 1, total: 2)
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerPresentation.WaitingConnectionRefreshPolicy.canRefresh(
+                isTransportConnected: true,
+                current: .failed("Invalid start manifest.")
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerPresentation.WaitingConnectionRefreshPolicy.canRefresh(
+                isTransportConnected: false,
+                current: .confirmingRoster(confirmed: 2, total: 2)
+            )
+        )
+    }
+
     func testLiveStateAlwaysPresentsSixteenOrderedCells() {
         let live = MultiplayerPresentation.LiveMatchState(
             matchID: "match",
@@ -262,6 +283,25 @@ final class MultiplayerPresentationTests: XCTestCase {
         )
         XCTAssertFalse(
             MultiplayerCoordinatorFramePolicy.shouldAdvance(.finished)
+        )
+        XCTAssertTrue(
+            MultiplayerCoordinatorFramePolicy.shouldProcess(
+                phase: .running,
+                isPaused: false
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerCoordinatorFramePolicy.shouldProcess(
+                phase: .running,
+                isPaused: true
+            )
+        )
+        XCTAssertEqual(
+            MultiplayerStartSchedulingPolicy.coordinatorStart(
+                now: 10_000,
+                presentationLeadMilliseconds: 1_000
+            ),
+            11_250
         )
     }
 
@@ -416,6 +456,12 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertTrue(live.isSpectating)
         XCTAssertEqual(live.players.count, 2)
         XCTAssertEqual(live.players[1].lives, 2)
+    }
+
+    func testLiveNetworkStatusUsesSmallNonblockingCopy() {
+        XCTAssertEqual(MultiplayerPresentation.LiveNetworkStatus.catchingUp.title, "Catching up")
+        XCTAssertEqual(MultiplayerPresentation.LiveNetworkStatus.reconnecting.title, "Reconnecting")
+        XCTAssertEqual(MultiplayerPresentation.LiveNetworkStatus.finalizing.title, "Finalizing")
     }
 
     private func participant(

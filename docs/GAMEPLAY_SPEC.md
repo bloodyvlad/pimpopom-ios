@@ -1,6 +1,6 @@
 # Current gameplay specification
 
-These are the rules retained by the build-21 candidate. Presentation and economy
+These are the rules retained by the build-23 candidate. Presentation and economy
 cannot silently change them.
 
 ## Modes
@@ -169,10 +169,12 @@ stream plus sender evidence and submit the same manifest hash/transcript. Missin
 evidence, sequence recovery, or coordinator loss cancels/withholds rather than
 fabricating a result. Placement is score, hits, rounded average reaction, then seat.
 
-Build 21 acknowledges local contact immediately without mutating canonical score,
+Build 23 acknowledges local contact immediately without mutating canonical score,
 life, rating, or transcript state. Canonical reconciliation applies those changes
-once. Presentation still uses the plan's scheduled `at`, and one target rotates
-among all seats; changing either requires separately versioned follow-up work.
+once. Packet recovery never penalizes a target that was not presented: logical
+progress is held behind Start and pause/Resume ordering barriers. Presentation still
+uses the plan's scheduled `at`, and one target rotates among all seats; changing
+either requires separately versioned follow-up work.
 
 ## Presentation, rewards, and cosmetics
 

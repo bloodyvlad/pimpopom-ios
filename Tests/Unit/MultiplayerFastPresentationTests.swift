@@ -73,6 +73,112 @@ final class MultiplayerFastPresentationTests: XCTestCase {
         XCTAssertEqual(prediction.nextInputSequence, 2)
     }
 
+    func testUnresolvedEarlierActivationDoesNotBlockTheNextPresentedActivation() {
+        var prediction = MultiplayerLocalInputPrediction()
+        let firstActivation = MultiplayerPresentedActivationID(kind: .target, entityID: 7)
+        let secondActivation = MultiplayerPresentedActivationID(kind: .target, entityID: 8)
+
+        XCTAssertEqual(
+            prediction.begin(
+                seat: 0,
+                activationID: firstActivation,
+                tappedCell: 4,
+                ownedTargetCell: 4,
+                inputAt: 420
+            ),
+            .accepted(MultiplayerInputID(seat: 0, inputSequence: 1))
+        )
+        XCTAssertEqual(
+            prediction.begin(
+                seat: 0,
+                activationID: secondActivation,
+                tappedCell: 4,
+                ownedTargetCell: 4,
+                inputAt: 650
+            ),
+            .accepted(MultiplayerInputID(seat: 0, inputSequence: 2))
+        )
+        XCTAssertEqual(
+            prediction.begin(
+                seat: 0,
+                activationID: secondActivation,
+                tappedCell: 4,
+                ownedTargetCell: 4,
+                inputAt: 651
+            ),
+            .blocked(MultiplayerInputID(seat: 0, inputSequence: 2))
+        )
+        XCTAssertTrue(prediction.hasPendingInputs)
+        XCTAssertEqual(prediction.latestPendingInputAt, 650)
+        XCTAssertFalse(prediction.allowsInput(for: secondActivation))
+    }
+
+    func testHiddenPreviousTargetDoesNotOwnSelectionOverVisibleNextTarget() {
+        let previous = MultiplayerPresentedActivationID(kind: .target, entityID: 7)
+        let next = MultiplayerPresentedActivationID(kind: .target, entityID: 8)
+        let candidates = [
+            MultiplayerPresentedTargetCandidate(
+                activationID: next,
+                presentedAt: 1_200,
+                cell: 5,
+                colorIndex: 1,
+                ownerSeat: 1
+            ),
+            MultiplayerPresentedTargetCandidate(
+                activationID: previous,
+                presentedAt: 1_000,
+                cell: 4,
+                colorIndex: 0,
+                ownerSeat: 0
+            ),
+        ]
+
+        XCTAssertEqual(
+            MultiplayerPresentedTargetSelection.latest(in: candidates)?.activationID,
+            next
+        )
+    }
+
+    func testPausedRecoveryAcceptsFutureInputThroughTheFifteenSecondWindow() {
+        XCTAssertEqual(
+            MultiplayerInputAdmissionPolicy.maximumAcceptedInputAt(
+                currentLogicalMilliseconds: 10_000,
+                isPausedForRecovery: false,
+                recoveryLimitMilliseconds: 15_000
+            ),
+            12_000
+        )
+        XCTAssertEqual(
+            MultiplayerInputAdmissionPolicy.maximumAcceptedInputAt(
+                currentLogicalMilliseconds: 10_000,
+                isPausedForRecovery: true,
+                recoveryLimitMilliseconds: 15_000
+            ),
+            25_000
+        )
+    }
+
+    func testConsumedEarlierActivationDoesNotHideAReusedCellForTheNextActivation() {
+        var prediction = MultiplayerLocalInputPrediction()
+        let firstActivation = MultiplayerPresentedActivationID(kind: .target, entityID: 7)
+        let secondActivation = MultiplayerPresentedActivationID(kind: .target, entityID: 8)
+        _ = prediction.begin(
+            seat: 0,
+            activationID: firstActivation,
+            tappedCell: 4,
+            ownedTargetCell: 4,
+            inputAt: 420
+        )
+
+        XCTAssertTrue(prediction.hidesTarget(for: firstActivation))
+        XCTAssertFalse(prediction.hidesTarget(for: secondActivation))
+        XCTAssertEqual(
+            prediction.overlay(for: firstActivation),
+            .consumedTarget(cell: 4)
+        )
+        XCTAssertNil(prediction.overlay(for: secondActivation))
+    }
+
     func testOwnedTargetUsesConsumedOverlayWithinTheCaptureCall() {
         var prediction = MultiplayerLocalInputPrediction()
         _ = prediction.begin(
@@ -157,7 +263,7 @@ final class MultiplayerFastPresentationTests: XCTestCase {
         XCTAssertTrue(prediction.allowsInput)
     }
 
-    func testSnapshotNeverReopensTheSameStillActiveActivation() {
+    func testActivationEndingDoesNotEraseAnUnresolvedInput() {
         var prediction = MultiplayerLocalInputPrediction()
         let activation = MultiplayerPresentedActivationID(kind: .target, entityID: 7)
         _ = prediction.begin(
@@ -168,14 +274,8 @@ final class MultiplayerFastPresentationTests: XCTestCase {
             inputAt: 420
         )
 
-        XCTAssertFalse(prediction.snapshotProvedActivationEnded(activation))
-        XCTAssertFalse(prediction.allowsInput)
-        XCTAssertTrue(
-            prediction.snapshotProvedActivationEnded(
-                .init(kind: .target, entityID: 8)
-            )
-        )
-        XCTAssertTrue(prediction.allowsInput)
+        XCTAssertNotNil(prediction.pendingInput(for: activation))
+        XCTAssertTrue(prediction.hasPendingInputs)
     }
 
     func testLocalAcknowledgementUsesFirstDisplayFrameAndStableOpaqueSample() {
@@ -282,40 +382,585 @@ final class MultiplayerFastPresentationTests: XCTestCase {
         )
     }
 
-    func testResolutionWatchdogRequestsRecoveryThenCancelsWithoutReopening() {
+    func testResolutionWatchdogRequestsAtOneSecondAndCancelsAtFifteenSeconds() {
         let inputID = MultiplayerInputID(seat: 0, inputSequence: 1)
         var watchdog = MultiplayerResolutionWatchdog()
         watchdog.begin(inputID: inputID, monotonicMilliseconds: 100)
 
         XCTAssertEqual(
             watchdog.action(
-                monotonicMilliseconds: 249,
-                recoveryBudgetMilliseconds: 150
+                monotonicMilliseconds: 1_099,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
             ),
             .none
         )
         XCTAssertEqual(
             watchdog.action(
-                monotonicMilliseconds: 250,
-                recoveryBudgetMilliseconds: 150
+                monotonicMilliseconds: 1_100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
             ),
             .requestSnapshot(inputID)
         )
         XCTAssertEqual(
             watchdog.action(
-                monotonicMilliseconds: 399,
-                recoveryBudgetMilliseconds: 150
+                monotonicMilliseconds: 15_099,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
             ),
             .none
         )
         XCTAssertEqual(
             watchdog.action(
-                monotonicMilliseconds: 400,
-                recoveryBudgetMilliseconds: 150
+                monotonicMilliseconds: 15_100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
             ),
             .cancelWithoutSettlement(inputID)
         )
-        XCTAssertEqual(watchdog.inputID, inputID)
+        XCTAssertTrue(watchdog.hasPendingInputs)
+    }
+
+    func testResolutionWatchdogRetainsMultipleInputsAndResolutionStopsOneEntry() {
+        let first = MultiplayerInputID(seat: 0, inputSequence: 1)
+        let second = MultiplayerInputID(seat: 0, inputSequence: 2)
+        var watchdog = MultiplayerResolutionWatchdog()
+        watchdog.begin(inputID: first, monotonicMilliseconds: 100)
+        watchdog.begin(inputID: second, monotonicMilliseconds: 600)
+
+        XCTAssertEqual(
+            watchdog.action(
+                monotonicMilliseconds: 1_100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .requestSnapshot(first)
+        )
+        watchdog.resolve(first)
+        XCTAssertEqual(
+            watchdog.action(
+                monotonicMilliseconds: 1_600,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .requestSnapshot(second)
+        )
+        XCTAssertEqual(watchdog.pendingInputIDs, [second])
+    }
+
+    func testRecoveryWindowIsSilentForOneSecondAndExpiresAtFifteenSeconds() {
+        XCTAssertEqual(
+            MultiplayerRecoveryWindow.phase(
+                now: 1_099,
+                beganAt: 100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .silent
+        )
+        XCTAssertEqual(
+            MultiplayerRecoveryWindow.phase(
+                now: 1_100,
+                beganAt: 100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .visible
+        )
+        XCTAssertEqual(
+            MultiplayerRecoveryWindow.phase(
+                now: 15_099,
+                beganAt: 100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .visible
+        )
+        XCTAssertEqual(
+            MultiplayerRecoveryWindow.phase(
+                now: 15_100,
+                beganAt: 100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .expired
+        )
+    }
+
+    func testFutureFinishStartsTheSameBoundedCanonicalRecoveryWindow() {
+        XCTAssertTrue(
+            MultiplayerPeerCanonicalRecoveryPolicy.isRequired(
+                pendingBatchCount: 0,
+                hasPendingSnapshot: false,
+                isSnapshotAssemblyPending: false,
+                pendingFinishEventSequence: 11,
+                transcriptEventCount: 10
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerPeerCanonicalRecoveryPolicy.isRequired(
+                pendingBatchCount: 0,
+                hasPendingSnapshot: false,
+                isSnapshotAssemblyPending: false,
+                pendingFinishEventSequence: 10,
+                transcriptEventCount: 10
+            )
+        )
+        XCTAssertEqual(
+            MultiplayerRecoveryWindow.phase(
+                now: 1_099,
+                beganAt: 100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .silent
+        )
+        XCTAssertEqual(
+            MultiplayerRecoveryWindow.phase(
+                now: 1_100,
+                beganAt: 100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .visible
+        )
+        XCTAssertEqual(
+            MultiplayerRecoveryWindow.phase(
+                now: 15_100,
+                beganAt: 100,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000
+            ),
+            .expired
+        )
+    }
+
+    func testResolutionOnlyRecoveryRetriesSnapshotsAtTheBoundedCadence() {
+        XCTAssertTrue(
+            MultiplayerSnapshotRecoveryRequestPolicy.shouldRequest(
+                isCoordinator: false,
+                hasPeerCanonicalRecovery: false,
+                hasResolutionRecovery: true,
+                now: 100,
+                lastRequestAt: nil
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerSnapshotRecoveryRequestPolicy.shouldRequest(
+                isCoordinator: false,
+                hasPeerCanonicalRecovery: false,
+                hasResolutionRecovery: true,
+                now: 349,
+                lastRequestAt: 100
+            )
+        )
+        XCTAssertTrue(
+            MultiplayerSnapshotRecoveryRequestPolicy.shouldRequest(
+                isCoordinator: false,
+                hasPeerCanonicalRecovery: false,
+                hasResolutionRecovery: true,
+                now: 350,
+                lastRequestAt: 100
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerSnapshotRecoveryRequestPolicy.shouldRequest(
+                isCoordinator: false,
+                hasPeerCanonicalRecovery: false,
+                hasResolutionRecovery: false,
+                now: 350,
+                lastRequestAt: 100
+            )
+        )
+    }
+
+    func testReconnectSnapshotWaitsUntilRetainedResumeCommits() {
+        XCTAssertFalse(
+            MultiplayerReconnectSnapshotPolicy.shouldSend(
+                isCoordinator: true,
+                hasPendingResumeRecovery: true
+            )
+        )
+        XCTAssertTrue(
+            MultiplayerReconnectSnapshotPolicy.shouldSend(
+                isCoordinator: true,
+                hasPendingResumeRecovery: false
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerReconnectSnapshotPolicy.shouldSend(
+                isCoordinator: false,
+                hasPendingResumeRecovery: false
+            )
+        )
+    }
+
+    func testTerminalRecoveryNeverQueuesAGameplayPauseAfterFinish() {
+        XCTAssertTrue(
+            MultiplayerCoordinatedPausePolicy.shouldBegin(
+                isCoordinator: true,
+                isAlreadyPaused: false,
+                isTerminalDraining: false,
+                didBroadcastFinish: false
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerCoordinatedPausePolicy.shouldBegin(
+                isCoordinator: true,
+                isAlreadyPaused: false,
+                isTerminalDraining: true,
+                didBroadcastFinish: false
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerCoordinatedPausePolicy.shouldBegin(
+                isCoordinator: true,
+                isAlreadyPaused: false,
+                isTerminalDraining: false,
+                didBroadcastFinish: true
+            )
+        )
+    }
+
+    func testTerminalDrainKeepsOneFifteenSecondDeadlineThroughFinishDelivery() {
+        XCTAssertFalse(
+            MultiplayerTerminalDrainDeadlinePolicy.hasExpired(
+                now: 14_999,
+                deadline: 15_000
+            )
+        )
+        XCTAssertTrue(
+            MultiplayerTerminalDrainDeadlinePolicy.hasExpired(
+                now: 15_000,
+                deadline: 15_000
+            )
+        )
+        XCTAssertTrue(
+            MultiplayerTerminalDrainDeadlinePolicy.hasExpired(
+                now: 15_001,
+                deadline: 15_000
+            )
+        )
+    }
+
+    func testPauseRecoveryKeepsTheOriginalDeadlineAcrossALateResumeRetry() {
+        XCTAssertNil(
+            MultiplayerRecoveryDeadlinePolicy.firstExpiredMessage(
+                now: 14_999,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000,
+                recoveries: [
+                    (beganAt: 14_900, message: "resume"),
+                    (beganAt: 0, message: "pause"),
+                ]
+            )
+        )
+        XCTAssertEqual(
+            MultiplayerRecoveryDeadlinePolicy.firstExpiredMessage(
+                now: 15_000,
+                noticeAfterMilliseconds: 1_000,
+                cancelAfterMilliseconds: 15_000,
+                recoveries: [
+                    (beganAt: 14_900, message: "resume"),
+                    (beganAt: 0, message: "pause"),
+                ]
+            ),
+            "pause"
+        )
+    }
+
+    func testCoordinatorPlanOutboxRetainsOriginalBatchUntilSentOrCancelled() throws {
+        let plan = MultiplayerWireActivationPlan(
+            planId: 7,
+            kind: .target,
+            at: 2_000,
+            ownerSeat: 0,
+            entityId: 4,
+            cell: 6,
+            colorIndex: 0,
+            lifetimeMs: nil
+        )
+        var outbox = MultiplayerCoordinatorPlanOutbox()
+
+        outbox.enqueue(plan, logicalMilliseconds: 100)
+        let retained = try XCTUnwrap(outbox.nextBatch())
+        XCTAssertEqual(retained.plans, [plan])
+        XCTAssertEqual(retained.queuedAt, 100)
+
+        outbox.remove(planIDs: [plan.planId])
+        XCTAssertTrue(outbox.isEmpty)
+        XCTAssertNil(outbox.nextBatch())
+    }
+
+    func testSnapshotPrunesOverlappingCanonicalBatchWithoutApplyingItTwice() throws {
+        let first = MultiplayerEvent.hit(
+            sequence: 1,
+            inputAt: 10,
+            handledAt: 12,
+            seat: 0,
+            targetId: 1,
+            cell: 4
+        )
+        let second = MultiplayerEvent.hit(
+            sequence: 2,
+            inputAt: 20,
+            handledAt: 22,
+            seat: 0,
+            targetId: 2,
+            cell: 5
+        )
+
+        XCTAssertEqual(
+            try MultiplayerCanonicalBatchReconciler.retainingUnapplied(
+                [1: [first, second]],
+                after: [first]
+            ),
+            [2: [second]]
+        )
+        XCTAssertTrue(
+            try MultiplayerCanonicalBatchReconciler.retainingUnapplied(
+                [1: [first, second]],
+                after: [first, second]
+            ).isEmpty
+        )
+
+        let conflicting = MultiplayerEvent.miss(
+            sequence: 1,
+            inputAt: 10,
+            handledAt: 12,
+            seat: 0,
+            reason: .wrong,
+            cell: 4
+        )
+        XCTAssertThrowsError(
+            try MultiplayerCanonicalBatchReconciler.inserting(
+                [conflicting],
+                into: [1: [first]],
+                after: []
+            )
+        )
+    }
+
+    func testSnapshotReconciliationRejectsConflictingOrMalformedAppliedHistory() throws {
+        let applied = MultiplayerEvent.hit(
+            sequence: 1,
+            inputAt: 10,
+            handledAt: 12,
+            seat: 0,
+            targetId: 1,
+            cell: 4
+        )
+        let next = MultiplayerEvent.hit(
+            sequence: 2,
+            inputAt: 20,
+            handledAt: 22,
+            seat: 0,
+            targetId: 2,
+            cell: 5
+        )
+        XCTAssertEqual(
+            try MultiplayerSnapshotTranscriptReconciler.unappliedEvents(
+                from: [applied.integerTuple, next.integerTuple],
+                after: [applied]
+            ),
+            [next]
+        )
+
+        let conflicting = MultiplayerEvent.miss(
+            sequence: 1,
+            inputAt: 10,
+            handledAt: 12,
+            seat: 0,
+            reason: .wrong,
+            cell: 4
+        )
+        XCTAssertThrowsError(
+            try MultiplayerSnapshotTranscriptReconciler.unappliedEvents(
+                from: [conflicting.integerTuple],
+                after: [applied]
+            )
+        )
+        XCTAssertThrowsError(
+            try MultiplayerSnapshotTranscriptReconciler.unappliedEvents(
+                from: [[999, 1]],
+                after: [applied]
+            )
+        )
+        XCTAssertThrowsError(
+            try MultiplayerSnapshotTranscriptReconciler.unappliedEvents(
+                from: [[6, 0, 10]],
+                after: [applied]
+            )
+        )
+    }
+
+    func testSnapshotAssemblerWaitsForEveryChunkAndRejectsUnsafeMetadata() throws {
+        let plan = MultiplayerWireActivationPlan(
+            planId: 7,
+            kind: .target,
+            at: 2_000,
+            ownerSeat: 0,
+            entityId: 4,
+            cell: 6,
+            colorIndex: 0,
+            lifetimeMs: nil
+        )
+        let first = MultiplayerSnapshotPacket(
+            afterEventSequence: 0,
+            throughEventSequence: 2,
+            chunkIndex: 0,
+            chunkCount: 2,
+            controlWatermark: 4,
+            events: [[0, 1, 10, 0, 1, 4, 0]],
+            pendingPlans: [plan],
+            coordinatorMatchStartMonotonicMilliseconds: 1_000,
+            pauseId: nil,
+            pausedAtLogicalMilliseconds: nil
+        )
+        let second = MultiplayerSnapshotPacket(
+            afterEventSequence: 0,
+            throughEventSequence: 2,
+            chunkIndex: 1,
+            chunkCount: 2,
+            controlWatermark: 4,
+            events: [[0, 2, 20, 0, 2, 5, 0]],
+            pendingPlans: [plan],
+            coordinatorMatchStartMonotonicMilliseconds: 1_000,
+            pauseId: nil,
+            pausedAtLogicalMilliseconds: nil
+        )
+        var assembler = MultiplayerSnapshotAssembler()
+        XCTAssertNil(try assembler.ingest(first))
+        XCTAssertTrue(assembler.isPending)
+        let assembled = try XCTUnwrap(assembler.ingest(second))
+        XCTAssertEqual(assembled.events, first.events + second.events)
+        XCTAssertFalse(assembler.isPending)
+
+        let duplicatePlans = MultiplayerSnapshotPacket(
+            afterEventSequence: 0,
+            throughEventSequence: 0,
+            chunkIndex: 0,
+            chunkCount: 1,
+            controlWatermark: 4,
+            events: [],
+            pendingPlans: [plan, plan],
+            coordinatorMatchStartMonotonicMilliseconds: 1_000,
+            pauseId: nil,
+            pausedAtLogicalMilliseconds: nil
+        )
+        XCTAssertThrowsError(try assembler.ingest(duplicatePlans))
+
+        let nonemptyZeroSpan = MultiplayerSnapshotPacket(
+            afterEventSequence: 1,
+            throughEventSequence: 1,
+            chunkIndex: 0,
+            chunkCount: 1,
+            controlWatermark: 4,
+            events: [[0, 2, 20, 0, 2, 5, 0]],
+            pendingPlans: [],
+            coordinatorMatchStartMonotonicMilliseconds: 1_000,
+            pauseId: nil,
+            pausedAtLogicalMilliseconds: nil
+        )
+        XCTAssertThrowsError(try assembler.ingest(nonemptyZeroSpan))
+    }
+
+    func testStaleSnapshotMetadataCannotReopenPlansOrRewindPauseState() {
+        XCTAssertFalse(
+            MultiplayerSnapshotMetadataPolicy.shouldCommitInController(
+                snapshotThroughEventSequence: 10,
+                transcriptEventCount: 11,
+                snapshotControlWatermark: 20,
+                latestMetadataControlSequence: 20
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerSnapshotMetadataPolicy.shouldCommitInController(
+                snapshotThroughEventSequence: 11,
+                transcriptEventCount: 11,
+                snapshotControlWatermark: 19,
+                latestMetadataControlSequence: 20
+            )
+        )
+        XCTAssertTrue(
+            MultiplayerSnapshotMetadataPolicy.shouldCommitInController(
+                snapshotThroughEventSequence: 11,
+                transcriptEventCount: 11,
+                snapshotControlWatermark: 20,
+                latestMetadataControlSequence: 20
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerSnapshotMetadataPolicy.shouldStageInTransport(
+                snapshotThroughEventSequence: 10,
+                appliedEventSequence: 11,
+                snapshotControlWatermark: 20,
+                latestMetadataControlSequence: 20
+            )
+        )
+    }
+
+    func testCatchUpStaysInteractiveWhileReconnectAndTerminalDoNot() {
+        let catchUp = MultiplayerLiveInteractionPolicy.resolve(
+            localHasLives: true,
+            isApplicationActive: true,
+            hasDisconnectedPlayers: false,
+            isPaused: false,
+            isTerminalDraining: false,
+            hasPendingInputForPresentedActivation: false,
+            isCatchUpVisible: true
+        )
+        XCTAssertEqual(catchUp.inputMode, .interactive)
+        XCTAssertEqual(catchUp.networkStatus, .catchingUp)
+
+        let silentOutputPause = MultiplayerLiveInteractionPolicy.resolve(
+            localHasLives: true,
+            isApplicationActive: true,
+            hasDisconnectedPlayers: false,
+            isPaused: true,
+            isTerminalDraining: false,
+            hasPendingInputForPresentedActivation: false,
+            isCatchUpVisible: false
+        )
+        XCTAssertEqual(silentOutputPause.inputMode, .interactive)
+        XCTAssertNil(silentOutputPause.networkStatus)
+
+        let visibleOutputPause = MultiplayerLiveInteractionPolicy.resolve(
+            localHasLives: true,
+            isApplicationActive: true,
+            hasDisconnectedPlayers: false,
+            isPaused: true,
+            isTerminalDraining: false,
+            hasPendingInputForPresentedActivation: false,
+            isCatchUpVisible: true
+        )
+        XCTAssertEqual(visibleOutputPause.inputMode, .interactive)
+        XCTAssertEqual(visibleOutputPause.networkStatus, .catchingUp)
+
+        let reconnect = MultiplayerLiveInteractionPolicy.resolve(
+            localHasLives: true,
+            isApplicationActive: true,
+            hasDisconnectedPlayers: true,
+            isPaused: true,
+            isTerminalDraining: false,
+            hasPendingInputForPresentedActivation: false,
+            isCatchUpVisible: true
+        )
+        XCTAssertEqual(reconnect.inputMode, .syncing)
+        XCTAssertEqual(reconnect.networkStatus, .reconnecting)
+
+        let finalizing = MultiplayerLiveInteractionPolicy.resolve(
+            localHasLives: true,
+            isApplicationActive: true,
+            hasDisconnectedPlayers: false,
+            isPaused: false,
+            isTerminalDraining: true,
+            hasPendingInputForPresentedActivation: false,
+            isCatchUpVisible: true
+        )
+        XCTAssertEqual(finalizing.inputMode, .finalizing)
+        XCTAssertEqual(finalizing.networkStatus, .finalizing)
     }
 
     func testReadyIntentRespondsLocallyAndFlushesOnceAfterCompatibility() {
@@ -432,6 +1077,89 @@ final class MultiplayerFastPresentationTests: XCTestCase {
                 deadline: 10_000,
                 hasMeasurement: true
             )
+        )
+    }
+
+    func testClockSynchronizationCannotRestartAfterWaitingFailure() {
+        XCTAssertFalse(
+            MultiplayerClockSynchronizationPolicy.shouldStart(
+                isCoordinator: false,
+                isWaiting: true,
+                isTransportConnected: false,
+                connectionPresentsFailure: true,
+                hasMeasurement: false,
+                hasTask: false,
+                hasMatchID: true
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerClockSynchronizationPolicy.shouldStart(
+                isCoordinator: false,
+                isWaiting: true,
+                isTransportConnected: true,
+                connectionPresentsFailure: true,
+                hasMeasurement: false,
+                hasTask: false,
+                hasMatchID: true
+            )
+        )
+        XCTAssertTrue(
+            MultiplayerClockSynchronizationPolicy.shouldStart(
+                isCoordinator: false,
+                isWaiting: true,
+                isTransportConnected: true,
+                connectionPresentsFailure: false,
+                hasMeasurement: false,
+                hasTask: false,
+                hasMatchID: true
+            )
+        )
+    }
+
+    func testRosterConfirmationRejectsDisconnectAndRecoveringTransportResults() {
+        XCTAssertTrue(
+            MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                isWaiting: true,
+                isTransportConnected: true,
+                hasDisconnectedPlayers: false,
+                expectedConnectionGeneration: 7,
+                currentConnectionGeneration: 7
+            )
+        )
+        XCTAssertFalse(
+            MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                isWaiting: true,
+                isTransportConnected: false,
+                hasDisconnectedPlayers: true,
+                expectedConnectionGeneration: 7,
+                currentConnectionGeneration: 8
+            )
+        )
+    }
+
+    func testAuthoritativeSnapshotKeepsPauseRecoveryAnchorInSync() {
+        XCTAssertNil(
+            MultiplayerPauseRecoveryAnchorPolicy.applyingSnapshot(
+                pausedAtLogicalMilliseconds: nil,
+                existingAnchor: 1_000,
+                now: 2_000
+            )
+        )
+        XCTAssertEqual(
+            MultiplayerPauseRecoveryAnchorPolicy.applyingSnapshot(
+                pausedAtLogicalMilliseconds: 250,
+                existingAnchor: nil,
+                now: 2_000
+            ),
+            2_000
+        )
+        XCTAssertEqual(
+            MultiplayerPauseRecoveryAnchorPolicy.applyingSnapshot(
+                pausedAtLogicalMilliseconds: 250,
+                existingAnchor: 1_000,
+                now: 2_000
+            ),
+            1_000
         )
     }
 

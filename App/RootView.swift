@@ -904,6 +904,7 @@ struct RootView: View {
             }
             if arguments.contains("--ui-test-multiplayer-waiting-fixture")
                 || arguments.contains("--ui-test-multiplayer-live-fixture")
+                || arguments.contains("--ui-test-multiplayer-catch-up-fixture")
                 || arguments.contains("--ui-test-multiplayer-hub-fixture")
             {
                 showsMultiplayerUITestFixture = true

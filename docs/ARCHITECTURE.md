@@ -61,10 +61,13 @@ Arcade and Zen use one monotonic uptime domain:
 `CADisplayLink`/SpriteKit presentation and `UITouch.timestamp` are practical
 proxies, not photon-to-contact measurement. Validate both 60 Hz and 120 Hz devices.
 
-Build 21 retains Multiplayer transcript v1 but splits GameKit live traffic into a
-small unreliable input lane and reliable evidence/canonical lanes. Local contact is
-predicted for presentation only; sealed per-seat frontiers and explicit resolutions
-produce the single canonical stream. Pending reliable evidence is retried until ACK.
+Build 23 retains Multiplayer transcript v1 but splits GameKit live traffic into a
+small unreliable input lane and reliable evidence/canonical/control lanes. Local
+contact is predicted for presentation only; sealed per-seat frontiers and explicit
+resolutions produce one canonical stream. Recipient-specific journals, bounded
+causal snapshots, exact Pause acknowledgement, and an all-recipient physical
+Resume barrier recover ordinary loss without advancing unseen gameplay. Resume
+ACK retries remain retained after logical play continues.
 
 ## Platform services
 

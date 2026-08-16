@@ -28,6 +28,24 @@ enum MultiplayerCoordinatorFramePolicy {
     static func shouldAdvance(_ phase: MultiplayerLivePhase) -> Bool {
         phase == .running
     }
+
+    static func shouldProcess(
+        phase: MultiplayerLivePhase,
+        isPaused: Bool
+    ) -> Bool {
+        !isPaused && shouldAdvance(phase)
+    }
+}
+
+enum MultiplayerStartSchedulingPolicy {
+    static let sendMarginMilliseconds = 250
+
+    static func coordinatorStart(
+        now: Int,
+        presentationLeadMilliseconds: Int
+    ) -> Int {
+        now + presentationLeadMilliseconds + sendMarginMilliseconds
+    }
 }
 
 private struct MultiplayerTerminalDrainState: Equatable {
@@ -133,6 +151,9 @@ final class MultiplayerController: ObservableObject {
     private var settlementTask: Task<Void, Never>?
     private var submissionTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
+    private var recoveryTaskGeneration: UUID?
+    private var terminalDeliveryTask: Task<Void, Never>?
+    private var terminalDeliveryTaskGeneration: UUID?
     private var announcementTask: Task<Void, Never>?
     private var matchmakingTask: Task<Void, Never>?
     private var matchmakingGeneration: UInt64 = 0
@@ -145,6 +166,7 @@ final class MultiplayerController: ObservableObject {
     private var matchmakingAttemptGate = MultiplayerMatchmakingAttemptGate()
     private var readyIntent = MultiplayerReadyIntent()
     private var isApplicationActive = true
+    private var isTransportRecovering = false
     private var isConfirmingRoster = false
     private var didRejectIncompatibleLiveWire = false
     private var hasConfirmedRoster = false
@@ -178,11 +200,23 @@ final class MultiplayerController: ObservableObject {
     private var pendingStartManifest: MultiplayerStartManifest?
     private var didSendTerminalInputSeal = false
     private var pendingRecoverySnapshot: MultiplayerSnapshotPacket?
+    private var pendingReconnectSnapshotRecipients: Set<String> = []
+    private var snapshotAssembler = MultiplayerSnapshotAssembler()
+    private var lastSnapshotRequestAtMonotonicMilliseconds: Int?
     private var frontierRecoveryBeganAtMonotonicMilliseconds: Int?
     private var fastNetworkPolicy: MultiplayerFrozenNetworkPolicy?
     private var pendingCanonicalBatches: [Int: [MultiplayerEvent]] = [:]
+    private var pendingCoordinatorEvents: [MultiplayerEvent] = []
+    private var pendingCoordinatorPlans = MultiplayerCoordinatorPlanOutbox()
+    private var pendingCoordinatorCancellations: Set<Int> = []
+    private var coordinatorSendRecoveryBeganAtMonotonicMilliseconds: Int?
+    private var pauseRecoveryBeganAtMonotonicMilliseconds: Int?
+    private var reliableRecoveryBeganAtMonotonicMilliseconds: Int?
+    private var peerCanonicalRecoveryBeganAtMonotonicMilliseconds: Int?
     private var peerConsistencyIntact = true
     private var pendingPlans: [Int: MultiplayerWireActivationPlan] = [:]
+    private var latestPlanMetadataControlSequence = 0
+    private var latestPauseMetadataControlSequence = 0
     private var sentPlanIDs: Set<Int> = []
     private var coordinatorEngine: MultiplayerCoordinatorEngine?
     private var playbackReducer: MultiplayerStateReducer?
@@ -240,6 +274,7 @@ final class MultiplayerController: ObservableObject {
         settlementTask?.cancel()
         submissionTask?.cancel()
         recoveryTask?.cancel()
+        terminalDeliveryTask?.cancel()
         announcementTask?.cancel()
         matchmakingTask?.cancel()
         clockSynchronizationTask?.cancel()
@@ -317,7 +352,13 @@ final class MultiplayerController: ObservableObject {
                 return
             }
 
-            guard arguments.contains("--ui-test-multiplayer-live-fixture") else {
+            let usesCatchUpFixture = arguments.contains(
+                "--ui-test-multiplayer-catch-up-fixture"
+            )
+            guard
+                arguments.contains("--ui-test-multiplayer-live-fixture")
+                    || usesCatchUpFixture
+            else {
                 return
             }
 
@@ -405,7 +446,8 @@ final class MultiplayerController: ObservableObject {
                 players: livePlayers,
                 localSeat: 0,
                 streakSteps: 3,
-                isRecovering: false,
+                isRecovering: usesCatchUpFixture,
+                networkStatus: usesCatchUpFixture ? .catchingUp : nil,
                 announcement: nil,
                 hitFeedbackEvent: GameplayHitFeedbackEvent(
                     id: 9,
@@ -413,7 +455,8 @@ final class MultiplayerController: ObservableObject {
                     milliseconds: 200,
                     pointsAwarded: 541,
                     normalizedLocation: CGPoint(x: 0.625, y: 0.375)
-                )
+                ),
+                inputMode: .interactive
             )
         }
     #endif
@@ -635,6 +678,7 @@ final class MultiplayerController: ObservableObject {
                     waitingConnectionGeneration == connectionGeneration,
                     phase == .waiting,
                     waitingState?.connection == .ready,
+                    transport.state == .connected,
                     transport.roster != nil,
                     disconnectedGamePlayerIDs.isEmpty
                 else { return }
@@ -648,10 +692,16 @@ final class MultiplayerController: ObservableObject {
                     waitingConnectionGeneration == connectionGeneration,
                     phase == .waiting,
                     waitingState?.connection == .ready,
+                    transport.state == .connected,
                     transport.roster != nil,
                     disconnectedGamePlayerIDs.isEmpty
                 else { return }
-                try handleAvailableManifest(response.manifest)
+                do {
+                    try handleAvailableManifest(response.manifest)
+                } catch {
+                    latchWaitingFailure(.failed(error.localizedDescription))
+                    return
+                }
             } catch {
                 guard !Task.isCancelled,
                     operationIdentity.isCurrent(
@@ -663,7 +713,7 @@ final class MultiplayerController: ObservableObject {
                     phase == .waiting,
                     waitingState?.connection == .ready
                 else { return }
-                waitingState?.connection = .failed(error.localizedDescription)
+                waitingState?.message = error.localizedDescription
             }
         }
     }
@@ -733,18 +783,18 @@ final class MultiplayerController: ObservableObject {
             terminalDrainState == nil,
             isApplicationActive,
             disconnectedGamePlayerIDs.isEmpty,
+            !isTransportRecovering,
             let match = currentMatch,
             let local = match.participants.first(where: \.isCurrentPlayer),
             let localPlayer = playbackReducer?.state.players.first(where: {
                 $0.seat == local.seat
             }),
             localPlayer.lives > 0,
-            pausedAtLogicalMilliseconds == nil,
             liveState?.inputMode == .interactive,
             let visibleTarget = liveState?.cells.first(where: \.isTarget),
             let activationID = visibleTarget.activationID,
             (0..<MultiplayerProtocolConstants.boardCellCount).contains(cell),
-            let inputAt = try? transport.coordinatorLogicalMilliseconds(
+            let inputAt = inputLogicalMilliseconds(
                 forLocalMonotonicMilliseconds: localMonotonicMilliseconds
             ),
             localPlayer.recoveryUntil.map({ inputAt >= $0 }) ?? true,
@@ -787,21 +837,37 @@ final class MultiplayerController: ObservableObject {
             cell: cell,
             coordinatorInputMilliseconds: inputAt
         )
-        if transport.isCoordinator {
-            enqueueInput(
-                packet,
-                receivedAt: currentLogicalMilliseconds(),
-                expectedSeat: local.seat,
-                recordEvidence: true
-            )
-        } else {
-            recordInputEvidence(packet, expectedSeat: local.seat)
-        }
         do {
-            try transport.sendInput(packet, logicalMatchMilliseconds: inputAt)
+            try transport.stageInput(packet)
         } catch {
-            markRecovering(message: error.localizedDescription)
+            peerConsistencyIntact = false
+            failLiveMatch(error.localizedDescription)
             return
+        }
+        let runtimeGeneration = matchRuntimeGeneration
+        let matchID = match.matchId
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self,
+                matchRuntimeGeneration == runtimeGeneration,
+                currentMatch?.matchId == matchID
+            else { return }
+            if transport.isCoordinator {
+                enqueueInput(
+                    packet,
+                    receivedAt: currentLogicalMilliseconds(),
+                    expectedSeat: local.seat,
+                    recordEvidence: true
+                )
+            } else {
+                recordInputEvidence(packet, expectedSeat: local.seat)
+            }
+            // Prediction has left the reaction touch-handler turn. Evidence was
+            // journaled above, so a send failure remains recoverable.
+            try? transport.sendStagedInput(
+                packet,
+                logicalMatchMilliseconds: inputAt
+            )
         }
     }
 
@@ -933,6 +999,7 @@ final class MultiplayerController: ObservableObject {
                     runtimeGeneration: runtimeGeneration,
                     revision: lobbySnapshotRevision
                 )
+                let connectionGeneration = waitingConnectionGeneration
                 do {
                     let updated = try await backend.loadMultiplayerMatch(matchID)
                     guard !Task.isCancelled,
@@ -948,11 +1015,33 @@ final class MultiplayerController: ObservableObject {
                         )
                     else { continue }
                     applyMatch(updated)
-                    sendCurrentHelloIfNeeded()
                     beginMatchmakingIfFull()
-                    if let manifest = updated.manifest {
-                        try handleAvailableManifest(manifest)
+                    let canUseGameKit =
+                        MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                            isWaiting: phase == .waiting,
+                            isTransportConnected: transport.state == .connected,
+                            hasDisconnectedPlayers: !disconnectedGamePlayerIDs.isEmpty,
+                            expectedConnectionGeneration: connectionGeneration,
+                            currentConnectionGeneration: waitingConnectionGeneration
+                        )
+                    guard canUseGameKit else {
+                        if let manifest = updated.manifest, transport.isCoordinator {
+                            pendingStartManifest = manifest
+                        }
+                        waitingState?.message = nil
+                        continue
                     }
+                    sendCurrentHelloIfNeeded()
+                    try? transport.serviceRecovery()
+                    if let manifest = updated.manifest {
+                        do {
+                            try handleAvailableManifest(manifest)
+                        } catch {
+                            latchWaitingFailure(.failed(error.localizedDescription))
+                            return
+                        }
+                    }
+                    waitingState?.message = nil
                 } catch {
                     guard !Task.isCancelled,
                         phase == .waiting,
@@ -966,7 +1055,16 @@ final class MultiplayerController: ObservableObject {
                             revision: lobbySnapshotRevision
                         )
                     else { continue }
-                    waitingState?.connection = .failed(error.localizedDescription)
+                    guard
+                        MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                            isWaiting: phase == .waiting,
+                            isTransportConnected: transport.state == .connected,
+                            hasDisconnectedPlayers: !disconnectedGamePlayerIDs.isEmpty,
+                            expectedConnectionGeneration: connectionGeneration,
+                            currentConnectionGeneration: waitingConnectionGeneration
+                        )
+                    else { continue }
+                    waitingState?.message = error.localizedDescription
                 }
             }
         }
@@ -1077,15 +1175,20 @@ final class MultiplayerController: ObservableObject {
                 + "message=\(failure.message)"
         )
         matchmakingAttemptGate.block(with: failure)
-        waitingState?.connection =
+        latchWaitingFailure(
             failure.kind == .iCloudUnavailable
-            ? .cloudSyncRequired
-            : .connectionFailed(failure.message)
+                ? .cloudSyncRequired
+                : .connectionFailed(failure.message)
+        )
     }
 
     private func handleTransportEvent(_ event: MultiplayerGameKitTransportEvent) {
         switch event {
         case .rosterReady:
+            if phase == .live {
+                isTransportRecovering = false
+                updateRecoveryPresentation()
+            }
             debugMultiplayerLog(
                 "GameKit roster ready players=\(transport.roster?.gamePlayerIDs.count ?? 0) "
                     + "coordinator=\(transport.isCoordinator)"
@@ -1114,52 +1217,60 @@ final class MultiplayerController: ObservableObject {
         case .playerDisconnected(let playerID):
             disconnectedGamePlayerIDs.insert(playerID)
             waitingConnectionGeneration &+= 1
+            if phase == .waiting {
+                rosterConfirmationGeneration &+= 1
+                isConfirmingRoster = false
+            }
             updateWaitingParticipantConnectivity()
             refreshWaitingConnectionState()
-            if transport.isCoordinator {
-                beginCoordinatedPause()
-            } else if pausedAtLogicalMilliseconds == nil {
-                pausedAtLogicalMilliseconds = currentLogicalMilliseconds()
+            if phase == .live, terminalDrainState == nil, !didBroadcastFinish {
+                if transport.isCoordinator {
+                    beginCoordinatedPause()
+                } else if pausedAtLogicalMilliseconds == nil {
+                    pausedAtLogicalMilliseconds = currentLogicalMilliseconds()
+                }
             }
             markRecovering()
         case .playerReconnected(let playerID):
             disconnectedGamePlayerIDs.remove(playerID)
+            isTransportRecovering = false
             waitingConnectionGeneration &+= 1
             updateWaitingParticipantConnectivity()
             if phase == .waiting {
+                sendCurrentHelloIfNeeded(force: true)
                 startClockSynchronization()
+                confirmRosterIfComplete()
                 refreshWaitingConnectionState()
                 resumePendingStartIfPossible()
             }
-            if transport.isCoordinator {
-                try? transport.sendSnapshot(
-                    events: transcriptEvents.map(\.integerTuple),
-                    pendingPlans: Array(pendingPlans.values),
-                    afterEventSequence: 0,
-                    logicalMatchMilliseconds: currentLogicalMilliseconds(),
-                    to: playerID
+            if phase == .live, transport.isCoordinator {
+                pendingReconnectSnapshotRecipients.insert(playerID)
+                serviceCoordinatorReconnectSnapshotsIfPossible(
+                    logicalMilliseconds: currentLogicalMilliseconds()
                 )
-            } else {
+            } else if phase == .live {
                 try? transport.requestSnapshot(
                     afterEventSequence: transcriptEvents.count,
                     logicalMatchMilliseconds: currentLogicalMilliseconds()
                 )
             }
-            if transport.isCoordinator, disconnectedGamePlayerIDs.isEmpty {
+            if phase == .live, transport.isCoordinator,
+                disconnectedGamePlayerIDs.isEmpty
+            {
                 resumeCoordinatedPause()
             }
             updateRecoveryPresentation()
         case .failed(let message):
             if phase == .live {
-                markRecovering(message: message)
+                isTransportRecovering = true
+                markRecovering()
             } else if phase == .waiting {
                 waitingConnectionGeneration &+= 1
                 pendingStartManifest = nil
                 if transport.networkPolicyError != nil {
-                    waitingState?.connection = .failed("Network Not Supported")
+                    latchWaitingFailure(.failed("Network Not Supported"))
                     waitingState?.message =
                         "This connection cannot keep FAST Multiplayer deterministic."
-                    transport.disconnect()
                     if let matchID = currentMatch?.matchId {
                         Task { @MainActor [weak self] in
                             _ = try? await self?.backend.leaveMultiplayerMatch(matchID)
@@ -1173,7 +1284,6 @@ final class MultiplayerController: ObservableObject {
                             message: message
                         )
                     )
-                    transport.disconnect()
                 }
             }
         }
@@ -1203,7 +1313,7 @@ final class MultiplayerController: ObservableObject {
             do {
                 try beginLiveMatch(manifest: signal.manifest)
             } catch {
-                waitingState?.connection = .failed(error.localizedDescription)
+                latchWaitingFailure(.failed(error.localizedDescription))
             }
         case .input(let input):
             guard let frozenRoster = confirmedHelloRoster,
@@ -1262,11 +1372,19 @@ final class MultiplayerController: ObservableObject {
             )
         case .activationPlans(let packet):
             guard !transport.isCoordinator else { return }
+            latestPlanMetadataControlSequence = max(
+                latestPlanMetadataControlSequence,
+                received.envelope.packetSequence
+            )
             for plan in packet.plans {
                 pendingPlans[plan.planId] = plan
             }
             updateLivePresentation(at: currentLogicalMilliseconds())
         case .cancelActivationPlans(let packet):
+            latestPlanMetadataControlSequence = max(
+                latestPlanMetadataControlSequence,
+                received.envelope.packetSequence
+            )
             for planID in packet.planIds {
                 pendingPlans.removeValue(forKey: planID)
             }
@@ -1276,27 +1394,43 @@ final class MultiplayerController: ObservableObject {
             applyCanonicalTuples(packet.events)
         case .snapshot(let snapshot):
             guard !transport.isCoordinator else { return }
-            applySnapshot(snapshot)
+            receiveSnapshotChunk(snapshot)
         case .snapshotRequest(let request):
             guard transport.isCoordinator else { return }
             let remaining =
                 transcriptEvents
                 .filter { $0.sequence > request.afterEventSequence }
                 .map(\.integerTuple)
-            try? transport.sendSnapshot(
-                events: remaining,
-                pendingPlans: Array(pendingPlans.values),
-                afterEventSequence: request.afterEventSequence,
-                logicalMatchMilliseconds: currentLogicalMilliseconds(),
-                to: received.senderGamePlayerID
-            )
+            do {
+                try transport.sendSnapshot(
+                    events: remaining,
+                    pendingPlans: Array(pendingPlans.values),
+                    afterEventSequence: request.afterEventSequence,
+                    logicalMatchMilliseconds: currentLogicalMilliseconds(),
+                    to: received.senderGamePlayerID
+                )
+            } catch {
+                pendingReconnectSnapshotRecipients.insert(received.senderGamePlayerID)
+            }
         case .pause(let pause):
+            latestPauseMetadataControlSequence = max(
+                latestPauseMetadataControlSequence,
+                received.envelope.packetSequence
+            )
             pausedAtLogicalMilliseconds = pause.pausedAtLogicalMilliseconds
+            if pauseRecoveryBeganAtMonotonicMilliseconds == nil {
+                pauseRecoveryBeganAtMonotonicMilliseconds =
+                    MultiplayerGameKitTransport.monotonicMilliseconds()
+            }
             markRecovering()
         case .resume:
+            latestPauseMetadataControlSequence = max(
+                latestPauseMetadataControlSequence,
+                received.envelope.packetSequence
+            )
             guard pausedAtLogicalMilliseconds != nil else { return }
             pausedAtLogicalMilliseconds = nil
-            currentAnnouncement = nil
+            pauseRecoveryBeganAtMonotonicMilliseconds = nil
             updateRecoveryPresentation()
         case .finish(let finish):
             handleFinishPacket(finish)
@@ -1308,9 +1442,16 @@ final class MultiplayerController: ObservableObject {
             refreshWaitingConnectionState()
             return
         }
-        guard phase == .waiting,
-            !transport.clockEstimator.hasNetworkMeasurement,
-            clockSynchronizationTask == nil,
+        guard
+            MultiplayerClockSynchronizationPolicy.shouldStart(
+                isCoordinator: transport.isCoordinator,
+                isWaiting: phase == .waiting,
+                isTransportConnected: transport.state == .connected,
+                connectionPresentsFailure: waitingState?.connection.shouldPresentFailure ?? true,
+                hasMeasurement: transport.clockEstimator.hasNetworkMeasurement,
+                hasTask: clockSynchronizationTask != nil,
+                hasMatchID: currentMatch?.matchId != nil
+            ),
             let matchID = currentMatch?.matchId
         else { return }
         let generation = UUID()
@@ -1357,12 +1498,17 @@ final class MultiplayerController: ObservableObject {
                 refreshWaitingConnectionState()
                 return
             }
-            failClockSynchronization(matchID: matchID)
+            failClockSynchronization(matchID: matchID, generation: generation)
         }
     }
 
-    private func failClockSynchronization(matchID: String) {
-        guard phase == .waiting, currentMatch?.matchId == matchID else { return }
+    private func failClockSynchronization(matchID: String, generation: UUID) {
+        guard phase == .waiting,
+            currentMatch?.matchId == matchID,
+            clockSynchronizationGeneration == generation,
+            transport.state == .connected,
+            waitingState?.connection.shouldPresentFailure == false
+        else { return }
         waitingState?.connection = .connectionFailed(
             "Clock synchronization did not complete. Please retry."
         )
@@ -1372,6 +1518,9 @@ final class MultiplayerController: ObservableObject {
 
     private func sendCurrentHelloIfNeeded(force: Bool = false) {
         guard phase == .waiting,
+            transport.state == .connected,
+            disconnectedGamePlayerIDs.isEmpty,
+            waitingState?.connection.shouldPresentFailure == false,
             transport.roster != nil,
             let match = currentMatch,
             let local = match.participants.first(where: \.isCurrentPlayer),
@@ -1387,13 +1536,25 @@ final class MultiplayerController: ObservableObject {
             )
             startClockSynchronization()
         } catch {
-            waitingState?.connection = .failed(error.localizedDescription)
+            guard phase == .waiting,
+                transport.state == .connected,
+                waitingState?.connection.shouldPresentFailure == false
+            else { return }
+            waitingState?.message = error.localizedDescription
         }
     }
 
     private func confirmRosterIfComplete() {
+        let connectionGeneration = waitingConnectionGeneration
         guard !isConfirmingRoster,
             !hasConfirmedRoster,
+            MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                isWaiting: phase == .waiting,
+                isTransportConnected: transport.state == .connected,
+                hasDisconnectedPlayers: !disconnectedGamePlayerIDs.isEmpty,
+                expectedConnectionGeneration: connectionGeneration,
+                currentConnectionGeneration: waitingConnectionGeneration
+            ),
             transport.liveCompatibility == .unanimous,
             transport.frozenNetworkPolicy != nil,
             let match = currentMatch,
@@ -1427,7 +1588,14 @@ final class MultiplayerController: ObservableObject {
             do {
                 try await ensureFreshGameCenterProof()
                 try Task.checkCancellation()
-                guard phase == .waiting,
+                guard
+                    MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                        isWaiting: phase == .waiting,
+                        isTransportConnected: transport.state == .connected,
+                        hasDisconnectedPlayers: !disconnectedGamePlayerIDs.isEmpty,
+                        expectedConnectionGeneration: connectionGeneration,
+                        currentConnectionGeneration: waitingConnectionGeneration
+                    ),
                     currentMatch?.matchId == match.matchId,
                     matchRuntimeGeneration == runtimeGeneration,
                     matchmakingGeneration == gameKitGeneration,
@@ -1440,7 +1608,13 @@ final class MultiplayerController: ObservableObject {
                     roster: roster
                 )
                 guard !Task.isCancelled,
-                    phase == .waiting,
+                    MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                        isWaiting: phase == .waiting,
+                        isTransportConnected: transport.state == .connected,
+                        hasDisconnectedPlayers: !disconnectedGamePlayerIDs.isEmpty,
+                        expectedConnectionGeneration: connectionGeneration,
+                        currentConnectionGeneration: waitingConnectionGeneration
+                    ),
                     currentMatch?.matchId == match.matchId,
                     matchRuntimeGeneration == runtimeGeneration,
                     matchmakingGeneration == gameKitGeneration,
@@ -1460,14 +1634,28 @@ final class MultiplayerController: ObservableObject {
                     "PHP roster confirmed=\(response.confirmedCount)/"
                         + "\(response.participantCount)"
                 )
-                try transport.sendRosterConfirmed(
-                    confirmedCount: response.confirmedCount,
-                    participantCount: response.participantCount
-                )
+                do {
+                    try transport.sendRosterConfirmed(
+                        confirmedCount: response.confirmedCount,
+                        participantCount: response.participantCount
+                    )
+                } catch {
+                    waitingState?.message = error.localizedDescription
+                    try? transport.serviceRecovery()
+                    refreshWaitingConnectionState()
+                    return
+                }
+                waitingState?.message = nil
                 refreshWaitingConnectionState()
             } catch {
                 guard !Task.isCancelled,
-                    phase == .waiting,
+                    MultiplayerWaitingConnectionOperationPolicy.canContinue(
+                        isWaiting: phase == .waiting,
+                        isTransportConnected: transport.state == .connected,
+                        hasDisconnectedPlayers: !disconnectedGamePlayerIDs.isEmpty,
+                        expectedConnectionGeneration: connectionGeneration,
+                        currentConnectionGeneration: waitingConnectionGeneration
+                    ),
                     currentMatch?.matchId == match.matchId,
                     matchRuntimeGeneration == runtimeGeneration,
                     matchmakingGeneration == gameKitGeneration,
@@ -1475,13 +1663,21 @@ final class MultiplayerController: ObservableObject {
                     transport.roster == roster,
                     helloRoster == helloSnapshot
                 else { return }
-                waitingState?.connection = .failed(error.localizedDescription)
+                waitingState?.message = error.localizedDescription
+                refreshWaitingConnectionState()
             }
         }
     }
 
     private func refreshWaitingConnectionState() {
-        guard phase == .waiting, let match = currentMatch else { return }
+        guard phase == .waiting,
+            let match = currentMatch,
+            let currentWaitingState = waitingState,
+            MultiplayerPresentation.WaitingConnectionRefreshPolicy.canRefresh(
+                isTransportConnected: transport.state == .connected,
+                current: currentWaitingState.connection
+            )
+        else { return }
         if transport.liveCompatibility == .incompatible {
             rejectIncompatibleLiveWire()
             return
@@ -1526,6 +1722,7 @@ final class MultiplayerController: ObservableObject {
         clockSynchronizationTask?.cancel()
         clockSynchronizationTask = nil
         waitingState?.connection = .failed("Update Required")
+        waitingState?.isMutationPending = false
         waitingState?.message = "Every player needs the latest Multiplayer update."
         transport.disconnect()
         guard let matchID = currentMatch?.matchId else { return }
@@ -1541,13 +1738,16 @@ final class MultiplayerController: ObservableObject {
 
     private func handleAvailableManifest(_ manifest: MultiplayerStartManifest) throws {
         guard transport.liveCompatibility == .unanimous,
-            transport.frozenNetworkPolicy != nil
+            transport.frozenNetworkPolicy != nil,
+            transport.state == .connected
         else {
             throw MultiplayerGameKitError.incompatibleLiveWire
         }
         guard transport.isCoordinator else { return }
         guard waitingState?.connection == .ready,
-            transport.roster != nil
+            transport.roster != nil,
+            !transport.hasActivePause,
+            !transport.hasPendingReliableRecovery
         else {
             pendingStartManifest = manifest
             return
@@ -1557,12 +1757,21 @@ final class MultiplayerController: ObservableObject {
             return
         }
         guard !didBroadcastStart else { return }
-        let start = MultiplayerGameKitTransport.monotonicMilliseconds() + 1_000
-        try transport.sendStartManifest(
-            manifest,
-            coordinatorStartMonotonicMilliseconds: start,
-            presentationLeadMilliseconds: 1_000
+        let presentationLeadMilliseconds = 1_000
+        let start = MultiplayerStartSchedulingPolicy.coordinatorStart(
+            now: MultiplayerGameKitTransport.monotonicMilliseconds(),
+            presentationLeadMilliseconds: presentationLeadMilliseconds
         )
+        do {
+            try transport.sendStartManifest(
+                manifest,
+                coordinatorStartMonotonicMilliseconds: start,
+                presentationLeadMilliseconds: presentationLeadMilliseconds
+            )
+        } catch {
+            pendingStartManifest = manifest
+            return
+        }
         didBroadcastStart = true
         try beginLiveMatch(manifest: manifest)
     }
@@ -1571,6 +1780,7 @@ final class MultiplayerController: ObservableObject {
         guard phase == .waiting,
             disconnectedGamePlayerIDs.isEmpty,
             waitingState?.connection == .ready,
+            transport.state == .connected,
             let manifest = pendingStartManifest
         else { return }
         pendingStartManifest = nil
@@ -1581,13 +1791,40 @@ final class MultiplayerController: ObservableObject {
                 try beginLiveMatch(manifest: manifest)
             }
         } catch {
-            waitingState?.connection = .failed(error.localizedDescription)
+            latchWaitingFailure(.failed(error.localizedDescription))
         }
+    }
+
+    private func latchWaitingFailure(
+        _ connection: MultiplayerPresentation.WaitingConnectionState
+    ) {
+        guard phase == .waiting else { return }
+        readyIntent.reset()
+        updateReadyIntentPresentation()
+        matchRuntimeGeneration &+= 1
+        lobbySnapshotRevision &+= 1
+        rosterConfirmationGeneration &+= 1
+        waitingConnectionGeneration &+= 1
+        matchmakingGeneration &+= 1
+        isConfirmingRoster = false
+        pendingStartManifest = nil
+        pollTask?.cancel()
+        pollTask = nil
+        matchmakingTask?.cancel()
+        matchmakingTask = nil
+        clockSynchronizationGeneration = nil
+        clockSynchronizationTask?.cancel()
+        clockSynchronizationTask = nil
+        transport.disconnect()
+        waitingState?.isMutationPending = false
+        waitingState?.connection = connection
     }
 
     private func beginLiveMatch(manifest: MultiplayerStartManifest) throws {
         guard transport.liveCompatibility == .unanimous,
-            let frozenNetworkPolicy = transport.frozenNetworkPolicy
+            let frozenNetworkPolicy = transport.frozenNetworkPolicy,
+            transport.state == .connected,
+            !transport.hasActivePause
         else {
             throw MultiplayerGameKitError.incompatibleLiveWire
         }
@@ -1598,6 +1835,8 @@ final class MultiplayerController: ObservableObject {
         playbackReducer = reducer
         transcriptEvents = []
         pendingPlans = [:]
+        latestPlanMetadataControlSequence = 0
+        latestPauseMetadataControlSequence = 0
         sentPlanIDs = []
         localPrediction.reset()
         latencyCorrelation.reset()
@@ -1624,21 +1863,32 @@ final class MultiplayerController: ObservableObject {
         inputLedger = MultiplayerInputLedger()
         fastNetworkPolicy = frozenNetworkPolicy
         pendingRecoverySnapshot = nil
+        pendingReconnectSnapshotRecipients = []
+        snapshotAssembler.reset()
+        lastSnapshotRequestAtMonotonicMilliseconds = nil
         frontierRecoveryBeganAtMonotonicMilliseconds = nil
         pendingCanonicalBatches = [:]
+        pendingCoordinatorEvents = []
+        pendingCoordinatorPlans.reset()
+        pendingCoordinatorCancellations = []
+        coordinatorSendRecoveryBeganAtMonotonicMilliseconds = nil
+        pauseRecoveryBeganAtMonotonicMilliseconds = nil
+        reliableRecoveryBeganAtMonotonicMilliseconds = nil
+        peerCanonicalRecoveryBeganAtMonotonicMilliseconds = nil
         peerConsistencyIntact = confirmedHelloRoster != nil
         pausedAtLogicalMilliseconds = nil
+        isTransportRecovering = false
         didSubmitTranscript = false
         didBroadcastFinish = false
 
+        var initialCoordinatorPlans: [MultiplayerActivationPlan] = []
         if transport.isCoordinator {
             let engine = try MultiplayerCoordinatorEngine(
                 manifest: core,
                 presentationLeadMilliseconds: 1_200
             )
             coordinatorEngine = engine
-            let initialPlans = try engine.start()
-            publishCoordinatorPlans(initialPlans, logicalMilliseconds: 0)
+            initialCoordinatorPlans = try engine.start()
         }
 
         didBeginLiveMatch = true
@@ -1650,6 +1900,7 @@ final class MultiplayerController: ObservableObject {
         phase = .live
         audio.setMusicContext(.gameplay)
         showAnnouncement("GET READY")
+        publishCoordinatorPlans(initialCoordinatorPlans, logicalMilliseconds: 0)
         startLiveTick()
     }
 
@@ -1680,6 +1931,30 @@ final class MultiplayerController: ObservableObject {
         }
         let logicalMilliseconds = currentLogicalMilliseconds()
         try? transport.serviceRecovery()
+        serviceCoordinatorReconnectSnapshotsIfPossible(
+            logicalMilliseconds: logicalMilliseconds
+        )
+        refreshReliableRecoveryState()
+        refreshPeerCanonicalRecoveryState()
+        servicePeerSnapshotRecoveryIfNeeded(
+            logicalMilliseconds: logicalMilliseconds
+        )
+        if enforceBoundedRecoveryDeadlines() { return }
+        if transport.isCoordinator,
+            disconnectedGamePlayerIDs.isEmpty,
+            isApplicationActive,
+            pausedAtLogicalMilliseconds != nil
+        {
+            flushPendingCoordinatorTransportOutput(
+                logicalMilliseconds: logicalMilliseconds
+            )
+            if pendingCoordinatorEvents.isEmpty,
+                pendingCoordinatorPlans.isEmpty,
+                pendingCoordinatorCancellations.isEmpty
+            {
+                resumeCoordinatedPause()
+            }
+        }
         if pausedAtLogicalMilliseconds == nil {
             if terminalDrainState == nil {
                 emitLocalInputSeal(logicalMilliseconds: logicalMilliseconds)
@@ -1718,10 +1993,15 @@ final class MultiplayerController: ObservableObject {
         expectedSeat: Int,
         recordEvidence: Bool
     ) {
+        let maximumAcceptedInputAt = MultiplayerInputAdmissionPolicy.maximumAcceptedInputAt(
+            currentLogicalMilliseconds: currentLogicalMilliseconds(),
+            isPausedForRecovery: pausedAtLogicalMilliseconds != nil,
+            recoveryLimitMilliseconds:
+                fastNetworkPolicy?.evidenceRecoveryMilliseconds ?? 15_000
+        )
         guard input.seat == expectedSeat,
             input.coordinatorInputMilliseconds >= 0,
-            input.coordinatorInputMilliseconds
-                <= currentLogicalMilliseconds() + 2_000
+            input.coordinatorInputMilliseconds <= maximumAcceptedInputAt
         else { return }
         let latencySampleID =
             latencySampleByInputID[input.id]
@@ -1793,10 +2073,15 @@ final class MultiplayerController: ObservableObject {
         _ input: MultiplayerInputPacket,
         expectedSeat: Int
     ) {
+        let maximumAcceptedInputAt = MultiplayerInputAdmissionPolicy.maximumAcceptedInputAt(
+            currentLogicalMilliseconds: currentLogicalMilliseconds(),
+            isPausedForRecovery: pausedAtLogicalMilliseconds != nil,
+            recoveryLimitMilliseconds:
+                fastNetworkPolicy?.evidenceRecoveryMilliseconds ?? 15_000
+        )
         guard input.seat == expectedSeat,
             input.coordinatorInputMilliseconds >= 0,
-            input.coordinatorInputMilliseconds
-                <= currentLogicalMilliseconds() + 2_000
+            input.coordinatorInputMilliseconds <= maximumAcceptedInputAt
         else {
             peerConsistencyIntact = false
             return
@@ -1866,7 +2151,9 @@ final class MultiplayerController: ObservableObject {
         }
         if resolution.inputID.seat == localSeat {
             _ = localPrediction.receive(resolution)
-            resolutionWatchdog.resolve(resolution.inputID)
+            if case .ignored = resolution.disposition {
+                resolutionWatchdog.resolve(resolution.inputID)
+            }
             updateLivePresentation(at: currentLogicalMilliseconds())
         }
         drainPendingRecoverySnapshot()
@@ -1891,7 +2178,7 @@ final class MultiplayerController: ObservableObject {
                 includesReliableCheckpoint: emission.includesReliableCheckpoint
             )
         } catch {
-            markRecovering(message: error.localizedDescription)
+            // A later seal or reliable checkpoint supersedes this send.
         }
     }
 
@@ -1932,10 +2219,14 @@ final class MultiplayerController: ObservableObject {
             disposition: .ignored(reason)
         )
         try recordInputResolutionThrowing(resolution)
-        try transport.sendInputResolution(
-            resolution,
-            logicalMatchMilliseconds: logicalMilliseconds
-        )
+        do {
+            try transport.sendInputResolution(
+                resolution,
+                logicalMatchMilliseconds: logicalMilliseconds
+            )
+        } catch {
+            // The immutable resolution journal retries this exact disposition.
+        }
     }
 
     private func emitTerminalInputSealIfNeeded(
@@ -1959,7 +2250,7 @@ final class MultiplayerController: ObservableObject {
             )
             didSendTerminalInputSeal = true
         } catch {
-            currentAnnouncement = "SYNCING"
+            // Retained terminal evidence is retried on subsequent frames.
         }
     }
 
@@ -1967,12 +2258,12 @@ final class MultiplayerController: ObservableObject {
         guard let fastNetworkPolicy else { return }
         switch resolutionWatchdog.action(
             monotonicMilliseconds: MultiplayerGameKitTransport.monotonicMilliseconds(),
-            recoveryBudgetMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
+            noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+            cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
         ) {
         case .none:
             break
         case .requestSnapshot:
-            currentAnnouncement = "SYNCING"
             if !transport.isCoordinator {
                 try? transport.requestSnapshot(
                     afterEventSequence: transcriptEvents.count,
@@ -1990,8 +2281,22 @@ final class MultiplayerController: ObservableObject {
 
     private func processCoordinatorFrame(logicalMilliseconds: Int) {
         guard let engine = coordinatorEngine,
-            var inputFrontier,
             let fastNetworkPolicy,
+            MultiplayerCoordinatorFramePolicy.shouldProcess(
+                phase: engine.state.phase,
+                isPaused: pausedAtLogicalMilliseconds != nil
+            )
+        else { return }
+        flushPendingCoordinatorTransportOutput(
+            logicalMilliseconds: logicalMilliseconds
+        )
+        if enforceCoordinatorSendRecoveryDeadline(policy: fastNetworkPolicy) {
+            return
+        }
+        guard pendingCoordinatorEvents.isEmpty,
+            pendingCoordinatorPlans.isEmpty,
+            pendingCoordinatorCancellations.isEmpty,
+            var inputFrontier,
             engine.state.phase == .running
         else { return }
         let publishWatermark = inputFrontier.publishWatermark
@@ -2003,9 +2308,18 @@ final class MultiplayerController: ObservableObject {
             } ?? (logicalMilliseconds > fastNetworkPolicy.frontierStalenessMilliseconds)
         if hasDeclaredGap || frontierIsStale {
             let monotonic = MultiplayerGameKitTransport.monotonicMilliseconds()
-            if let began = frontierRecoveryBeganAtMonotonicMilliseconds,
-                monotonic - began > fastNetworkPolicy.evidenceRecoveryMilliseconds
-            {
+            let began =
+                frontierRecoveryBeganAtMonotonicMilliseconds
+                ?? (frontierIsStale && !hasDeclaredGap
+                    ? monotonic - fastNetworkPolicy.frontierStalenessMilliseconds
+                    : monotonic)
+            frontierRecoveryBeganAtMonotonicMilliseconds = began
+            if MultiplayerRecoveryWindow.phase(
+                now: monotonic,
+                beganAt: began,
+                noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+                cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
+            ) == .expired {
                 peerConsistencyIntact = false
                 cancelLiveWithoutSettlement(
                     reason: .frontierRecoveryExceeded,
@@ -2013,22 +2327,18 @@ final class MultiplayerController: ObservableObject {
                 )
                 return
             }
-            if frontierRecoveryBeganAtMonotonicMilliseconds == nil {
-                frontierRecoveryBeganAtMonotonicMilliseconds = monotonic
-                currentAnnouncement = "SYNCING"
-            }
         } else if frontierRecoveryBeganAtMonotonicMilliseconds != nil {
             frontierRecoveryBeganAtMonotonicMilliseconds = nil
-            if currentAnnouncement == "SYNCING" {
-                currentAnnouncement = nil
-            }
         }
         guard let publishWatermark else {
             self.inputFrontier = inputFrontier
             return
         }
-        let watermark = max(engine.clockMilliseconds, publishWatermark)
-        let readyInputs = inputFrontier.takeReadyInputs()
+        let watermark = max(
+            engine.clockMilliseconds,
+            min(logicalMilliseconds, publishWatermark)
+        )
+        let readyInputs = inputFrontier.takeReadyInputs(through: watermark)
         self.inputFrontier = inputFrontier
 
         var events: [MultiplayerEvent] = []
@@ -2107,55 +2417,43 @@ final class MultiplayerController: ObservableObject {
             }
         publishCoordinatorPlans(uniquePlans, logicalMilliseconds: logicalMilliseconds)
 
-        let visibleCancellations = Set(cancellations).intersection(sentPlanIDs).sorted()
-        if !visibleCancellations.isEmpty {
-            try? transport.cancelActivationPlans(
-                visibleCancellations,
-                logicalMatchMilliseconds: logicalMilliseconds
-            )
-            for planID in visibleCancellations {
+        let uniqueCancellations = Set(cancellations)
+        let visibleCancellations = uniqueCancellations.intersection(sentPlanIDs)
+        if !uniqueCancellations.isEmpty {
+            pendingCoordinatorCancellations.formUnion(visibleCancellations)
+            for planID in uniqueCancellations {
                 sentPlanIDs.remove(planID)
                 pendingPlans.removeValue(forKey: planID)
+                pendingCoordinatorPlans.remove(planIDs: [planID])
             }
+            flushPendingCoordinatorTransportOutput(
+                logicalMilliseconds: logicalMilliseconds
+            )
         }
 
-        do {
-            for resolution in resolutions {
+        for resolution in resolutions {
+            do {
                 try recordInputResolutionThrowing(resolution)
+            } catch {
+                peerConsistencyIntact = false
+                failLiveMatch(error.localizedDescription)
+                return
+            }
+            do {
                 try transport.sendInputResolution(
                     resolution,
                     logicalMatchMilliseconds: logicalMilliseconds
                 )
+            } catch {
+                // The immutable resolution journal retries this exact disposition.
             }
-        } catch {
-            peerConsistencyIntact = false
-            failLiveMatch(error.localizedDescription)
-            return
         }
 
         guard !events.isEmpty else { return }
-        let commitTimestamp = MultiplayerGameKitTransport.monotonicMilliseconds()
-        for event in events {
-            guard let sampleID = latencySampleByEventSequence[event.sequence] else {
-                continue
-            }
-            latencyRecorder.record(
-                .canonicalCommit,
-                sampleID: sampleID,
-                monotonicMilliseconds: commitTimestamp,
-                frameSequence: nil
-            )
-        }
-        let tuples = events.map(\.integerTuple)
-        do {
-            try transport.broadcastEvents(
-                tuples,
-                logicalMatchMilliseconds: logicalMilliseconds
-            )
-            applyCanonicalEvents(events)
-        } catch {
-            failLiveMatch(error.localizedDescription)
-        }
+        pendingCoordinatorEvents.append(contentsOf: events)
+        flushPendingCoordinatorTransportOutput(
+            logicalMilliseconds: logicalMilliseconds
+        )
     }
 
     private func publishCoordinatorPlans(
@@ -2164,37 +2462,241 @@ final class MultiplayerController: ObservableObject {
     ) {
         let wire = plans.map(Self.wirePlan)
         guard !wire.isEmpty else { return }
-        do {
-            try transport.sendActivationPlans(
-                wire,
-                logicalMatchMilliseconds: logicalMilliseconds
+        for plan in wire {
+            pendingCoordinatorPlans.enqueue(
+                plan,
+                logicalMilliseconds: logicalMilliseconds
             )
-            for plan in wire {
-                pendingPlans[plan.planId] = plan
-                sentPlanIDs.insert(plan.planId)
-            }
-        } catch {
-            failLiveMatch(error.localizedDescription)
         }
+        flushPendingCoordinatorTransportOutput(
+            logicalMilliseconds: logicalMilliseconds
+        )
+    }
+
+    private func flushPendingCoordinatorTransportOutput(
+        logicalMilliseconds: Int
+    ) {
+        if let batch = pendingCoordinatorPlans.nextBatch() {
+            do {
+                try transport.sendActivationPlans(
+                    batch.plans,
+                    logicalMatchMilliseconds: batch.queuedAt
+                )
+                pendingCoordinatorPlans.remove(planIDs: batch.plans.map(\.planId))
+                for plan in batch.plans {
+                    pendingPlans[plan.planId] = plan
+                    sentPlanIDs.insert(plan.planId)
+                }
+            } catch {
+                beginCoordinatorSendRecoveryIfNeeded()
+                return
+            }
+        }
+
+        if !pendingCoordinatorCancellations.isEmpty {
+            let cancellations = pendingCoordinatorCancellations.sorted()
+            do {
+                try transport.cancelActivationPlans(
+                    cancellations,
+                    logicalMatchMilliseconds: logicalMilliseconds
+                )
+                pendingCoordinatorCancellations.subtract(cancellations)
+            } catch {
+                beginCoordinatorSendRecoveryIfNeeded()
+                return
+            }
+        }
+
+        if !pendingCoordinatorEvents.isEmpty {
+            let events = pendingCoordinatorEvents
+            do {
+                try transport.broadcastEvents(
+                    events.map(\.integerTuple),
+                    logicalMatchMilliseconds: logicalMilliseconds
+                )
+                pendingCoordinatorEvents = []
+                let commitTimestamp = MultiplayerGameKitTransport.monotonicMilliseconds()
+                for event in events {
+                    guard let sampleID = latencySampleByEventSequence[event.sequence] else {
+                        continue
+                    }
+                    latencyRecorder.record(
+                        .canonicalCommit,
+                        sampleID: sampleID,
+                        monotonicMilliseconds: commitTimestamp,
+                        frameSequence: nil
+                    )
+                }
+                applyCanonicalEvents(events)
+            } catch {
+                beginCoordinatorSendRecoveryIfNeeded()
+                return
+            }
+        }
+
+        if pendingCoordinatorEvents.isEmpty,
+            pendingCoordinatorPlans.isEmpty,
+            pendingCoordinatorCancellations.isEmpty
+        {
+            coordinatorSendRecoveryBeganAtMonotonicMilliseconds = nil
+        }
+    }
+
+    private func beginCoordinatorSendRecoveryIfNeeded() {
+        if coordinatorSendRecoveryBeganAtMonotonicMilliseconds == nil {
+            coordinatorSendRecoveryBeganAtMonotonicMilliseconds =
+                MultiplayerGameKitTransport.monotonicMilliseconds()
+        }
+        beginCoordinatedPause()
+    }
+
+    @discardableResult
+    private func enforceCoordinatorSendRecoveryDeadline(
+        policy: MultiplayerFrozenNetworkPolicy
+    ) -> Bool {
+        guard let began = coordinatorSendRecoveryBeganAtMonotonicMilliseconds else {
+            return false
+        }
+        guard
+            MultiplayerRecoveryWindow.phase(
+                now: MultiplayerGameKitTransport.monotonicMilliseconds(),
+                beganAt: began,
+                noticeAfterMilliseconds: policy.frontierStalenessMilliseconds,
+                cancelAfterMilliseconds: policy.evidenceRecoveryMilliseconds
+            ) == .expired
+        else { return false }
+        peerConsistencyIntact = false
+        cancelLiveWithoutSettlement(
+            reason: .inputReconciliationFailed,
+            message: "Canonical delivery could not recover in time."
+        )
+        return true
+    }
+
+    private func refreshReliableRecoveryState() {
+        reliableRecoveryBeganAtMonotonicMilliseconds =
+            transport.oldestPendingReliableRecoveryMonotonicMilliseconds
+    }
+
+    private func refreshPeerCanonicalRecoveryState() {
+        if MultiplayerPeerCanonicalRecoveryPolicy.isRequired(
+            pendingBatchCount: pendingCanonicalBatches.count,
+            hasPendingSnapshot: pendingRecoverySnapshot != nil,
+            isSnapshotAssemblyPending: snapshotAssembler.isPending,
+            pendingFinishEventSequence: pendingFinishPacket?.finalEventSequence,
+            transcriptEventCount: transcriptEvents.count
+        ) {
+            if peerCanonicalRecoveryBeganAtMonotonicMilliseconds == nil {
+                peerCanonicalRecoveryBeganAtMonotonicMilliseconds =
+                    MultiplayerGameKitTransport.monotonicMilliseconds()
+            }
+        } else {
+            peerCanonicalRecoveryBeganAtMonotonicMilliseconds = nil
+            if !resolutionWatchdog.isCatchingUp {
+                lastSnapshotRequestAtMonotonicMilliseconds = nil
+            }
+        }
+    }
+
+    private func servicePeerSnapshotRecoveryIfNeeded(
+        logicalMilliseconds: Int
+    ) {
+        let now = MultiplayerGameKitTransport.monotonicMilliseconds()
+        guard
+            MultiplayerSnapshotRecoveryRequestPolicy.shouldRequest(
+                isCoordinator: transport.isCoordinator,
+                hasPeerCanonicalRecovery:
+                    peerCanonicalRecoveryBeganAtMonotonicMilliseconds != nil,
+                hasResolutionRecovery: resolutionWatchdog.isCatchingUp,
+                now: now,
+                lastRequestAt: lastSnapshotRequestAtMonotonicMilliseconds
+            )
+        else { return }
+        lastSnapshotRequestAtMonotonicMilliseconds = now
+        try? transport.requestSnapshot(
+            afterEventSequence: transcriptEvents.count,
+            logicalMatchMilliseconds: logicalMilliseconds
+        )
+    }
+
+    private func serviceCoordinatorReconnectSnapshotsIfPossible(
+        logicalMilliseconds: Int
+    ) {
+        guard
+            MultiplayerReconnectSnapshotPolicy.shouldSend(
+                isCoordinator: transport.isCoordinator,
+                hasPendingResumeRecovery: transport.hasPendingResumeRecovery
+            )
+        else { return }
+        for playerID in pendingReconnectSnapshotRecipients.sorted() {
+            do {
+                try transport.sendSnapshot(
+                    events: transcriptEvents.map(\.integerTuple),
+                    pendingPlans: Array(pendingPlans.values),
+                    afterEventSequence: 0,
+                    logicalMatchMilliseconds: logicalMilliseconds,
+                    to: playerID
+                )
+                pendingReconnectSnapshotRecipients.remove(playerID)
+            } catch {
+                return
+            }
+        }
+    }
+
+    @discardableResult
+    private func enforceBoundedRecoveryDeadlines() -> Bool {
+        guard let fastNetworkPolicy else { return false }
+        if enforceCoordinatorSendRecoveryDeadline(policy: fastNetworkPolicy) {
+            return true
+        }
+        let now = MultiplayerGameKitTransport.monotonicMilliseconds()
+        let expiredMessage = MultiplayerRecoveryDeadlinePolicy.firstExpiredMessage(
+            now: now,
+            noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+            cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds,
+            recoveries: [
+                (
+                    beganAt: reliableRecoveryBeganAtMonotonicMilliseconds,
+                    message: "Reliable multiplayer delivery could not recover in time."
+                ),
+                (
+                    beganAt: peerCanonicalRecoveryBeganAtMonotonicMilliseconds,
+                    message: "Peer input evidence could not recover in time."
+                ),
+                (
+                    beganAt: pauseRecoveryBeganAtMonotonicMilliseconds,
+                    message: "The coordinated pause could not recover in time."
+                ),
+            ]
+        )
+        guard let expiredMessage else { return false }
+        peerConsistencyIntact = false
+        cancelLiveWithoutSettlement(
+            reason: .inputReconciliationFailed,
+            message: expiredMessage
+        )
+        return true
     }
 
     private func applyCanonicalTuples(_ tuples: [[Int]]) {
         do {
             let events = try tuples.map(MultiplayerEvent.init(integerTuple:))
-            guard let firstSequence = events.first?.sequence else { return }
+            guard !events.isEmpty else { return }
             if transport.isCoordinator {
                 try applyCanonicalEventsThrowing(events)
             } else {
-                pendingCanonicalBatches[firstSequence] = events
+                pendingCanonicalBatches =
+                    try MultiplayerCanonicalBatchReconciler.inserting(
+                        events,
+                        into: pendingCanonicalBatches,
+                        after: transcriptEvents
+                    )
                 drainPendingCanonicalBatches()
             }
         } catch {
-            if !transport.isCoordinator {
-                try? transport.requestSnapshot(
-                    afterEventSequence: transcriptEvents.count,
-                    logicalMatchMilliseconds: currentLogicalMilliseconds()
-                )
-            }
+            peerConsistencyIntact = false
+            failLiveMatch("The coordinator sent invalid canonical input evidence.")
         }
     }
 
@@ -2207,6 +2709,7 @@ final class MultiplayerController: ObservableObject {
     }
 
     private func drainPendingCanonicalBatches() {
+        defer { refreshPeerCanonicalRecoveryState() }
         while let events = pendingCanonicalBatches[transcriptEvents.count + 1] {
             do {
                 guard try consumeInputEvidence(for: events) else { return }
@@ -2269,7 +2772,11 @@ final class MultiplayerController: ObservableObject {
                     latencyCorrelation.finish(inputID: inputID)
                 }
             }
-            _ = localPrediction.canonicalApplied(eventSequence: event.sequence)
+            if let resolvedInputID = localPrediction.takeCanonicalAppliedInputID(
+                eventSequence: event.sequence
+            ) {
+                resolutionWatchdog.resolve(resolvedInputID)
+            }
             if case .playerOut(_, _, let seat) = event,
                 var inputFrontier
             {
@@ -2295,41 +2802,75 @@ final class MultiplayerController: ObservableObject {
         }
     }
 
-    private func applySnapshot(_ snapshot: MultiplayerSnapshotPacket) {
-        let newTuples = snapshot.events.filter {
-            ($0.count > 1 ? $0[1] : 0) > transcriptEvents.count
-        }
-        guard
-            newTuples.isEmpty
-                || ((newTuples.first?.count ?? 0) > 1
-                    && newTuples.first?[1] == transcriptEvents.count + 1)
-        else {
-            try? transport.requestSnapshot(
-                afterEventSequence: transcriptEvents.count,
-                logicalMatchMilliseconds: currentLogicalMilliseconds()
-            )
-            return
-        }
+    private func receiveSnapshotChunk(_ snapshot: MultiplayerSnapshotPacket) {
         do {
-            let events = try newTuples.map(MultiplayerEvent.init(integerTuple:))
+            if let assembled = try snapshotAssembler.ingest(snapshot) {
+                applySnapshot(assembled)
+            }
+            refreshPeerCanonicalRecoveryState()
+        } catch {
+            peerConsistencyIntact = false
+            failLiveMatch(error.localizedDescription)
+        }
+    }
+
+    private func applySnapshot(_ snapshot: MultiplayerSnapshotPacket) {
+        defer { refreshPeerCanonicalRecoveryState() }
+        do {
+            let events = try MultiplayerSnapshotTranscriptReconciler.unappliedEvents(
+                from: snapshot.events,
+                after: transcriptEvents
+            )
             if try consumeInputEvidence(for: events) == false {
                 pendingRecoverySnapshot = snapshot
                 return
             }
+            pendingRecoverySnapshot = nil
             try applyCanonicalEventsThrowing(
                 events,
                 playsFeedback: false,
                 consumesEvidence: false
             )
-            pendingPlans = Dictionary(
-                uniqueKeysWithValues: snapshot.pendingPlans.map { ($0.planId, $0) }
-            )
-            pausedAtLogicalMilliseconds = snapshot.pausedAtLogicalMilliseconds
+            try prunePendingCanonicalBatchesCoveredBySnapshot()
+            if MultiplayerSnapshotMetadataPolicy.shouldCommitInController(
+                snapshotThroughEventSequence: snapshot.throughEventSequence,
+                transcriptEventCount: transcriptEvents.count,
+                snapshotControlWatermark: snapshot.controlWatermark,
+                latestMetadataControlSequence: latestPlanMetadataControlSequence
+            ) {
+                pendingPlans = Dictionary(
+                    uniqueKeysWithValues: snapshot.pendingPlans.map { ($0.planId, $0) }
+                )
+            }
+            if MultiplayerSnapshotMetadataPolicy.shouldCommitInController(
+                snapshotThroughEventSequence: snapshot.throughEventSequence,
+                transcriptEventCount: transcriptEvents.count,
+                snapshotControlWatermark: snapshot.controlWatermark,
+                latestMetadataControlSequence: latestPauseMetadataControlSequence
+            ) {
+                pausedAtLogicalMilliseconds = snapshot.pausedAtLogicalMilliseconds
+                pauseRecoveryBeganAtMonotonicMilliseconds =
+                    MultiplayerPauseRecoveryAnchorPolicy.applyingSnapshot(
+                        pausedAtLogicalMilliseconds: snapshot.pausedAtLogicalMilliseconds,
+                        existingAnchor: pauseRecoveryBeganAtMonotonicMilliseconds,
+                        now: MultiplayerGameKitTransport.monotonicMilliseconds()
+                    )
+            }
         } catch {
             peerConsistencyIntact = false
             failLiveMatch(error.localizedDescription)
         }
         updateRecoveryPresentation()
+    }
+
+    private func prunePendingCanonicalBatchesCoveredBySnapshot() throws {
+        pendingCanonicalBatches =
+            try MultiplayerCanonicalBatchReconciler
+            .retainingUnapplied(
+                pendingCanonicalBatches,
+                after: transcriptEvents
+            )
+        drainPendingCanonicalBatches()
     }
 
     private func drainPendingRecoverySnapshot() {
@@ -2396,20 +2937,21 @@ final class MultiplayerController: ObservableObject {
             currentAnnouncement = announcement
         }
         var cells: [Int: MultiplayerPresentation.Cell] = [:]
+        var targetCandidates: [MultiplayerPresentedTargetCandidate] = []
         if let target = reducer.state.target,
             logicalMilliseconds >= target.presentedAt,
-            logicalMilliseconds < target.deadline,
-            localPrediction.hiddenTargetCell != target.cell
+            logicalMilliseconds < target.deadline
         {
-            cells[target.cell] = MultiplayerPresentation.Cell(
-                id: target.cell,
-                colorIndex: target.colorIndex,
-                ownerSeat: target.ownerSeat,
-                glyph: Self.glyph(for: target.colorIndex),
-                isTarget: true,
-                activationID: MultiplayerPresentedActivationID(
-                    kind: .target,
-                    entityID: target.targetId
+            targetCandidates.append(
+                MultiplayerPresentedTargetCandidate(
+                    activationID: MultiplayerPresentedActivationID(
+                        kind: .target,
+                        entityID: target.targetId
+                    ),
+                    presentedAt: target.presentedAt,
+                    cell: target.cell,
+                    colorIndex: target.colorIndex,
+                    ownerSeat: target.ownerSeat
                 )
             )
         }
@@ -2432,23 +2974,53 @@ final class MultiplayerController: ObservableObject {
         for plan in pendingPlans.values
         where logicalMilliseconds >= plan.at
             && (plan.lifetimeMs.map { logicalMilliseconds < plan.at + $0 } ?? true)
-            && cells[plan.cell] == nil
-            && !(plan.kind == .target && localPrediction.hiddenTargetCell == plan.cell)
         {
-            cells[plan.cell] = MultiplayerPresentation.Cell(
-                id: plan.cell,
-                colorIndex: plan.colorIndex,
-                ownerSeat: plan.ownerSeat,
-                glyph: Self.glyph(for: plan.colorIndex),
-                isTarget: plan.kind == .target,
-                isDecoy: plan.kind == .decoy,
-                activationID: MultiplayerPresentedActivationID(
-                    kind: plan.kind == .target ? .target : .decoy,
-                    entityID: plan.entityId
+            let activationID = MultiplayerPresentedActivationID(
+                kind: plan.kind == .target ? .target : .decoy,
+                entityID: plan.entityId
+            )
+            if plan.kind == .target {
+                targetCandidates.append(
+                    MultiplayerPresentedTargetCandidate(
+                        activationID: activationID,
+                        presentedAt: plan.at,
+                        cell: plan.cell,
+                        colorIndex: plan.colorIndex,
+                        ownerSeat: plan.ownerSeat
+                    )
                 )
+            } else if cells[plan.cell] == nil {
+                cells[plan.cell] = MultiplayerPresentation.Cell(
+                    id: plan.cell,
+                    colorIndex: plan.colorIndex,
+                    ownerSeat: plan.ownerSeat,
+                    glyph: Self.glyph(for: plan.colorIndex),
+                    isDecoy: true,
+                    activationID: activationID
+                )
+            }
+        }
+        let presentedTarget = MultiplayerPresentedTargetSelection.latest(
+            in: targetCandidates
+        )
+        let presentedTargetActivationID = presentedTarget?.activationID
+        if let presentedTarget,
+            !localPrediction.hidesTarget(for: presentedTarget.activationID)
+        {
+            cells[presentedTarget.cell] = MultiplayerPresentation.Cell(
+                id: presentedTarget.cell,
+                colorIndex: presentedTarget.colorIndex,
+                ownerSeat: presentedTarget.ownerSeat,
+                glyph: Self.glyph(for: presentedTarget.colorIndex),
+                isTarget: true,
+                activationID: presentedTarget.activationID
             )
         }
-        if case .neutralPressure(let pendingCell) = localPrediction.overlay {
+        if let presentedTargetActivationID,
+            case .neutralPressure(let pendingCell) = localPrediction.overlay(
+                for: presentedTargetActivationID
+            )
+        {
             let existing =
                 cells[pendingCell]
                 ?? MultiplayerPresentation.Cell(id: pendingCell, colorIndex: nil)
@@ -2487,23 +3059,74 @@ final class MultiplayerController: ObservableObject {
             )
         }
         let local = reducer.state.players.first(where: { $0.seat == localSeat })
-        let isSyncing =
-            !isApplicationActive
-            || !disconnectedGamePlayerIDs.isEmpty
-            || pausedAtLogicalMilliseconds != nil
-            || frontierRecoveryBeganAtMonotonicMilliseconds != nil
-            || resolutionWatchdog.isSyncing
-            || terminalDrainState != nil
-        let inputMode: MultiplayerPresentation.LiveInputMode =
-            if local?.lives == 0 {
-                .spectating
-            } else if isSyncing {
-                .syncing
-            } else if localPrediction.pendingInput != nil {
-                .pending
-            } else {
-                .interactive
-            }
+        let monotonic = MultiplayerGameKitTransport.monotonicMilliseconds()
+        let frontierIsVisible =
+            frontierRecoveryBeganAtMonotonicMilliseconds.map {
+                began in
+                guard let fastNetworkPolicy else { return false }
+                return MultiplayerRecoveryWindow.phase(
+                    now: monotonic,
+                    beganAt: began,
+                    noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+                    cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
+                ) == .visible
+            } ?? false
+        let coordinatorSendRecoveryIsVisible =
+            coordinatorSendRecoveryBeganAtMonotonicMilliseconds.map { began in
+                guard let fastNetworkPolicy else { return false }
+                return MultiplayerRecoveryWindow.phase(
+                    now: monotonic,
+                    beganAt: began,
+                    noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+                    cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
+                ) == .visible
+            } ?? false
+        let reliableRecoveryIsVisible =
+            reliableRecoveryBeganAtMonotonicMilliseconds.map { began in
+                guard let fastNetworkPolicy else { return false }
+                return MultiplayerRecoveryWindow.phase(
+                    now: monotonic,
+                    beganAt: began,
+                    noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+                    cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
+                ) == .visible
+            } ?? false
+        let peerCanonicalRecoveryIsVisible =
+            peerCanonicalRecoveryBeganAtMonotonicMilliseconds.map { began in
+                guard let fastNetworkPolicy else { return false }
+                return MultiplayerRecoveryWindow.phase(
+                    now: monotonic,
+                    beganAt: began,
+                    noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+                    cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
+                ) == .visible
+            } ?? false
+        let pauseRecoveryIsVisible =
+            pauseRecoveryBeganAtMonotonicMilliseconds.map { began in
+                guard let fastNetworkPolicy else { return false }
+                return MultiplayerRecoveryWindow.phase(
+                    now: monotonic,
+                    beganAt: began,
+                    noticeAfterMilliseconds: fastNetworkPolicy.frontierStalenessMilliseconds,
+                    cancelAfterMilliseconds: fastNetworkPolicy.evidenceRecoveryMilliseconds
+                ) == .visible
+            } ?? false
+        let interaction = MultiplayerLiveInteractionPolicy.resolve(
+            localHasLives: (local?.lives ?? 0) > 0,
+            isApplicationActive: isApplicationActive && !isTransportRecovering,
+            hasDisconnectedPlayers: !disconnectedGamePlayerIDs.isEmpty,
+            isPaused: pausedAtLogicalMilliseconds != nil,
+            isTerminalDraining: terminalDrainState != nil,
+            hasPendingInputForPresentedActivation: presentedTargetActivationID.map {
+                !localPrediction.allowsInput(for: $0)
+            } ?? false,
+            isCatchUpVisible: frontierIsVisible
+                || resolutionWatchdog.isCatchingUp
+                || coordinatorSendRecoveryIsVisible
+                || reliableRecoveryIsVisible
+                || peerCanonicalRecoveryIsVisible
+                || pauseRecoveryIsVisible
+        )
         let candidate = MultiplayerPresentation.LiveMatchState(
             matchID: match.matchId,
             elapsedMilliseconds: logicalMilliseconds,
@@ -2511,11 +3134,12 @@ final class MultiplayerController: ObservableObject {
             players: players,
             localSeat: localSeat,
             streakSteps: local?.streakProgress ?? 0,
-            isRecovering: isSyncing,
+            isRecovering: interaction.networkStatus != nil,
+            networkStatus: interaction.networkStatus,
             announcement: currentAnnouncement
                 ?? (local?.lives == 0 ? "SPECTATING" : nil),
             hitFeedbackEvent: currentHitFeedbackEvent,
-            inputMode: inputMode
+            inputMode: interaction.inputMode
         )
         if MultiplayerPresentationPublicationPolicy.shouldPublish(
             previous: liveState,
@@ -2532,6 +3156,7 @@ final class MultiplayerController: ObservableObject {
             .map(\.planId)
         for planID in planIDs {
             pendingPlans.removeValue(forKey: planID)
+            pendingCoordinatorPlans.remove(planIDs: [planID])
             sentPlanIDs.remove(planID)
         }
     }
@@ -2548,7 +3173,7 @@ final class MultiplayerController: ObservableObject {
         let throughInputAt = max(
             finishAt,
             currentLogicalMilliseconds(),
-            localPrediction.pendingInput?.inputAt ?? 0
+            localPrediction.latestPendingInputAt ?? 0
         )
         terminalDrainState = MultiplayerTerminalDrainState(
             finishEventSequence: finishEventSequence,
@@ -2561,7 +3186,6 @@ final class MultiplayerController: ObservableObject {
                 highestInputSequence: localPrediction.nextInputSequence - 1
             )
         )
-        currentAnnouncement = "FINALIZING"
         updateLivePresentation(at: currentLogicalMilliseconds())
         emitTerminalInputSealIfNeeded(
             logicalMilliseconds: throughInputAt
@@ -2570,20 +3194,20 @@ final class MultiplayerController: ObservableObject {
     }
 
     private func enforceTerminalDrainDeadline() {
-        guard let state = terminalDrainState,
-            let fastNetworkPolicy
-        else { return }
+        guard let state = terminalDrainState else { return }
         let now = MultiplayerGameKitTransport.monotonicMilliseconds()
-        guard now > state.deadlineMonotonicMilliseconds else { return }
+        guard
+            MultiplayerTerminalDrainDeadlinePolicy.hasExpired(
+                now: now,
+                deadline: state.deadlineMonotonicMilliseconds
+            )
+        else { return }
         if transport.isCoordinator {
             cancelLiveWithoutSettlement(
                 reason: .terminalDrainExceeded,
                 message: "Terminal input evidence did not reconcile in time."
             )
-        } else if now
-            > state.deadlineMonotonicMilliseconds
-            + fastNetworkPolicy.evidenceRecoveryMilliseconds
-        {
+        } else {
             cancelLiveWithoutSettlement(
                 reason: .terminalDrainExceeded,
                 message: "The coordinator did not complete terminal reconciliation.",
@@ -2599,13 +3223,19 @@ final class MultiplayerController: ObservableObject {
             peerConsistencyIntact,
             pendingCanonicalBatches.isEmpty,
             inputLedger.isTerminallyComplete,
-            localPrediction.pendingInput == nil,
-            resolutionWatchdog.inputID == nil
+            !localPrediction.hasPendingInputs,
+            !resolutionWatchdog.hasPendingInputs,
+            pendingCoordinatorEvents.isEmpty,
+            pendingCoordinatorPlans.isEmpty,
+            pendingCoordinatorCancellations.isEmpty,
+            disconnectedGamePlayerIDs.isEmpty,
+            !isTransportRecovering
         else { return }
 
         if transport.isCoordinator {
             guard terminalDrainTracker?.isComplete == true else { return }
             if !didBroadcastFinish {
+                guard !transport.hasPendingReliableRecovery else { return }
                 guard let manifest = coreManifest else { return }
                 do {
                     try transport.sendFinish(
@@ -2616,14 +3246,13 @@ final class MultiplayerController: ObservableObject {
                     )
                     didBroadcastFinish = true
                 } catch {
-                    cancelLiveWithoutSettlement(
-                        reason: .inputReconciliationFailed,
-                        message: error.localizedDescription
-                    )
                     return
                 }
+                return
             }
+            guard !transport.hasPendingReliableRecovery else { return }
         } else {
+            guard !transport.hasPendingReliableRecovery else { return }
             guard let finish = pendingFinishPacket else { return }
             guard finish.finalEventSequence == transcriptEvents.count,
                 finish.finalEventSequence == state.finishEventSequence
@@ -2933,52 +3562,80 @@ final class MultiplayerController: ObservableObject {
     }
 
     private func beginCoordinatedPause() {
-        guard transport.isCoordinator, pausedAtLogicalMilliseconds == nil else { return }
+        guard
+            MultiplayerCoordinatedPausePolicy.shouldBegin(
+                isCoordinator: transport.isCoordinator,
+                isAlreadyPaused: pausedAtLogicalMilliseconds != nil,
+                isTerminalDraining: terminalDrainState != nil,
+                didBroadcastFinish: didBroadcastFinish
+            )
+        else { return }
         let logical = currentLogicalMilliseconds()
         pauseID += 1
+        pausedAtLogicalMilliseconds = logical
+        pauseRecoveryBeganAtMonotonicMilliseconds =
+            MultiplayerGameKitTransport.monotonicMilliseconds()
         do {
             try transport.sendPause(
                 pauseID: pauseID,
                 logicalMatchMilliseconds: logical
             )
-            pausedAtLogicalMilliseconds = logical
         } catch {
-            peerConsistencyIntact = false
-            failLiveMatch(error.localizedDescription)
+            // The pause is retained by the transport and retried on reconnect.
         }
     }
 
     private func resumeCoordinatedPause() {
         guard transport.isCoordinator,
-            let pausedAtLogicalMilliseconds
+            let pausedAtLogicalMilliseconds,
+            pendingCoordinatorEvents.isEmpty,
+            pendingCoordinatorPlans.isEmpty,
+            pendingCoordinatorCancellations.isEmpty
         else { return }
+        if transport.hasPendingResumeRecovery { return }
+        if !transport.hasActivePause {
+            self.pausedAtLogicalMilliseconds = nil
+            pauseRecoveryBeganAtMonotonicMilliseconds = nil
+            updateRecoveryPresentation()
+            return
+        }
         do {
             try transport.sendResume(
                 pauseID: pauseID,
                 logicalMatchMilliseconds: pausedAtLogicalMilliseconds
             )
-            self.pausedAtLogicalMilliseconds = nil
-            currentAnnouncement = nil
+            if !transport.hasPendingResumeRecovery,
+                !transport.hasActivePause
+            {
+                self.pausedAtLogicalMilliseconds = nil
+                pauseRecoveryBeganAtMonotonicMilliseconds = nil
+                updateRecoveryPresentation()
+            }
         } catch {
-            peerConsistencyIntact = false
-            failLiveMatch(error.localizedDescription)
+            // Stay paused and retry on the next display frame.
         }
     }
 
-    private func markRecovering(message: String? = nil) {
+    private func markRecovering() {
         guard phase == .live else { return }
-        updateLivePresentation(
-            at: currentLogicalMilliseconds(),
-            announcement: message ?? "RECONNECTING"
-        )
-        recoveryTask?.cancel()
+        updateLivePresentation(at: currentLogicalMilliseconds())
+        guard recoveryTask == nil else { return }
+        let generation = UUID()
+        recoveryTaskGeneration = generation
         recoveryTask = Task { @MainActor [weak self] in
+            defer {
+                if self?.recoveryTaskGeneration == generation {
+                    self?.recoveryTaskGeneration = nil
+                    self?.recoveryTask = nil
+                }
+            }
             try? await Task.sleep(for: Self.recoveryGrace)
             guard let self, !Task.isCancelled,
                 phase == .live,
                 !disconnectedGamePlayerIDs.isEmpty
                     || !isApplicationActive
                     || pausedAtLogicalMilliseconds != nil
+                    || isTransportRecovering
             else { return }
             failLiveMatch("A player did not reconnect in time.")
             if let matchID = currentMatch?.matchId {
@@ -2990,19 +3647,14 @@ final class MultiplayerController: ObservableObject {
     private func updateRecoveryPresentation() {
         if disconnectedGamePlayerIDs.isEmpty,
             isApplicationActive,
-            pausedAtLogicalMilliseconds == nil
+            pausedAtLogicalMilliseconds == nil,
+            !isTransportRecovering
         {
+            recoveryTaskGeneration = nil
             recoveryTask?.cancel()
             recoveryTask = nil
-            currentAnnouncement = nil
         }
-        updateLivePresentation(
-            at: currentLogicalMilliseconds(),
-            announcement: disconnectedGamePlayerIDs.isEmpty
-                && pausedAtLogicalMilliseconds == nil
-                ? nil
-                : "RECONNECTING"
-        )
+        updateLivePresentation(at: currentLogicalMilliseconds())
     }
 
     private func failLiveMatch(_ message: String) {
@@ -3033,6 +3685,7 @@ final class MultiplayerController: ObservableObject {
         audio.setMusicContext(.menu)
         submissionTask?.cancel()
         settlementTask?.cancel()
+        recoveryTaskGeneration = nil
         recoveryTask?.cancel()
         submissionTask = nil
         settlementTask = nil
@@ -3054,6 +3707,36 @@ final class MultiplayerController: ObservableObject {
             localSubmissionAccepted: false,
             message: "This match is not leaderboard eligible."
         )
+        beginTerminalDeliveryRecoveryIfNeeded()
+    }
+
+    private func beginTerminalDeliveryRecoveryIfNeeded() {
+        guard transport.hasPendingReliableRecovery else { return }
+        terminalDeliveryTaskGeneration = nil
+        terminalDeliveryTask?.cancel()
+        let generation = UUID()
+        terminalDeliveryTaskGeneration = generation
+        terminalDeliveryTask = Task { @MainActor [weak self] in
+            defer {
+                if self?.terminalDeliveryTaskGeneration == generation {
+                    self?.terminalDeliveryTaskGeneration = nil
+                    self?.terminalDeliveryTask = nil
+                }
+            }
+            let deadline = MultiplayerGameKitTransport.monotonicMilliseconds() + 15_000
+            while let self, !Task.isCancelled,
+                phase == .results,
+                transport.hasPendingReliableRecovery,
+                MultiplayerGameKitTransport.monotonicMilliseconds() < deadline
+            {
+                try? transport.serviceRecovery()
+                try? await Task.sleep(
+                    for: .milliseconds(
+                        MultiplayerGameKitTransport.recoveryRetryIntervalMilliseconds
+                    )
+                )
+            }
+        }
     }
 
     private func resetMatchRuntime(disconnect: Bool) {
@@ -3061,6 +3744,9 @@ final class MultiplayerController: ObservableObject {
         frameScheduler.stop()
         settlementTask?.cancel()
         submissionTask?.cancel()
+        terminalDeliveryTaskGeneration = nil
+        terminalDeliveryTask?.cancel()
+        recoveryTaskGeneration = nil
         recoveryTask?.cancel()
         announcementTask?.cancel()
         matchRuntimeGeneration &+= 1
@@ -3074,12 +3760,14 @@ final class MultiplayerController: ObservableObject {
         pollTask = nil
         settlementTask = nil
         submissionTask = nil
+        terminalDeliveryTask = nil
         recoveryTask = nil
         announcementTask = nil
         matchmakingTask = nil
         clockSynchronizationTask = nil
         matchmakingAttemptGate.clear()
         readyIntent.reset()
+        isTransportRecovering = false
         if disconnect { transport.disconnect() }
         currentMatch = nil
         waitingState = nil
@@ -3117,11 +3805,23 @@ final class MultiplayerController: ObservableObject {
         pendingStartManifest = nil
         didSendTerminalInputSeal = false
         pendingRecoverySnapshot = nil
+        pendingReconnectSnapshotRecipients = []
+        snapshotAssembler.reset()
+        lastSnapshotRequestAtMonotonicMilliseconds = nil
         frontierRecoveryBeganAtMonotonicMilliseconds = nil
         fastNetworkPolicy = nil
         pendingCanonicalBatches = [:]
+        pendingCoordinatorEvents = []
+        pendingCoordinatorPlans.reset()
+        pendingCoordinatorCancellations = []
+        coordinatorSendRecoveryBeganAtMonotonicMilliseconds = nil
+        pauseRecoveryBeganAtMonotonicMilliseconds = nil
+        reliableRecoveryBeganAtMonotonicMilliseconds = nil
+        peerCanonicalRecoveryBeganAtMonotonicMilliseconds = nil
         peerConsistencyIntact = true
         pendingPlans = [:]
+        latestPlanMetadataControlSequence = 0
+        latestPauseMetadataControlSequence = 0
         sentPlanIDs = []
         coordinatorEngine = nil
         playbackReducer = nil
@@ -3185,6 +3885,21 @@ final class MultiplayerController: ObservableObject {
                 forLocalMonotonicMilliseconds:
                     MultiplayerGameKitTransport.monotonicMilliseconds()
             )) ?? 0
+    }
+
+    private func inputLogicalMilliseconds(
+        forLocalMonotonicMilliseconds milliseconds: Int
+    ) -> Int? {
+        if let pausedAtLogicalMilliseconds,
+            isApplicationActive,
+            disconnectedGamePlayerIDs.isEmpty,
+            !isTransportRecovering
+        {
+            return pausedAtLogicalMilliseconds
+        }
+        return try? transport.coordinatorLogicalMilliseconds(
+            forLocalMonotonicMilliseconds: milliseconds
+        )
     }
 
     private func isParticipantConnected(_ participant: MultiplayerParticipant) -> Bool {

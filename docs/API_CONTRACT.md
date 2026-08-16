@@ -1,7 +1,7 @@
 # Current native API contract
 
 This file describes the deployed build-20 backend surface retained unchanged by
-the iOS build-21 candidate.
+the iOS build-23 candidate.
 Server implementation and deployment remain owned by the separate PHP repository.
 
 ## Transport and session
@@ -204,24 +204,26 @@ contain seats and integers, never names, pets, profile UUIDs, or Game Center IDs
 
 ## Current GameKit live protocol
 
-PHP is not a live relay. One versioned `GKMatch` envelope carries roster, clock,
-future plan/cancel, input, canonical event batch, acknowledgement, snapshot,
-pause/resume, start, and finish packets. Build 21 capability-gates its new live wire
-before play, uses an unreliable fast-input lane, and keeps evidence, canonical,
-control, snapshot, and terminal traffic reliable.
+PHP is not a live relay. One capability-gated `GKMatch` envelope carries roster,
+clock, future plan/cancel, input, canonical event batch, acknowledgement, snapshot,
+pause/resume, Start, Finish, and terminal cancellation. Build 23 uses live wire v3:
+fast input is unreliable by design; evidence, canonical, control, snapshot, and
+terminal traffic is reliable.
 
-The fixed sender map is frozen after roster confirmation. Inputs are broadcast to
-all peers and witnessed against sender/seat. Build 21 publishes only through the
-minimum complete sealed per-seat frontier and sends an explicit live-only resolution
-for each witnessed input. Prediction and resolutions never enter the PHP transcript.
+The sender map is frozen after roster confirmation. Inputs are witnessed against
+sender/seat. The coordinator publishes only through the minimum complete sealed
+per-seat frontier and sends one live-only resolution for every witnessed input.
+Prediction and resolutions never enter the PHP transcript.
 
-Peers acknowledge contiguous canonical sequences and request snapshots after gaps.
-Snapshots carry reducer state, pending plans, and the shared clock anchor. Historical
-catch-up is silent. A bounded disconnect pauses logical time; v1 does not migrate
-coordinator authority. Unrecoverable stream or evidence cancels/withholds.
-
-Build 20's reliable 250 ms path is legacy live behavior. Build 21 changes only the
-capability-gated GameKit wire; transcript tuples and backend proof semantics remain v1.
+Recipient-specific journals retain evidence, resolutions, Start, pause, Resume,
+Finish, and cancellation until exact acknowledgement. Cumulative seals and repeated
+snapshot requests repair gaps. Snapshots are bounded, complete, prefix-consistent,
+and cannot rewind newer plan/pause metadata. Recovery is hidden below 1 second,
+nonblocking through 15 seconds, and only then cancels/withholds. A real disconnect
+pauses shared logical time. Resume advances only after a reliable send is physically
+accepted for every intended peer; the retained exact-ACK journal then retries in the
+background. V1 does not migrate coordinator authority. The GameKit wire changed,
+but transcript tuples and backend proof semantics remain v1.
 
 ## Exact Multiplayer transcript
 

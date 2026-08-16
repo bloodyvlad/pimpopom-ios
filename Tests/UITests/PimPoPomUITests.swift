@@ -820,6 +820,26 @@ final class PimPoPomUITests: XCTestCase {
         }
     }
 
+    func testMultiplayerCatchUpUsesHUDStatusAndKeepsBoardEnabled() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--deterministic-game",
+            "--uitesting",
+            "--ui-test-theme=classic",
+            "--ui-test-multiplayer-catch-up-fixture",
+        ]
+        app.launch()
+
+        let status = app.descendants(matching: .any)["multiplayer-network-status"]
+        XCTAssertTrue(status.waitForExistence(timeout: 6))
+        XCTAssertEqual(status.label, "CATCHING UP")
+        XCTAssertFalse(app.descendants(matching: .any)["multiplayer-announcement"].exists)
+        let target = app.descendants(matching: .any)["multiplayer-cell-6"]
+        XCTAssertTrue(target.waitForExistence(timeout: 2))
+        XCTAssertTrue(target.isEnabled)
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-board"].exists)
+    }
+
     func testPixelMultiplayerHubUsesThemedLoweredBackButtonAndLegibleSmallCopy() {
         let app = XCUIApplication()
         app.launchArguments = [

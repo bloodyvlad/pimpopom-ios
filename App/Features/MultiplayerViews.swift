@@ -945,27 +945,35 @@ struct MultiplayerLiveView: View {
     }
 
     private var liveHeader: some View {
-        GeometryReader { proxy in
-            let gap: CGFloat = 7
-            let usableWidth = max(0, proxy.size.width - gap * 2)
-            let sideWidth = min(82, max(70, usableWidth * 0.21))
+        ZStack(alignment: .bottom) {
+            GeometryReader { proxy in
+                let gap: CGFloat = 7
+                let usableWidth = max(0, proxy.size.width - gap * 2)
+                let sideWidth = min(82, max(70, usableWidth * 0.21))
 
-            HStack(spacing: gap) {
-                multiplayerStatCard(
-                    label: "Points",
-                    value: "\(state.localPlayer?.points ?? 0)",
-                    identifier: "multiplayer-points"
-                )
-                .frame(width: sideWidth)
-
-                localColorCard
-
-                multiplayerLivesCard
+                HStack(spacing: gap) {
+                    multiplayerStatCard(
+                        label: "Points",
+                        value: "\(state.localPlayer?.points ?? 0)",
+                        identifier: "multiplayer-points"
+                    )
                     .frame(width: sideWidth)
+
+                    localColorCard
+
+                    multiplayerLivesCard
+                        .frame(width: sideWidth)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("multiplayer-live-header")
+
+            if let networkStatus = state.networkStatus {
+                multiplayerNetworkStatusBadge(networkStatus)
+                    .padding(.bottom, 3)
+                    .zIndex(2)
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("multiplayer-live-header")
     }
 
     private func multiplayerStatCard(
@@ -1056,6 +1064,27 @@ struct MultiplayerLiveView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Assigned color \(localColorName(state.localPlayer?.colorIndex))")
         .accessibilityIdentifier("multiplayer-your-color")
+    }
+
+    private func multiplayerNetworkStatusBadge(
+        _ status: MultiplayerPresentation.LiveNetworkStatus
+    ) -> some View {
+        Text(status.title.uppercased())
+            .font(palette.appFont(size: 6, weight: .black, relativeTo: .caption2))
+            .tracking(0.25)
+            .foregroundStyle(Color(hex: palette.foreground))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(
+                Color(hex: palette.surface).opacity(0.92),
+                in: RoundedRectangle(
+                    cornerRadius: palette.isPixel ? 0 : 5,
+                    style: .continuous
+                )
+            )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(status.title.uppercased())
+            .accessibilityIdentifier("multiplayer-network-status")
     }
 
     private var multiplayerLivesCard: some View {
