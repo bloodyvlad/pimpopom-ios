@@ -649,8 +649,8 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         let proposal = MultiplayerNetworkPolicyProposal(
             measurements: [measurement],
             policy: MultiplayerFrozenNetworkPolicy(
-                frontierStalenessMilliseconds: 40,
-                evidenceRecoveryMilliseconds: 120
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
             )
         )
         client.receive(
@@ -819,10 +819,47 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         )
         XCTAssertEqual(transport.outstandingClockPingCount, 0)
 
-        try deliverPong(pingIndex: 4, packetSequence: 6)
+        let localVote = try XCTUnwrap(
+            client.sent.compactMap { send -> MultiplayerNetworkPolicyVote? in
+                guard
+                    let envelope = try? JSONDecoder().decode(
+                        MultiplayerPacketEnvelope.self,
+                        from: send.data
+                    ),
+                    case .networkPolicyVote(let vote) = envelope.payload
+                else { return nil }
+                return vote
+            }.last
+        )
+        XCTAssertNil(transport.networkPolicyError)
+        XCTAssertEqual(
+            localVote.proposal.policy,
+            MultiplayerFrozenNetworkPolicy(
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
+            )
+        )
+        client.receive(
+            try encodedEnvelope(
+                sequence: 6,
+                lane: .control,
+                payload: .networkPolicyVote(
+                    MultiplayerNetworkPolicyVote(
+                        seat: 0,
+                        proposal: localVote.proposal
+                    )
+                )
+            ),
+            from: "G:alpha"
+        )
+        XCTAssertEqual(transport.frozenNetworkPolicy, localVote.proposal.policy)
+        let frozenPolicy = transport.frozenNetworkPolicy
+
+        try deliverPong(pingIndex: 4, packetSequence: 7)
 
         XCTAssertEqual(transport.clockEstimator, frozenEstimator)
         XCTAssertEqual(transport.outstandingClockPingCount, 0)
+        XCTAssertEqual(transport.frozenNetworkPolicy, frozenPolicy)
     }
 
     func testReconnectRequestsSnapshotFromCoordinator() async throws {
@@ -1959,8 +1996,8 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
         let proposal = MultiplayerNetworkPolicyProposal(
             measurements: [measurement],
             policy: MultiplayerFrozenNetworkPolicy(
-                frontierStalenessMilliseconds: 40,
-                evidenceRecoveryMilliseconds: 120
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
             )
         )
         client.receive(

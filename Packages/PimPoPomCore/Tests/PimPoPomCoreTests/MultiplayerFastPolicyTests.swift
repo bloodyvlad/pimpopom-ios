@@ -311,19 +311,25 @@ func multiplayerFastInactiveSeatEvidence() throws {
     #expect(frontier.takeReadyInputs().isEmpty)
 }
 
-@Test("Network policy freezes the clean, normal, and edge budgets")
+@Test("Network policy freezes the one-second notice and fifteen-second recovery windows")
 func multiplayerFastNetworkBudgets() throws {
     #expect(
         try MultiplayerFrozenNetworkPolicy.negotiate(
             [.init(p95RoundTripMilliseconds: 10, p95JitterMilliseconds: 2)]
         )
-            == .init(frontierStalenessMilliseconds: 40, evidenceRecoveryMilliseconds: 120)
+            == .init(
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
+            )
     )
     #expect(
         try MultiplayerFrozenNetworkPolicy.negotiate(
             [.init(p95RoundTripMilliseconds: 60, p95JitterMilliseconds: 15)]
         )
-            == .init(frontierStalenessMilliseconds: 62, evidenceRecoveryMilliseconds: 150)
+            == .init(
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
+            )
     )
     #expect(
         try MultiplayerFrozenNetworkPolicy.negotiate(
@@ -337,29 +343,31 @@ func multiplayerFastNetworkBudgets() throws {
                 ),
             ]
         )
-            == .init(frontierStalenessMilliseconds: 92, evidenceRecoveryMilliseconds: 250)
+            == .init(
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
+            )
     )
 }
 
-@Test("Unsupported network requirements are rejected rather than silently clamped")
-func multiplayerFastUnsupportedNetwork() {
-    #expect(throws: MultiplayerFastPolicyError.unsupportedNetwork) {
-        try MultiplayerFrozenNetworkPolicy.negotiate(
-            [.init(p95RoundTripMilliseconds: 120, p95JitterMilliseconds: 30)]
-        )
-    }
-    #expect(throws: MultiplayerFastPolicyError.unsupportedNetwork) {
+@Test("Clock delay, loss, and reordering remain diagnostics instead of blocking startup")
+func multiplayerClockDiagnosticsDoNotRejectStartup() throws {
+    #expect(
         try MultiplayerFrozenNetworkPolicy.negotiate(
             [
                 .init(
-                    p95RoundTripMilliseconds: 60,
-                    p95JitterMilliseconds: 15,
-                    lossPercent: 4,
-                    reorderPercent: 1
+                    p95RoundTripMilliseconds: 800,
+                    p95JitterMilliseconds: 300,
+                    lossPercent: 34,
+                    reorderPercent: 25
                 )
             ]
         )
-    }
+            == .init(
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
+            )
+    )
 }
 
 @Test("Network policy proposal includes measured loss and reordering")
@@ -382,28 +390,35 @@ func multiplayerFastNetworkPolicyIncludesMeasuredLossAndReorder() throws {
     #expect(
         supported.proposal?.policy
             == MultiplayerFrozenNetworkPolicy(
-                frontierStalenessMilliseconds: 62,
-                evidenceRecoveryMilliseconds: 150
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
             )
     )
 
-    var unsupported = try MultiplayerNetworkPolicyConsensus(
+    var lossy = try MultiplayerNetworkPolicyConsensus(
         seats: [0, 1],
         coordinatorSeat: 0
     )
-    #expect(throws: MultiplayerFastPolicyError.unsupportedNetwork) {
-        try unsupported.recordMeasurement(
-            MultiplayerSeatNetworkMeasurement(
-                seat: 1,
-                attemptedSampleCount: 100,
-                completedSampleCount: 96,
-                reorderedSampleCount: 1,
-                p95RoundTripMilliseconds: 60,
-                p95RoundTripVariationMilliseconds: 15
-            ),
-            from: 1
-        )
-    }
+    try lossy.recordMeasurement(
+        MultiplayerSeatNetworkMeasurement(
+            seat: 1,
+            attemptedSampleCount: 5,
+            completedSampleCount: 4,
+            reorderedSampleCount: 1,
+            p95RoundTripMilliseconds: 60,
+            p95RoundTripVariationMilliseconds: 15
+        ),
+        from: 1
+    )
+    #expect(lossy.proposal?.measurements.first?.lossPercent == 20)
+    #expect(lossy.proposal?.measurements.first?.reorderPercent == 25)
+    #expect(
+        lossy.proposal?.policy
+            == MultiplayerFrozenNetworkPolicy(
+                frontierStalenessMilliseconds: 1_000,
+                evidenceRecoveryMilliseconds: 15_000
+            )
+    )
 }
 
 @Test("Network policy freezes only after every seat votes for measured worst-peer data")
@@ -437,8 +452,8 @@ func multiplayerFastNetworkPolicyConsensus() throws {
     let proposal = MultiplayerNetworkPolicyProposal(
         measurements: measurements,
         policy: MultiplayerFrozenNetworkPolicy(
-            frontierStalenessMilliseconds: 62,
-            evidenceRecoveryMilliseconds: 150
+            frontierStalenessMilliseconds: 1_000,
+            evidenceRecoveryMilliseconds: 15_000
         )
     )
     var consensus = try MultiplayerNetworkPolicyConsensus(
@@ -465,7 +480,7 @@ func multiplayerFastNetworkPolicyConsensus() throws {
     #expect(consensus.frozenProposal == proposal)
 }
 
-@Test("Network policy rejects insufficient, conflicting, and unsupported measurements")
+@Test("Network policy rejects insufficient, conflicting, and malformed measurements")
 func multiplayerFastNetworkPolicyRejectsBadEvidence() throws {
     var consensus = try MultiplayerNetworkPolicyConsensus(
         seats: [0, 1],
@@ -484,14 +499,14 @@ func multiplayerFastNetworkPolicyRejectsBadEvidence() throws {
             from: 1
         )
     }
-    #expect(throws: MultiplayerFastPolicyError.unsupportedNetwork) {
+    #expect(throws: MultiplayerFastPolicyError.invalidNetworkMeasurement) {
         try consensus.recordMeasurement(
             MultiplayerSeatNetworkMeasurement(
                 seat: 1,
                 attemptedSampleCount: 4,
                 completedSampleCount: 4,
                 reorderedSampleCount: 0,
-                p95RoundTripMilliseconds: 120,
+                p95RoundTripMilliseconds: -1,
                 p95RoundTripVariationMilliseconds: 30
             ),
             from: 1

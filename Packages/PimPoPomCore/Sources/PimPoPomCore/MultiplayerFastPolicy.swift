@@ -394,22 +394,9 @@ public struct MultiplayerFrozenNetworkPolicy: Codable, Equatable, Sendable {
         else {
             throw MultiplayerFastPolicyError.unsupportedNetwork
         }
-        let roundTrip = qualities.map(\.p95RoundTripMilliseconds).max() ?? 0
-        let jitter = qualities.map(\.p95JitterMilliseconds).max() ?? 0
-        let loss = qualities.map(\.lossPercent).max() ?? 0
-        let reorder = qualities.map(\.reorderPercent).max() ?? 0
-        let rawStaleness = (roundTrip + 1) / 2 + jitter + 17
-        let rawRecovery = 2 * roundTrip + 2 * jitter
-        guard rawStaleness <= 100,
-            rawRecovery <= 250,
-            loss <= 3,
-            reorder <= 3
-        else {
-            throw MultiplayerFastPolicyError.unsupportedNetwork
-        }
         return MultiplayerFrozenNetworkPolicy(
-            frontierStalenessMilliseconds: min(100, max(40, rawStaleness)),
-            evidenceRecoveryMilliseconds: min(250, max(120, rawRecovery))
+            frontierStalenessMilliseconds: 1_000,
+            evidenceRecoveryMilliseconds: 15_000
         )
     }
 }
