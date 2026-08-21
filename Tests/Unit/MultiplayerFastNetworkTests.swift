@@ -76,26 +76,26 @@ final class MultiplayerFastNetworkTests: XCTestCase {
         var emitter = MultiplayerLocalSealEmitter()
 
         XCTAssertEqual(
-            emitter.next(seat: 0, highestInputSequence: 0, logicalMilliseconds: 50),
+            emitter.next(seat: 0, highestInputSequence: 0, logicalMilliseconds: 250),
             MultiplayerLocalSealEmission(
                 seal: MultiplayerInputSeal(
                     seat: 0,
-                    throughInputAt: 49,
+                    throughInputAt: 100,
                     highestInputSequence: 0
                 ),
                 includesReliableCheckpoint: true
             )
         )
         XCTAssertNil(
-            emitter.next(seat: 0, highestInputSequence: 0, logicalMilliseconds: 50)
+            emitter.next(seat: 0, highestInputSequence: 0, logicalMilliseconds: 250)
         )
         XCTAssertEqual(
-            emitter.next(seat: 0, highestInputSequence: 1, logicalMilliseconds: 149)?
+            emitter.next(seat: 0, highestInputSequence: 1, logicalMilliseconds: 349)?
                 .includesReliableCheckpoint,
             false
         )
         XCTAssertEqual(
-            emitter.next(seat: 0, highestInputSequence: 1, logicalMilliseconds: 150)?
+            emitter.next(seat: 0, highestInputSequence: 1, logicalMilliseconds: 350)?
                 .includesReliableCheckpoint,
             true
         )

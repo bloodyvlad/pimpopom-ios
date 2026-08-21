@@ -6,11 +6,11 @@ submitted to the production App Store.
 The rendered screenshot/contact-sheet assets came from TestFlight `1.01 (6)`,
 source `2d55f71`. They are intentionally retained because their UI captures,
 ImageGen sources, prompts, and deterministic renderer establish provenance. They
-must not be uploaded as build-23 or future production screenshots.
+must not be uploaded as current or future production screenshots.
 
 ## Current-use map
 
-- `metadata/en-US.md`: current copy draft plus TestFlight build-23 text.
+- `metadata/en-US.md`: current copy draft plus TestFlight build-24 text.
 - `game-center/en-US.md`: current configured vendor IDs/copy.
 - `legal/`: static Privacy/Support drafts with owner placeholders.
 - `source/`: original UI captures and ImageGen generations.

@@ -109,7 +109,7 @@ handle lifecycle/interruption without blocking play.
 
 ## D-12 — Use peer-consistent Multiplayer v1
 
-Status: implemented and retained by the build-23 candidate.
+Status: implemented and retained by the build-24 candidate.
 
 PHP owns authenticated lobbies, stable seats/colors, immutable manifests, replay,
 settlement, and ranked rows. `GKMatch` owns live traffic. A fixed coordinator
@@ -119,7 +119,7 @@ server-authoritative or collusion-proof. Protocol v1 has no coordinator migratio
 
 ## D-13 — Make Multiplayer feel immediate with prediction plus reconciliation
 
-Status: implemented in the build-23 source candidate; not yet uploaded.
+Status: implemented in the build-24 source candidate; not yet uploaded.
 
 Preserve deterministic canonical replay while acknowledging local contact within
 one display frame. Prediction changes presentation only; reliable evidence,
@@ -130,7 +130,7 @@ seconds, and cancels only after the 15-second recovery bound. Real disconnects
 coordinate a logical pause. Start/plan output cannot advance until its reliable
 ordering barrier is physically established, and pause remains authoritative until
 Resume has been physically accepted for every intended peer. Its exact-ACK retry is
-retained in the background and cannot create a second recovery window. Build 23
+retained in the background and cannot create a second recovery window. Build 24
 rejects incompatible live-wire peers before start.
 Host migration, custom LAN routing, and concurrent per-seat targets remain
 separately versioned work. Current behavior and gates are in

@@ -192,6 +192,93 @@ func multiplayerFastEffectiveSealBoundary() throws {
     }
 }
 
+@Test("A late contact can be retained as ignored evidence without reopening play")
+func multiplayerFastIgnoredLateEvidenceAdvancesFutureSeals() throws {
+    var frontier = try MultiplayerInputFrontier(seats: [0, 1])
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 100, highestInputSequence: 0)
+    )
+    let late = MultiplayerSealedInput(
+        id: MultiplayerInputID(seat: 1, inputSequence: 1),
+        cell: 4,
+        inputAt: 99
+    )
+
+    try frontier.recordIgnoredLateInput(late)
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 200, highestInputSequence: 1)
+    )
+
+    #expect(frontier.effectiveSeal(for: 1)?.highestInputSequence == 1)
+    #expect(frontier.takeReadyInputs().isEmpty)
+    #expect(throws: MultiplayerFastPolicyError.conflictingInput(late.id)) {
+        try frontier.recordIgnoredLateInput(
+            MultiplayerSealedInput(id: late.id, cell: 5, inputAt: 99)
+        )
+    }
+}
+
+@Test("Late evidence behind a pending seal remains non-fatal during reorder")
+func multiplayerFastIgnoredLateEvidenceBehindPendingSeal() throws {
+    var frontier = try MultiplayerInputFrontier(seats: [0, 1])
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 100, highestInputSequence: 1)
+    )
+    let reorderedLate = MultiplayerSealedInput(
+        id: MultiplayerInputID(seat: 1, inputSequence: 2),
+        cell: 4,
+        inputAt: 99
+    )
+
+    #expect(throws: MultiplayerFastPolicyError.inputAtOrBeforeEffectiveSeal) {
+        try frontier.recordInput(reorderedLate)
+    }
+    try frontier.recordIgnoredLateInput(reorderedLate)
+    try frontier.recordInput(
+        MultiplayerSealedInput(
+            id: MultiplayerInputID(seat: 1, inputSequence: 1),
+            cell: 3,
+            inputAt: 90
+        )
+    )
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 200, highestInputSequence: 2)
+    )
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 0, throughInputAt: 200, highestInputSequence: 0)
+    )
+
+    #expect(frontier.effectiveSeal(for: 1)?.highestInputSequence == 2)
+    #expect(frontier.takeReadyInputs().map(\.id.inputSequence) == [1])
+}
+
+@Test("Ignored late evidence still rejects impossible sequence-time regression")
+func multiplayerFastIgnoredLateEvidencePreservesSequenceTime() throws {
+    var frontier = try MultiplayerInputFrontier(seats: [0, 1])
+    try frontier.recordInput(
+        MultiplayerSealedInput(
+            id: MultiplayerInputID(seat: 1, inputSequence: 1),
+            cell: 3,
+            inputAt: 90
+        )
+    )
+    try frontier.recordSeal(
+        MultiplayerInputSeal(seat: 1, throughInputAt: 100, highestInputSequence: 1)
+    )
+    let impossible = MultiplayerSealedInput(
+        id: MultiplayerInputID(seat: 1, inputSequence: 2),
+        cell: 4,
+        inputAt: 50
+    )
+
+    #expect(throws: MultiplayerFastPolicyError.inputAtOrBeforeEffectiveSeal) {
+        try frontier.recordInput(impossible)
+    }
+    #expect(throws: MultiplayerFastPolicyError.nonMonotonicInputTime) {
+        try frontier.recordIgnoredLateInput(impossible)
+    }
+}
+
 @Test("Seals are component-wise monotonic and the watermark cannot roll back")
 func multiplayerFastMonotonicSeals() throws {
     var frontier = try MultiplayerInputFrontier(seats: [0, 1])

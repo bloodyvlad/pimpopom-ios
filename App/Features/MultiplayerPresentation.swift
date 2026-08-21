@@ -222,6 +222,7 @@ enum MultiplayerPresentation {
         var message: String?
         var expiresAt: Date?
         var pendingReadyIntent: Bool?
+        var peerReadyHints: [String: Bool]
 
         init(
             matchID: String,
@@ -232,7 +233,8 @@ enum MultiplayerPresentation {
             isMutationPending: Bool,
             message: String? = nil,
             expiresAt: Date? = nil,
-            pendingReadyIntent: Bool? = nil
+            pendingReadyIntent: Bool? = nil,
+            peerReadyHints: [String: Bool] = [:]
         ) {
             self.matchID = matchID
             self.capacity = capacity
@@ -243,6 +245,7 @@ enum MultiplayerPresentation {
             self.message = message
             self.expiresAt = expiresAt
             self.pendingReadyIntent = pendingReadyIntent
+            self.peerReadyHints = peerReadyHints
         }
 
         var currentPlayer: Participant? {
@@ -256,6 +259,12 @@ enum MultiplayerPresentation {
 
         var displayedCurrentPlayerReady: Bool {
             pendingReadyIntent ?? currentPlayer?.ready ?? false
+        }
+
+        func displayedReady(for participant: Participant) -> Bool {
+            participant.isCurrentPlayer
+                ? (pendingReadyIntent ?? participant.ready)
+                : (peerReadyHints[participant.id] ?? participant.ready)
         }
 
         var startMatchControlState: StartMatchControlState {
@@ -408,12 +417,13 @@ enum MultiplayerPresentation {
         case collecting(submitted: Int, total: Int)
         case settled(leaderboardEligible: Bool)
         case review(reason: String?)
+        case cancelled(reason: String?)
 
         var isTerminal: Bool {
             switch self {
             case .collecting:
                 false
-            case .settled, .review:
+            case .settled, .review, .cancelled:
                 true
             }
         }
@@ -426,6 +436,8 @@ enum MultiplayerPresentation {
                 eligible ? "Match verified" : "Match complete"
             case .review:
                 "Match held for review"
+            case .cancelled:
+                "Match ended"
             }
         }
     }

@@ -13,15 +13,15 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (23)` candidate |
+| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (24)` candidate |
 | Current TestFlight | Build 22; valid, Internal QA only; known unstable Multiplayer recovery |
-| Candidate | Build 23 source; not archived or uploaded |
+| Candidate | Build 24 source; TestFlight upload not authorized |
 | Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
 | Open release gate | Physical 2/3/4-device, reconnect, and 60/120 Hz acceptance |
 | Production App Store | Not released |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-Build 23 keeps next-frame local feedback but replaces build 22's harsh recovery:
+Build 24 keeps immediate local feedback and makes ordinary late input non-fatal:
 ordinary gaps stay interactive, `Catching up` appears only after one second, and
 recovery has a 15-second ceiling. Start, pause, Resume, Finish, cancel, evidence,
 and snapshots are retained or retried without changing PHP transcript/proof v1.
@@ -49,7 +49,7 @@ It is a tested source candidate, not a TestFlight deployment. See
   pets; independent Sound FX, music, haptics, and glyph settings.
 
 The current [FAST Multiplayer slice](docs/MULTIPLAYER_FAST_TASK.md) is implemented
-in build 23. PHP compatibility remains v1; host migration, custom LAN routing, and
+in build 24. PHP compatibility remains v1; host migration, custom LAN routing, and
 concurrent per-seat targets remain deferred.
 
 ## Build and test

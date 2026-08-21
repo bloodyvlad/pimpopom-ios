@@ -71,7 +71,8 @@ the reaction path.
 - Zen is local, unranked, unrewarded, and ephemeral.
 - Multiplayer v1 is 2–4-player, own-color, GameKit live traffic with PHP replay,
   no coins/achievements, and peer-consistent rather than server-authoritative.
-- Build 23 uses capability-gated FAST GameKit lanes, nonblocking 1–15 second
+- Build 24 uses capability-gated FAST GameKit lanes, immediate Ready hints,
+  a 150ms input-capture grace, non-fatal late-input reconciliation, and 1–15 second
   recovery, and sealed input frontiers while retaining the exact Multiplayer v1
   PHP transcript/proof contract.
 - The server owns identity, names, ranked attempts, proof replay, score, coins,

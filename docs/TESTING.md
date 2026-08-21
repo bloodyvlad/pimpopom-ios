@@ -6,8 +6,8 @@ physical-device evidence.
 
 ## Current release evidence
 
-- `1.02 (23)` is a source candidate only. Its exact commit must pass the full local
-  gate before merge and has not been archived or uploaded.
+- `1.02 (24)` is a source candidate only. Its exact commit must pass the full local
+  gate before merge and has not been uploaded.
 - TestFlight `1.02 (22)` is VALID and assigned only to Internal QA, but its
   Multiplayer recovery is known unstable.
 - Build 20 is the retained beta rollback. Physical 2/3/4-device and 60/120 Hz
@@ -91,7 +91,7 @@ Sandbox/TestFlight for value integration:
 ### FAST Multiplayer
 
 The current packet, prediction, evidence, control, snapshot, and 2/3/4-seat matrix
-is defined in [MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md). Before build 23 is
+is defined in [MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md). Before build 24 is
 physically accepted, require:
 
 - local acknowledgement p95 at or below 33 ms on 60/120 Hz hardware;

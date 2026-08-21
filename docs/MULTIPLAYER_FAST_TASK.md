@@ -1,6 +1,6 @@
 # FAST Multiplayer implementation and acceptance
 
-Status: implemented in the `1.02 (23)` source candidate; not uploaded.
+Status: revised in the `1.02 (24)` source candidate; not uploaded.
 
 ## Shipping scope
 
@@ -10,7 +10,7 @@ Status: implemented in the `1.02 (23)` source candidate; not uploaded.
   900,000 logical milliseconds.
 - Local contact feedback appears on the next display frame. Prediction never edits
   canonical score, lives, streak, or transcript.
-- GameKit live wire v3 rejects mixed capability sets before Start.
+- GameKit live wire v4 rejects mixed capability sets before Start.
 - Fast input is unreliable by design. Evidence, resolution, canonical, snapshot,
   Start/pause/resume/Finish/cancel recovery is reliable and recipient-specific.
 - Recovery is silent below 1 second, nonblocking `Catching up` from 1–15 seconds,
@@ -65,5 +65,5 @@ artifact location. These physical gates are open until evidence is recorded.
 ## Deferred work
 
 Custom LAN routing, regional QUIC relay, coordinator migration/best-host election,
-and concurrent per-seat targets are not part of build 23 and require separately
+and concurrent per-seat targets are not part of build 24 and require separately
 versioned design and backend/operations review.

@@ -568,8 +568,26 @@ final class MultiplayerController: ObservableObject {
         guard waitingState?.canToggleReady == true else { return }
         readyIntent.request(ready)
         updateReadyIntentPresentation()
+        broadcastReadyHintIfPossible(ready)
         waitingState?.message = nil
         flushReadyIntentIfPossible()
+    }
+
+    private func broadcastReadyHintIfPossible(_ ready: Bool) {
+        guard transport.liveCompatibility == .unanimous,
+            let participantID = currentMatch?.participants.first(where: \.isCurrentPlayer)?
+                .participantId
+        else { return }
+        try? transport.sendReadyHint(participantID: participantID, ready: ready)
+    }
+
+    private func broadcastCurrentReadyHintIfPossible() {
+        guard
+            let ready =
+                readyIntent.projectedReady
+                ?? currentMatch?.participants.first(where: \.isCurrentPlayer)?.ready
+        else { return }
+        broadcastReadyHintIfPossible(ready)
     }
 
     private func updateReadyIntentPresentation() {
@@ -624,6 +642,7 @@ final class MultiplayerController: ObservableObject {
                 let acknowledgedReady =
                     updated.participants.first(where: \.isCurrentPlayer)?.ready ?? ready
                 readyIntent.acknowledge(serverReady: acknowledgedReady)
+                broadcastReadyHintIfPossible(acknowledgedReady)
                 applyMatch(updated)
             } catch {
                 guard !Task.isCancelled,
@@ -633,7 +652,11 @@ final class MultiplayerController: ObservableObject {
                         revision: lobbySnapshotRevision
                     )
                 else { return }
+                let serverReady =
+                    currentMatch?.participants.first(where: \.isCurrentPlayer)?.ready
+                    ?? false
                 readyIntent.mutationFailed()
+                broadcastReadyHintIfPossible(serverReady)
                 waitingState?.message = error.localizedDescription
             }
         }
@@ -1110,7 +1133,8 @@ final class MultiplayerController: ObservableObject {
             isMutationPending: waitingState?.isMutationPending ?? false,
             message: waitingState?.message,
             expiresAt: Self.parseDate(match.expiresAt),
-            pendingReadyIntent: readyIntent.projectedReady
+            pendingReadyIntent: readyIntent.projectedReady,
+            peerReadyHints: [:]
         )
         let readyCount = match.participants.filter(\.ready).count
         let connectedCount = waitingState?.participants.filter(\.isConnected).count ?? 0
@@ -1294,8 +1318,21 @@ final class MultiplayerController: ObservableObject {
         case .networkMeasurement, .networkPolicyVote:
             confirmRosterIfComplete()
             flushReadyIntentIfPossible()
+            broadcastCurrentReadyHintIfPossible()
             refreshWaitingConnectionState()
-        case .hello, .clockPing, .clockPong, .acknowledgement:
+        case .readyHint(let hint):
+            guard phase == .waiting,
+                let participant = currentMatch?.participants.first(where: {
+                    $0.participantId.caseInsensitiveCompare(hint.participantId)
+                        == .orderedSame
+                }),
+                !participant.isCurrentPlayer
+            else { return }
+            waitingState?.peerReadyHints[participant.participantId] = hint.ready
+        case .hello:
+            broadcastCurrentReadyHintIfPossible()
+            refreshWaitingConnectionState()
+        case .clockPing, .clockPong, .acknowledgement:
             refreshWaitingConnectionState()
         case .rosterConfirmed(let confirmation):
             rosterConfirmationCounts[received.senderGamePlayerID] =
@@ -1367,7 +1404,7 @@ final class MultiplayerController: ObservableObject {
             }
             cancelLiveWithoutSettlement(
                 reason: cancellation.reason,
-                message: "The coordinator cancelled settlement because live input could not be reconciled.",
+                message: "The match ended because player input could not be synchronized.",
                 broadcastsToPeers: false
             )
         case .activationPlans(let packet):
@@ -2054,7 +2091,21 @@ final class MultiplayerController: ObservableObject {
             guard var inputFrontier else {
                 throw MultiplayerControllerError.liveStateUnavailable
             }
-            _ = try inputFrontier.recordInput(input.sealedInput)
+            do {
+                _ = try inputFrontier.recordInput(input.sealedInput)
+            } catch MultiplayerFastPolicyError.inputAtOrBeforeEffectiveSeal {
+                try inputFrontier.recordIgnoredLateInput(input.sealedInput)
+                self.inputFrontier = inputFrontier
+                try resolveInputWithoutCanonicalEvent(
+                    input,
+                    reason: .recovery,
+                    logicalMilliseconds: currentLogicalMilliseconds()
+                )
+                processCoordinatorFrame(
+                    logicalMilliseconds: currentLogicalMilliseconds()
+                )
+                return
+            }
             self.inputFrontier = inputFrontier
             inputReceivedAtByID[input.id] = min(
                 inputReceivedAtByID[input.id] ?? Int.max,
@@ -2202,10 +2253,7 @@ final class MultiplayerController: ObservableObject {
             attemptTerminalCompletion()
         } catch {
             peerConsistencyIntact = false
-            cancelLiveWithoutSettlement(
-                reason: .inputReconciliationFailed,
-                message: error.localizedDescription
-            )
+            failLiveMatch(error.localizedDescription)
         }
     }
 
@@ -3658,9 +3706,10 @@ final class MultiplayerController: ObservableObject {
     }
 
     private func failLiveMatch(_ message: String) {
+        debugMultiplayerLog("fatal live protocol error: \(message)")
         cancelLiveWithoutSettlement(
             reason: .inputReconciliationFailed,
-            message: message
+            message: "The match ended because player input could not be synchronized."
         )
     }
 
@@ -3701,7 +3750,7 @@ final class MultiplayerController: ObservableObject {
         phase = .results
         settlementRecovery = nil
         resultsState = MultiplayerPresentation.ResultsState(
-            settlement: .review(reason: message),
+            settlement: .cancelled(reason: message),
             results: provisionalResults(),
             isRefreshing: false,
             localSubmissionAccepted: false,

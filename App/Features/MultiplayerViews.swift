@@ -661,7 +661,8 @@ struct MultiplayerWaitingRoomView: View {
     }
 
     private func waitingParticipant(_ player: MultiplayerPresentation.Participant) -> some View {
-        HStack(spacing: 8) {
+        let displayedReady = state.displayedReady(for: player)
+        return HStack(spacing: 8) {
             Group {
                 if let petID = player.petID {
                     PetCompanionView(
@@ -695,7 +696,7 @@ struct MultiplayerWaitingRoomView: View {
                     .minimumScaleFactor(0.58)
                     .allowsTightening(true)
                     .layoutPriority(1)
-                Text(player.ready ? "READY" : (player.isConnected ? "NOT READY" : "RECONNECTING"))
+                Text(displayedReady ? "READY" : (player.isConnected ? "NOT READY" : "RECONNECTING"))
                     .font(
                         palette.appFont(
                             size: palette.legibleSmallCopySize(8),
@@ -704,7 +705,7 @@ struct MultiplayerWaitingRoomView: View {
                         )
                     )
                     .foregroundStyle(
-                        player.ready
+                        displayedReady
                             ? Color(hex: "#72e995")
                             : Color(hex: palette.muted)
                     )
@@ -1567,6 +1568,8 @@ struct MultiplayerResultsView: View {
             eligible ? "checkmark.seal.fill" : "flag.checkered"
         case .review:
             "shield.lefthalf.filled.badge.checkmark"
+        case .cancelled:
+            "exclamationmark.triangle.fill"
         }
     }
 
@@ -1578,6 +1581,8 @@ struct MultiplayerResultsView: View {
             Color(hex: eligible ? "#72e995" : palette.achievementsAccent)
         case .review:
             Color(hex: palette.achievementsAccent)
+        case .cancelled:
+            Color(hex: palette.petsAccent)
         }
     }
 
@@ -1591,6 +1596,8 @@ struct MultiplayerResultsView: View {
                 : "Complete, but not leaderboard eligible"
         case .review(let reason):
             reason ?? "This result is not ranked while review is pending."
+        case .cancelled(let reason):
+            reason ?? "This match ended without a ranked result."
         }
     }
 

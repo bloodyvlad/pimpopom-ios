@@ -1,23 +1,23 @@
 # Current version slice
 
-Snapshot date: 2026-08-16.
+Snapshot date: 2026-08-21.
 
 ## Release identity
 
 | Item | Current truth |
 | --- | --- |
 | Product | PimPoPom for iPhone, iOS 17+, Swift 6 strict concurrency |
-| Configured candidate | `1.02 (23)` |
-| Candidate state | Tested source only; not archived or uploaded |
+| Configured candidate | `1.02 (24)` |
+| Candidate state | Build 24 source under release verification; not uploaded |
 | Current TestFlight | `1.02 (22)`, VALID, Internal QA only |
 | Build 22 source / ASC ID | `c20fcbeb7f053e7b0f50cac1be8942854909e82a` / `f1217f45-1dc0-4ee4-8e15-d59343766146` |
 | Rollback beta | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7` |
 | Production App Store | Not released |
 | Open acceptance | Physical 2/3/4-device, reconnect/network transition, and 60/120 Hz tests |
 
-Build 22 proved immediate local presentation but is not the stability target: QA
-observed frequent `Syncing`, abrupt match termination, delayed Ready, and a lobby
-crash. Build 23 is the corrected candidate and must not be described as deployed.
+Build 22 proved immediate local presentation but QA observed frequent `Syncing`,
+abrupt match termination, delayed Ready, and a lobby crash. Build 24 replaces the
+fatal late-input boundary and must not be described as deployed.
 
 ## Current contracts
 
@@ -30,7 +30,7 @@ crash. Build 23 is the corrected candidate and must not be described as deployed
 | Live transport | GameKit only; PHP receives no live targets or taps |
 | Durable authority | PHP for identity, results, settlement, economy, and cosmetics |
 
-## Build 23 Multiplayer behavior
+## Build 24 Multiplayer behavior
 
 - Local contact is acknowledged on the next display frame; canonical score, lives,
   streak, and transcript change only after deterministic reconciliation.
@@ -40,8 +40,11 @@ crash. Build 23 is the corrected candidate and must not be described as deployed
   `Catching up` HUD appears while eligible input remains interactive.
 - A real disconnect shows `Reconnecting`, pauses logical play, and gets 15 seconds
   to recover. Invalid or contradictory protocol data still cancels immediately.
-- Ready intent responds locally and queues until live-wire compatibility is
-  unanimous. Clock loss/reorder are diagnostics, not a startup rejection.
+- Ready intent updates the local player card immediately and sends a reliable
+  presentation hint to peers. PHP confirmation remains Start authority.
+- Periodic seals retain a 150ms UIKit capture window. A tap arriving inside an
+  already closed interval is resolved as ignored instead of ending the match.
+- Clock loss/reorder are diagnostics, not a startup rejection.
 - GameKit callbacks are relayed onto `MainActor` and rejected after their match or
   matchmaking generation becomes stale.
 - Start, pause, resume, finish, terminal cancel, evidence, and resolutions remain

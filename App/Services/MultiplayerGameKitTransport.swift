@@ -439,12 +439,13 @@ enum MultiplayerLiveCompatibility: Equatable {
 }
 
 enum MultiplayerLiveWire {
-    static let version = 3
+    static let version = 4
     static let requiredCapabilities: Set<String> = [
         "fast-input-v1",
         "input-resolution-v1",
         "network-policy-v1",
-        "sealed-frontier-v1",
+        "ready-hint-v1",
+        "relaxed-frontier-v1",
         "stable-recovery-v1",
         "terminal-cancel-v1",
         "terminal-drain-v1",
@@ -487,6 +488,24 @@ struct MultiplayerHelloPacket: Codable, Equatable {
 struct MultiplayerRosterConfirmedPacket: Codable, Equatable {
     let confirmedCount: Int
     let participantCount: Int
+}
+
+struct MultiplayerReadyHintPacket: Codable, Equatable {
+    static let currentVersion = 1
+
+    let version: Int
+    let participantId: String
+    let ready: Bool
+
+    init(
+        version: Int = currentVersion,
+        participantId: String,
+        ready: Bool
+    ) {
+        self.version = version
+        self.participantId = participantId.lowercased()
+        self.ready = ready
+    }
 }
 
 struct MultiplayerClockPingPacket: Codable, Equatable {
@@ -696,6 +715,7 @@ struct MultiplayerTerminalCancelPacket: Codable, Equatable {
 enum MultiplayerPacketPayload: Equatable {
     case hello(MultiplayerHelloPacket)
     case rosterConfirmed(MultiplayerRosterConfirmedPacket)
+    case readyHint(MultiplayerReadyHintPacket)
     case clockPing(MultiplayerClockPingPacket)
     case clockPong(MultiplayerClockPongPacket)
     case networkMeasurement(MultiplayerSeatNetworkMeasurement)
@@ -726,6 +746,7 @@ extension MultiplayerPacketPayload: Codable {
     private enum Kind: String, Codable {
         case hello
         case rosterConfirmed
+        case readyHint
         case clockPing
         case clockPong
         case networkMeasurement
@@ -755,6 +776,10 @@ extension MultiplayerPacketPayload: Codable {
         case .rosterConfirmed:
             self = .rosterConfirmed(
                 try container.decode(MultiplayerRosterConfirmedPacket.self, forKey: .body)
+            )
+        case .readyHint:
+            self = .readyHint(
+                try container.decode(MultiplayerReadyHintPacket.self, forKey: .body)
             )
         case .clockPing:
             self = .clockPing(
@@ -848,6 +873,9 @@ extension MultiplayerPacketPayload: Codable {
             try container.encode(body, forKey: .body)
         case .rosterConfirmed(let body):
             try container.encode(Kind.rosterConfirmed, forKey: .kind)
+            try container.encode(body, forKey: .body)
+        case .readyHint(let body):
+            try container.encode(Kind.readyHint, forKey: .kind)
             try container.encode(body, forKey: .body)
         case .clockPing(let body):
             try container.encode(Kind.clockPing, forKey: .kind)
@@ -1167,6 +1195,7 @@ protocol MultiplayerGameKitTransporting: AnyObject {
     func disconnect()
     func sendHello(participantID: String, seat: Int, colorIndex: Int) throws
     func sendRosterConfirmed(confirmedCount: Int, participantCount: Int) throws
+    func sendReadyHint(participantID: String, ready: Bool) throws
     func sendClockPing(localMonotonicMilliseconds: Int) throws
     func sendStartManifest(
         _ manifest: MultiplayerStartManifest,
@@ -1507,6 +1536,27 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             ),
             eventSequence: highestAppliedEventSequence,
             logicalMatchMilliseconds: 0
+        )
+    }
+
+    func sendReadyHint(participantID: String, ready: Bool) throws {
+        guard liveCompatibility == .unanimous,
+            let localHello = helloRoster[client.localGamePlayerID],
+            UUID(uuidString: participantID) != nil,
+            localHello.participantId.caseInsensitiveCompare(participantID) == .orderedSame
+        else {
+            throw MultiplayerGameKitError.invalidPacket
+        }
+        try send(
+            payload: .readyHint(
+                MultiplayerReadyHintPacket(
+                    participantId: participantID,
+                    ready: ready
+                )
+            ),
+            eventSequence: highestAppliedEventSequence,
+            logicalMatchMilliseconds: 0,
+            lane: .control
         )
     }
 
@@ -2299,7 +2349,7 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             coordinatorMatchStartMonotonicMilliseconds =
                 resume.coordinatorMatchStartMonotonicMilliseconds
             activePause = nil
-        case .rosterConfirmed, .input, .inputSeal, .inputResolution,
+        case .rosterConfirmed, .readyHint, .input, .inputSeal, .inputResolution,
             .terminalInputSeal,
             .activationPlans, .cancelActivationPlans, .snapshotRequest:
             break
@@ -2867,6 +2917,11 @@ final class MultiplayerGameKitTransport: ObservableObject, MultiplayerGameKitTra
             return confirmed.confirmedCount > 0
                 && confirmed.confirmedCount <= confirmed.participantCount
                 && confirmed.participantCount == requiredParticipantCount
+        case .readyHint(let hint):
+            return hint.version == MultiplayerReadyHintPacket.currentVersion
+                && UUID(uuidString: hint.participantId) != nil
+                && helloRoster[senderGamePlayerID]?.participantId
+                    .caseInsensitiveCompare(hint.participantId) == .orderedSame
         case .clockPing(let ping):
             return ping.nonce > 0 && ping.requesterSendMonotonicMilliseconds >= 0
         case .clockPong(let pong):

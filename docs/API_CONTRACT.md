@@ -1,7 +1,7 @@
 # Current native API contract
 
 This file describes the deployed build-20 backend surface retained unchanged by
-the iOS build-23 candidate.
+the iOS build-24 candidate.
 Server implementation and deployment remain owned by the separate PHP repository.
 
 ## Transport and session
@@ -205,8 +205,9 @@ contain seats and integers, never names, pets, profile UUIDs, or Game Center IDs
 ## Current GameKit live protocol
 
 PHP is not a live relay. One capability-gated `GKMatch` envelope carries roster,
-clock, future plan/cancel, input, canonical event batch, acknowledgement, snapshot,
-pause/resume, Start, Finish, and terminal cancellation. Build 23 uses live wire v3:
+Ready hints, clock, future plan/cancel, input, canonical event batch,
+acknowledgement, snapshot, pause/resume, Start, Finish, and terminal cancellation.
+Build 24 uses live wire v4:
 fast input is unreliable by design; evidence, canonical, control, snapshot, and
 terminal traffic is reliable.
 

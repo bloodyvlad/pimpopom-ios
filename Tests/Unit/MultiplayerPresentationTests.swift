@@ -133,6 +133,34 @@ final class MultiplayerPresentationTests: XCTestCase {
 
         state.pendingReadyIntent = true
         XCTAssertTrue(state.displayedCurrentPlayerReady)
+        XCTAssertTrue(
+            state.displayedReady(
+                for: state.participants.first(where: { $0.isCurrentPlayer })!
+            )
+        )
+        XCTAssertFalse(
+            state.displayedReady(
+                for: state.participants.first(where: { !$0.isCurrentPlayer })!
+            )
+        )
+        let peer = state.participants.first(where: { !$0.isCurrentPlayer })!
+        state.peerReadyHints[peer.id] = true
+        XCTAssertTrue(state.displayedReady(for: peer))
+        XCTAssertFalse(state.canStart, "A peer hint must not bypass PHP readiness.")
+        state = MultiplayerPresentation.WaitingRoomState(
+            matchID: state.matchID,
+            capacity: state.capacity,
+            isCreator: state.isCreator,
+            participants: state.participants,
+            connection: state.connection,
+            isMutationPending: state.isMutationPending,
+            pendingReadyIntent: state.pendingReadyIntent,
+            peerReadyHints: [:]
+        )
+        XCTAssertFalse(
+            state.displayedReady(for: peer),
+            "A later PHP snapshot must clear a stale presentation hint."
+        )
         state.connection = .ready
         XCTAssertTrue(state.canToggleReady)
 
@@ -462,6 +490,15 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertEqual(MultiplayerPresentation.LiveNetworkStatus.catchingUp.title, "Catching up")
         XCTAssertEqual(MultiplayerPresentation.LiveNetworkStatus.reconnecting.title, "Reconnecting")
         XCTAssertEqual(MultiplayerPresentation.LiveNetworkStatus.finalizing.title, "Finalizing")
+    }
+
+    func testLocalCancellationIsNotPresentedAsServerReview() {
+        let state = MultiplayerPresentation.SettlementState.cancelled(
+            reason: "The match ended because player input could not be synchronized."
+        )
+
+        XCTAssertTrue(state.isTerminal)
+        XCTAssertEqual(state.title, "Match ended")
     }
 
     private func participant(

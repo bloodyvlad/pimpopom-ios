@@ -61,6 +61,7 @@ public struct MultiplayerInputFrontier: Sendable {
         var isActive = true
         var inputs: [Int: MultiplayerSealedInput] = [:]
         var processedSequences: Set<Int> = []
+        var ignoredLateSequences: Set<Int> = []
         var pendingSeals: [MultiplayerInputSeal] = []
         var lastDeclaredSeal: MultiplayerInputSeal?
         var effectiveSeal: MultiplayerInputSeal?
@@ -168,6 +169,55 @@ public struct MultiplayerInputFrontier: Sendable {
         return .inserted
     }
 
+    public mutating func recordIgnoredLateInput(
+        _ input: MultiplayerSealedInput
+    ) throws {
+        guard var state = states[input.id.seat] else {
+            throw MultiplayerFastPolicyError.unknownSeat(input.id.seat)
+        }
+        guard input.id.inputSequence > 0,
+            input.id.inputSequence <= MultiplayerProtocolConstants.maximumEvents,
+            (0..<MultiplayerProtocolConstants.boardCellCount).contains(input.cell),
+            input.inputAt >= 0,
+            input.inputAt <= MultiplayerProtocolConstants.maximumDurationMilliseconds
+        else {
+            throw MultiplayerFastPolicyError.invalidInput
+        }
+        if let existing = state.inputs[input.id.inputSequence] {
+            guard existing == input else {
+                throw MultiplayerFastPolicyError.conflictingInput(input.id)
+            }
+            return
+        }
+        let isBehindEffectiveSeal =
+            state.effectiveSeal.map {
+                input.id.inputSequence > $0.highestInputSequence
+                    && input.inputAt <= $0.throughInputAt
+            } ?? false
+        let isBehindPendingSeal = state.pendingSeals.contains {
+            input.id.inputSequence > $0.highestInputSequence
+                && input.inputAt <= $0.throughInputAt
+        }
+        guard isBehindEffectiveSeal || isBehindPendingSeal else {
+            throw MultiplayerFastPolicyError.invalidInput
+        }
+        if let previous = state.inputs[input.id.inputSequence - 1],
+            input.inputAt < previous.inputAt
+        {
+            throw MultiplayerFastPolicyError.nonMonotonicInputTime
+        }
+        if let next = state.inputs[input.id.inputSequence + 1],
+            input.inputAt > next.inputAt
+        {
+            throw MultiplayerFastPolicyError.nonMonotonicInputTime
+        }
+        state.inputs[input.id.inputSequence] = input
+        state.processedSequences.insert(input.id.inputSequence)
+        state.ignoredLateSequences.insert(input.id.inputSequence)
+        try Self.advanceEffectiveSeal(&state)
+        states[input.id.seat] = state
+    }
+
     public mutating func recordSeal(_ seal: MultiplayerInputSeal) throws {
         guard var state = states[seal.seat] else {
             throw MultiplayerFastPolicyError.unknownSeat(seal.seat)
@@ -264,6 +314,7 @@ public struct MultiplayerInputFrontier: Sendable {
             if seal.highestInputSequence > previousHighest {
                 for sequence in (previousHighest + 1)...seal.highestInputSequence {
                     guard let input = state.inputs[sequence] else { return }
+                    if state.ignoredLateSequences.contains(sequence) { continue }
                     guard input.inputAt > previousThrough else {
                         throw MultiplayerFastPolicyError.inputAtOrBeforeEffectiveSeal
                     }

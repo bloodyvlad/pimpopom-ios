@@ -974,6 +974,8 @@ struct MultiplayerLocalSealEmission: Equatable, Sendable {
 }
 
 struct MultiplayerLocalSealEmitter: Equatable, Sendable {
+    static let captureGraceMilliseconds = 150
+
     private var lastThroughInputAt = -1
     private var lastReliableLogicalMilliseconds: Int?
 
@@ -982,8 +984,8 @@ struct MultiplayerLocalSealEmitter: Equatable, Sendable {
         highestInputSequence: Int,
         logicalMilliseconds: Int
     ) -> MultiplayerLocalSealEmission? {
-        guard logicalMilliseconds > 0 else { return nil }
-        let throughInputAt = logicalMilliseconds - 1
+        guard logicalMilliseconds > Self.captureGraceMilliseconds else { return nil }
+        let throughInputAt = logicalMilliseconds - Self.captureGraceMilliseconds
         guard throughInputAt > lastThroughInputAt else { return nil }
         let includesReliableCheckpoint =
             lastReliableLogicalMilliseconds.map {

@@ -7,16 +7,16 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 | Item | Current truth |
 | --- | --- |
-| Source candidate | `1.02 (23)` at this exact commit; not archived or uploaded |
+| Source candidate | `1.02 (24)`; TestFlight upload not authorized |
 | Current TestFlight | `1.02 (22)`, VALID, Internal QA only |
 | Build 22 source / ASC ID | `c20fcbeb7f053e7b0f50cac1be8942854909e82a` / `f1217f45-1dc0-4ee4-8e15-d59343766146` |
 | Build 22 status | Known unstable Multiplayer recovery; not the rollback claim |
 | Rollback beta | `1.02 (20)`, source `69fe7422719dd4953e90354a2ae3f3c976995db7` |
 | Production App Store | Not released |
 
-Build 23 is the stability candidate with next-frame local feedback, 1-second hidden
-and 15-second bounded recovery, retained exact controls, causal snapshots, shared
-fly-outs, all-theme back navigation, and the unchanged PHP v1 transcript. Real
+Build 24 is the stability candidate with immediate Ready presentation, a 150ms
+touch-capture seal grace, non-fatal late-input reconciliation, 1-second hidden and
+15-second bounded recovery, and the unchanged PHP v1 transcript. Real
 2/3/4-device and 60/120 Hz acceptance remains open. Historical archive, dSYM, beta,
 and review evidence remains in Git and App Store Connect history.
 

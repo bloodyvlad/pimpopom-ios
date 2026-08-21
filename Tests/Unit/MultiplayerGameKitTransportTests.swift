@@ -237,9 +237,9 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
     }
 
     func testExactFastHelloRequiresTheFrozenCapabilitySet() {
-        XCTAssertEqual(MultiplayerLiveWire.version, 3)
+        XCTAssertEqual(MultiplayerLiveWire.version, 4)
         XCTAssertTrue(
-            MultiplayerLiveWire.requiredCapabilities.contains("stable-recovery-v1")
+            MultiplayerLiveWire.requiredCapabilities.contains("ready-hint-v1")
         )
         let exact = MultiplayerHelloPacket(
             participantId: Self.localParticipantID,
@@ -260,6 +260,36 @@ final class MultiplayerGameKitTransportTests: XCTestCase {
 
         XCTAssertTrue(MultiplayerLiveWire.isCompatible(exact))
         XCTAssertFalse(MultiplayerLiveWire.isCompatible(missing))
+    }
+
+    func testReadyHintUsesReliableControlLane() async throws {
+        let client = MultiplayerGameKitClientFake(
+            localGamePlayerID: "G:alpha",
+            remotePlayers: [
+                MultiplayerGameKitPlayer(gamePlayerID: "G:beta", displayName: "Beta")
+            ]
+        )
+        let transport = MultiplayerGameKitTransport(client: client)
+        try await makeCompatible(transport, client: client, localSeat: 0)
+        let sentBefore = client.sent.count
+
+        try transport.sendReadyHint(
+            participantID: Self.localParticipantID,
+            ready: true
+        )
+
+        let sent = try XCTUnwrap(client.sent.dropFirst(sentBefore).last)
+        XCTAssertEqual(sent.mode, .reliable)
+        let envelope = try JSONDecoder().decode(
+            MultiplayerPacketEnvelope.self,
+            from: sent.data
+        )
+        XCTAssertEqual(envelope.lane, .control)
+        guard case .readyHint(let hint) = envelope.payload else {
+            return XCTFail("Expected a Ready presentation hint.")
+        }
+        XCTAssertEqual(hint.participantId, Self.localParticipantID)
+        XCTAssertTrue(hint.ready)
     }
 
     func testGameplayPacketsStayBlockedUntilEverySeatSendsExactHello() async throws {
