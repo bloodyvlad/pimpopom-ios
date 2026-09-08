@@ -74,6 +74,10 @@ visibly says **Test mode**.
 
 ## Documentation
 
+The requested from-scratch multiplayer replacement is specified in
+[Multiplayer v2 rebuild](docs/MULTIPLAYER_V2_REBUILD.md). It is a researched,
+unimplemented proposal; current source and wire behavior below remain v1.
+
 | Concern | Current source |
 | --- | --- |
 | Version, release state, and known gaps | [CURRENT_VERSION](docs/CURRENT_VERSION.md) |
