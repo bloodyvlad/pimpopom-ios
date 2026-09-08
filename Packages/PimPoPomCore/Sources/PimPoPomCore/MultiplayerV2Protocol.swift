@@ -138,10 +138,12 @@ public struct MP2Input: Codable, Equatable, Sendable {
     public let presentedAtMs: Int
     public let contactAtMs: Int
     public let lastServerRevision: Int
+    public let roomEpoch: String
+    public let sessionGeneration: Int
 
     public init(
         id: Int, seat: Int, targetID: Int?, cell: Int, presentedAtMs: Int,
-        contactAtMs: Int, lastServerRevision: Int = 0
+        contactAtMs: Int, lastServerRevision: Int = 0, roomEpoch: String = "", sessionGeneration: Int = 0
     ) {
         self.id = id
         self.seat = seat
@@ -150,6 +152,8 @@ public struct MP2Input: Codable, Equatable, Sendable {
         self.presentedAtMs = presentedAtMs
         self.contactAtMs = contactAtMs
         self.lastServerRevision = lastServerRevision
+        self.roomEpoch = roomEpoch
+        self.sessionGeneration = sessionGeneration
     }
 }
 
@@ -191,6 +195,7 @@ public struct MP2RoomSummary: Codable, Equatable, Sendable, Identifiable {
 
 public struct MP2Room: Codable, Equatable, Sendable, Identifiable {
     public var id: String
+    public var epoch: String
     public var revision: Int
     public var rosterRevision: Int
     public var hostPlayerID: String
@@ -202,9 +207,11 @@ public struct MP2Room: Codable, Equatable, Sendable, Identifiable {
 
     public init(
         id: String, revision: Int, rosterRevision: Int, hostPlayerID: String, capacity: Int,
-        phase: MP2RoomPhase, players: [MP2Player], matchID: String? = nil, startsAtServerMs: Int? = nil
+        phase: MP2RoomPhase, players: [MP2Player], matchID: String? = nil, startsAtServerMs: Int? = nil,
+        epoch: String = ""
     ) {
         self.id = id
+        self.epoch = epoch
         self.revision = revision
         self.rosterRevision = rosterRevision
         self.hostPlayerID = hostPlayerID
@@ -223,6 +230,7 @@ public enum MP2ClientMessage: Codable, Equatable, Sendable {
     case list
     case create(capacity: Int)
     case join(roomID: String)
+    case resume(roomID: String, credential: String, generation: Int)
     case leave
     case ready(value: Bool, intentID: Int, rosterRevision: Int)
     case start
@@ -232,6 +240,7 @@ public enum MP2ClientMessage: Codable, Equatable, Sendable {
 
 public enum MP2ServerMessage: Codable, Equatable, Sendable {
     case welcome(playerID: String, connectionID: String, serverTimeMs: Int)
+    case resumeCredential(roomID: String, credential: String, generation: Int)
     case list([MP2RoomSummary])
     case room(MP2Room)
     case snapshot(MP2Snapshot)
