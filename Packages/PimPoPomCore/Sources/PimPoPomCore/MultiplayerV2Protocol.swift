@@ -137,6 +137,7 @@ public struct MP2Input: Codable, Equatable, Sendable {
     public let id: Int
     public let seat: Int
     public let targetID: Int?
+    /// A board-gap contact uses -1 with a nil target ID; visible cells use 0...15.
     public let cell: Int
     public let presentedAtMs: Int
     public let contactAtMs: Int

@@ -363,3 +363,27 @@ func mp2BeneficiaryClear() throws {
     engine.advance(to: earliest - 1)
     #expect(!engine.snapshot.decoys.contains { $0.beneficiarySeat == decoy.beneficiarySeat })
 }
+
+@Test("MP2 board-gap misses cannot consume another seat's target")
+func mp2GapMiss() throws {
+    var engine = try MP2Engine(matchID: "m", players: mp2Players(), seed: 42)
+    engine.advance(to: 700)
+    let target = try #require(engine.snapshot.targets.first)
+    let seat = 1 - target.ownerSeat
+    let input = MP2Input(id: 99_999, seat: seat, targetID: nil, cell: -1, presentedAtMs: 700, contactAtMs: 700)
+    #expect(engine.submit(input, receivedAt: 700).reason == "empty")
+    #expect(engine.snapshot.players[seat].lives == 2)
+    #expect(engine.snapshot.targets.contains(target))
+}
+
+@Test("MP2 provisional expiry reserves the cell through every admitted first-visible response window")
+func mp2VisibleWindowReservation() throws {
+    var engine = try MP2Engine(matchID: "m", players: mp2Players(), seed: 42)
+    engine.advance(to: 700)
+    let target = try #require(engine.snapshot.targets.first)
+    engine.advance(to: target.expiresAtMs + 749)
+    #expect(!engine.snapshot.targets.contains { $0.cell == target.cell })
+    let input = mp2Input(target, reaction: 999, presentationDelay: 750)
+    #expect(engine.submit(input, receivedAt: input.contactAtMs).reason == "corrected-hit")
+    #expect(engine.snapshot.players[target.ownerSeat].lives == 3)
+}

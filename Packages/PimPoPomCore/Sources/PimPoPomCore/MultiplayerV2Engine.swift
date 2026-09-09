@@ -206,7 +206,8 @@ public struct MP2Engine: Sendable {
     private var finalAdmissionMs: Int { presentationAllowanceMs + MP2Protocol.lateInputGraceMs }
 
     private mutating func admit(_ input: MP2Input, receivedAt: Int) -> MP2InputReceipt {
-        guard (1...MP2Protocol.maximumInputID).contains(input.id), (0..<16).contains(input.cell),
+        guard (1...MP2Protocol.maximumInputID).contains(input.id), (-1..<16).contains(input.cell),
+            input.cell != -1 || input.targetID == nil,
             input.presentedAtMs >= 0, input.contactAtMs >= input.presentedAtMs,
             input.contactAtMs <= receivedAt, receivedAt >= elapsedMs,
             receivedAt - input.contactAtMs <= MP2Protocol.lateInputGraceMs
@@ -330,7 +331,7 @@ public struct MP2Engine: Sendable {
             let oldest = eligible.min { seats[$0]!.dueSince < seats[$1]!.dueSince }!
             let seat = elapsedMs - seats[oldest]!.dueSince >= 2_000 ? oldest : eligible[randomIndex(eligible.count)]
             eligible.removeAll { $0 == seat }
-            let occupied = Set(snapshot.targets.map(\.cell)).union(decoys.values.map(\.cell))
+            let occupied = occupiedCells
             var free = (0..<(gridDimension * gridDimension)).filter {
                 !occupied.contains($0) && $0 != seats[seat]!.lastExpiredDecoyCell
             }
@@ -369,7 +370,7 @@ public struct MP2Engine: Sendable {
             let livingCount = seats.values.filter { !$0.player.isOut && $0.player.connected }.count
             // One global Arcade cap, with one cell reserved for each living seat where geometry permits.
             let cap = min(difficulty.maximumActiveDecoys, max(0, gridDimension * gridDimension - livingCount))
-            let occupied = Set(snapshot.targets.map(\.cell)).union(decoys.values.map(\.cell))
+            let occupied = occupiedCells
             let free = (0..<(gridDimension * gridDimension)).filter { !occupied.contains($0) }
             guard decoys.count < cap, !free.isEmpty, let range = difficulty.decoySpawnDelayRangeMilliseconds else {
                 seats[seat]!.nextDecoyAt = elapsedMs + configuration.decoys.retryDelayMilliseconds
@@ -439,6 +440,21 @@ public struct MP2Engine: Sendable {
             if case .open = $0.resolution { return $0.target.ownerSeat == seat }
             return false
         }
+    }
+
+    /// A scheduled expiry may precede the owner's full first-visible window.
+    /// Keep that cell reserved until every admitted presentation could have expired.
+    private var occupiedCells: Set<Int> {
+        Set(
+            targets.values.compactMap { record -> Int? in
+                switch record.resolution {
+                case .open: return record.target.cell
+                case .expired:
+                    return elapsedMs < record.target.expiresAtMs + presentationAllowanceMs ? record.target.cell : nil
+                case .hit, .void: return nil
+                }
+            }
+        ).union(decoys.values.map(\.cell))
     }
 
     private mutating func voidOpenTargets(seat: Int) {

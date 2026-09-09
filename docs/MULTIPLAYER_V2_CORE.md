@@ -59,6 +59,9 @@ baseline and later score/multiplier awards. A late mistake can invalidate a
 subsequent hit or natural dodge that would have occurred during/after its cleared
 branch. Exact repeated input IDs return the original receipt, while conflicting
 content for an ID is rejected. Nothing requires input seals or peer ACKs.
+An expired target's cell stays reserved for the additional 750 ms presentation
+allowance, so another target or decoy cannot reuse it while a valid local visible
+window remains. A gap contact is an empty-space mistake (`cell: -1`, no target ID).
 
 World changes already exposed to other players are not replayed. A decoy cleared
 by a provisional expiry stays void even when that expiry is later corrected;
