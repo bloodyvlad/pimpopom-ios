@@ -10,7 +10,7 @@ public struct MP2Engine: Sendable {
     private enum Outcome: Sendable {
         case hit(reaction: Int, window: Int)
         case mistake
-        case dodge
+        case dodge(activatedAt: Int)
         case baseline
         case out
     }
@@ -98,7 +98,8 @@ public struct MP2Engine: Sendable {
 
     public var snapshot: MP2Snapshot {
         MP2Snapshot(
-            matchID: matchID, revision: revision, elapsedMs: elapsedMs, phase: phase,
+            matchID: matchID, revision: revision,
+            elapsedMs: finishAt.map { $0 - finalAdmissionMs } ?? elapsedMs, phase: phase,
             gridDimension: gridDimension, players: seats.keys.sorted().compactMap { seats[$0]?.player },
             targets: targets.values.compactMap {
                 if case .open = $0.resolution { return $0.target }
@@ -175,7 +176,7 @@ public struct MP2Engine: Sendable {
         seats[seat]!.base.connected = true
         seats[seat]!.player.connected = true
         scheduleNextTarget(seat: seat, after: elapsedMs)
-        seats[seat]!.nextDecoyAt = max(elapsedMs, configuration.phases.colorPatienceStartsAtMilliseconds)
+        scheduleNextDecoy(seat: seat, after: elapsedMs)
         revision += 1
         return snapshot
     }
@@ -278,6 +279,7 @@ public struct MP2Engine: Sendable {
         voidOpenTargets(seat: input.seat)
         clearDecoys(seat: input.seat)
         scheduleNextTarget(seat: input.seat, after: input.contactAtMs)
+        scheduleNextDecoy(seat: input.seat, after: input.contactAtMs)
         updateFinish()
         revision += 1
         return receipt(input, true, reason)
@@ -289,7 +291,7 @@ public struct MP2Engine: Sendable {
             guard let decoy = decoys[id], decoy.expiresAtMs <= elapsedMs else { continue }
             decoys.removeValue(forKey: id)
             seats[decoy.beneficiarySeat]!.lastExpiredDecoyCell = decoy.cell
-            append(seat: decoy.beneficiarySeat, at: decoy.expiresAtMs, outcome: .dodge)
+            append(seat: decoy.beneficiarySeat, at: decoy.expiresAtMs, outcome: .dodge(activatedAt: decoy.activateAtMs))
             revision += 1
         }
         for id in targets.keys.sorted() {
@@ -301,6 +303,7 @@ public struct MP2Engine: Sendable {
             targets[id]!.resolution = .expired(eventID: eventID)
             clearDecoys(seat: seat)
             scheduleNextTarget(seat: seat, after: record.target.expiresAtMs)
+            scheduleNextDecoy(seat: seat, after: record.target.expiresAtMs)
             revision += 1
         }
         if elapsedMs >= MP2Protocol.maximumDurationMs, !durationEnded {
@@ -340,7 +343,7 @@ public struct MP2Engine: Sendable {
             if activation >= configuration.phases.fourByFourChallengeStartsAtMilliseconds,
                 seats[seat]!.player.challengeBaselineHits == nil
             {
-                append(seat: seat, at: elapsedMs, outcome: .baseline)
+                append(seat: seat, at: activation, outcome: .baseline)
             }
             let target = MP2Target(
                 id: nextTargetID, cell: free[randomIndex(free.count)], ownerSeat: seat,
@@ -398,10 +401,11 @@ public struct MP2Engine: Sendable {
     private mutating func updateFinish() {
         guard phase != .finished else { return }
         if durationEnded || seats.values.allSatisfy({ $0.player.isOut }) {
-            if finishAt == nil {
-                finishAt = elapsedMs + finalAdmissionMs
-                phase = .finishing
-            }
+            let logicalEnd =
+                durationEnded
+                ? MP2Protocol.maximumDurationMs : seats.values.compactMap { $0.player.outAtMs }.max() ?? elapsedMs
+            finishAt = logicalEnd + finalAdmissionMs
+            phase = .finishing
             if elapsedMs >= finishAt! {
                 phase = .finished
                 decoys.removeAll()
@@ -417,6 +421,17 @@ public struct MP2Engine: Sendable {
         let quiet = sample(difficulty(for: seat, at: baseTime)!.spawnDelayRangeMilliseconds)
         seats[seat]!.nextTargetAt = max(elapsedMs + scheduleLeadMs, baseTime + quiet)
         seats[seat]!.dueSince = seats[seat]!.nextTargetAt
+    }
+
+    private mutating func scheduleNextDecoy(seat: Int, after: Int) {
+        let baseTime = max(after, seats[seat]!.player.recoveryUntilMs)
+        if baseTime < configuration.phases.colorPatienceStartsAtMilliseconds {
+            seats[seat]!.nextDecoyAt = configuration.phases.colorPatienceStartsAtMilliseconds
+        } else if let range = difficulty(for: seat, at: baseTime)!.decoySpawnDelayRangeMilliseconds {
+            seats[seat]!.nextDecoyAt = baseTime + sample(range)
+        } else {
+            seats[seat]!.nextDecoyAt = baseTime + configuration.decoys.retryDelayMilliseconds
+        }
     }
 
     private func hasOpenTarget(_ seat: Int) -> Bool {
@@ -461,6 +476,7 @@ public struct MP2Engine: Sendable {
             if player.challengeBaselineHits == nil { player.challengeBaselineHits = player.hits }
         case .out:
             player.lives = 0
+            player.outAtMs = event.at
             player.multiplier = 1
             player.streakProgress = 0
         case .hit(let reaction, let window):
@@ -481,16 +497,19 @@ public struct MP2Engine: Sendable {
                 player.multiplier += 1
                 player.streakProgress -= configuration.streak.stepsPerMultiplier
             }
-            if player.multiplier == configuration.streak.maximumMultiplier { player.streakProgress = 0 }
+            if player.multiplier == configuration.streak.maximumMultiplier {
+                player.streakProgress = configuration.streak.stepsPerMultiplier
+            }
         case .mistake:
             guard !player.isOut, event.at >= player.recoveryUntilMs else { return }
             player.lives -= 1
             player.misses += 1
+            if player.isOut { player.outAtMs = event.at }
             player.multiplier = 1
             player.streakProgress = 0
             player.recoveryUntilMs = event.at + configuration.lifeLossRecoveryMilliseconds
-        case .dodge:
-            guard !player.isOut, event.at >= player.recoveryUntilMs else { return }
+        case .dodge(let activatedAt):
+            guard !player.isOut, player.recoveryUntilMs <= activatedAt else { return }
             player.dodges += 1
             player.score += configuration.dodgePoints
         }

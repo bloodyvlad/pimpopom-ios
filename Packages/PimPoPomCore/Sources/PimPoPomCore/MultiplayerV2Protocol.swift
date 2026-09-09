@@ -29,6 +29,7 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
     public var reactionTotalMs: Int
     public var fastestReactionMs: Int?
     public var challengeBaselineHits: Int?
+    public var outAtMs: Int?
     public var isOut: Bool { lives == 0 }
     public var averageReactionMs: Int? { hits == 0 ? nil : Int((Double(reactionTotalMs) / Double(hits)).rounded()) }
 
@@ -37,7 +38,8 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
         ready: Bool = false, readyIntentID: Int = 0, connected: Bool = true,
         lives: Int = 3, score: Int = 0, hits: Int = 0, misses: Int = 0, dodges: Int = 0,
         multiplier: Int = 1, streakProgress: Int = 0, recoveryUntilMs: Int = 0,
-        reactionTotalMs: Int = 0, fastestReactionMs: Int? = nil, challengeBaselineHits: Int? = nil
+        reactionTotalMs: Int = 0, fastestReactionMs: Int? = nil, challengeBaselineHits: Int? = nil,
+        outAtMs: Int? = nil
     ) {
         self.id = id
         self.seat = seat
@@ -58,6 +60,7 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
         self.reactionTotalMs = reactionTotalMs
         self.fastestReactionMs = fastestReactionMs
         self.challengeBaselineHits = challengeBaselineHits
+        self.outAtMs = outAtMs
     }
 }
 
