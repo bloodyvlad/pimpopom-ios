@@ -5,13 +5,14 @@ import Vapor
 public enum RealtimeApplication {
     public static func run() async throws {
         let configuration = try ServerConfiguration()
+        let outbox = ResultOutbox(directory: configuration.outboxDirectory)
+        try await outbox.prepare()
         let app = try await Application.make(.detect())
         app.http.server.configuration.hostname = configuration.hostname
         app.http.server.configuration.port = configuration.port
         let resultQueue = AsyncStream<CompletedMatch>.makeStream(bufferingPolicy: .bufferingOldest(128))
         let service = RoomService(configuration: configuration, resultOutput: resultQueue.continuation)
         let authenticator = TicketAuthenticator(configuration: configuration)
-        let outbox = ResultOutbox(directory: configuration.outboxDirectory)
         configure(app: app, service: service, authenticator: authenticator)
         let logger = app.logger
 

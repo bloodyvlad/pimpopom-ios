@@ -60,9 +60,46 @@ public final class ResultOutbox: @unchecked Sendable {
     let queue = DispatchQueue(label: "pimpopom.multiplayer-v2.result-outbox", qos: .utility)
     public static let maximumEntries = 1_000
     public static let retentionSeconds: TimeInterval = 30 * 24 * 3600
-    public enum OutboxError: Error { case full, conflictingResult, invalidMatchID }
+    public enum OutboxError: Error { case full, conflictingResult, invalidMatchID, unsafeDirectory, readinessMismatch }
 
     public init(directory: URL) { self.directory = directory }
+
+    /// Complete before binding the listener: a healthy process must be able to
+    /// journal and archive evidence as its final, unprivileged runtime identity.
+    public func prepare() async throws {
+        try await perform {
+            let manager = FileManager.default
+            let archive = self.directory.appendingPathComponent("delivered", isDirectory: true)
+            for directory in [self.directory, archive] {
+                if let attributes = try? manager.attributesOfItem(atPath: directory.path),
+                    attributes[.type] as? FileAttributeType == .typeSymbolicLink
+                {
+                    throw OutboxError.unsafeDirectory
+                }
+                try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+                guard
+                    try manager.attributesOfItem(atPath: directory.path)[.type] as? FileAttributeType == .typeDirectory
+                else { throw OutboxError.unsafeDirectory }
+            }
+            let name = ".mp2-readiness-" + UUID().uuidString
+            let source = self.directory.appendingPathComponent(name)
+            let destination = archive.appendingPathComponent(name)
+            let contents = Data(UUID().uuidString.utf8)
+            var ownedProbe: URL?
+            defer {
+                // Never enumerate/delete evidence, or remove a path unless this
+                // invocation successfully created the unique probe there.
+                if let ownedProbe { try? manager.removeItem(at: ownedProbe) }
+            }
+            try contents.write(to: source, options: .withoutOverwriting)
+            ownedProbe = source
+            try manager.moveItem(at: source, to: destination)
+            ownedProbe = destination
+            guard try Data(contentsOf: destination) == contents else { throw OutboxError.readinessMismatch }
+            try manager.removeItem(at: destination)
+            ownedProbe = nil
+        }
+    }
 
     public func store(_ match: CompletedMatch) async throws {
         guard UUID(uuidString: match.matchID) != nil else { throw OutboxError.invalidMatchID }
