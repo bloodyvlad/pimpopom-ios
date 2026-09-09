@@ -44,12 +44,14 @@ TestFlight build as production, or a protocol-verified result as human-verified.
 
 ## Architecture boundaries
 
-Only `Packages/PimPoPomCore` is a separate package. `Design`, `Features`,
-`Gameplay`, and `Services` are folders in the app target with enforced ownership:
+`Packages/PimPoPomCore` and the separate `Server/` Vapor service are Swift packages.
+`Design`, `Features`, `Gameplay`, and `Services` are app-target folders:
 
 - `PimPoPomCore`: deterministic configuration, state, scoring, timers, seeded
-  test randomness, Multiplayer reducer/coordinator, and proof events. No Apple UI,
-  network, storage, audio, ads, or StoreKit imports.
+  test randomness, Multiplayer v2 protocol/room engine, and Arcade proof events.
+  No Apple UI, network, storage, audio, ads, or StoreKit imports.
+- `Server/`: authenticated socket room authority and off-path durable result
+  outbox. Share pure rules; never move PHP identity/economy authority here.
 - `App/Gameplay`: SpriteKit rendering, first-presentation timing, touch bridge,
   and local game coordination. It must not duplicate rules.
 - `App/Features`: SwiftUI screens and feature coordinators. It must not invent
@@ -69,12 +71,19 @@ the reaction path.
 - Arcade reaction time starts at first render and uses the original compatible
   touch-contact timestamp. Expiry/input resolves once.
 - Zen is local, unranked, unrewarded, and ephemeral.
-- Multiplayer v1 is 2–4-player, own-color, GameKit live traffic with PHP replay,
-  no coins/achievements, and peer-consistent rather than server-authoritative.
-- Build 24 uses capability-gated FAST GameKit lanes, immediate Ready hints,
-  a 150ms input-capture grace, non-fatal late-input reconciliation, and 1–15 second
-  recovery, and sealed input frontiers while retaining the exact Multiplayer v1
-  PHP transcript/proof contract.
+- The owner-approved local Multiplayer v2 candidate uses one identical shared
+  board, 2–4 own-color seats, shared numerical Arcade rules, a native WSS client
+  and persistent Vapor authority. Waiting for an own-color opportunity on 1×1 is
+  accepted; shared contention/delivery can extend personal target spacing.
+- V2 is `multiplayer-shared-arcade-v2`, protocol `2`, unranked and unrewarded.
+  No live GameKit, FAST seals, peer transcript or v1 client mutation path. Preserve
+  historical v1 leaderboard reads and unrelated Game Center account/publication.
+  Primary session and confirmed name suffice; Game Center is not a v2 prerequisite.
+- PHP stores isolated service-reported v2 aggregates, not independent replay proof.
+  No v2 rank, coins, achievements or Game Center publication. Keep bridge default
+  disabled until an explicitly authorized deployment; never reinterpret v1.
+- Uploaded build 24 is the historical v1 beta, not today's v2 source. Follow
+  `docs/CURRENT_VERSION.md`; configuration/build number alone never proves release.
 - The server owns identity, names, ranked attempts, proof replay, score, coins,
   achievements, catalogs, cosmetics, moderation, and account ledger state.
 - StoreKit proves purchase/refund state; value appears only after verified server

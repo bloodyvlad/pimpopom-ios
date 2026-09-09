@@ -1,79 +1,91 @@
 # Current version slice
 
-Snapshot date: 2026-08-21.
+Snapshot date: 2026-09-09. Local source, external beta state, and deployment are
+separate evidence categories.
 
 ## Release identity
 
 | Item | Current truth |
 | --- | --- |
 | Product | PimPoPom for iPhone, iOS 17+, Swift 6 strict concurrency |
-| Configured candidate | `1.02 (24)` |
-| Candidate state | Build 24 source under release verification; not uploaded |
-| Current TestFlight | `1.02 (22)`, VALID, Internal QA only |
-| Build 22 source / ASC ID | `c20fcbeb7f053e7b0f50cac1be8942854909e82a` / `f1217f45-1dc0-4ee4-8e15-d59343766146` |
-| Rollback beta | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Production App Store | Not released |
-| Open acceptance | Physical 2/3/4-device, reconnect/network transition, and 60/120 Hz tests |
+| Configured version | `1.02 (24)`; unchanged until a future authorized host/release task |
+| Last direct App Store Connect check | 2026-09-08: build 24 VALID, uploaded 2026-08-22 |
+| Build 24 groups | Internal QA and External QA |
+| External beta state | `READY_FOR_BETA_SUBMISSION`; group membership is not proof of external testability |
+| Uploaded binary versus source | Uploaded build 24 is the earlier GameKit/v1 beta, not the new v2 candidate |
+| Local candidate | v2 shared engine, Vapor service and native socket/SpriteKit integration; unreleased |
+| Rollback beta reference | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7`; current installability not reverified |
+| Production App Store | No production release established by this task |
+| Authorized scope | Local code and hosting research only; no purchase, deployment, migration on a live schema, or new TestFlight upload |
 
-Build 22 proved immediate local presentation but QA observed frequent `Syncing`,
-abrupt match termination, delayed Ready, and a lobby crash. Build 24 replaces the
-fatal late-input boundary and must not be described as deployed.
+The September 8 direct check supersedes old notes calling build 22 current or
+build 24 never uploaded. Neither a build number nor this documentation identifies
+the exact source of an already uploaded archive. Do not attach today's v2 diff
+to that historical binary.
 
-## Current contracts
+## Local candidate contracts
 
 | Area | Contract |
 | --- | --- |
-| Arcade | Build `20260729-1`, `reaction-proof-v3`, proof 2 |
-| Multiplayer | Build `20260729-1`, `multiplayer-own-color-v1`, protocol/proof 1 |
-| Multiplayer limits | 2–4 players, 2,500 events, 15 minutes |
-| Result trust | Protocol-verified; clean Multiplayer rows are peer-consistent |
-| Live transport | GameKit only; PHP receives no live targets or taps |
-| Durable authority | PHP for identity, results, settlement, economy, and cosmetics |
+| Arcade, unchanged | Build `20260729-1`, `reaction-proof-v3`, proof 2 |
+| Zen, unchanged | Local, ephemeral, unranked and unrewarded |
+| Multiplayer v2 | `multiplayer-shared-arcade-v2`, protocol 2, 2–4 seats, maximum 900,000 ms |
+| Live authority | One persistent Vapor 4 process with the shared pure Swift engine; native WSS client |
+| Entry | PHP primary session and confirmed name; no Game Center requirement |
+| Result status | Unranked alpha; PHP stores service-reported aggregates, not independently replayed v2 proof |
+| Rewards/publication | No Multiplayer coins, achievements, v2 leaderboard writes or v2 Game Center publication |
+| Retained history | Read-only client access to historical v1 `peer_consistent_v1` leaderboard rows |
+| PHP bridge | Separate local commit `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0`; additive migration 023, disabled by default |
+| Hosting | Not selected/provisioned; see [shortlist](MULTIPLAYER_V2_HOSTING.md) |
 
-## Build 24 Multiplayer behavior
+Source integration combines the new `MP2*` engine/protocol and `Server/` package
+with the replacement iOS controller, socket actor and Arcade SpriteKit board.
+The old live GameKit transport, coordinator, FAST seals/frontiers, peer transcript
+and v1 client mutation path are removed in the integration candidate. Unrelated
+Game Center linking/publication, Arcade, Zen, identity and economy remain.
 
-- Local contact is acknowledged on the next display frame; canonical score, lives,
-  streak, and transcript change only after deterministic reconciliation.
-- Missing unreliable traffic is expected. Reliable evidence, cumulative seals,
-  exact acknowledgements, journals, and causal snapshots repair it.
-- Recovery is invisible below 1 second. From 1–15 seconds a small nonblocking
-  `Catching up` HUD appears while eligible input remains interactive.
-- A real disconnect shows `Reconnecting`, pauses logical play, and gets 15 seconds
-  to recover. Invalid or contradictory protocol data still cancels immediately.
-- Ready intent updates the local player card immediately and sends a reliable
-  presentation hint to peers. PHP confirmation remains Start authority.
-- Periodic seals retain a 150ms UIKit capture window. A tap arriving inside an
-  already closed interval is resolved as ignored instead of ending the match.
-- Clock loss/reorder are diagnostics, not a startup rejection.
-- GameKit callbacks are relayed onto `MainActor` and rejected after their match or
-  matchmaking generation becomes stale.
-- Start, pause, resume, finish, terminal cancel, evidence, and resolutions remain
-  retained until the intended recipient acknowledges an exact attempt. Snapshots
-  are chunk-complete, bounded, and cannot rewind newer plan/pause state.
-- Resume advances after its reliable send is physically accepted for every intended
-  peer; exact ACK recovery continues in the background without blocking play.
-- Multiplayer hit fly-outs use the same straight, borderless points/rating glow as
-  single player. The back button is complete in every theme. HUD-to-board layout
-  spacing remains exactly 5 points.
+## Approved shared-board behavior
 
-The GameKit live wire is capability-gated; PHP tuples and proof semantics are
-unchanged. There is no custom LAN path, host migration, or live PHP relay.
+The owner confirmed one identical board and accepted waiting for an own-color
+opportunity, including on 1×1. Target owners are not a fixed rotation; repeats
+are permitted. Targets can overlap on free cells. The board becomes 2×2 after
+four total valid hits and 4×4 at 40 seconds. Each seat has its own lives, recovery,
+score, streak and challenge baseline. Numerical Arcade configuration/difficulty/
+scoring are shared, but contention and delivery headroom can extend personal
+target spacing. Exact independent single-player cadence is not claimed.
 
-## Evidence and open gates
+Ready changes local presentation immediately; the server confirms revisioned
+membership and starts without requiring a tap. Input uses first-visible and
+original contact times, with bounded server admission and per-seat correction.
+Disconnect/reconnect affects that seat, not a peer-wide ACK barrier. Marked traps
+remain distinguishable with glyphs off. See the [v2 brief](MULTIPLAYER_V2_REBUILD.md)
+for the precise adaptations and [service contract](../Server/README.md) for limits.
 
-The source gate is `Scripts/check.sh` plus `git diff --check`. It covers the core
-package, native unit suite, generic Simulator build, asset/privacy/ad configuration,
-four-theme Multiplayer layout/fly-outs, catch-up interaction, and all-theme back
-button regressions on the named iPhone 17 Simulator.
+## Verification and open gates
 
-Still required before calling FAST physically accepted or production-ready:
+Final integrated check counts and artifact paths must be recorded by the
+integration task after its exact candidate passes; they are not inferred from
+older v1 checks or this documentation commit.
 
-- real 2-, 3-, and 4-device GameKit matches through natural settlement;
-- same-Wi-Fi and different-network reconnect, background/foreground, and network
-  transition tests;
-- measured touch/feedback timing on 60 Hz and 120 Hz iPhones;
-- StoreKit Sandbox, UMP/Test-mode ads, audio/haptics, public legal metadata, rights,
-  and production App Store review gates.
+Available local verification entry points:
 
-This repository owns only the iOS client and compatibility snapshot. The PHP
-implementation is separate and is not changed by this release.
+- `Scripts/check.sh` and `git diff --check` for the integrated iOS source.
+- `swift test --package-path Server -j 4`,
+  `bash Server/Scripts/linux-check.sh`, and the real local WebSocket harness.
+- Separate PHP `composer check` and disposable MariaDB v2/account-deletion tests.
+
+The original September 8 v1 audit's checks are historical evidence only. New
+unit tests, loopback sockets and Simulator fixtures do not establish public WSS,
+authenticated PHP-to-service integration, physical touch timing or deployment.
+
+Remaining gates include production-like TLS/Authorization forwarding, ticket and
+logout/deletion revalidation end-to-end, durable outbox failure/restart delivery,
+Linux/runtime image verification, queue/load/memory profiling, loss/jitter/clock/
+background tests, and physical 2/3/4-iPhone Wi-Fi/cellular matches. Measure 60/120 Hz
+behavior on named hardware; the requested 60 Hz service scheduler and UI feedback
+goals are not achieved latency guarantees. StoreKit, UMP/Test-mode ads, audio/
+haptics, accessibility, legal/asset rights and public release gates also remain.
+
+A service restart loses in-memory matches; only a correctly mounted terminal
+outbox survives. Graceful draining, supervision, backup/retention, monitoring,
+secret rotation and rollback must be verified after the owner chooses hosting.

@@ -7,18 +7,19 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 | Item | Current truth |
 | --- | --- |
-| Source candidate | `1.02 (24)`; TestFlight upload not authorized |
-| Current TestFlight | `1.02 (22)`, VALID, Internal QA only |
-| Build 22 source / ASC ID | `c20fcbeb7f053e7b0f50cac1be8942854909e82a` / `f1217f45-1dc0-4ee4-8e15-d59343766146` |
-| Build 22 status | Known unstable Multiplayer recovery; not the rollback claim |
-| Rollback beta | `1.02 (20)`, source `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Production App Store | Not released |
+| Configured version | `1.02 (24)`; unchanged pending a future authorized release |
+| Last direct App Store Connect check | 2026-09-08: build 24 VALID, uploaded 2026-08-22 |
+| Groups / external state | Internal QA and External QA; `READY_FOR_BETA_SUBMISSION`, not proof of external testability |
+| Uploaded binary | Historical GameKit/v1 beta, not today's v2 source |
+| Local candidate | New native socket/shared-core/Vapor v2 plus separate PHP bridge; not deployed/uploaded |
+| Rollback beta reference | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7`; current installability not reverified |
+| Authorized work | Local code/research only; no host purchase, deployment or new TestFlight upload |
+| Production App Store | No production release established by this task |
 
-Build 24 is the stability candidate with immediate Ready presentation, a 150ms
-touch-capture seal grace, non-fatal late-input reconciliation, 1-second hidden and
-15-second bounded recovery, and the unchanged PHP v1 transcript. Real
-2/3/4-device and 60/120 Hz acceptance remains open. Historical archive, dSYM, beta,
-and review evidence remains in Git and App Store Connect history.
+Hosting choice, authenticated WSS/PHP integration, exact source gates and physical
+2/3/4-device/60/120 Hz acceptance remain open. Keep archive/dSYM/source identity
+separate from the build number: no exact v2 commit is associated with the uploaded
+build 24. Direct external-state evidence is summarized in CURRENT_VERSION.md.
 
 ## Release identity record
 
@@ -39,16 +40,18 @@ For every archive record:
    `git diff --check`.
 2. Confirm generated project, package lock, asset hashes/licences, strict formatting,
    generic-device build, UI/unit suite, privacy/configuration checks, and version.
-3. Verify the deployed backend accepts the candidate's Arcade and Multiplayer
-   build/ruleset/proof tuples and still supports the rollback client.
+3. Verify deployed Arcade compatibility and the candidate's exact v2 protocol,
+   PHP ticket/service-auth/result bridge, WSS endpoint and persistent outbox.
+   Separately preserve historical v1/rollback backend compatibility. Local code
+   or migration tests do not prove those services are deployed.
 4. Inspect archive Info, entitlements, signature, aggregate privacy report, symbols,
    asset catalog, and absence of `.p8`, `.storekit`, ignored config, debug fixtures,
    and credentials.
 5. Confirm public Privacy/Support/account-deletion/Terms URLs, seller/rights, export,
    age, privacy, IAP, Game Center, ads/UMP, and reviewer metadata.
 6. A TestFlight QA candidate may upload with physical gates explicitly open. Complete
-   real 2/3/4-device and latency/loss/reorder acceptance before FAST acceptance or
-   production submission.
+   real 2/3/4-device and latency/loss/reorder acceptance before v2 acceptance or
+   production submission. Today's local-code task does not authorize any upload.
 
 ### Configuration gates
 

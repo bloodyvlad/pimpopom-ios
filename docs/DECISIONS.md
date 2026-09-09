@@ -8,16 +8,17 @@ are binding at this commit. Superseded material remains available in Git history
 Status: implemented.
 
 PimPoPom is an iPhone-only native app. This repository owns Swift code, tests,
-assets, and client contracts; the PHP/web repository owns server implementation
-and deployment. Neither repository is edited implicitly for the other.
+assets, client contracts, and the separate `Server/` Vapor package. The PHP/web
+repository owns identity, durable account data, the v2 bridge, and its deployment.
+Neither repository is edited implicitly for the other.
 
 ## D-02 — Keep deterministic rules in one pure Swift package
 
 Status: implemented.
 
-`PimPoPomCore` owns game configuration, rules, scoring, timing, Multiplayer replay,
-and proof tuples without Apple frameworks. The app target keeps `Design`,
-`Features`, `Gameplay`, and `Services` as folders with inward dependency rules.
+`PimPoPomCore` owns game configuration, rules, scoring, timing, Arcade proof tuples,
+and the v2 protocol/room engine without Apple frameworks. The app target keeps
+`Design`, `Features`, `Gameplay`, and `Services` as folders with inward dependency rules.
 Split them into modules only when a concrete build/ownership benefit justifies it.
 
 ## D-03 — Measure reaction input at presentation/contact boundaries
@@ -32,13 +33,15 @@ touch path.
 
 ## D-04 — Preserve the current three mode contracts
 
-Status: implemented.
+Status: Arcade/Zen retained; Multiplayer v2 implemented as a local candidate.
 
 Arcade is endless until three mistakes and is the only coin/achievement-eligible
 mode. Zen is endless local practice with no deadlines, decoys, durable result, or
-rewards. Multiplayer is 2–4-player own-color play, gives no coins/achievements,
-and ends only after all participants are out. Exact rules live in
-`docs/GAMEPLAY_SPEC.md`.
+rewards. Multiplayer v2 is 2–4-player own-color play on one identical shared board,
+with individual three-life state. It ends when all are out or the 15-minute bound
+is reached, after the input admission horizon. No Multiplayer coins/achievements.
+Arcade/Zen rules remain in `docs/GAMEPLAY_SPEC.md`; v2 rules and deliberate shared
+board adaptations are in `docs/MULTIPLAYER_V2_REBUILD.md`.
 
 ## D-05 — Keep identity provider-separated
 
@@ -66,8 +69,9 @@ Status: implemented.
 PHP issues ranked attempts, replays proofs, stores immutable results, moderates,
 and owns achievements, coins, debts, catalog prices, purchases, ownership, and
 selection. The client may render fallbacks but never invents authoritative score,
-balance, price, ownership, or eligibility. Results are called protocol-verified,
-never human-verified or bot-proof.
+balance, price, ownership, or eligibility. Replayed Arcade and clean historical
+v1 results are called protocol-verified, never human-verified or bot-proof.
+V2 alpha aggregates are service-reported and unranked, as scoped in D-12.
 
 ## D-08 — Use signed StoreKit state plus a source-aware server ledger
 
@@ -107,38 +111,41 @@ tones, life loss, and the Pim–Po–Pom sting; Music owns menu/gameplay loops. 
 categories load nothing. Preload critical cues, bound overlap, skip late cues, and
 handle lifecycle/interruption without blocking play.
 
-## D-12 — Use peer-consistent Multiplayer v1
+## D-12 — Replace live Multiplayer v1 with an isolated v2 authority
 
-Status: implemented and retained by the build-24 candidate.
+Status: approved; local implementation candidate, not deployed.
 
-PHP owns authenticated lobbies, stable seats/colors, immutable manifests, replay,
-settlement, and ranked rows. `GKMatch` owns live traffic. A fixed coordinator
-produces one compact transcript and every participant submits that same seat-only
-stream. Clean matching results are protocol-verified and peer-consistent, not
-server-authoritative or collusion-proof. Protocol v1 has no coordinator migration.
+Native `URLSessionWebSocketTask` connects to one persistent Vapor 4 room service.
+The shared pure Swift engine owns targets, input admission, scores and lives;
+the room service owns membership, revisioned Ready and atomic Start. Remove the
+old GameKit peer coordinator, FAST seals/frontiers, unanimous transcripts and v1
+client mutations. Preserve the hub/waiting-room identity, historical v1 leaderboard
+reads and unrelated Game Center account/publication behavior. Primary sign-in and
+confirmed nickname are required; Game Center is not a v2 entry requirement.
 
-## D-13 — Make Multiplayer feel immediate with prediction plus reconciliation
+V2 is exactly `multiplayer-shared-arcade-v2`, protocol `2`. PHP tickets and service
+introspection/result endpoints are additive and isolated. PHP stores service-reported
+unranked aggregates; it does not independently replay v2 inputs. No public v2
+ranking, ranked season, reward, achievement or Game Center publication is enabled.
+Historical clean v1 results remain `peer_consistent_v1`; do not relabel them.
 
-Status: implemented in the build-24 source candidate; not yet uploaded.
+## D-13 — Share one board and Arcade numbers, not independent personal cadence
 
-Preserve deterministic canonical replay while acknowledging local contact within
-one display frame. Prediction changes presentation only; reliable evidence,
-resolutions, cumulative seals, exact control acknowledgements, and bounded causal
-snapshots converge every peer on one transcript. Ordinary loss remains interactive:
-recovery is hidden below one second, uses a small `Catching up` HUD from 1–15
-seconds, and cancels only after the 15-second recovery bound. Real disconnects
-coordinate a logical pause. Start/plan output cannot advance until its reliable
-ordering barrier is physically established, and pause remains authoritative until
-Resume has been physically accepted for every intended peer. Its exact-ACK retry is
-retained in the background and cannot create a second recovery window. Build 24
-rejects incompatible live-wire peers before start.
-Host migration, custom LAN routing, and concurrent per-seat targets remain
-separately versioned work. Current behavior and gates are in
-`docs/MULTIPLAYER_FAST_TASK.md`.
+Status: owner-confirmed; local implementation candidate, acceptance incomplete.
 
-Any tuple/proof/backend change required by this work is separately versioned and
-implemented in the backend-owning repository. No iOS-only release may silently
-reinterpret the deployed v1 transcript.
+Every seat sees the same board. Waiting for an own-color target is accepted,
+including on 1×1. There is no fixed turn order: random arbitration permits repeats,
+and different owners can overlap when cells are free. Grow to 2×2 after four total
+valid hits and 4×4 at 40 seconds. Share Arcade configuration, difficulty and scoring
+instead of copying its numerical rules. Cell contention, reserved presentation
+windows and network delivery headroom may extend personal target spacing; exact
+independent single-player cadence is not promised.
+
+Reuse Arcade's SpriteKit rendering and original-contact bridge; project local
+feedback without waiting for a network round trip. Server receipts/snapshots reconcile
+that presentation. A disconnected seat has a 15-second return grace while others
+continue. No peer ACK barrier is permitted. Latency and 60/120 Hz targets remain
+acceptance goals, not measurements. Detailed behavior and gaps live in the v2 brief.
 
 ## D-14 — Keep release evidence exact
 

@@ -1,7 +1,8 @@
 # Current gameplay specification
 
-These are the rules retained by the build-24 candidate. Presentation and economy
-cannot silently change them.
+Arcade/Zen rules are retained. Multiplayer v2 below is an owner-approved local
+candidate, not the uploaded build-24 v1 beta. Presentation and economy cannot
+silently change rules; release evidence is separate in CURRENT_VERSION.md.
 
 ## Modes
 
@@ -27,20 +28,37 @@ cannot silently change them.
 - **End run** freezes an ephemeral local Results view. Restart/menu/app termination
   discards it.
 
-### Multiplayer
+### Multiplayer v2 — local unranked candidate
 
-- Exactly 2–4 players; own-color only; build `20260729-1`, ruleset
-  `multiplayer-own-color-v1`, protocol/proof version 1.
-- Requires an Apple/Google-authenticated profile, confirmed nickname, authenticated
-  persistent Game Center player, publishing-enabled link, and fresh proof.
-- PHP assigns stable unique seat/color pairs. Only the target owner can hit it;
-  another seat's tap is that player's miss and cannot consume the target.
-- Each player owns three lives, score, streak, multiplier, reactions, and 1.5-second
-  recovery. Eliminated players spectate until everyone is out.
-- No coins, coin time, cosmetics, or achievements are awarded.
-- Live HUD values are provisional; PHP derives final results from matching complete
-  peer transcripts. Clean rows are protocol-verified and peer-consistent, never
-  server-authoritative, human-verified, bot-proof, or collusion-proof.
+- Exactly 2–4 players, fixed unique colors; `multiplayer-shared-arcade-v2`,
+  protocol 2. Primary sign-in and confirmed nickname; no Game Center requirement.
+- The owner confirmed **one identical shared board**, accepting waits for an
+  own-color opportunity on 1×1. Random owner arbitration permits repeats; targets
+  overlap only when different cells are available. There is no fixed turn order.
+- Start at 1×1; grow to 2×2 after four total valid hits and 4×4 at 40 seconds.
+  Shared Arcade numerical configuration/scoring remains authoritative; personal
+  target spacing can increase due to contention and delivery headroom.
+- Only an owner can hit a target. Wrong-color, empty/gap or trap taps cost only
+  the tapping seat's life and cannot consume another seat's target.
+- Each seat has three lives, score, streak, multiplier, reactions and 1.5-second
+  recovery. Eliminated seats spectate; disconnect has 15 seconds to return while
+  other seats continue. All-out or 15 minutes ends play after admission drains.
+- Marked traps use another participant's color and are unscorable by every seat.
+  Natural expiry grants one beneficiary the unmultiplied 550-point dodge. A global
+  Arcade cap reserves capacity for connected living targets; it is not multiplied
+  by player count. Correct hits preserve decoys; personal mistakes clear that
+  seat's decoys without credit. Trap markers remain visible with glyphs off.
+- The persistent Swift service, not peers, derives scores/lives using the same
+  pure rules. The app projects local feedback and reconciles receipts/snapshots.
+  PHP stores isolated service-reported unranked aggregates, not replayed v2 proof.
+- No coins, achievements, v2 ranked season/leaderboard or Game Center publication.
+  Historical v1 leaderboard rows remain separate and read-only in the new client.
+
+The complete shared-board adaptations, input admission boundaries and remaining
+acceptance work are in [MULTIPLAYER_V2_REBUILD](MULTIPLAYER_V2_REBUILD.md).
+They do not promise exact independent Arcade cadence, measured latency, or a
+hosted/physically validated service. Arcade's changing player-color rule below
+does not apply to the fixed seat colors in v2.
 
 ## Arcade/Zen board progression
 
@@ -136,45 +154,14 @@ authenticated context adds the player's best and neighbors. Order is score,
 duration, hits, creation time, then stable result ID. Zen rows are historical and
 read-only.
 
-## Multiplayer schedule and transcript
+## Historical Multiplayer v1
 
-The current coordinator rotates one target and decoy ownership across living seats.
-Targets are 250–5,000 ms apart. Response windows are 1,000 ms before 20 seconds,
-linearly 1,000→750 from 20–30, 750 from 30–40, reset to 1,000 from 40–50, then
-decrease 5 ms per owning-player challenge hit to a 200 ms floor. Multiplayer uses
-the same scoring/streak rules as Arcade.
-
-The fixed coordinator currently:
-
-1. authors future activation plans;
-2. converts touch time to coordinator logical time;
-3. sorts queued input by `(inputAt, seat, inputSequence)`;
-4. commits only through the minimum complete sealed per-seat input frontier; and
-5. broadcasts one canonical event stream and recovery snapshots reliably.
-
-The v1 transcript has contiguous sequence numbers and nondecreasing logical time:
-
-| Event | Tuple |
-| --- | --- |
-| Target | `[0, seq, at, ownerSeat, targetId, cell, color]` |
-| Hit | `[1, seq, inputAt, handledAt, seat, targetId, cell]` |
-| Miss | `[2, seq, inputAt, handledAt, seat, reason, cell]` |
-| Decoy | `[3, seq, at, ownerSeat, decoyId, cell, color, lifetimeMs]` |
-| Expire | `[4, seq, at, decoyId]` |
-| Player out | `[5, seq, at, seat]` |
-| Finish | `[6, seq, at]` |
-
-The limit is 2,500 events and 15 minutes. All peers must retain the identical
-stream plus sender evidence and submit the same manifest hash/transcript. Missing
-evidence, sequence recovery, or coordinator loss cancels/withholds rather than
-fabricating a result. Placement is score, hits, rounded average reaction, then seat.
-
-Build 24 acknowledges local contact immediately without mutating canonical score,
-life, rating, or transcript state. Canonical reconciliation applies those changes
-once. Packet recovery never penalizes a target that was not presented: logical
-progress is held behind Start and pause/Resume ordering barriers. Presentation still
-uses the plan's scheduled `at`, and one target rotates among all seats; changing
-either requires separately versioned follow-up work.
+Uploaded build 24 uses the old fixed 4×4 GameKit peer coordinator and
+`multiplayer-own-color-v1`, protocol/proof 1. That implementation's rotating
+targets, sealed input frontiers and unanimous transcript settlement are not v2
+rules. Historical clean results retain `peer_consistent_v1`; they are neither
+server-authoritative nor retrospectively upgraded. Old schedule/transcript details
+are recoverable from Git history. No historical PHP data is deleted by the rewrite.
 
 ## Presentation, rewards, and cosmetics
 

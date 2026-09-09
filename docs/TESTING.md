@@ -1,17 +1,20 @@
 # Testing and quality gates
 
-PimPoPom is timing-sensitive and handles public identity, paid value, ads, and
-peer-consistent ranking. Automated checks are necessary; Simulator evidence is not
-physical-device evidence.
+PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranked
+Arcade and an unranked Multiplayer v2 candidate. Automated checks are necessary;
+Simulator evidence is not physical-device evidence.
 
 ## Current release evidence
 
-- `1.02 (24)` is a source candidate only. Its exact commit must pass the full local
-  gate before merge and has not been uploaded.
-- TestFlight `1.02 (22)` is VALID and assigned only to Internal QA, but its
-  Multiplayer recovery is known unstable.
-- Build 20 is the retained beta rollback. Physical 2/3/4-device and 60/120 Hz
-  acceptance remains required before FAST or production acceptance.
+- Direct App Store Connect read on 2026-09-08 found build 24 VALID, uploaded
+  2026-08-22, with Internal QA and External QA groups. External state was
+  `READY_FOR_BETA_SUBMISSION`, not evidence of external testability.
+- Uploaded build 24 is the historical GameKit/v1 beta. Today's v2 source has no
+  new TestFlight upload/deployment; configured `1.02 (24)` is unchanged.
+- Final integrated v2 check counts/logs must be recorded in
+  [CURRENT_VERSION](CURRENT_VERSION.md) after the exact candidate runs.
+  Build 20 remains the historical rollback reference; current installability
+  and physical acceptance are not inferred from old notes.
 
 ## Required local gate
 
@@ -35,9 +38,10 @@ Behavior changes require focused tests before the full gate.
 - Arcade/Zen phase, grid, response-window, recovery, decoy, scoring, rating,
   multiplier, proof, and terminal boundaries.
 - Exact Arcade v3 color-bearing proof tuples and monotonic timestamps.
-- Multiplayer manifest/tuple validation, reducer replay, lives/recovery, target and
-  dodge rotation, score/streak, placement, snapshot, coordinator planning, sealed
-  input frontiers, live resolutions, and terminal drain.
+- V2 protocol and shared-board engine: zero-input advancement, random repeats,
+  overlapping owners/cell reservation, total-hit grid growth, per-seat Arcade
+  boundaries, decoy beneficiary/cap rules, recovery, late correction, generation
+  fences, exactly-once receipts, ranking-disabled finish and admission drain.
 - Seeded/property fixtures only; production randomness is not implied deterministic.
 
 ### Gameplay and presentation
@@ -49,7 +53,7 @@ Behavior changes require focused tests before the full gate.
 - HUD, rating/reaction copy, score grouping, Speed Bar, glyphs, and every theme stay
   synchronized with engine state without changing hit geometry.
 - Multiplayer waiting/live/results states cover 2/3/4 seats, pets, colors, names,
-  readiness, crowns, elimination, collecting/settled/review, and accessibility.
+  readiness, crowns, elimination, reconnect, unranked results, and accessibility.
 
 ### API, identity, and economy
 
@@ -62,8 +66,10 @@ Behavior changes require focused tests before the full gate.
 - Ranked Arcade ticket/finish tuple, exact run ID, duplicate/review/quarantine, and
   no silent local downgrade.
 - Achievement, theme, pet, wallet, debt, selection, and StoreKit response validation.
-- Multiplayer lobby/roster/start/submission/settlement and public leaderboard against
-  build `20260729-1` contract.
+- V2 cookie/CSRF ticket capabilities, service-only redemption/validation, logout/
+  deletion/reconnect and immutable unranked result intake against separate PHP.
+- Historical v1 leaderboard reads validate `peer_consistent_v1` without new v1
+  mutations or mixing v2 results.
 
 ### StoreKit
 
@@ -88,22 +94,25 @@ Sandbox/TestFlight for value integration:
   and reset only on presentation start.
 - Privacy manifest/SDK declarations, no ATT path, no secrets, and redacted logs.
 
-### FAST Multiplayer
+### Multiplayer v2 service and network
 
-The current packet, prediction, evidence, control, snapshot, and 2/3/4-seat matrix
-is defined in [MULTIPLAYER_FAST_TASK](MULTIPLAYER_FAST_TASK.md). Before build 24 is
-physically accepted, require:
+Use the shared-core tests, `swift test --package-path Server -j 4`,
+`bash Server/Scripts/linux-check.sh` and real local WebSocket harness described in
+[Server/README.md](../Server/README.md). Separate PHP owns `composer check`,
+disposable MariaDB migration/auth/result tests and account-deletion tests.
+Passing one layer does not imply the integrated others passed.
 
-- local acknowledgement p95 at or below 33 ms on 60/120 Hz hardware;
-- no intentional canonical wait on local presentation;
-- zero burst-tap double penalties and zero orphaned evidence;
-- exactly one disposition per InputID and byte-identical transcripts;
-- sealed-frontier preservation of earlier inputs after fast-copy loss;
-- no notice below 1 second, interactive `Catching up` from 1–15 seconds, and no
-  cancellation before the bounded deadline;
-- no unseen-target miss/finish while Start, plan, pause, or Resume delivery recovers;
-- mixed live-wire versions rejected before Ready/start;
-- 100% valid settlement across supported loss/reorder/duplicate cases.
+Acceptance covers 2/3/4 independent clients, no tap before Start, natural finishes,
+Ready revisions, duplicate Start/input, roster churn, bounded late correction,
+disconnect/rejoin generations, background/foreground and malformed/slow sockets.
+Test authenticated WSS/PHP revocation and outbox idempotency across outage,
+restart, conflicting delivery, disk full and deletion. V2 remains unranked.
+
+Local contact-to-feedback within one display frame is a goal, not a measured
+claim. Under documented RTT/jitter/loss, measure peer Ready, confirmation, visible
+feedback and convergence separately. The service's requested 60 Hz scheduler
+does not prove device render or touch latency. Old FAST/seal/transcript tests
+are historical, not current v2 acceptance criteria.
 
 ## UI and accessibility
 
@@ -125,8 +134,8 @@ On the oldest supported and current iOS, cover extended Arcade/Zen, audio routes
 interruptions, haptics, lifecycle, Low Power Mode, UMP/ads, StoreKit Sandbox,
 Apple/Google/Game Center identity, deletion, update/reinstall/offline launch, and
 accessibility. Multiplayer requires distinct 2-, 3-, and 4-device/account matches,
-coordinator/non-coordinator outcomes, reconnect, transcript equality, settlement,
-and leaderboard visibility.
+local/remote seat outcomes, shared-board consistency, personal reconnect,
+unranked completion and isolation from historical leaderboard writes.
 
 Record device, OS, refresh rate, build, commit, configuration, account/ad state,
 network profile, result, and artifact location. Never retain secrets or raw identity/

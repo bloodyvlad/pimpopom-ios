@@ -1,8 +1,9 @@
 # PimPoPom
 
 PimPoPom is an iPhone-only color-reaction game built with SwiftUI, SpriteKit,
-GameKit, StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade,
-Zen, and a 2–4-player Multiplayer beta are implemented.
+StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen are
+retained; a new 2–4-player Multiplayer v2 implementation is a local, unranked
+candidate. Game Center remains a separate account/publication integration.
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
@@ -13,22 +14,22 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (24)` candidate |
-| Current TestFlight | Build 22; valid, Internal QA only; known unstable Multiplayer recovery |
-| Candidate | Build 24 source; TestFlight upload not authorized |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (24)` unchanged pending a future release |
+| Last directly checked TestFlight | Build 24, VALID, uploaded 2026-08-22; checked 2026-09-08 |
+| Beta groups / external state | Internal QA and External QA; `READY_FOR_BETA_SUBMISSION`, not proof of external testability |
+| Local candidate | Multiplayer v2 client/shared core/Vapor service; not uploaded or deployed |
 | Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Open release gate | Physical 2/3/4-device, reconnect, and 60/120 Hz acceptance |
-| Production App Store | Not released |
+| Open release gate | Hosting choice, authenticated WSS integration, full source gate, physical 2/3/4-device and latency acceptance |
+| Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-Build 24 keeps immediate local feedback and makes ordinary late input non-fatal:
-ordinary gaps stay interactive, `Catching up` appears only after one second, and
-recovery has a 15-second ceiling. Start, pause, Resume, Finish, cancel, evidence,
-and snapshots are retained or retried without changing PHP transcript/proof v1.
-Resume advances after its reliable send reaches every intended peer; exact ACK
-recovery continues in the background.
-It is a tested source candidate, not a TestFlight deployment. See
-[the current slice](docs/CURRENT_VERSION.md).
+The uploaded build 24 is the earlier GameKit/v1 beta, not today's v2 source.
+V2 replaces live peer synchronization with a persistent Swift room authority and
+reuses the Arcade SpriteKit board. The owner confirmed one identical shared board;
+waiting for an own-color opportunity, including on 1×1, is intentional. Numerical
+Arcade rules are shared, but cell contention and delivery headroom can extend
+personal target spacing. No host purchase, PHP deployment, or new TestFlight
+upload is authorized for this local-code task. See [current status](docs/CURRENT_VERSION.md).
 
 ## Implemented product
 
@@ -36,9 +37,10 @@ It is a tested source candidate, not a TestFlight deployment. See
   ratings, streak multipliers, protocol-verified ranking, coins, and achievements.
 - **Zen:** endless local practice with no lives, deadline, decoys, ranking, coins,
   achievements, or durable result.
-- **Multiplayer beta:** 2–4 signed-in players, own-color targets, GameKit live
-  traffic, PHP lobby/manifest/replay/settlement, no coins or achievements, and
-  protocol-verified peer-consistent results.
+- **Multiplayer v2 candidate:** 2–4 signed-in, confirmed-name players on one shared
+  progressive board; own-color targets, independent scores/lives, socket-owned
+  rooms and Ready/Start, and no Game Center prerequisite. Unranked, no coins,
+  achievements or v2 Game Center publication. Historical v1 leaderboard reads remain.
 - **Identity:** Sign in with Apple and Google map to one internal profile; Game
   Center is a verified secondary link and never authenticates a wallet.
 - **Economy:** the server owns coins, achievements, catalogs, purchases, and
@@ -48,9 +50,9 @@ It is a tested source candidate, not a TestFlight deployment. See
 - **Presentation:** Default, Disco, Light, and Pixel themes; selectable icons;
   pets; independent Sound FX, music, haptics, and glyph settings.
 
-The current [FAST Multiplayer slice](docs/MULTIPLAYER_FAST_TASK.md) is implemented
-in build 24. PHP compatibility remains v1; host migration, custom LAN routing, and
-concurrent per-seat targets remain deferred.
+The [v2 implementation brief](docs/MULTIPLAYER_V2_REBUILD.md) describes current
+local behavior and remaining gates. [Hosting options](docs/MULTIPLAYER_V2_HOSTING.md)
+are researched, not selected or provisioned. The old FAST design is superseded.
 
 ## Build and test
 
@@ -74,9 +76,9 @@ visibly says **Test mode**.
 
 ## Documentation
 
-The requested from-scratch multiplayer replacement is specified in
-[Multiplayer v2 rebuild](docs/MULTIPLAYER_V2_REBUILD.md). It is a researched,
-unimplemented proposal; current source and wire behavior below remain v1.
+For the local v2 candidate, use the current slice, v2 brief, shared `MP2*` source,
+and [service contract](Server/README.md). Older v1 gameplay/API/release sections
+describe the retained beta/backend baseline, not proof of v2 deployment.
 
 | Concern | Current source |
 | --- | --- |
@@ -88,7 +90,9 @@ unimplemented proposal; current source and wire behavior below remain v1.
 | Ads, StoreKit, economy, and privacy | [MONETIZATION_AND_PRIVACY](docs/MONETIZATION_AND_PRIVACY.md) |
 | Automated and physical quality gates | [TESTING](docs/TESTING.md) |
 | TestFlight/App Store release process | [RELEASE](docs/RELEASE.md) |
-| Approved Multiplayer latency work | [MULTIPLAYER_FAST_TASK](docs/MULTIPLAYER_FAST_TASK.md) |
+| Local Multiplayer v2 rules and integration | [MULTIPLAYER_V2_REBUILD](docs/MULTIPLAYER_V2_REBUILD.md) |
+| Hosting decision, prices and lifecycle caveats | [MULTIPLAYER_V2_HOSTING](docs/MULTIPLAYER_V2_HOSTING.md) |
+| Historical FAST pointer | [MULTIPLAYER_FAST_TASK](docs/MULTIPLAYER_FAST_TASK.md) |
 | Current visual evidence | [DESIGN_QA](docs/DESIGN_QA.md) |
 | Asset provenance | `assets/**/SOURCES.md` |
 | Privacy and security summaries | [PRIVACY](PRIVACY.md), [SECURITY](SECURITY.md) |
@@ -98,8 +102,9 @@ from Git history, not duplicated in the current working tree.
 
 ## Repository boundaries
 
-This repository owns the native client, pure Swift rules, tests, resources, and
-iOS compatibility contracts. It does not own or contain the PHP implementation.
+This repository owns the native client, pure Swift rules, the separate `Server/`
+Vapor package, tests, resources, and iOS compatibility contracts. It does not own
+or contain the PHP implementation.
 Backend changes require a separate reviewed task in the backend repository; an
 iOS task must never edit, restore, stage, commit, or deploy that repository.
 
