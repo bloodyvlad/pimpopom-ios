@@ -108,7 +108,8 @@ The iOS client requests a single-use ticket from
 Redemption sends ticket, protocolVersion and ruleset; the authenticated response
 contains playerID, name, nullable petID, sessionBinding, expiresAt (Unix seconds),
 protocolVersion and ruleset. Exact capability checks reject incompatible peers.
-Session validation runs every 15 seconds with a five-second request timeout,
+Session validation runs every 15 seconds and immediately before every resume,
+with a five-second request timeout,
 including PHP's logout/deletion revocation. Fresh ticket authentication precedes
 every resume. Network/auth validation failure closes the affected connection.
 

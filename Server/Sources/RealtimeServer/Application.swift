@@ -131,6 +131,7 @@ public enum RealtimeApplication {
                     group.addTask {
                         let decoder = JSONDecoder()
                         var authenticated = false
+                        var identity: AuthenticatedPlayer?
                         for await text in input.stream {
                             do {
                                 let message = try decoder.decode(MP2ClientMessage.self, from: Data(text.utf8))
@@ -144,8 +145,22 @@ public enum RealtimeApplication {
                                     let player = try await authenticator.redeem(ticket)
                                     await service.authenticated(
                                         id: connectionID, player: player, now: ServerClock.milliseconds())
+                                    identity = player
                                     authenticated = true
                                 } else {
+                                    if case .resume = message, let player = identity {
+                                        do {
+                                            let refreshed = try await authenticator.validate(player)
+                                            await service.validated(
+                                                RoomService.Validation(connectionID: connectionID, player: player),
+                                                refreshed: refreshed, now: ServerClock.milliseconds())
+                                            identity = refreshed
+                                        } catch {
+                                            await service.authenticationFailed(
+                                                id: connectionID, now: ServerClock.milliseconds())
+                                            break
+                                        }
+                                    }
                                     await service.receive(message, from: connectionID, now: ServerClock.milliseconds())
                                 }
                             } catch {
