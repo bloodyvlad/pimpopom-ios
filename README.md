@@ -2,8 +2,8 @@
 
 PimPoPom is an iPhone-only color-reaction game built with SwiftUI, SpriteKit,
 StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen are
-retained; a new 2–4-player Multiplayer v2 implementation is a local, unranked
-candidate. Game Center remains a separate account/publication integration.
+retained; the new 2–4-player Multiplayer v2 is an online, unranked playtest.
+Game Center remains a separate account/publication integration.
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
@@ -14,16 +14,16 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (25)` authorized release candidate, not yet uploaded |
-| Last directly checked TestFlight | Build 24, VALID, uploaded 2026-08-22; checked 2026-09-08 |
-| Beta groups / external state | Internal QA and External QA; `READY_FOR_BETA_SUBMISSION`, not proof of external testability |
-| Local candidate | Multiplayer v2 client/shared core/Vapor service; not uploaded or deployed |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (25)` uploaded 2026-09-09 |
+| TestFlight state | Build 25 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-09) |
+| Exact released source | `962a39de80277534dd45eca56ca913217bde1fbb` |
+| Hosting | Railway Amsterdam; separate PHP v2 bridge and migration 023 deployed |
 | Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Open release gate | Railway EU deployment, authenticated WSS integration, full source gate; physical 2/3/4-device and latency acceptance remain QA gates |
+| Open QA gates | Real-account hosted matches, physical 2/3/4-device/network/latency acceptance; public legal URLs and reviewer access |
 | Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-The uploaded build 24 is the earlier GameKit/v1 beta, not today's v2 source.
+Build 24 is the earlier GameKit/v1 beta; build 25 contains v2.
 V2 replaces live peer synchronization with a persistent Swift room authority and
 reuses the Arcade SpriteKit board. The owner confirmed one identical shared board;
 waiting for an own-color opportunity, including on 1×1, is intentional. Numerical
@@ -38,7 +38,7 @@ or App Store production submission is authorized. See [current status](docs/CURR
   ratings, streak multipliers, protocol-verified ranking, coins, and achievements.
 - **Zen:** endless local practice with no lives, deadline, decoys, ranking, coins,
   achievements, or durable result.
-- **Multiplayer v2 candidate:** 2–4 signed-in, confirmed-name players on one shared
+- **Multiplayer v2 playtest:** 2–4 signed-in, confirmed-name players on one shared
   progressive board; own-color targets, independent scores/lives, socket-owned
   rooms and Ready/Start, and no Game Center prerequisite. Unranked, no coins,
   achievements or v2 Game Center publication. Historical v1 leaderboard reads remain.
@@ -52,8 +52,8 @@ or App Store production submission is authorized. See [current status](docs/CURR
   pets; independent Sound FX, music, haptics, and glyph settings.
 
 The [v2 implementation brief](docs/MULTIPLAYER_V2_REBUILD.md) describes current
-local behavior and remaining gates. [Hosting options](docs/MULTIPLAYER_V2_HOSTING.md)
-remain background research; Railway Amsterdam is now selected and provisioned.
+behavior and remaining gates. [Hosting options](docs/MULTIPLAYER_V2_HOSTING.md)
+remain background research; Railway Amsterdam is now deployed and boundary-tested.
 See the [deployment record](Server/DEPLOYMENT_RAILWAY.md). The old FAST design is superseded.
 
 ## Build and test
@@ -78,7 +78,7 @@ visibly says **Test mode**.
 
 ## Documentation
 
-For the local v2 candidate, use the current slice, v2 brief, shared `MP2*` source,
+For v2, use the current slice, v2 brief, shared `MP2*` source,
 and [service contract](Server/README.md). Older v1 gameplay/API/release sections
 describe the retained beta/backend baseline, not proof of v2 deployment.
 

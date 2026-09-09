@@ -7,19 +7,64 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 | Item | Current truth |
 | --- | --- |
-| Configured version | `1.02 (25)`; authorized QA release candidate, not yet uploaded |
-| Last direct App Store Connect check | 2026-09-08: build 24 VALID, uploaded 2026-08-22 |
-| Groups / external state | Internal QA and External QA; `READY_FOR_BETA_SUBMISSION`, not proof of external testability |
-| Uploaded binary | Historical GameKit/v1 beta, not today's v2 source |
-| Local candidate | New native socket/shared-core/Vapor v2 plus separate PHP bridge; not deployed/uploaded |
+| Current beta | `1.02 (25)`, uploaded 2026-09-09; VALID |
+| App Store Connect build | `b8afe802-32d4-4538-aaf1-b27182693653`; external-eligible, non-exempt encryption false |
+| Groups / external state | Internal QA and External QA both `IN_BETA_TESTING`; beta review `APPROVED` |
+| Uploaded source | `962a39de80277534dd45eca56ca913217bde1fbb`, clean Staging archive/export |
+| Hosted backend | Railway Amsterdam v2 and PHP bridge/migration 023 deployed; boundary checks passed |
 | Rollback beta reference | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7`; current installability not reverified |
 | Authorized work | Railway EU service, separate PHP v2 bridge/migration 023, TestFlight Internal QA/External QA; no paid-plan upgrade or App Store production submission |
 | Production App Store | No production release established by this task |
 
-Hosting choice, authenticated WSS/PHP integration, exact source gates and physical
-2/3/4-device/60/120 Hz acceptance remain open. Keep archive/dSYM/source identity
-separate from the build number: no exact v2 commit is associated with the uploaded
-build 24. Direct external-state evidence is summarized in CURRENT_VERSION.md.
+Real signed-in 2/3/4-device matches, 60/120 Hz acceptance and public legal URLs
+remain open. Build 24 remains the historical GameKit/v1 binary.
+
+## Build 25 evidence
+
+| Item | Verified value |
+| --- | --- |
+| Source branch | `codex/railway-eu-testflight`; uploaded source SHA above, later documentation commits are not new binaries |
+| Toolchain | Xcode 26.6 (17F113), Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.6.2 |
+| Configuration | PimPoPom Staging; iOS 17+, `-O`, whole-module, `STAGING` without `DEBUG`; test ads |
+| Archive TGZ SHA-256 | `915eee26aa49000f0c436c4197afca02892f5aa8642ae308c41434d8421e4e80` |
+| 115-file archive manifest SHA-256 | `8152484990ce751f239c713baca9f12c0a11972b733b4faa114ccb6d7e959a2d` |
+| App and matching dSYM UUID | `7C5E3C9F-8EBE-3B5E-91A3-FD52FBAC634D` |
+| App dSYM SHA-256 | `fbea81ff4973bc6ff5ae95b30b1ff9d32eb895f2fcf44c25eca601fa0c1a15be` |
+| Apple upload timestamp | 2026-09-09 15:41:07 UTC |
+| Expiration reported by Apple | 2026-12-08 15:41:07 UTC |
+
+`ARCHIVE SUCCEEDED`, `Upload succeeded`, `Uploaded package is processing`, and
+`EXPORT SUCCEEDED` were verified. The app signature and matching symbols passed;
+no `.p8`, `.storekit`, local config, test fixture directory or credential file was
+found in the archive. Twelve privacy manifests were present. The automatic-signing
+archive used development entitlements; App Store export selected distribution
+signing and disabled task allowance. Apple reports `APP_STORE_ELIGIBLE`, not an
+internal-only upload, and `usesNonExemptEncryption=false`.
+
+GoogleMobileAds and UserMessagingPlatform dSYMs were not included in the archive.
+Apple accepted the upload with warnings; app-owned symbols are retained,
+but third-party crash symbolication can be incomplete. No vendor symbols were
+fabricated. The unrelated AppIntents extraction warning is non-blocking.
+
+Release artifacts and passing logs are under `build/releases/build25-20260909/`.
+The retained `PimPoPom-build25.xcresult` directly confirms 209 app/UI tests passed
+with zero failures/skips, including the native loopback socket test and four UI
+checks, on PimPoPom iPhone 17 / iOS 26.5 Simulator. Shared-core tests passed 63;
+service tests passed 11 on macOS and Linux. No physical-device claim is made.
+Private archive/upload logs stay outside Git with owner-only access. Server image,
+outbox restart, PHP artifact/migration, backup and rollback evidence is in the
+[Railway deployment record](../Server/DEPLOYMENT_RAILWAY.md).
+
+The en-US What to Test, beta description and reviewer notes were updated for v2.
+Existing contact details and the external group's public link were preserved.
+Both original QA groups were assigned build 25 after it became VALID. Beta review
+submission was accepted, then a direct follow-up read around 16:01 UTC reported
+`APPROVED`, internal `IN_BETA_TESTING` and external `IN_BETA_TESTING`.
+`autoNotifyEnabled=true` was preserved; no duplicate manual notification was sent.
+Public privacy-policy/support URLs are still missing; the owner has been asked
+for actual URLs. Reviewer notes honestly describe Apple/Google self-registration
+and the two-device requirement, with no invented demo credentials. API-reported
+beta approval does not establish a real-device match or production approval.
 
 ## Release identity record
 

@@ -6,12 +6,12 @@ Simulator evidence is not physical-device evidence.
 
 ## Current release evidence
 
-- Direct App Store Connect read on 2026-09-08 found build 24 VALID, uploaded
-  2026-08-22, with Internal QA and External QA groups. External state was
-  `READY_FOR_BETA_SUBMISSION`, not evidence of external testability.
-- Uploaded build 24 is the historical GameKit/v1 beta. Build `1.02 (25)` is now
-  being prepared for the owner-authorized Railway EU/TestFlight QA release.
-  Configuration alone does not prove upload, availability or deployment.
+- Build `1.02 (25)` was uploaded on 2026-09-09 and is VALID, with Internal QA and
+  External QA both `IN_BETA_TESTING` and beta review `APPROVED`.
+  Railway EU and the PHP v2 bridge/migration 023 are deployed and boundary-tested.
+  Current Apple/group/review evidence is recorded in [RELEASE](RELEASE.md).
+- Build 24 is the historical GameKit/v1 beta. Local/hosted checks do not establish
+  a real signed-in match, physical touch latency or external beta availability.
 - Final integrated v2 check counts/logs must be recorded in
   [CURRENT_VERSION](CURRENT_VERSION.md) after the exact candidate runs.
   Build 20 remains the historical rollback reference; current installability

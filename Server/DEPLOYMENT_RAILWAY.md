@@ -2,8 +2,8 @@
 
 Owner-authorized on 2026-09-09: one EU multiplayer service, the separate PHP v2
 bridge, and a new TestFlight build for the existing Internal QA and External QA
-groups. This record is not proof of a successful deployment or Apple approval;
-append exact release evidence after verification.
+groups. The hosted release and boundary checks below passed. Real-player match
+acceptance and Apple's external beta approval are separate gates.
 
 ## Provisioned target
 
@@ -97,8 +97,46 @@ database backups and do not drop additive v2 tables as routine rollback.
 
 ## Evidence
 
-Provisioning and release preparation are in progress. No successful hosted match
-or TestFlight build 25 availability is established by this initial record.
+Verified 2026-09-09:
+
+| Evidence | Value |
+| --- | --- |
+| Clean source | `962a39de80277534dd45eca56ca913217bde1fbb` |
+| Railway deployment | `ece352a2-d7e1-4512-9f16-aad11daa6602`, SUCCESS, one Amsterdam replica |
+| Source tar SHA-256 | `eceb9ffdf5579f2c20b38b266095c933ed5dd09c98a9db9e9abed1dcc5e213aa` |
+| Linux/amd64 image digest | `sha256:02c4d013abeed5e7561d2983a19e848dca5833661ddab039fec40f9fbccc7946` |
+| Runtime binary SHA-256 | `da99b0015ff7899a40867baf28bef9c45a9764ecd27283bb4af0dbad4c0a25ec` |
+| PHP deployed source | `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0` |
+| PHP artifact SHA-256 | `dd5a9ad241d0cd1dce7da9bf1389c130d558bcc4a035a1135e5097f2bccce5c7` |
+| PHP migration/season | 023 applied; existing 001–022 already present; season-1 unchanged |
+
+Public TLS health returned protocol 2, `multiplayer-shared-arcade-v2`, ranking
+disabled and zero rooms/connections. Negative WSS checks rejected no-hello,
+pre-hello Create, development tickets and the wrong protocol. One ping/pong was
+52 ms; this isolated sample is not a gameplay-latency benchmark.
+
+Runtime PID 1 was UID/GID 10001 with `NoNewPrivs=1`. Outbox/archive directories
+were owner-only 0700 on the `/app/data` ext4 mount. An exact own 43-byte non-JSON
+probe survived one controlled empty-service restart with its hash unchanged,
+then was removed as UID 10001. No result JSON was created or altered by the test.
+
+Railway-to-PHP HTTPS accepted the real service key and reached the expected
+nonexistent-ticket rejection, with CA/hostname verification enabled. The key was
+sent through TLS stdin, never arguments/logs. PHP passed 35 live boundary checks,
+including service authentication, normal session/CSRF/origin gates, retained API
+compatibility and private-path denial. This does not establish successful player
+sign-in, a complete hosted match, reconnect/revocation, or real result delivery.
+
+Temporary Railway SSH registration/material and all temporary Hostinger cron jobs
+were removed; original workers and SSH configuration were preserved. SSH used
+task-local, strict first-use host-key pinning, not an independently published key.
+The first attempted Railway deployment failed before building because Dockerfile
+`VOLUME` declarations are unsupported; only the successful source above is live.
+
+Retained local artifacts/logs: `build/releases/build25-20260909/`. The separate PHP
+release/rollback record is
+`/Users/vlad/Documents/SpeedyTapper-release-artifacts/20260909-v2.cwDiG8/RELEASE.md`.
+See [iOS release state](../docs/RELEASE.md) for Apple processing/review evidence.
 
 Sources checked 2026-09-09: [regions](https://docs.railway.com/deployments/regions),
 [volumes](https://docs.railway.com/volumes),
