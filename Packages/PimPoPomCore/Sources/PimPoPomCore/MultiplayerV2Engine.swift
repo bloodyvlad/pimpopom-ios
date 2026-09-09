@@ -24,6 +24,7 @@ public struct MP2Engine: Sendable {
     private enum Resolution: Sendable {
         case open
         case expired(eventID: Int)
+        case disconnected
         case hit
         case void
     }
@@ -31,6 +32,7 @@ public struct MP2Engine: Sendable {
     private struct TargetRecord: Sendable {
         let target: MP2Target
         var resolution: Resolution
+        var disconnectCutoffMs: Int?
     }
 
     private struct SeatState: Sendable {
@@ -156,14 +158,24 @@ public struct MP2Engine: Sendable {
         return result
     }
 
-    /// Disconnect voids only this seat's current opportunity; the room service owns its rejoin timer.
+    /// Disconnect removes only this seat's current opportunity. Retained history can
+    /// admit a bounded original contact at/before the cutoff after authenticated rejoin.
     @discardableResult
     public mutating func disconnect(seat: Int, at: Int) -> MP2Snapshot {
         advance(to: at)
         guard seats[seat] != nil, phase != .finished else { return snapshot }
         seats[seat]!.base.connected = false
         seats[seat]!.player.connected = false
-        voidOpenTargets(seat: seat)
+        for id in targets.keys.sorted() where targets[id]!.target.ownerSeat == seat {
+            switch targets[id]!.resolution {
+            case .open:
+                targets[id]!.resolution = .disconnected
+                targets[id]!.disconnectCutoffMs = elapsedMs
+            case .expired:
+                targets[id]!.disconnectCutoffMs = min(targets[id]!.disconnectCutoffMs ?? elapsedMs, elapsedMs)
+            case .disconnected, .hit, .void: break
+            }
+        }
         clearDecoys(seat: seat)
         revision += 1
         return snapshot
@@ -231,9 +243,12 @@ public struct MP2Engine: Sendable {
                 }
                 return mistake(input, reason: "wrong-color")
             }
+            if let cutoff = record.disconnectCutoffMs, input.contactAtMs > cutoff {
+                return receipt(input, false, "after-disconnect")
+            }
             switch record.resolution {
             case .hit, .void: return receipt(input, false, "target-resolved")
-            case .open, .expired: break
+            case .open, .expired, .disconnected: break
             }
             let reaction = input.contactAtMs - input.presentedAtMs
             guard reaction < target.responseWindowMs else {
@@ -257,7 +272,7 @@ public struct MP2Engine: Sendable {
             updateFinish()
             processCurrentTime()
             revision += 1
-            return receipt(input, true, expiryID == nil ? "hit" : "corrected-hit")
+            return receipt(input, true, expiryID == nil && record.disconnectCutoffMs == nil ? "hit" : "corrected-hit")
         }
 
         let visibleOwn = targets.values.contains {
@@ -451,7 +466,7 @@ public struct MP2Engine: Sendable {
                 case .open: return record.target.cell
                 case .expired:
                     return elapsedMs < record.target.expiresAtMs + presentationAllowanceMs ? record.target.cell : nil
-                case .hit, .void: return nil
+                case .disconnected, .hit, .void: return nil
                 }
             }
         ).union(decoys.values.map(\.cell))

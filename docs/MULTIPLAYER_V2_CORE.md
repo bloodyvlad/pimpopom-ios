@@ -91,7 +91,13 @@ return to `.playing`. Final gameplay duration freezes at the last actual out;
 the receipt grace is excluded. A 15-minute session cap has the same final
 admission drain. There are no input-dependent finish seals.
 
-Disconnect voids the affected opportunity and suspends only that seat's schedule.
+Disconnect removes the affected opportunity and suspends only that seat's schedule.
+Its immutable target history retains the disconnect cutoff. After authenticated
+rejoin, a first-visible/contact pair at or before that cutoff can still resolve
+the removed target under the ordinary response and two-second receipt bounds.
+Contacts after the cutoff are rejected, including contacts for a target whose
+scheduled expiry was already provisional when the socket disconnected. Rejoin
+does not expose the old target again or extend its first-visible response window.
 The service owns its 15-second rejoin policy and explicitly calls reconnect or
 eliminateDisconnected. Connected opponents keep playing. The core has no global
 disconnect pause or cancellation path and awards no coins or achievements.

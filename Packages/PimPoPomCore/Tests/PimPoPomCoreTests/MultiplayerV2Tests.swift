@@ -387,3 +387,65 @@ func mp2VisibleWindowReservation() throws {
     #expect(engine.submit(input, receivedAt: input.contactAtMs).reason == "corrected-hit")
     #expect(engine.snapshot.players[target.ownerSeat].lives == 3)
 }
+
+@Test("MP2 reconnect admits a lost pre-disconnect contact once without restoring the removed target")
+func mp2DisconnectCutoffAdmission() throws {
+    var engine = try MP2Engine(matchID: "m", players: mp2Players(), seed: 42)
+    engine.advance(to: 700)
+    let target = try #require(engine.snapshot.targets.first)
+    let cutoff = target.activateAtMs + 200
+    let input = mp2Input(target)
+    engine.disconnect(seat: target.ownerSeat, at: cutoff)
+    #expect(!engine.snapshot.targets.contains { $0.ownerSeat == target.ownerSeat })
+    engine.advance(to: cutoff + 200)
+    #expect(!engine.snapshot.targets.contains { $0.ownerSeat == target.ownerSeat })
+    engine.reconnect(seat: target.ownerSeat, at: cutoff + 200)
+    let receipt = engine.submit(input, receivedAt: cutoff + 300)
+    #expect(receipt.accepted && receipt.reason == "corrected-hit")
+    #expect(engine.snapshot.players[target.ownerSeat].hits == 1)
+    #expect(engine.snapshot.players[target.ownerSeat].score == 829)
+    #expect(engine.snapshot.players[target.ownerSeat].lives == 3)
+    #expect(!engine.snapshot.targets.contains { $0.id == target.id })
+    let after = engine.snapshot
+    #expect(engine.submit(input, receivedAt: cutoff + 500) == receipt)
+    #expect(engine.snapshot == after)
+    #expect(engine.snapshot.phase == .playing)
+}
+
+@Test("MP2 reconnect rejects post-disconnect contacts while accepting the exact original cutoff")
+func mp2DisconnectCutoffBoundary() throws {
+    var engine = try MP2Engine(matchID: "m", players: mp2Players(), seed: 42)
+    engine.advance(to: 700)
+    let target = try #require(engine.snapshot.targets.first)
+    let cutoff = target.activateAtMs + 200
+    engine.disconnect(seat: target.ownerSeat, at: cutoff)
+    engine.reconnect(seat: target.ownerSeat, at: cutoff + 100)
+    let fabricated = mp2Input(target, id: 99_990, reaction: 201)
+    #expect(engine.submit(fabricated, receivedAt: cutoff + 100).reason == "after-disconnect")
+    #expect(engine.snapshot.players[target.ownerSeat].score == 0)
+    let boundary = mp2Input(target, id: 99_991, reaction: 200)
+    #expect(engine.submit(boundary, receivedAt: cutoff + 100).reason == "corrected-hit")
+    #expect(engine.snapshot.players[target.ownerSeat].score == 676)
+}
+
+@Test("MP2 disconnect cutoff also fences provisional expiry history and retains the ordinary receipt limit")
+func mp2DisconnectExpiredCutoff() throws {
+    var engine = try MP2Engine(matchID: "m", players: mp2Players(), seed: 42)
+    engine.advance(to: 700)
+    let target = try #require(engine.snapshot.targets.first)
+    let cutoff = target.expiresAtMs + 100
+    engine.disconnect(seat: target.ownerSeat, at: cutoff)
+    engine.reconnect(seat: target.ownerSeat, at: cutoff + 200)
+    let afterCutoff = mp2Input(target, id: 99_992, reaction: 500, presentationDelay: 750)
+    #expect(engine.submit(afterCutoff, receivedAt: cutoff + 200).reason == "after-disconnect")
+    let beforeCutoff = mp2Input(target, id: 99_993, reaction: 300, presentationDelay: 750)
+    #expect(engine.submit(beforeCutoff, receivedAt: cutoff + 300).reason == "corrected-hit")
+    #expect(engine.snapshot.players[target.ownerSeat].lives == 3)
+
+    var delayed = try MP2Engine(matchID: "m", players: mp2Players(), seed: 42)
+    delayed.disconnect(seat: target.ownerSeat, at: target.activateAtMs + 200)
+    delayed.reconnect(seat: target.ownerSeat, at: target.activateAtMs + 300)
+    let stale = mp2Input(target)
+    #expect(delayed.submit(stale, receivedAt: stale.contactAtMs + 2_001).reason == "invalid-timing-or-input")
+    #expect(delayed.snapshot.players[target.ownerSeat].hits == 0)
+}
