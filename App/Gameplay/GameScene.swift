@@ -22,6 +22,14 @@ final class GameScene: SKScene {
     weak var eventDelegate: GameSceneEventDelegate?
 
     private var snapshot: GameSnapshot?
+    private var sharedBoard: [Cell]?
+    private var sharedDimension = 1
+    private struct SharedGeometry {
+        let presentedAt: Double
+        let board: CGRect
+        let cells: [CGRect]
+    }
+    private var sharedGeometry: [SharedGeometry] = []
     private var cellFrames: [CGRect] = []
     private var pendingRoundActivation = false
     private var pendingDecoyActivation = false
@@ -43,7 +51,20 @@ final class GameScene: SKScene {
     }
 
     func apply(_ snapshot: GameSnapshot) {
+        sharedBoard = nil
+        sharedGeometry.removeAll()
         self.snapshot = snapshot
+        rebuildBoard()
+    }
+
+    /// Multiplayer uses the exact Arcade renderer, not a second SwiftUI grid.
+    func applySharedBoard(dimension: Int, cells: [Cell]) {
+        guard [1, 2, 4].contains(dimension), cells.count == dimension * dimension else { return }
+        guard sharedDimension != dimension || sharedBoard != cells else { return }
+        snapshot = nil
+        sharedDimension = dimension
+        sharedBoard = cells
+        roundPresentationExpired = false
         rebuildBoard()
     }
 
@@ -98,6 +119,7 @@ final class GameScene: SKScene {
             eventDelegate?.gameScene(self, requestsDecoyActivationAt: milliseconds)
         }
         eventDelegate?.gameScene(self, didAdvanceTo: milliseconds)
+        recordSharedBoardPresentation(at: milliseconds)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with _: UIEvent?) {
@@ -110,16 +132,20 @@ final class GameScene: SKScene {
     }
 
     func handleBoardTouch(at location: CGPoint, inputAt: Double, handledAt: Double) {
-        guard snapshot != nil, boardFrame.contains(location) else { return }
+        guard snapshot != nil || sharedBoard != nil else { return }
+        let index: Int?
+        if sharedBoard != nil {
+            index = sharedCellIndex(at: location, inputAt: inputAt)
+        } else {
+            guard boardFrame.contains(location) else { return }
+            index = cellFrames.firstIndex(where: { $0.contains(location) }) ?? gapMissCellIndex(closestTo: location)
+        }
+        guard let index else { return }
         let normalizedLocation = CGPoint(
             x: min(1, max(0, location.x / max(size.width, 1))),
             y: min(1, max(0, 1 - (location.y / max(size.height, 1))))
         )
         eventDelegate?.gameScene(self, didPointAt: normalizedLocation)
-        let index =
-            cellFrames.firstIndex(where: { $0.contains(location) })
-            ?? gapMissCellIndex(closestTo: location)
-        guard let index else { return }
         eventDelegate?.gameScene(
             self,
             didTapCell: index,
@@ -127,6 +153,28 @@ final class GameScene: SKScene {
             inputAt: inputAt,
             handledAt: handledAt
         )
+    }
+
+    /// A delayed UIKit contact belongs to the grid that was visible at contact,
+    /// even if the shared board expanded before delivery on the main actor.
+    func recordSharedBoardPresentation(at milliseconds: Double) {
+        guard sharedBoard != nil else { return }
+        if sharedGeometry.last?.cells != cellFrames || sharedGeometry.last?.board != boardFrame {
+            sharedGeometry.append(.init(presentedAt: milliseconds, board: boardFrame, cells: cellFrames))
+        }
+        while sharedGeometry.count > 1,
+            sharedGeometry[1].presentedAt < milliseconds - Double(MP2Protocol.lateInputGraceMs)
+        {
+            sharedGeometry.removeFirst()
+        }
+        if sharedGeometry.count > 32 { sharedGeometry.removeFirst(sharedGeometry.count - 32) }
+    }
+
+    func sharedCellIndex(at location: CGPoint, inputAt: Double) -> Int? {
+        guard let geometry = sharedGeometry.last(where: { $0.presentedAt <= inputAt }),
+            geometry.board.contains(location)
+        else { return nil }
+        return geometry.cells.firstIndex(where: { $0.contains(location) }) ?? -1
     }
 
     func tapPoint(
@@ -145,6 +193,8 @@ final class GameScene: SKScene {
     }
 
     private func gapMissCellIndex(closestTo location: CGPoint) -> Int? {
+        // A gap must never be resolved to another player's target.
+        if sharedBoard != nil { return -1 }
         guard let snapshot, cellFrames.count > 1 else { return nil }
         let excludedTarget = snapshot.state == .active ? snapshot.targetIndex : nil
         return cellFrames.indices
@@ -168,15 +218,16 @@ final class GameScene: SKScene {
     }
 
     private func rebuildBoard() {
-        guard let snapshot, size.width > 0, size.height > 0 else { return }
+        guard size.width > 0, size.height > 0 else { return }
+        guard let cells = sharedBoard ?? snapshot?.cells else { return }
         removeAllChildren()
         cellFrames.removeAll(keepingCapacity: true)
 
-        let dimension = snapshot.difficulty.gridDimension
+        let dimension = sharedBoard != nil ? sharedDimension : (snapshot?.difficulty.gridDimension ?? 1)
         let layout = GameBoardLayout(size: size, dimension: dimension)
         boardFrame = layout.boardFrame
 
-        for (index, cell) in snapshot.cells.enumerated() {
+        for (index, cell) in cells.enumerated() {
             let rect = layout.cellFrame(at: index, yAxis: .up)
             let cellSide = layout.cellSide
             let cornerRadius = GameCellVisualMetrics.liveCornerRadius(
@@ -261,6 +312,16 @@ final class GameScene: SKScene {
                 )
             }
             cellFrames.append(rect)
+            if sharedBoard != nil, cell.kind == .decoy {
+                let marker = SKLabelNode(text: "!")
+                marker.name = "cell-trap-\(index)"
+                marker.fontName = "Helvetica-Bold"
+                marker.fontSize = max(16, cellSide * 0.22)
+                marker.fontColor = .white
+                marker.position = CGPoint(x: rect.maxX - 12, y: rect.maxY - marker.fontSize - 4)
+                marker.zPosition = 10
+                addChild(marker)
+            }
         }
     }
 

@@ -92,6 +92,54 @@ benchmarks, forecasts or deployment approval.
 [Railway rates](https://docs.railway.com/pricing/plans),
 [Render rates](https://render.com/pricing).
 
+Fly is also competitive for two always-on regional authorities. The specific
+Frankfurt (`fra`) and Ashburn (`iad`) shared-CPU 1× matrices give:
+
+| Allocated RAM per Machine | Frankfurt | US East | Both, including 1 GB volume each |
+| --- | ---: | ---: | ---: |
+| 512 MB | $3.69 | $3.19 | $7.18/month |
+| 1 GB | $6.57 | $5.70 | $12.57/month |
+
+These are published approximately 30-day estimates, excluding traffic, tax,
+build resources and optional extras. New organizations use pay-as-you-go with
+no required platform subscription. Shared IPv4/IPv6 suffice for WSS on 443;
+dedicated IPv4 is optional, not included or needed here. Unlike Railway's actual
+resource usage, a running Fly Machine bills its allocated size. The same
+room-home routing and measured-capacity requirements apply.
+[Regional prices](https://fly.io/docs/about/pricing/),
+[billing](https://fly.io/docs/about/billing/),
+[public ingress](https://fly.io/docs/networking/services/).
+
+## Transport alternatives under discussion — not a new decision
+
+The removed v1 client used GameKit `GKMatch` plus custom FAST input seals,
+acknowledgements and peer-consistency checks. V2 uses Foundation
+`URLSessionWebSocketTask` with the dedicated Vapor service. Game Center identity
+and historical publication remain separate. The app does not directly use
+Network framework APIs for v2, though Apple's URLSession is built on its
+networking stack. A hosting-provider change does not require replacing gameplay.
+[WebSocket API](https://developer.apple.com/documentation/foundation/urlsessionwebsockettask),
+[Network framework](https://developer.apple.com/documentation/network).
+
+GameKit peer-to-peer remains an alternative for online or nearby play without
+our live server. For a single authority, one phone would run the room engine;
+host departure/backgrounding, rejoin and host migration need explicit design.
+Nearby matchmaking is supported, but this is not a guarantee of offline-only
+operation or a developer-controlled LAN route.
+[Nearby discovery](https://developer.apple.com/documentation/gamekit/gkmatchmaker),
+[host selection](https://developer.apple.com/documentation/gamekit/gkmatch/choosebesthostingplayer(completionhandler:)).
+
+A separate explicitly local mode could use Network framework with Bonjour and
+opt-in peer-to-peer Wi-Fi; it could reuse the pure engine but needs a new local
+transport, trusted host admission and lifecycle tests. Custom QUIC to a dedicated
+server is another option, not limited to LAN. QUIC datagrams could avoid ordered
+stream blocking for replaceable snapshots, but require a compatible server,
+reliable control/input handling and fallback validation. Neither alternative is
+implemented. Keep immediate local feedback and bounded timing compensation
+regardless of transport; test loss/jitter before expanding scope.
+[Apple networking guidance](https://developer.apple.com/documentation/technotes/tn3151-choosing-the-right-networking-api),
+[local peer networking](https://developer.apple.com/documentation/technotes/tn3213-moving-from-multipeer-connectivity-to-network-framework).
+
 ## Persistence, sockets and scaling
 
 - Render disks are accessible to one service instance, prevent horizontal scaling,

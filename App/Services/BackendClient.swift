@@ -1180,6 +1180,26 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         return try await request(path: path, method: method, body: body, csrf: csrfToken)
     }
 
+    func createMultiplayerV2Ticket() async throws -> MultiplayerConnectionTicket {
+        struct Body: Encodable {
+            let protocolVersion = 2
+            let ruleset = "multiplayer-shared-arcade-v2"
+        }
+        let ticket: MultiplayerConnectionTicket = try await mutation(
+            path: "/api/mobile/v2/multiplayer/tickets",
+            method: "POST",
+            body: try encoder.encode(Body())
+        )
+        guard ticket.realtimeURL.scheme == "wss", ticket.realtimeURL.host != nil,
+            ticket.realtimeURL.user == nil, ticket.realtimeURL.password == nil,
+            ticket.expiresAt > Int(Date().timeIntervalSince1970)
+        else {
+            throw BackendError(
+                status: 0, message: "The multiplayer server is not configured.", code: "invalid-multiplayer-v2-ticket")
+        }
+        return ticket
+    }
+
     func performMultiplayerRequest<Response: Decodable>(
         path: String,
         method: String = "GET",

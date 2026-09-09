@@ -20,7 +20,7 @@ struct MultiplayerFlowView: View {
                         onToggleReady: multiplayer.toggleReady,
                         onStart: multiplayer.startMatch,
                         onLeave: multiplayer.leaveMatch,
-                        onRetryConnection: multiplayer.retryGameKitConnection
+                        onRetryConnection: multiplayer.retryConnection
                     )
                 } else {
                     ProgressView("Opening waiting room…")
@@ -29,6 +29,7 @@ struct MultiplayerFlowView: View {
                 if let state = multiplayer.liveState {
                     MultiplayerLiveView(
                         state: state,
+                        scene: multiplayer.scene,
                         onTapCell: multiplayer.handleTap
                     )
                 } else {

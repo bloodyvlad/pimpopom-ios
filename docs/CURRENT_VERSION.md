@@ -63,9 +63,27 @@ for the precise adaptations and [service contract](../Server/README.md) for limi
 
 ## Verification and open gates
 
-Final integrated check counts and artifact paths must be recorded by the
-integration task after its exact candidate passes; they are not inferred from
-older v1 checks or this documentation commit.
+Integrated local checks on 2026-09-09:
+
+- `Scripts/check.sh` exit 0: 63 current shared-core tests, builds/configuration/
+  formatting/assets, and 209 app/UI tests on PimPoPom iPhone 17 / iOS 26.5 Simulator;
+  zero failures or skips. Log: `/tmp/pimpopom-v2-final-check-20260909.log`.
+- Real two-client native `MultiplayerSocket` loopback integration ran, not skipped,
+  against the local development service on port 18080. It covers Ready/Start,
+  zero-score initial play, input receipt and isolated peer disconnect; this is not
+  authenticated public WSS/PHP or physical-device evidence.
+- `swift test --package-path Server -j 4`: 8 tests passed, including 2/3/4-player
+  zero-input start/expiry. Log: `/tmp/pimpopom-v2-integrated-server-tests-20260909.log`.
+- Separate PHP bridge commit `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0` passed
+  `composer check`, 60 v2 SQLite assertions, 63 disposable MariaDB assertions
+  (including single-use concurrent redemption), and 56 account-deletion assertions.
+- Regression coverage includes immediate Ready/predicted tap feedback, ignoring
+  in-flight room events after Leave, original-contact grid geometry across
+  expansion, and bounded pre-disconnect input correction after authenticated rejoin.
+
+The iOS result bundle is
+`/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.09.09_14-48-43-+0200.xcresult`.
+These counts belong to this integration candidate, not uploaded build 24.
 
 Available local verification entry points:
 

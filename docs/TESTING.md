@@ -102,6 +102,12 @@ Use the shared-core tests, `swift test --package-path Server -j 4`,
 disposable MariaDB migration/auth/result tests and account-deletion tests.
 Passing one layer does not imply the integrated others passed.
 
+The 2026-09-09 integrated run passed 63 current core tests, 209 app/UI tests
+(zero skips, including real native loopback sockets), and 8 service tests.
+Exact logs, Simulator identity and separate PHP evidence are recorded in
+[CURRENT_VERSION](CURRENT_VERSION.md#verification-and-open-gates). Linux and
+physical/public-network evidence must be recorded separately.
+
 Acceptance covers 2/3/4 independent clients, no tap before Start, natural finishes,
 Ready revisions, duplicate Start/input, roster churn, bounded late correction,
 disconnect/rejoin generations, background/foreground and malformed/slow sockets.

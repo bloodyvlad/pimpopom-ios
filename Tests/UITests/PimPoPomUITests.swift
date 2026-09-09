@@ -832,7 +832,7 @@ final class PimPoPomUITests: XCTestCase {
 
         let status = app.descendants(matching: .any)["multiplayer-network-status"]
         XCTAssertTrue(status.waitForExistence(timeout: 6))
-        XCTAssertEqual(status.label, "CATCHING UP")
+        XCTAssertEqual(status.label, "RECONNECTING")
         XCTAssertFalse(app.descendants(matching: .any)["multiplayer-announcement"].exists)
         let target = app.descendants(matching: .any)["multiplayer-cell-6"]
         XCTAssertTrue(target.waitForExistence(timeout: 2))

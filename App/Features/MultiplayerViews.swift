@@ -1,4 +1,5 @@
 import PimPoPomCore
+import SpriteKit
 import SwiftUI
 import UIKit
 
@@ -322,8 +323,6 @@ struct MultiplayerHubView: View {
             "person.badge.key.fill"
         case .confirmedNameRequired:
             "person.text.rectangle.fill"
-        case .gameCenterRequired:
-            "gamecontroller.fill"
         }
     }
 
@@ -631,8 +630,6 @@ struct MultiplayerWaitingRoomView: View {
             "checkmark.shield.fill"
         case .ready:
             "checkmark.seal.fill"
-        case .cloudSyncRequired:
-            "icloud.slash.fill"
         case .connectionFailed, .failed:
             "exclamationmark.triangle.fill"
         }
@@ -642,7 +639,7 @@ struct MultiplayerWaitingRoomView: View {
         switch state.connection {
         case .ready:
             Color(hex: "#72e995")
-        case .cloudSyncRequired, .connectionFailed, .failed:
+        case .connectionFailed, .failed:
             Color(hex: palette.petsAccent)
         default:
             Color(hex: palette.chromeAccent)
@@ -891,9 +888,12 @@ struct MultiplayerLiveView: View {
     @EnvironmentObject private var preferences: AppPreferences
 
     let state: MultiplayerPresentation.LiveMatchState
+    var scene: GameScene = GameScene()
     let onTapCell: (Int, Int, CGPoint) -> Void
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 4)
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 5), count: state.gridDimension)
+    }
     private var palette: ThemePalette { cosmetics.theme }
 
     var body: some View {
@@ -1143,62 +1143,13 @@ struct MultiplayerLiveView: View {
 
     private var board: some View {
         ZStack {
-            LazyVGrid(columns: columns, spacing: 5) {
-                ForEach(state.orderedCells) { cell in
-                    ZStack {
-                        GameCellPreview(
-                            theme: palette,
-                            colorIndex: cell.colorIndex,
-                            glyph: cell.glyph,
-                            showsGlyphs: preferences.glyphsEnabled && cell.colorIndex != nil,
-                            isTarget: cell.isTarget,
-                            textureSeed: cell.id,
-                            glyphScale: GameCellVisualMetrics.liveGlyphScale(gridDimension: 4)
-                        )
-                        .scaleEffect(cell.isPendingLocalInput ? 0.94 : 1)
-                        .opacity(cell.isPendingLocalInput ? 0.72 : 1)
-                        .overlay(alignment: .topTrailing) {
-                            if cell.isDecoy {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 8, weight: .black))
-                                    .foregroundStyle(.white.opacity(0.72))
-                                    .padding(5)
-                            }
-                        }
-                        .overlay {
-                            if cell.isPendingLocalInput {
-                                RoundedRectangle(
-                                    cornerRadius: palette.isPixel ? 0 : 10,
-                                    style: .continuous
-                                )
-                                .fill(Color(hex: palette.foreground).opacity(0.12))
-                                .overlay {
-                                    Circle()
-                                        .stroke(
-                                            Color(hex: palette.foreground).opacity(0.48),
-                                            lineWidth: palette.isPixel ? 3 : 2
-                                        )
-                                        .frame(width: 22, height: 22)
-                                }
-                            }
-                        }
-
-                        MultiplayerTouchCell(
-                            isEnabled: state.inputMode == .interactive,
-                            accessibilityLabel: cellAccessibilityLabel(cell),
-                            accessibilityIdentifier: "multiplayer-cell-\(cell.id)"
-                        ) { touchTimestampMilliseconds in
-                            onTapCell(
-                                cell.id,
-                                touchTimestampMilliseconds,
-                                normalizedCenter(of: cell.id)
-                            )
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
+            MultiplayerSpriteBoard(scene: scene, state: state)
+                .onAppear {
+                    scene.applyTheme(palette.id)
+                    scene.applyGlyphsEnabled(preferences.glyphsEnabled)
                 }
-            }
-            .padding(12)
+                .onChange(of: palette.id) { _, value in scene.applyTheme(value) }
+                .onChange(of: preferences.glyphsEnabled) { _, value in scene.applyGlyphsEnabled(value) }
 
             GameplayHitFeedbackLayer(
                 event: state.hitFeedbackEvent,
@@ -1207,13 +1158,6 @@ struct MultiplayerLiveView: View {
             )
             .allowsHitTesting(false)
 
-            MultiplayerBoardGapTouchLayer(
-                isEnabled: state.inputMode == .interactive
-            ) {
-                cell, touchTimestampMilliseconds, normalizedLocation in
-                onTapCell(cell, touchTimestampMilliseconds, normalizedLocation)
-            }
-            .accessibilityHidden(true)
         }
         .background(
             Color(hex: palette.board),
@@ -1395,117 +1339,6 @@ struct MultiplayerLiveView: View {
         )
     }
 
-}
-
-private struct MultiplayerTouchCell: UIViewRepresentable {
-    let isEnabled: Bool
-    let accessibilityLabel: String
-    let accessibilityIdentifier: String
-    let onTap: (Int) -> Void
-
-    func makeUIView(context _: Context) -> MultiplayerTouchCellView {
-        MultiplayerTouchCellView()
-    }
-
-    func updateUIView(_ view: MultiplayerTouchCellView, context _: Context) {
-        view.isUserInteractionEnabled = isEnabled
-        view.isAccessibilityElement = true
-        view.accessibilityTraits = isEnabled ? .button : [.button, .notEnabled]
-        view.accessibilityLabel = accessibilityLabel
-        view.accessibilityIdentifier = accessibilityIdentifier
-        view.onTap = onTap
-    }
-}
-
-private final class MultiplayerTouchCellView: UIView {
-    var onTap: ((Int) -> Void)?
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        isMultipleTouchEnabled = false
-    }
-
-    @available(*, unavailable)
-    required init?(coder _: NSCoder) {
-        fatalError("init(coder:) is unavailable")
-    }
-
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        defer { super.touchesBegan(touches, with: event) }
-        guard let timestamp = touches.first?.timestamp else { return }
-        onTap?(Int((timestamp * 1_000).rounded()))
-    }
-
-    override func accessibilityActivate() -> Bool {
-        guard isUserInteractionEnabled else { return false }
-        onTap?(Int((ProcessInfo.processInfo.systemUptime * 1_000).rounded()))
-        return true
-    }
-}
-
-private struct MultiplayerBoardGapTouchLayer: UIViewRepresentable {
-    let isEnabled: Bool
-    let onTap: (Int, Int, CGPoint) -> Void
-
-    func makeUIView(context _: Context) -> MultiplayerBoardGapTouchView {
-        MultiplayerBoardGapTouchView()
-    }
-
-    func updateUIView(_ view: MultiplayerBoardGapTouchView, context _: Context) {
-        view.isUserInteractionEnabled = isEnabled
-        view.onTap = onTap
-    }
-}
-
-private final class MultiplayerBoardGapTouchView: UIView {
-    var onTap: ((Int, Int, CGPoint) -> Void)?
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        isMultipleTouchEnabled = false
-        isAccessibilityElement = false
-    }
-
-    @available(*, unavailable)
-    required init?(coder _: NSCoder) {
-        fatalError("init(coder:) is unavailable")
-    }
-
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        defer { super.touchesBegan(touches, with: event) }
-        guard let touch = touches.first else { return }
-        let location = touch.location(in: self)
-        let inset: CGFloat = 12
-        let spacing: CGFloat = 5
-        let availableWidth = max(0, bounds.width - inset * 2 - spacing * 3)
-        let availableHeight = max(0, bounds.height - inset * 2 - spacing * 3)
-        let cellWidth = availableWidth / 4
-        let cellHeight = availableHeight / 4
-        let centersX = (0..<4).map {
-            inset + cellWidth / 2 + CGFloat($0) * (cellWidth + spacing)
-        }
-        let centersY = (0..<4).map {
-            inset + cellHeight / 2 + CGFloat($0) * (cellHeight + spacing)
-        }
-        guard
-            let column = centersX.indices.min(by: {
-                abs(centersX[$0] - location.x) < abs(centersX[$1] - location.x)
-            }),
-            let row = centersY.indices.min(by: {
-                abs(centersY[$0] - location.y) < abs(centersY[$1] - location.y)
-            })
-        else { return }
-        onTap?(
-            row * 4 + column,
-            Int((touch.timestamp * 1_000).rounded()),
-            CGPoint(
-                x: min(1, max(0, location.x / max(1, bounds.width))),
-                y: min(1, max(0, location.y / max(1, bounds.height)))
-            )
-        )
-    }
 }
 
 struct MultiplayerResultsView: View {

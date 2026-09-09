@@ -5,16 +5,14 @@ enum MultiplayerPresentation {
         case available
         case signInRequired
         case confirmedNameRequired
-        case gameCenterRequired
 
         static func resolve(
             isSignedIn: Bool,
             nicknameConfirmed: Bool,
-            gameCenterConnected: Bool
+            gameCenterConnected _: Bool = false
         ) -> Self {
             guard isSignedIn else { return .signInRequired }
             guard nicknameConfirmed else { return .confirmedNameRequired }
-            guard gameCenterConnected else { return .gameCenterRequired }
             return .available
         }
 
@@ -28,8 +26,6 @@ enum MultiplayerPresentation {
                 "SIGN IN TO PLAY"
             case .confirmedNameRequired:
                 "CONFIRM PLAYER NAME"
-            case .gameCenterRequired:
-                "CONNECT GAME CENTER"
             }
         }
     }
@@ -124,20 +120,17 @@ enum MultiplayerPresentation {
         case matching
         case confirmingRoster(confirmed: Int, total: Int)
         case ready
-        case cloudSyncRequired
         case connectionFailed(String)
         case failed(String)
 
         var title: String {
             switch self {
             case .matching:
-                "Finding the GameKit roster…"
+                "Connecting to multiplayer…"
             case .confirmingRoster(let confirmed, let total):
                 "Confirming players \(confirmed)/\(total)…"
             case .ready:
                 "Roster confirmed"
-            case .cloudSyncRequired:
-                "Cloud Sync Required"
             case .connectionFailed:
                 "Connection Failed"
             case .failed(let message):
@@ -147,8 +140,6 @@ enum MultiplayerPresentation {
 
         var detail: String? {
             switch self {
-            case .cloudSyncRequired:
-                "Sign in to iCloud in Settings, then retry."
             case .connectionFailed(let message):
                 message
             default:
@@ -158,7 +149,7 @@ enum MultiplayerPresentation {
 
         var canRetry: Bool {
             switch self {
-            case .cloudSyncRequired, .connectionFailed:
+            case .connectionFailed:
                 true
             default:
                 false
@@ -167,20 +158,11 @@ enum MultiplayerPresentation {
 
         var shouldPresentFailure: Bool {
             switch self {
-            case .cloudSyncRequired, .connectionFailed, .failed:
+            case .connectionFailed, .failed:
                 true
             case .matching, .confirmingRoster, .ready:
                 false
             }
-        }
-    }
-
-    enum WaitingConnectionRefreshPolicy {
-        static func canRefresh(
-            isTransportConnected: Bool,
-            current: WaitingConnectionState
-        ) -> Bool {
-            isTransportConnected && !current.shouldPresentFailure
         }
     }
 
@@ -222,7 +204,6 @@ enum MultiplayerPresentation {
         var message: String?
         var expiresAt: Date?
         var pendingReadyIntent: Bool?
-        var peerReadyHints: [String: Bool]
 
         init(
             matchID: String,
@@ -233,8 +214,7 @@ enum MultiplayerPresentation {
             isMutationPending: Bool,
             message: String? = nil,
             expiresAt: Date? = nil,
-            pendingReadyIntent: Bool? = nil,
-            peerReadyHints: [String: Bool] = [:]
+            pendingReadyIntent: Bool? = nil
         ) {
             self.matchID = matchID
             self.capacity = capacity
@@ -245,7 +225,6 @@ enum MultiplayerPresentation {
             self.message = message
             self.expiresAt = expiresAt
             self.pendingReadyIntent = pendingReadyIntent
-            self.peerReadyHints = peerReadyHints
         }
 
         var currentPlayer: Participant? {
@@ -264,7 +243,7 @@ enum MultiplayerPresentation {
         func displayedReady(for participant: Participant) -> Bool {
             participant.isCurrentPlayer
                 ? (pendingReadyIntent ?? participant.ready)
-                : (peerReadyHints[participant.id] ?? participant.ready)
+                : participant.ready
         }
 
         var startMatchControlState: StartMatchControlState {
@@ -283,6 +262,7 @@ enum MultiplayerPresentation {
 
         var canStart: Bool {
             isCreator
+                && pendingReadyIntent == nil
                 && startMatchControlState == .ready
                 && !isMutationPending
         }
@@ -295,7 +275,6 @@ enum MultiplayerPresentation {
         let glyph: String
         let isTarget: Bool
         let isDecoy: Bool
-        let activationID: MultiplayerPresentedActivationID?
         let isPendingLocalInput: Bool
 
         init(
@@ -305,7 +284,6 @@ enum MultiplayerPresentation {
             glyph: String = "●",
             isTarget: Bool = false,
             isDecoy: Bool = false,
-            activationID: MultiplayerPresentedActivationID? = nil,
             isPendingLocalInput: Bool = false
         ) {
             self.id = id
@@ -314,7 +292,6 @@ enum MultiplayerPresentation {
             self.glyph = glyph
             self.isTarget = isTarget
             self.isDecoy = isDecoy
-            self.activationID = activationID
             self.isPendingLocalInput = isPendingLocalInput
         }
     }
@@ -370,6 +347,7 @@ enum MultiplayerPresentation {
         let announcement: String?
         let hitFeedbackEvent: GameplayHitFeedbackEvent?
         let inputMode: LiveInputMode
+        let gridDimension: Int
 
         init(
             matchID: String,
@@ -382,7 +360,8 @@ enum MultiplayerPresentation {
             networkStatus: LiveNetworkStatus? = nil,
             announcement: String?,
             hitFeedbackEvent: GameplayHitFeedbackEvent? = nil,
-            inputMode: LiveInputMode = .interactive
+            inputMode: LiveInputMode = .interactive,
+            gridDimension: Int = 4
         ) {
             self.matchID = matchID
             self.elapsedMilliseconds = elapsedMilliseconds
@@ -395,6 +374,7 @@ enum MultiplayerPresentation {
             self.announcement = announcement
             self.hitFeedbackEvent = hitFeedbackEvent
             self.inputMode = inputMode
+            self.gridDimension = gridDimension
         }
 
         var localPlayer: LivePlayer? {
@@ -407,7 +387,7 @@ enum MultiplayerPresentation {
 
         var orderedCells: [Cell] {
             let byID = Dictionary(uniqueKeysWithValues: cells.map { ($0.id, $0) })
-            return (0..<16).map {
+            return (0..<(gridDimension * gridDimension)).map {
                 byID[$0] ?? Cell(id: $0, colorIndex: nil)
             }
         }
@@ -439,74 +419,6 @@ enum MultiplayerPresentation {
             case .cancelled:
                 "Match ended"
             }
-        }
-    }
-
-    struct SettlementRecovery<Submission: Equatable>: Equatable {
-        enum ResponseSource {
-            case submission
-            case settlement
-        }
-
-        private(set) var settlement: SettlementState
-        private(set) var pendingSubmission: Submission?
-        private(set) var localSubmissionAccepted = false
-        private(set) var shouldRetrySubmission = true
-        private(set) var message: String?
-
-        init(pendingSubmission: Submission, participantCount: Int) {
-            settlement = .collecting(
-                submitted: 0,
-                total: max(2, participantCount)
-            )
-            self.pendingSubmission = pendingSubmission
-        }
-
-        var isTerminal: Bool { settlement.isTerminal }
-        var shouldPoll: Bool { !isTerminal }
-        var canReturnToMenu: Bool { isTerminal }
-
-        @discardableResult
-        mutating func applyServerResponse(
-            settlement incoming: SettlementState,
-            source: ResponseSource
-        ) -> Bool {
-            guard !isTerminal else { return false }
-            settlement = incoming
-            if source == .submission {
-                localSubmissionAccepted = true
-                shouldRetrySubmission = false
-            }
-            if incoming.isTerminal {
-                pendingSubmission = nil
-                shouldRetrySubmission = false
-                if case .settled = incoming {
-                    localSubmissionAccepted = true
-                }
-            }
-            message =
-                if case .collecting = incoming {
-                    "Waiting for matching peer transcripts."
-                } else {
-                    nil
-                }
-            return true
-        }
-
-        @discardableResult
-        mutating func recordSubmissionResponseFailure(_ failure: String) -> Bool {
-            guard !isTerminal else { return false }
-            shouldRetrySubmission =
-                pendingSubmission != nil && !localSubmissionAccepted
-            message = failure
-            return true
-        }
-
-        @discardableResult
-        mutating func recordSettlementResponseFailure(_ failure: String) -> Bool {
-            guard !isTerminal else { return false }
-            message = failure
-            return true
         }
     }
 
