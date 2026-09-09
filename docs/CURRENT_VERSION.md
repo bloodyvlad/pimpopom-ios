@@ -8,7 +8,7 @@ separate evidence categories.
 | Item | Current truth |
 | --- | --- |
 | Product | PimPoPom for iPhone, iOS 17+, Swift 6 strict concurrency |
-| Configured version | `1.02 (24)`; unchanged until a future authorized host/release task |
+| Configured version | `1.02 (25)`; authorized Railway/TestFlight candidate, not yet uploaded |
 | Last direct App Store Connect check | 2026-09-08: build 24 VALID, uploaded 2026-08-22 |
 | Build 24 groups | Internal QA and External QA |
 | External beta state | `READY_FOR_BETA_SUBMISSION`; group membership is not proof of external testability |
@@ -16,7 +16,7 @@ separate evidence categories.
 | Local candidate | v2 shared engine, Vapor service and native socket/SpriteKit integration; unreleased |
 | Rollback beta reference | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7`; current installability not reverified |
 | Production App Store | No production release established by this task |
-| Authorized scope | Local code and hosting research only; no purchase, deployment, migration on a live schema, or new TestFlight upload |
+| Authorized scope | 2026-09-09: Railway EU deployment, separate PHP v2 bridge/migration 023, then TestFlight Internal QA and External QA; no paid-plan upgrade or App Store production submission |
 
 The September 8 direct check supersedes old notes calling build 22 current or
 build 24 never uploaded. Neither a build number nor this documentation identifies
@@ -36,7 +36,7 @@ to that historical binary.
 | Rewards/publication | No Multiplayer coins, achievements, v2 leaderboard writes or v2 Game Center publication |
 | Retained history | Read-only client access to historical v1 `peer_consistent_v1` leaderboard rows |
 | PHP bridge | Separate local commit `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0`; additive migration 023, disabled by default |
-| Hosting | Not selected/provisioned; see [shortlist](MULTIPLAYER_V2_HOSTING.md) |
+| Hosting | Railway Amsterdam project/service/volume provisioned; deployment and end-to-end verification pending. See [deployment record](../Server/DEPLOYMENT_RAILWAY.md) |
 
 Source integration combines the new `MP2*` engine/protocol and `Server/` package
 with the replacement iOS controller, socket actor and Arcade SpriteKit board.
@@ -84,6 +84,23 @@ Integrated local checks on 2026-09-09:
 The iOS result bundle is
 `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.09.09_14-48-43-+0200.xcresult`.
 These counts belong to this integration candidate, not uploaded build 24.
+
+Build 25 release-candidate checks on 2026-09-09 additionally passed:
+
+- `Scripts/check.sh`: 63 core tests and 209 app/UI tests, zero failures or skips;
+  named Simulator PimPoPom iPhone 17, iOS 26.5. Log:
+  `/tmp/pimpopom-build25-preflight-20260909.log`.
+- Service tests after the durable-storage startup guard: 11 on macOS and 11 on
+  Linux Swift 6.3.3. Linux process checks proved UID/GID 10001 startup rejects
+  unwritable outbox/archive directories, preserves existing evidence, and serves
+  health only for the writable control. Logs:
+  `/tmp/pimpopom-build25-server-20260909.log` and
+  `/tmp/pimpopom-railway-runtime-process-checks.log`.
+- Release-candidate iOS result bundle:
+  `/Users/vlad/Library/Developer/Xcode/DerivedData/PimPoPom-hejlughidecerddzjroxolkasjul/Logs/Test/Test-PimPoPom-2026.09.09_16-33-50-+0200.xcresult`.
+
+These checks do not establish public hosting, real-account matches or physical
+touch latency; those remain separate evidence below and in the deployment record.
 
 Available local verification entry points:
 

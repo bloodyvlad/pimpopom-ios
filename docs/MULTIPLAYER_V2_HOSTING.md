@@ -1,7 +1,8 @@
 # Multiplayer v2 hosting shortlist
 
-Official-source research checked 2026-09-09. **Decision pending; no account,
-purchase, host, deployment or live migration was created by this task.** Prices
+Official-source research checked 2026-09-09. **The owner subsequently selected
+Railway Amsterdam for a one-region beta; provisioning and release evidence live
+in [the deployment record](../Server/DEPLOYMENT_RAILWAY.md).** Prices
 are USD before tax and additional usage, not quotes or measured service quality.
 
 Scope: one persistent Swift/Vapor 4 Docker service, WebSockets over TLS/443, and
@@ -195,11 +196,10 @@ state needs coordination. Open sockets keep the instance active/billable. Its
 stateless scaling model adds work without a demonstrated alpha advantage.
 [Cloud Run WebSocket guidance](https://docs.cloud.google.com/run/docs/triggering/websockets).
 
-## Tomorrow's decision
+## Expansion options
 
-Choose managed convenience (Render/Railway), a lower-cost Machine with more config
-(Fly), or a self-managed VM (DigitalOcean). Only after explicit owner approval:
-confirm the actual region/plan/payment terms, create the host, inject private
-configuration, verify authenticated WSS/PHP integration and rollback, then prepare
-a separately authorized new TestFlight release. Keep secrets out of source and
-logs; do not publish ticket values in URLs.
+Railway Amsterdam is the selected starting point. Fly, Render and a self-managed
+VM remain alternatives if measured latency, cost or lifecycle requirements change.
+A second region needs explicit room routing before provisioning. Future provider
+or paid-plan changes need owner approval. Keep secrets out of source and logs;
+do not publish ticket values in URLs.

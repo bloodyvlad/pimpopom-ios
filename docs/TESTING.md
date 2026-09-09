@@ -9,8 +9,9 @@ Simulator evidence is not physical-device evidence.
 - Direct App Store Connect read on 2026-09-08 found build 24 VALID, uploaded
   2026-08-22, with Internal QA and External QA groups. External state was
   `READY_FOR_BETA_SUBMISSION`, not evidence of external testability.
-- Uploaded build 24 is the historical GameKit/v1 beta. Today's v2 source has no
-  new TestFlight upload/deployment; configured `1.02 (24)` is unchanged.
+- Uploaded build 24 is the historical GameKit/v1 beta. Build `1.02 (25)` is now
+  being prepared for the owner-authorized Railway EU/TestFlight QA release.
+  Configuration alone does not prove upload, availability or deployment.
 - Final integrated v2 check counts/logs must be recorded in
   [CURRENT_VERSION](CURRENT_VERSION.md) after the exact candidate runs.
   Build 20 remains the historical rollback reference; current installability

@@ -14,12 +14,12 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (24)` unchanged pending a future release |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (25)` authorized release candidate, not yet uploaded |
 | Last directly checked TestFlight | Build 24, VALID, uploaded 2026-08-22; checked 2026-09-08 |
 | Beta groups / external state | Internal QA and External QA; `READY_FOR_BETA_SUBMISSION`, not proof of external testability |
 | Local candidate | Multiplayer v2 client/shared core/Vapor service; not uploaded or deployed |
 | Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Open release gate | Hosting choice, authenticated WSS integration, full source gate, physical 2/3/4-device and latency acceptance |
+| Open release gate | Railway EU deployment, authenticated WSS integration, full source gate; physical 2/3/4-device and latency acceptance remain QA gates |
 | Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
@@ -28,8 +28,9 @@ V2 replaces live peer synchronization with a persistent Swift room authority and
 reuses the Arcade SpriteKit board. The owner confirmed one identical shared board;
 waiting for an own-color opportunity, including on 1×1, is intentional. Numerical
 Arcade rules are shared, but cell contention and delivery headroom can extend
-personal target spacing. No host purchase, PHP deployment, or new TestFlight
-upload is authorized for this local-code task. See [current status](docs/CURRENT_VERSION.md).
+personal target spacing. The owner has now authorized Railway EU deployment,
+the separate PHP v2 bridge, and TestFlight QA distribution. No paid-plan upgrade
+or App Store production submission is authorized. See [current status](docs/CURRENT_VERSION.md).
 
 ## Implemented product
 
@@ -52,7 +53,8 @@ upload is authorized for this local-code task. See [current status](docs/CURRENT
 
 The [v2 implementation brief](docs/MULTIPLAYER_V2_REBUILD.md) describes current
 local behavior and remaining gates. [Hosting options](docs/MULTIPLAYER_V2_HOSTING.md)
-are researched, not selected or provisioned. The old FAST design is superseded.
+remain background research; Railway Amsterdam is now selected and provisioned.
+See the [deployment record](Server/DEPLOYMENT_RAILWAY.md). The old FAST design is superseded.
 
 ## Build and test
 

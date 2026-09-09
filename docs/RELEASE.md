@@ -7,13 +7,13 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 | Item | Current truth |
 | --- | --- |
-| Configured version | `1.02 (24)`; unchanged pending a future authorized release |
+| Configured version | `1.02 (25)`; authorized QA release candidate, not yet uploaded |
 | Last direct App Store Connect check | 2026-09-08: build 24 VALID, uploaded 2026-08-22 |
 | Groups / external state | Internal QA and External QA; `READY_FOR_BETA_SUBMISSION`, not proof of external testability |
 | Uploaded binary | Historical GameKit/v1 beta, not today's v2 source |
 | Local candidate | New native socket/shared-core/Vapor v2 plus separate PHP bridge; not deployed/uploaded |
 | Rollback beta reference | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7`; current installability not reverified |
-| Authorized work | Local code/research only; no host purchase, deployment or new TestFlight upload |
+| Authorized work | Railway EU service, separate PHP v2 bridge/migration 023, TestFlight Internal QA/External QA; no paid-plan upgrade or App Store production submission |
 | Production App Store | No production release established by this task |
 
 Hosting choice, authenticated WSS/PHP integration, exact source gates and physical
@@ -51,7 +51,8 @@ For every archive record:
    age, privacy, IAP, Game Center, ads/UMP, and reviewer metadata.
 6. A TestFlight QA candidate may upload with physical gates explicitly open. Complete
    real 2/3/4-device and latency/loss/reorder acceptance before v2 acceptance or
-   production submission. Today's local-code task does not authorize any upload.
+   production submission. The owner authorized this QA upload on 2026-09-09 after
+   the Railway service and required PHP bridge are aligned.
 
 ### Configuration gates
 
