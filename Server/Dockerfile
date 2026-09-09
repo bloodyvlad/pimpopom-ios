@@ -30,5 +30,6 @@ RUN chmod 0555 /app/runtime-entrypoint.sh
 USER realtime
 ENV MP2_BIND=0.0.0.0 MP2_PORT=8080 MP2_OUTBOX_DIRECTORY=/app/data/outbox
 EXPOSE 8080
-VOLUME ["/app/data"]
+# Persistent storage is mounted by the deployment provider at /app/data.
+# Railway rejects Dockerfile VOLUME declarations; local runs pass --mount.
 ENTRYPOINT ["/app/runtime-entrypoint.sh"]
