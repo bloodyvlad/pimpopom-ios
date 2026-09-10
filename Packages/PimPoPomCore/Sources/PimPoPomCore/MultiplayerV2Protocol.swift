@@ -3,6 +3,9 @@ import Foundation
 /// A separately versioned, server-owned protocol. It never encodes v1 peer evidence.
 public enum MP2Protocol {
     public static let version = 2
+    /// Gameplay capabilities are negotiated separately from the PHP authentication protocol.
+    public static let legacyGameplayRevision = 1
+    public static let gameplayRevision = 2
     public static let ruleset = "multiplayer-shared-arcade-v2"
     public static let lateInputGraceMs = 2_000
     public static let maximumDurationMs = 900_000
@@ -83,7 +86,7 @@ public struct MP2Target: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-/// Always render an explicit trap marker, including when optional color glyphs are off.
+/// Revision 1 uses marked player-color traps; revision 2 uses ordinary non-player-color decoys.
 public struct MP2Decoy: Codable, Equatable, Sendable, Identifiable {
     public let id: Int
     public let cell: Int
@@ -102,6 +105,21 @@ public struct MP2Decoy: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+/// A neutral shared pickup. The authority awards it to the first admitted claimant, at most once.
+public struct MP2Heart: Codable, Equatable, Sendable, Identifiable {
+    public let id: Int
+    public let cell: Int
+    public let activateAtMs: Int
+    public let expiresAtMs: Int
+
+    public init(id: Int, cell: Int, activateAtMs: Int, expiresAtMs: Int) {
+        self.id = id
+        self.cell = cell
+        self.activateAtMs = activateAtMs
+        self.expiresAtMs = expiresAtMs
+    }
+}
+
 public enum MP2MatchPhase: String, Codable, Sendable {
     case playing, finishing, finished
 }
@@ -115,10 +133,13 @@ public struct MP2Snapshot: Codable, Equatable, Sendable {
     public let players: [MP2Player]
     public let targets: [MP2Target]
     public let decoys: [MP2Decoy]
+    public let hearts: [MP2Heart]
+    public let gameplayRevision: Int
 
     public init(
         matchID: String, revision: Int, elapsedMs: Int, phase: MP2MatchPhase,
-        gridDimension: Int, players: [MP2Player], targets: [MP2Target], decoys: [MP2Decoy]
+        gridDimension: Int, players: [MP2Player], targets: [MP2Target], decoys: [MP2Decoy],
+        hearts: [MP2Heart] = [], gameplayRevision: Int = MP2Protocol.legacyGameplayRevision
     ) {
         self.matchID = matchID
         self.revision = revision
@@ -128,6 +149,27 @@ public struct MP2Snapshot: Codable, Equatable, Sendable {
         self.players = players
         self.targets = targets
         self.decoys = decoys
+        self.hearts = hearts
+        self.gameplayRevision = gameplayRevision
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case matchID, revision, elapsedMs, phase, gridDimension, players, targets, decoys, hearts, gameplayRevision
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        matchID = try values.decode(String.self, forKey: .matchID)
+        revision = try values.decode(Int.self, forKey: .revision)
+        elapsedMs = try values.decode(Int.self, forKey: .elapsedMs)
+        phase = try values.decode(MP2MatchPhase.self, forKey: .phase)
+        gridDimension = try values.decode(Int.self, forKey: .gridDimension)
+        players = try values.decode([MP2Player].self, forKey: .players)
+        targets = try values.decode([MP2Target].self, forKey: .targets)
+        decoys = try values.decode([MP2Decoy].self, forKey: .decoys)
+        hearts = try values.decodeIfPresent([MP2Heart].self, forKey: .hearts) ?? []
+        gameplayRevision = try values.decodeIfPresent(Int.self, forKey: .gameplayRevision)
+            ?? MP2Protocol.legacyGameplayRevision
     }
 }
 
@@ -137,6 +179,7 @@ public struct MP2Input: Codable, Equatable, Sendable {
     public let id: Int
     public let seat: Int
     public let targetID: Int?
+    public let heartID: Int?
     /// A board-gap contact uses -1 with a nil target ID; visible cells use 0...15.
     public let cell: Int
     public let presentedAtMs: Int
@@ -147,11 +190,13 @@ public struct MP2Input: Codable, Equatable, Sendable {
 
     public init(
         id: Int, seat: Int, targetID: Int?, cell: Int, presentedAtMs: Int,
-        contactAtMs: Int, lastServerRevision: Int = 0, roomEpoch: String = "", sessionGeneration: Int = 0
+        contactAtMs: Int, lastServerRevision: Int = 0, roomEpoch: String = "", sessionGeneration: Int = 0,
+        heartID: Int? = nil
     ) {
         self.id = id
         self.seat = seat
         self.targetID = targetID
+        self.heartID = heartID
         self.cell = cell
         self.presentedAtMs = presentedAtMs
         self.contactAtMs = contactAtMs
@@ -186,14 +231,19 @@ public struct MP2RoomSummary: Codable, Equatable, Sendable, Identifiable {
     public var playerCount: Int
     public var revision: Int
     public var phase: MP2RoomPhase
+    public var gameplayRevision: Int?
 
-    public init(id: String, hostName: String, capacity: Int, playerCount: Int, revision: Int, phase: MP2RoomPhase) {
+    public init(
+        id: String, hostName: String, capacity: Int, playerCount: Int, revision: Int, phase: MP2RoomPhase,
+        gameplayRevision: Int? = nil
+    ) {
         self.id = id
         self.hostName = hostName
         self.capacity = capacity
         self.playerCount = playerCount
         self.revision = revision
         self.phase = phase
+        self.gameplayRevision = gameplayRevision
     }
 }
 
@@ -208,11 +258,12 @@ public struct MP2Room: Codable, Equatable, Sendable, Identifiable {
     public var players: [MP2Player]
     public var matchID: String?
     public var startsAtServerMs: Int?
+    public var gameplayRevision: Int?
 
     public init(
         id: String, revision: Int, rosterRevision: Int, hostPlayerID: String, capacity: Int,
         phase: MP2RoomPhase, players: [MP2Player], matchID: String? = nil, startsAtServerMs: Int? = nil,
-        epoch: String = ""
+        epoch: String = "", gameplayRevision: Int? = nil
     ) {
         self.id = id
         self.epoch = epoch
@@ -224,13 +275,14 @@ public struct MP2Room: Codable, Equatable, Sendable, Identifiable {
         self.players = players
         self.matchID = matchID
         self.startsAtServerMs = startsAtServerMs
+        self.gameplayRevision = gameplayRevision
     }
 }
 
 /// Swift's synthesized enum Codable representation is the v2 JSON wire schema.
 /// One ordered authenticated socket owns the seat; the service validates input.seat.
 public enum MP2ClientMessage: Codable, Equatable, Sendable {
-    case hello(ticket: String, protocolVersion: Int)
+    case hello(ticket: String, protocolVersion: Int, gameplayRevision: Int? = nil)
     case list
     case create(capacity: Int)
     case join(roomID: String)
@@ -243,7 +295,7 @@ public enum MP2ClientMessage: Codable, Equatable, Sendable {
 }
 
 public enum MP2ServerMessage: Codable, Equatable, Sendable {
-    case welcome(playerID: String, connectionID: String, serverTimeMs: Int)
+    case welcome(playerID: String, connectionID: String, serverTimeMs: Int, gameplayRevision: Int? = nil)
     case resumeCredential(roomID: String, credential: String, generation: Int)
     case list([MP2RoomSummary])
     case room(MP2Room)
