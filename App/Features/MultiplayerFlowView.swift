@@ -5,7 +5,8 @@ struct MultiplayerFlowView: View {
     @EnvironmentObject private var multiplayer: MultiplayerController
 
     var body: some View {
-        Group {
+        // The flow owns membership; replacing a phase child is not a screen exit.
+        ZStack {
             switch multiplayer.phase {
             case .hub:
                 MultiplayerHubView(

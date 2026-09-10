@@ -99,6 +99,7 @@
 		DFBB0EAB96AFD9C8BC9AA6F9 /* LocalStoreKitCreditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */; };
 		E359484EDDD010BB1C4A60B7 /* StoreKitConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */; };
 		E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */ = {isa = PBXBuildFile; fileRef = 86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */; };
+		E7A3D10CE00DB4CB609FE3B2 /* MultiplayerFlowLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */; };
 		E8E636A718E81A60D4C7A612 /* disco-tile-overlay.png in Resources */ = {isa = PBXBuildFile; fileRef = F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */; };
 		E8F87EE04771FEC4028EF921 /* MultiplayerViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */; };
 		E9F9F54A8AF784EBFB0BAD83 /* GameCenterLinkWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */; };
@@ -184,6 +185,7 @@
 		7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterAutoLinkController.swift; sourceTree = "<group>"; };
 		81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflow.swift; sourceTree = "<group>"; };
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
+		834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFlowLifecycleTests.swift; sourceTree = "<group>"; };
 		8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerController.swift; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
 		86EABB78532A8A66E0E421C5 /* PimPoPom.storekit */ = {isa = PBXFileReference; path = PimPoPom.storekit; sourceTree = "<group>"; };
@@ -416,6 +418,7 @@
 				E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */,
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
 				3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */,
+				834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */,
 				DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */,
 				618A210FFBCD32F320B96ECB /* MultiplayerSocketTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
@@ -696,6 +699,7 @@
 				5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */,
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
 				823E49E0F7882DF1E38717F4 /* LeaderboardPresentationTests.swift in Sources */,
+				E7A3D10CE00DB4CB609FE3B2 /* MultiplayerFlowLifecycleTests.swift in Sources */,
 				48A60FBB88983658EEC67DD5 /* MultiplayerPresentationTests.swift in Sources */,
 				A015A44A16D51992A791F3DB /* MultiplayerSocketTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
