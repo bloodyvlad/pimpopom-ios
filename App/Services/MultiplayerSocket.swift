@@ -53,7 +53,9 @@ actor MultiplayerSocket {
                 fail("Connection interrupted. Reconnecting…", epoch: epoch)
             }
         }
-        send(.hello(ticket: ticket, protocolVersion: MP2Protocol.version))
+        send(
+            .hello(ticket: ticket, protocolVersion: MP2Protocol.version, gameplayRevision: MP2Protocol.gameplayRevision)
+        )
         return stream
     }
 

@@ -14,7 +14,7 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (25)` uploaded 2026-09-09 |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (26)` candidate; build 25 remains the uploaded beta |
 | TestFlight state | Build 25 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-09) |
 | Exact released source | `962a39de80277534dd45eca56ca913217bde1fbb` |
 | Hosting | Railway Amsterdam; separate PHP v2 bridge and migration 023 deployed |

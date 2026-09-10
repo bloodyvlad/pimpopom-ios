@@ -23,6 +23,7 @@ final class GameScene: SKScene {
 
     private var snapshot: GameSnapshot?
     private var sharedBoard: [Cell]?
+    private var sharedHearts: Set<Int> = []
     private var sharedDimension = 1
     private struct SharedGeometry {
         let presentedAt: Double
@@ -52,18 +53,20 @@ final class GameScene: SKScene {
 
     func apply(_ snapshot: GameSnapshot) {
         sharedBoard = nil
+        sharedHearts.removeAll()
         sharedGeometry.removeAll()
         self.snapshot = snapshot
         rebuildBoard()
     }
 
     /// Multiplayer uses the exact Arcade renderer, not a second SwiftUI grid.
-    func applySharedBoard(dimension: Int, cells: [Cell]) {
+    func applySharedBoard(dimension: Int, cells: [Cell], hearts: Set<Int> = []) {
         guard [1, 2, 4].contains(dimension), cells.count == dimension * dimension else { return }
-        guard sharedDimension != dimension || sharedBoard != cells else { return }
+        guard sharedDimension != dimension || sharedBoard != cells || sharedHearts != hearts else { return }
         snapshot = nil
         sharedDimension = dimension
         sharedBoard = cells
+        sharedHearts = hearts
         roundPresentationExpired = false
         rebuildBoard()
     }
@@ -312,15 +315,17 @@ final class GameScene: SKScene {
                 )
             }
             cellFrames.append(rect)
-            if sharedBoard != nil, cell.kind == .decoy {
-                let marker = SKLabelNode(text: "!")
-                marker.name = "cell-trap-\(index)"
-                marker.fontName = "Helvetica-Bold"
-                marker.fontSize = max(16, cellSide * 0.22)
-                marker.fontColor = .white
-                marker.position = CGPoint(x: rect.maxX - 12, y: rect.maxY - marker.fontSize - 4)
-                marker.zPosition = 10
-                addChild(marker)
+            if sharedBoard != nil, sharedHearts.contains(index) {
+                let heart = SKLabelNode(text: "♥")
+                heart.name = "cell-heart-\(index)"
+                heart.fontName = "AvenirNext-Heavy"
+                heart.fontSize = max(24, cellSide * 0.52)
+                heart.fontColor = UIColor(hexString: GameHUDMetrics.livesColorHex)
+                heart.verticalAlignmentMode = .center
+                heart.horizontalAlignmentMode = .center
+                heart.position = CGPoint(x: rect.midX, y: rect.midY)
+                heart.zPosition = GameCellLayerOrder.glyph
+                addChild(heart)
             }
         }
     }

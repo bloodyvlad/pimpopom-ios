@@ -18,6 +18,7 @@ struct MultiplayerSpriteBoard: UIViewRepresentable {
     }
 
     func updateUIView(_ view: MultiplayerSKView, context: Context) {
+        guard view.boardState != state else { return }
         view.boardState = state
         view.refreshAccessibility()
     }
@@ -51,15 +52,17 @@ final class MultiplayerSKView: UIView {
             let element = MultiplayerBoardAccessibilityElement(accessibilityContainer: self)
             element.accessibilityIdentifier = "multiplayer-cell-\(cell.id)"
             element.accessibilityLabel =
-                cell.isDecoy
-                ? "Trap, cell \(cell.id + 1)"
-                : cell.isTarget
-                    ? (cell.ownerSeat == boardState.localSeat ? "Your active target" : "Other player's target")
-                    : "Inactive cell \(cell.id + 1)"
-            element.accessibilityTraits = .button
+                cell.isHeart
+                ? "Heart, cell \(cell.id + 1), first player to tap restores one life"
+                : cell.isDecoy
+                    ? "Decoy, cell \(cell.id + 1)"
+                    : cell.isTarget
+                        ? (cell.ownerSeat == boardState.localSeat ? "Your active target" : "Other player's target")
+                        : "Inactive cell \(cell.id + 1)"
+            element.accessibilityTraits = boardState.isSpectating ? [.button, .notEnabled] : .button
             element.accessibilityFrameInContainerSpace = layout.cellFrame(at: cell.id, yAxis: .down)
             element.activate = { [weak scene] in
-                guard let scene,
+                guard !boardState.isSpectating, let scene,
                     let point = scene.tapPoint(forCellAt: cell.id, horizontalFraction: 0.5, verticalFraction: 0.5)
                 else { return false }
                 let now = ProcessInfo.processInfo.systemUptime * 1_000

@@ -3,6 +3,7 @@ import Foundation
 enum MultiplayerPresentation {
     enum Availability: Equatable, Sendable {
         case available
+        case checkingSession
         case signInRequired
         case confirmedNameRequired
 
@@ -22,6 +23,8 @@ enum MultiplayerPresentation {
             switch self {
             case .available:
                 "2–4 PLAYERS · NO COINS"
+            case .checkingSession:
+                "CHECKING SIGN-IN…"
             case .signInRequired:
                 "SIGN IN TO PLAY"
             case .confirmedNameRequired:
@@ -275,6 +278,7 @@ enum MultiplayerPresentation {
         let glyph: String
         let isTarget: Bool
         let isDecoy: Bool
+        let isHeart: Bool
         let isPendingLocalInput: Bool
 
         init(
@@ -284,6 +288,7 @@ enum MultiplayerPresentation {
             glyph: String = "●",
             isTarget: Bool = false,
             isDecoy: Bool = false,
+            isHeart: Bool = false,
             isPendingLocalInput: Bool = false
         ) {
             self.id = id
@@ -292,6 +297,7 @@ enum MultiplayerPresentation {
             self.glyph = glyph
             self.isTarget = isTarget
             self.isDecoy = isDecoy
+            self.isHeart = isHeart
             self.isPendingLocalInput = isPendingLocalInput
         }
     }

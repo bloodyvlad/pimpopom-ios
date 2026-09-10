@@ -20,7 +20,7 @@ struct MultiplayerMenuLink<Destination: View>: View {
 
     var body: some View {
         Group {
-            if availability.isAvailable {
+            if availability.isAvailable || availability == .checkingSession {
                 NavigationLink(destination: destination) {
                     label
                 }
@@ -298,8 +298,11 @@ struct MultiplayerHubView: View {
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Color(hex: palette.petsAccent))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Multiplayer needs one more step")
-                        .font(palette.appFont(size: 14, weight: .black, relativeTo: .headline))
+                    Text(
+                        state.availability == .checkingSession
+                            ? "Checking your session…" : "Multiplayer needs one more step"
+                    )
+                    .font(palette.appFont(size: 14, weight: .black, relativeTo: .headline))
                     Text(state.availability.menuMessage.capitalized)
                         .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
                         .foregroundStyle(Color(hex: palette.muted))
@@ -319,6 +322,8 @@ struct MultiplayerHubView: View {
         switch state.availability {
         case .available:
             "checkmark.circle.fill"
+        case .checkingSession:
+            "arrow.trianglehead.2.clockwise.rotate.90"
         case .signInRequired:
             "person.badge.key.fill"
         case .confirmedNameRequired:
@@ -838,6 +843,8 @@ struct MultiplayerWaitingRoomView: View {
 
 enum MultiplayerLiveLayoutMetrics {
     static let horizontalInset: CGFloat = 12
+    static let utilityHeaderHeight: CGFloat = 44
+    static let utilityToHUDSpacing: CGFloat = 8
     static let hudHeight: CGFloat = 64
     static let badgeHeight: CGFloat = 44
     static let badgeSpacing: CGFloat = 4
@@ -860,6 +867,8 @@ enum MultiplayerLiveLayoutMetrics {
         let playerStripHeight = count > 0 ? badgeHeight : 0
         let reservedHeight =
             verticalPadding * 2
+            + utilityHeaderHeight
+            + utilityToHUDSpacing
             + hudHeight
             + hudToBoardSpacing
             + boardToSpeedBarSpacing
@@ -890,6 +899,7 @@ struct MultiplayerLiveView: View {
     let state: MultiplayerPresentation.LiveMatchState
     var scene: GameScene = GameScene()
     let onTapCell: (Int, Int, CGPoint) -> Void
+    var onMenu: () -> Void = {}
 
     private var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: 5), count: state.gridDimension)
@@ -906,6 +916,11 @@ struct MultiplayerLiveView: View {
                     playerCount: state.players.count
                 )
                 VStack(spacing: 0) {
+                    MultiplayerGameUtilityHeader(theme: palette, onMenu: onMenu)
+                        .frame(height: MultiplayerLiveLayoutMetrics.utilityHeaderHeight)
+                    Color.clear
+                        .frame(height: MultiplayerLiveLayoutMetrics.utilityToHUDSpacing)
+                        .accessibilityHidden(true)
                     liveHeader
                         .frame(height: MultiplayerLiveLayoutMetrics.hudHeight)
                     Color.clear
@@ -1158,6 +1173,11 @@ struct MultiplayerLiveView: View {
             )
             .allowsHitTesting(false)
 
+            if state.isSpectating {
+                MultiplayerSpectatorOverlay(theme: palette)
+                    .allowsHitTesting(false)
+            }
+
         }
         .background(
             Color(hex: palette.board),
@@ -1339,6 +1359,47 @@ struct MultiplayerLiveView: View {
         )
     }
 
+}
+
+private struct MultiplayerGameUtilityHeader: View {
+    let theme: ThemePalette
+    let onMenu: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            PimPoPomWordmark(theme: theme, size: 18, identifier: "multiplayer-game-logo")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: onMenu) {
+                Label("Menu", systemImage: "house.fill")
+                    .font(theme.appFont(size: 12, weight: .bold, relativeTo: .caption))
+            }
+            .buttonStyle(WebSecondaryButtonStyle(theme: theme, minimumHeight: 44))
+            .frame(width: 82)
+            .accessibilityHint("Leaves this match and returns to the menu")
+            .accessibilityIdentifier("multiplayer-game-menu")
+        }
+    }
+}
+
+private struct MultiplayerSpectatorOverlay: View {
+    let theme: ThemePalette
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("YOU LOSE")
+                .font(theme.appFont(size: 28, weight: .black, relativeTo: .title))
+                .foregroundStyle(Color(hex: GameHUDMetrics.livesColorHex))
+                .accessibilityIdentifier("multiplayer-you-lose")
+            GlowStampView(
+                text: "SPECTATING", tone: Color(hex: theme.chromeAccent),
+                theme: theme, tilt: -4, size: 19
+            )
+            .accessibilityIdentifier("multiplayer-spectating")
+        }
+        .padding(20)
+        .background(Color(hex: theme.surface).opacity(0.88), in: RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 16))
+        .accessibilityElement(children: .contain)
+    }
 }
 
 struct MultiplayerResultsView: View {

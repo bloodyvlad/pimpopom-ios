@@ -72,9 +72,11 @@ the reaction path.
   touch-contact timestamp. Expiry/input resolves once.
 - Zen is local, unranked, unrewarded, and ephemeral.
 - The owner-approved local Multiplayer v2 candidate uses one identical shared
-  board, 2–4 own-color seats, shared numerical Arcade rules, a native WSS client
-  and persistent Vapor authority. Waiting for an own-color opportunity on 1×1 is
-  accepted; shared contention/delivery can extend personal target spacing.
+  board, 2–4 own-color seats, shared Arcade rules, a native WSS client and persistent
+  Vapor authority. Gameplay revision 2 adds Arcade quiet intervals and unique
+  changing colors, non-player-color persistent decoys, and first-claim hearts.
+  Shared contention/delivery can extend personal spacing; no network wait belongs
+  on the local feedback path. Revision-1 clients use separate compatible rooms.
 - V2 is `multiplayer-shared-arcade-v2`, protocol `2`, unranked and unrewarded.
   No live GameKit, FAST seals, peer transcript or v1 client mutation path. Preserve
   historical v1 leaderboard reads and unrelated Game Center account/publication.

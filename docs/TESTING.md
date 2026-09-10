@@ -6,6 +6,13 @@ Simulator evidence is not physical-device evidence.
 
 ## Current release evidence
 
+- Build 26 is the local revision-2 candidate. Its first integrated gate passed
+  223 app/UI tests (zero failures/skips), 72 core tests and Linux verification.
+  The final source gate, deployment and Apple state must be recorded separately.
+- Revision-2 regressions cover post-hit Arcade quiet windows, color uniqueness,
+  persistent non-player-color decoys, first-admitted heart claims, delayed input,
+  spectating, session-ticket recovery and pushed joinable room lists. Both legacy
+  and new revisions require 2/3/4-client socket coverage and isolated directories.
 - Build `1.02 (25)` was uploaded on 2026-09-09 and is VALID, with Internal QA and
   External QA both `IN_BETA_TESTING` and beta review `APPROVED`.
   Railway EU and the PHP v2 bridge/migration 023 are deployed and boundary-tested.

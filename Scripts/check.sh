@@ -69,7 +69,7 @@ staging_build_settings=$(xcodebuild \
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CONFIGURATION = Staging'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.02'
-printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 25'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 26'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910'
@@ -116,13 +116,18 @@ if ! xcrun simctl list devices available | rg -Fq 'PimPoPom iPhone 17 ('; then
   exit 1
 fi
 
-xcodebuild -quiet \
+set --
+if [ -n "${PIMPOPOM_CHECK_RESULT_BUNDLE:-}" ]; then
+  set -- -resultBundlePath "$PIMPOPOM_CHECK_RESULT_BUNDLE"
+fi
+xcodebuild -quiet "$@" \
   -project PimPoPom.xcodeproj \
   -scheme PimPoPom \
   -destination 'platform=iOS Simulator,name=PimPoPom iPhone 17' \
   -only-testing:PimPoPomTests \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testFourPlayerMultiplayerLiveLayoutAcrossThemes \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerCatchUpUsesHUDStatusAndKeepsBoardEnabled \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerSpectatorNoticeKeepsMatchVisibleAndMenuUsable \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerHubBackButtonUsesCompleteToolbarFootprintAcrossThemes \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testPixelMultiplayerHubUsesThemedLoweredBackButtonAndLegibleSmallCopy \
   test

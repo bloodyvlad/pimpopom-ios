@@ -778,6 +778,10 @@ final class PimPoPomUITests: XCTestCase {
             for element in [header, board, color, speedBar, strip] {
                 XCTAssertTrue(element.waitForExistence(timeout: 2))
             }
+            XCTAssertTrue(app.descendants(matching: .any)["multiplayer-game-logo"].exists)
+            XCTAssertTrue(app.buttons["multiplayer-game-menu"].isHittable)
+            XCTAssertGreaterThanOrEqual(app.buttons["multiplayer-game-menu"].frame.height, 44)
+            XCTAssertTrue(app.descendants(matching: .any)["multiplayer-cell-9"].label.contains("Heart"))
             XCTAssertTrue(color.label.contains("Cyan"))
             let flyoutPoints = app.staticTexts["gameplay-hit-points-9"]
             let flyoutRating = app.staticTexts["gameplay-hit-rating-9"]
@@ -818,6 +822,24 @@ final class PimPoPomUITests: XCTestCase {
             attachScreenshot(of: app, name: "iPhone 17 \(theme) four-player horizontal strip")
             app.terminate()
         }
+    }
+
+    func testMultiplayerSpectatorNoticeKeepsMatchVisibleAndMenuUsable() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--deterministic-game", "--uitesting", "--ui-test-theme=classic",
+            "--ui-test-multiplayer-spectating-fixture",
+        ]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["multiplayer-you-lose"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-spectating"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-board"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-player-strip"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["multiplayer-cell-6"].isEnabled)
+        XCTAssertTrue(app.buttons["multiplayer-game-menu"].isHittable)
+        attachScreenshot(of: app, name: "iPhone 17 multiplayer eliminated spectator")
+        app.buttons["multiplayer-game-menu"].tap()
+        XCTAssertTrue(app.buttons["mode-multiplayer"].waitForExistence(timeout: 4))
     }
 
     func testMultiplayerCatchUpUsesHUDStatusAndKeepsBoardEnabled() {

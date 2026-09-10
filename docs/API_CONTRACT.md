@@ -134,18 +134,26 @@ historical v1 Multiplayer best scores and achievement completion. V2 does not
 publish scores or achievements. iOS never calls
 `GKLeaderboard.submitScore` or `GKAchievement.report`.
 
-## Multiplayer v2 candidate — not deployed
+## Multiplayer v2 bridge and gameplay revisions
 
 Exact capabilities: `protocolVersion:2`,
 `ruleset:"multiplayer-shared-arcade-v2"`, 2–4 seats and at most 900,000 ms.
 A higher build ID never selects new semantics. Entry requires a primary PHP
 session and confirmed nickname, **not Game Center**.
 
-The separate PHP bridge is local commit
+The build-25 PHP bridge was deployed from commit
 `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0`, migration
 `023_multiplayer_v2_auth.sql`. It defaults to 503 until valid private
 `SPEEDYTAPPER_REALTIME_URL` and `SPEEDYTAPPER_MULTIPLAYER_SERVICE_SECRET`
-configuration exists. No live migration/configuration was performed.
+configuration exists. Deployment/migration evidence is recorded separately in
+CURRENT_VERSION.md and Server/DEPLOYMENT_RAILWAY.md.
+
+Build 26 retains this authentication tuple and negotiates `gameplayRevision:2`
+in the socket hello/welcome. Omission means revision 1 (build 25). Rooms, browse,
+join and resume are revision-isolated. Revised snapshots add neutral hearts;
+inputs optionally identify `heartID`, mutually exclusive with `targetID`.
+Only revised clients receive an ordered `left` acknowledgment. These capabilities
+are explicit protocol fields, never inferred from a build number.
 
 ### Cookie-authenticated ticket
 
@@ -180,7 +188,10 @@ Redeem/validate bodies are at most 1,024 bytes; result bodies at most 16,384 byt
 Identity contains `playerID, name, petID, sessionBinding, expiresAt,
 protocolVersion, ruleset`. Pet is nullable. The opaque binding is not a PHP
 session ID/digest; it expires within an hour and no later than its source session.
-Validation does not extend it.
+Validation does not extend it. The build-26 PHP candidate keeps at most twelve
+bindings per primary session by retiring the oldest binding after a valid fresh
+ticket redemption, instead of locking a valid login out after twelve reconnects.
+Invalid, replayed or expired tickets cannot evict a binding.
 
 Vapor validates every 15 seconds and authenticates a fresh ticket before resume.
 Logout/rotation/deletion revocation is bounded polling, not instantaneous push.
@@ -211,6 +222,9 @@ The service journals immutable match ID, capabilities, duration,
 `rankingEligible:false`, and 2–4 distinct player UUID/stable-seat aggregates:
 score, lives, hits, misses, dodges, reaction total and nullable fastest reaction.
 No names, pets, credentials, wallet or achievement claims enter that envelope.
+Revision-2 hearts can restore lives, so cumulative misses may exceed three;
+PHP migration 024 widens their storage and accepts 0–1,000 while current lives
+remain 0–3. Deploy that additive compatibility change before revision-2 rooms.
 
 PHP validates bounded integer fields and stores normalized aggregates plus a
 payload digest atomically. Same normalized match payload is idempotent;
@@ -222,8 +236,8 @@ matching `stored_unranked` acknowledgement.
 These are **service-reported, unranked aggregates**, not independent PHP replay
 proof, human verification or a new ranked season. No v1 result/rank, progression,
 coin, achievement or Game Center publication writes occur. No public v2 result
-read is implemented. Host selection, persistent storage and integration tests
-remain separate gates.
+read is implemented. Railway EU persistence and the PHP bridge were verified for
+build 25; each later candidate still requires direct deployment verification.
 
 ## Historical v1 compatibility — read-only in the new client
 

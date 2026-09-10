@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MultiplayerFlowView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var multiplayer: MultiplayerController
 
     var body: some View {
@@ -30,7 +31,11 @@ struct MultiplayerFlowView: View {
                     MultiplayerLiveView(
                         state: state,
                         scene: multiplayer.scene,
-                        onTapCell: multiplayer.handleTap
+                        onTapCell: multiplayer.handleTap,
+                        onMenu: {
+                            multiplayer.leaveMatch()
+                            dismiss()
+                        }
                     )
                 } else {
                     ProgressView("Starting match…")
@@ -48,5 +53,6 @@ struct MultiplayerFlowView: View {
                 multiplayer.open()
             }
         }
+        .onDisappear { multiplayer.close() }
     }
 }

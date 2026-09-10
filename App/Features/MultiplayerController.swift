@@ -21,6 +21,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     private var connectionTask: Task<Void, Never>?
     private var heartbeatTask: Task<Void, Never>?
     private var sendTask: Task<Void, Never>?
+    private var sessionCheckTask: Task<Void, Never>?
+    private var sessionCheckGeneration = 0
     private var connectionEpoch = 0
     private var connected = false
     private var roomSynchronized = false
@@ -32,6 +34,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     private enum RoomAdmission {
         case create
         case join(String)
+        case leaving
     }
     private var roomAdmission: RoomAdmission?
     private var lastLeftRoomID: String?
@@ -52,6 +55,13 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     private var localRecoveryUntilMs = 0
     private var maximumMultipliers: [String: Int] = [:]
     private var fixtureEnabled = false
+    private struct PresentedHeart {
+        let heart: MP2Heart
+        let firstVisibleAtMs: Int
+        var hiddenAtMs: Int?
+    }
+    private var presentedHearts: [Int: PresentedHeart] = [:]
+    private var claimedHeartIDs: Set<Int> = []
 
     private struct PendingInput {
         var input: MP2Input
@@ -61,6 +71,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
 
     var availability: MultiplayerPresentation.Availability {
         if developmentIdentity != nil || fixtureEnabled { return .available }
+        guard backend.sessionState != nil else { return .checkingSession }
         return .resolve(
             isSignedIn: backend.sessionState?.authenticated == true,
             nicknameConfirmed: backend.sessionState?.profile?.nicknameConfirmed == true)
@@ -78,7 +89,42 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         guard !fixtureEnabled else { return }
         opened = true
         refreshAvailability()
+        if backend.sessionState == nil, developmentIdentity == nil { checkSession() }
         if availability.isAvailable, connectionTask == nil { connect() }
+    }
+
+    func close() {
+        guard !fixtureEnabled else { return }
+        opened = false
+        sessionCheckGeneration += 1
+        sessionCheckTask?.cancel()
+        sessionCheckTask = nil
+        if room != nil || roomAdmission != nil { leaveMatch() }
+        // Reuse the authenticated socket on a quick return to the hub. Backgrounding
+        // closes it; reopening the screen alone must not consume another PHP ticket.
+    }
+
+    private func checkSession() {
+        guard sessionCheckTask == nil else { return }
+        sessionCheckGeneration += 1
+        let generation = sessionCheckGeneration
+        hubState.isRefreshing = true
+        sessionCheckTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if generation == self.sessionCheckGeneration { self.sessionCheckTask = nil }
+            }
+            do {
+                _ = try await self.backend.loadSession()
+                guard !Task.isCancelled else { return }
+                self.hubState.message = nil
+                self.refreshAvailability()
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.showConnectionMessage("Could not check your sign-in. Please refresh to try again.")
+            }
+            self.hubState.isRefreshing = false
+        }
     }
 
     func refreshAvailability() {
@@ -91,14 +137,17 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             self.identityID = nil
             phase = .hub
         }
+        if opened, active, availability.isAvailable, connectionTask == nil { connect() }
     }
 
     func setApplicationActive(_ value: Bool) {
+        guard active != value else { return }
         active = value
-        guard !fixtureEnabled, opened else { return }
+        guard !fixtureEnabled else { return }
         if value {
+            guard opened else { return }
             refreshAvailability()
-            if availability.isAvailable { connect() }
+            if availability.isAvailable, connectionTask == nil { connect() }
         } else {
             closeConnection()
             showConnectionMessage("Reconnecting when you return…")
@@ -108,7 +157,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     func refreshLobbies() {
         guard !fixtureEnabled else { return }
         hubState.isRefreshing = true
-        if connected { send(.list) } else { open() }
+        if connected { send(.list) } else if backend.sessionState == nil { checkSession() } else { open() }
     }
     func createMatch(capacity: Int) {
         guard connected, room == nil, roomAdmission == nil, (2...4).contains(capacity) else { return }
@@ -140,6 +189,9 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         if connected { send(.leave) }
         clearMatch()
         phase = .hub
+        // Wait for the ordered Leave acknowledgement before allowing another create.
+        // This also fences a create response whose room ID wasn't known when leaving.
+        if connected { roomAdmission = .leaving }
         if connected { send(.list) }
     }
     func retryConnection() { connect() }
@@ -170,6 +222,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     }
                     guard !Task.isCancelled, epoch == self.connectionEpoch else { return }
                     let events = await self.socket.connect(url: url, ticket: ticket)
+                    guard !Task.isCancelled, epoch == self.connectionEpoch else { return }
                     self.lastMessageUptimeMs = Self.now
                     self.startHeartbeat(epoch: epoch)
                     for await event in events {
@@ -179,12 +232,15 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                         case .disconnected(let message): self.showConnectionMessage(message)
                         }
                     }
-                } catch { self.showConnectionMessage(error.localizedDescription) }
+                } catch {
+                    guard !Task.isCancelled, epoch == self.connectionEpoch else { return }
+                    self.showConnectionMessage(error.localizedDescription)
+                }
+                guard !Task.isCancelled, epoch == self.connectionEpoch else { return }
                 self.connected = false
                 self.heartbeatTask?.cancel()
                 self.pendingReady = nil
                 self.projectWaitingRoom()
-                guard !Task.isCancelled, epoch == self.connectionEpoch else { return }
                 retry += 1
                 do { try await Task.sleep(for: .seconds(min(5, retry))) } catch { return }
             }
@@ -234,7 +290,12 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     func receive(_ message: MP2ServerMessage) {
         lastMessageUptimeMs = Self.now
         switch message {
-        case .welcome(let playerID, _, let serverTimeMs):
+        case .welcome(let playerID, _, let serverTimeMs, let gameplayRevision):
+            guard gameplayRevision == MP2Protocol.gameplayRevision else {
+                closeConnection()
+                showConnectionMessage("The multiplayer service is updating. Please try again shortly.")
+                return
+            }
             connected = true
             identityID = playerID
             serverOffsetMs = serverTimeMs - Self.now
@@ -247,14 +308,24 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                         roomID: resumeCredential.roomID, credential: resumeCredential.credential,
                         generation: resumeCredential.generation))
             } else {
+                // A fresh socket cannot acknowledge the old socket's pending action.
+                // Its generation already fences those responses; release the UI intent.
+                roomAdmission = nil
+                hubState.isCreating = false
+                hubState.joiningLobbyID = nil
                 send(.list)
             }
         case .resumeCredential(let roomID, let credential, let generation):
             guard acceptsRoom(roomID) else { return }
             resumeCredential = (roomID, credential, generation)
+        case .left:
+            if case .leaving = roomAdmission { roomAdmission = nil }
         case .list(let rooms):
             hubState.isRefreshing = false
-            hubState.lobbies = rooms.filter { $0.phase == .waiting }.map {
+            hubState.lobbies = rooms.filter {
+                $0.phase == .waiting && $0.playerCount < $0.capacity
+                    && $0.gameplayRevision == MP2Protocol.gameplayRevision
+            }.map {
                 .init(
                     id: $0.id, capacity: $0.capacity, playerCount: $0.playerCount, hostName: $0.hostName, hostPetID: nil
                 )
@@ -318,10 +389,17 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             hubState.joiningLobbyID = nil
             hubState.isRefreshing = false
             showConnectionMessage(message)
-            if code == "session_revoked" || code == "authentication_failed" {
-                closeConnection()
+            if code == "room_replaced" {
                 clearMatch()
                 phase = .hub
+                closeConnection()
+                return
+            }
+            if code == "session_revoked" || code == "authentication_failed" {
+                closeConnection()
+                // Socket credentials can expire independently of the primary login.
+                // Revalidate that login before asking the player to authenticate again.
+                checkSession()
                 return
             }
             if code.contains("resume") || code == "room-not-found" {
@@ -346,6 +424,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         switch roomAdmission {
         case .create: return id != lastLeftRoomID
         case .join(let requested): return id == requested
+        case .leaving: return false
         case nil: return false
         }
     }
@@ -370,7 +449,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 id: inputID, seat: original.seat, targetID: original.targetID,
                 cell: original.cell, presentedAtMs: original.presentedAtMs, contactAtMs: original.contactAtMs,
                 lastServerRevision: snapshot?.revision ?? original.lastServerRevision,
-                roomEpoch: room.epoch, sessionGeneration: resumeCredential.generation)
+                roomEpoch: room.epoch, sessionGeneration: resumeCredential.generation, heartID: original.heartID)
             pendingInputs[inputID] = .init(input: input, points: pending.points)
             send(.input(input))
         }
@@ -396,6 +475,21 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             presentation.presented(
                 targets: snapshot.targets, at: elapsed, localSeat: local.seat,
                 predictedRecoveryUntil: localRecoveryUntilMs)
+            let visibleHearts = snapshot.hearts.filter {
+                $0.activateAtMs <= elapsed && elapsed < $0.expiresAtMs
+                    && presentation.currentCells[$0.cell] == nil
+            }
+            let visibleIDs = Set(visibleHearts.map(\.id))
+            for heart in visibleHearts where presentedHearts[heart.id] == nil {
+                presentedHearts[heart.id] = .init(heart: heart, firstVisibleAtMs: elapsed)
+            }
+            for id in presentedHearts.keys where !visibleIDs.contains(id) && presentedHearts[id]?.hiddenAtMs == nil {
+                presentedHearts[id]?.hiddenAtMs = elapsed
+            }
+            presentedHearts = presentedHearts.filter {
+                $0.value.heart.expiresAtMs + MP2Protocol.lateInputGraceMs >= elapsed
+            }
+            claimedHeartIDs.formIntersection(presentedHearts.keys)
         }
         var cells = Array(repeating: Cell(), count: snapshot.gridDimension * snapshot.gridDimension)
         for target in presentation.currentTargets {
@@ -407,7 +501,13 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 cells[decoy.cell] = Cell(kind: .decoy, colorIndex: decoy.colorIndex)
             }
         }
-        scene.applySharedBoard(dimension: snapshot.gridDimension, cells: cells)
+        let heartCells = Set(
+            presentedHearts.values.filter {
+                $0.hiddenAtMs == nil && elapsed < $0.heart.expiresAtMs
+                    && !claimedHeartIDs.contains($0.heart.id) && cells.indices.contains($0.heart.cell)
+                    && cells[$0.heart.cell].kind == .idle
+            }.map { $0.heart.cell })
+        scene.applySharedBoard(dimension: snapshot.gridDimension, cells: cells, hearts: heartCells)
         guard force || now - lastHUDUptimeMs >= 100 else { return }
         lastHUDUptimeMs = now
         let points = pendingInputs.values.reduce(0) { $0 + $1.points }
@@ -426,7 +526,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     id: index, colorIndex: cell.colorIndex,
                     ownerSeat: presentation.currentCells[index]?.ownerSeat,
                     glyph: cell.colorIndex.map { gameColors[$0].glyph } ?? "●",
-                    isTarget: cell.kind == .target, isDecoy: cell.kind == .decoy)
+                    isTarget: cell.kind == .target, isDecoy: cell.kind == .decoy, isHeart: heartCells.contains(index))
             }, players: players, localSeat: local.seat, streakSteps: local.streakProgress,
             isRecovering: elapsed < max(local.recoveryUntilMs, localRecoveryUntilMs),
             networkStatus: connected ? (snapshot.phase == .finishing ? .finalizing : nil) : .reconnecting,
@@ -444,11 +544,16 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         let target = visible?.target
         // A still-visible own target may correct even a provisional third expiry.
         let ownTarget = target?.ownerSeat == local.seat ? target : nil
+        let heart = presentedHearts.values.first {
+            $0.heart.cell == cell && $0.firstVisibleAtMs <= contact
+                && contact < min($0.heart.expiresAtMs, $0.hiddenAtMs ?? Int.max)
+        }
+        if let heart, claimedHeartIDs.contains(heart.heart.id) { return }
         guard ownTarget != nil || (!local.isOut && contact >= max(local.recoveryUntilMs, localRecoveryUntilMs)) else {
             return
         }
         inputID += 1
-        let presented = visible?.firstVisibleAtMs ?? contact
+        let presented = visible?.firstVisibleAtMs ?? heart?.firstVisibleAtMs ?? contact
         var points = 0
         if let ownTarget {
             presentation.consumeOwn(targetID: ownTarget.id, at: contact)
@@ -462,6 +567,11 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 milliseconds: reaction, pointsAwarded: points, normalizedLocation: normalizedLocation)
             feedbackUntilMs = Self.now + 700
             audio.playTap(hitNumber: local.hits + 1)
+        } else if let heart {
+            // Immediate local collection feedback; only the server awards the life.
+            // A competing claim is harmless and never becomes an empty-cell mistake.
+            claimedHeartIDs.insert(heart.heart.id)
+            audio.playTap(hitNumber: local.hits + 1)
         } else {
             localRecoveryUntilMs = contact + 1_500
             audio.playLifeLoss()
@@ -469,7 +579,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         let input = MP2Input(
             id: inputID, seat: local.seat, targetID: target?.id, cell: cell,
             presentedAtMs: presented, contactAtMs: contact, lastServerRevision: snapshot.revision,
-            roomEpoch: room.epoch, sessionGeneration: resumeCredential?.generation ?? 0)
+            roomEpoch: room.epoch, sessionGeneration: resumeCredential?.generation ?? 0,
+            heartID: ownTarget == nil ? heart?.heart.id : nil)
         pendingInputs[inputID] = .init(input: input, points: points)
         projectLive(at: Self.now, force: true)
         if connected && roomSynchronized {
@@ -513,6 +624,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         resumeCredential = nil
         pendingReady = nil
         pendingInputs.removeAll()
+        presentedHearts.removeAll()
+        claimedHeartIDs.removeAll()
         presentation.reset()
         maximumMultipliers.removeAll()
         inputID = 0
@@ -572,7 +685,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             identityID = "fixture-player-0"
             let names = ["pimpovlad", "alenka", "PixelPilot", "TapMaster"]
             let pets = ["foka", "kesha", "misha", "pancake"]
-            let players = (0..<4).map {
+            var players = (0..<4).map {
                 MP2Player(
                     id: "fixture-player-\($0)", seat: $0,
                     colorIndex: $0, name: names[$0], petID: pets[$0], ready: true)
@@ -593,6 +706,10 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 projectWaitingRoom()
             } else {
                 phase = .live
+                if arguments.contains("--ui-test-multiplayer-spectating-fixture") {
+                    players[0].lives = 0
+                    players[0].outAtMs = 45_000
+                }
                 matchStartUptimeMs = Self.now - 46_000
                 snapshot = .init(
                     matchID: "fixture-match", revision: 1, elapsedMs: 46_000, phase: .playing,
@@ -603,9 +720,11 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     ],
                     decoys: [
                         .init(
-                            id: 1, cell: 12, colorIndex: 2, beneficiarySeat: 0, activateAtMs: 45_000,
+                            id: 1, cell: 12, colorIndex: 5, beneficiarySeat: 0, activateAtMs: 45_000,
                             expiresAtMs: 55_000)
-                    ])
+                    ],
+                    hearts: [.init(id: 1, cell: 9, activateAtMs: 45_000, expiresAtMs: 60_000)],
+                    gameplayRevision: MP2Protocol.gameplayRevision)
                 feedback = .init(
                     id: 9, rating: .godlike, milliseconds: 200, pointsAwarded: 541,
                     normalizedLocation: CGPoint(x: 0.625, y: 0.375))

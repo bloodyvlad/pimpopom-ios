@@ -18,11 +18,11 @@ final class MultiplayerSocketTests: XCTestCase {
 
         do {
             let welcomedHost: String = try await Self.nextValue(from: hostEvents) {
-                if case .welcome(let playerID, _, _) = $0 { return playerID }
+                if case .welcome(let playerID, _, _, let revision) = $0, revision == 2 { return playerID }
                 return nil
             }
             let welcomedGuest: String = try await Self.nextValue(from: guestEvents) {
-                if case .welcome(let playerID, _, _) = $0 { return playerID }
+                if case .welcome(let playerID, _, _, let revision) = $0, revision == 2 { return playerID }
                 return nil
             }
             XCTAssertEqual(welcomedHost, hostID)
@@ -59,6 +59,7 @@ final class MultiplayerSocketTests: XCTestCase {
             let initial = try await Self.snapshot(from: hostEvents) { $0.phase == .playing }
             _ = try await Self.snapshot(from: guestEvents) { $0.phase == .playing }
             XCTAssertEqual(initial.matchID, countdown.matchID)
+            XCTAssertEqual(initial.gameplayRevision, 2)
             XCTAssertTrue(initial.players.allSatisfy { $0.score == 0 && $0.hits == 0 })
             let hostSeat = try XCTUnwrap(initial.players.first { $0.id == hostID }?.seat)
             let input = MP2Input(

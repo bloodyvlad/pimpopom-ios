@@ -1,7 +1,27 @@
 # Current version slice
 
-Snapshot date: 2026-09-09. Local source, external beta state, and deployment are
+Snapshot date: 2026-09-10. Local source, external beta state, and deployment are
 separate evidence categories.
+
+## Build 26 candidate — 2026-09-10
+
+Implementation is under verification; the build-25 release facts below remain
+the deployed baseline until the new release is directly verified.
+
+- Preserve the valid primary login while refreshing socket tickets/CSRF. Reuse
+  live sockets; distinguish PHP outages/expired bindings from account logout.
+- Push joinable-only game lists, acknowledge Leave, fence reconnect generations,
+  and let completed/abandoned rooms release membership without losing results.
+- Add the single-player logo/Menu header, explicit YOU LOSE/SPECTATING overlay,
+  and shared hearts (first server-admitted tap, +1 life up to three, no revival).
+- Gameplay revision 2 uses Arcade quiet-delay/response progression, unique color
+  changes after ten seconds, and persistent decoys excluding every player color.
+  Decoys have no exclamation mark. Shared contention and transport can still
+  extend spacing; no measured device-latency claim is made.
+- Wire/PHP protocol remains 2. Negotiated gameplay revisions 1 and 2 have separate
+  room directories, so build 25 never receives incompatible gameplay.
+- Separate PHP candidate fixes the twelve-reconnect binding limit and migration
+  024 widens cumulative misses for heart-extended games. No account/economy reset.
 
 ## Release identity
 
@@ -54,8 +74,9 @@ target spacing. Exact independent single-player cadence is not claimed.
 Ready changes local presentation immediately; the server confirms revisioned
 membership and starts without requiring a tap. Input uses first-visible and
 original contact times, with bounded server admission and per-seat correction.
-Disconnect/reconnect affects that seat, not a peer-wide ACK barrier. Marked traps
-remain distinguishable with glyphs off. See the [v2 brief](MULTIPLAYER_V2_REBUILD.md)
+Disconnect/reconnect affects that seat, not a peer-wide ACK barrier. Build 26
+replaces build 25's marked player-color traps with unmarked non-player-color
+decoys. Hearts remain identifiable with glyphs off. See the [v2 brief](MULTIPLAYER_V2_REBUILD.md)
 for the precise adaptations and [service contract](../Server/README.md) for limits.
 
 ## Verification and open gates
