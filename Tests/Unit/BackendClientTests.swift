@@ -32,6 +32,205 @@ final class BackendClientTests: XCTestCase {
         XCTAssertFalse(backend.isAuthenticated)
     }
 
+    func testMultiplayerTicketRefreshesCachedSessionAndUsesCurrentCSRF() async throws {
+        let recorder = RequestRecorder()
+        let sessions = LockedCounter()
+        let initial = try JSONEncoder().encode(Self.signedInSession)
+        let refreshed = try JSONEncoder().encode(multiplayerSession(csrf: "csrf-refreshed"))
+        let ticket = multiplayerTicketData()
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            if request.url?.path == "/api/session" {
+                return StubResponse(data: sessions.increment() == 1 ? initial : refreshed)
+            }
+            return StubResponse(data: ticket, statusCode: 201)
+        }
+        let backend = makeBackend()
+        _ = try await backend.loadSession()
+
+        let result = try await backend.createMultiplayerV2Ticket()
+
+        XCTAssertEqual(result.ticket, "opaque-unit-ticket")
+        XCTAssertEqual(sessions.currentValue, 2)
+        let request = try XCTUnwrap(recorder.requests(forPath: "/api/mobile/v2/multiplayer/tickets").first)
+        XCTAssertEqual(request.method, "POST")
+        XCTAssertEqual(request.header(named: "X-SpeedyTapper-CSRF"), "csrf-refreshed")
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: XCTUnwrap(request.body)) as? [String: Any])
+        XCTAssertEqual(payload["protocolVersion"] as? Int, 2)
+        XCTAssertEqual(payload["ruleset"] as? String, "multiplayer-shared-arcade-v2")
+        XCTAssertTrue(backend.isAuthenticated)
+    }
+
+    func testMultiplayerTicketRecoversOneRejectedIssuanceAfterSessionRefresh() async throws {
+        for status in [401, 403] {
+            let recorder = RequestRecorder()
+            let sessions = LockedCounter()
+            let attempts = LockedCounter()
+            let initial = try JSONEncoder().encode(Self.signedInSession)
+            let refreshed = try JSONEncoder().encode(multiplayerSession(csrf: "csrf-refreshed"))
+            let ticket = multiplayerTicketData()
+            StubURLProtocol.handler = { request in
+                recorder.append(request)
+                if request.url?.path == "/api/session" {
+                    return StubResponse(data: sessions.increment() == 1 ? initial : refreshed)
+                }
+                return attempts.increment() == 1
+                    ? StubResponse(data: Data(#"{"error":"Session changed."}"#.utf8), statusCode: status)
+                    : StubResponse(data: ticket, statusCode: 201)
+            }
+            let backend = makeBackend()
+
+            _ = try await backend.createMultiplayerV2Ticket()
+
+            XCTAssertEqual(sessions.currentValue, 2)
+            XCTAssertEqual(attempts.currentValue, 2)
+            XCTAssertEqual(
+                recorder.requests(forPath: "/api/mobile/v2/multiplayer/tickets").last?
+                    .header(named: "X-SpeedyTapper-CSRF"), "csrf-refreshed")
+            XCTAssertTrue(backend.isAuthenticated)
+        }
+    }
+
+    func testMultiplayerTicketDoesNotRetryPermissionRateLimitOrServiceFailure() async throws {
+        for status in [403, 429, 503] {
+            let sessions = LockedCounter()
+            let attempts = LockedCounter()
+            let session = try JSONEncoder().encode(Self.signedInSession)
+            StubURLProtocol.handler = { request in
+                if request.url?.path == "/api/session" {
+                    _ = sessions.increment()
+                    return StubResponse(data: session)
+                }
+                _ = attempts.increment()
+                return StubResponse(data: Data(#"{"error":"Try later."}"#.utf8), statusCode: status)
+            }
+            let backend = makeBackend()
+            do {
+                _ = try await backend.createMultiplayerV2Ticket()
+                XCTFail("A non-authentication failure must not become a successful ticket.")
+            } catch let error as BackendError {
+                XCTAssertEqual(error.status, status)
+            }
+            XCTAssertEqual(attempts.currentValue, 1)
+            XCTAssertEqual(sessions.currentValue, status == 403 ? 2 : 1)
+            XCTAssertTrue(backend.isAuthenticated, "Service failures must not sign the player out.")
+        }
+    }
+
+    func testMultiplayerTicketRefreshRecognizesRevokedSessionWithoutRetry() async throws {
+        let sessions = LockedCounter()
+        let attempts = LockedCounter()
+        let initial = try JSONEncoder().encode(Self.signedInSession)
+        let signedOut = try JSONEncoder().encode(Self.signedOutSession)
+        StubURLProtocol.handler = { request in
+            if request.url?.path == "/api/session" {
+                return StubResponse(data: sessions.increment() == 1 ? initial : signedOut)
+            }
+            _ = attempts.increment()
+            return StubResponse(data: Data(#"{"error":"Sign in again."}"#.utf8), statusCode: 401)
+        }
+        let backend = makeBackend()
+        do {
+            _ = try await backend.createMultiplayerV2Ticket()
+            XCTFail("A revoked primary session must not receive another ticket.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "authentication-required")
+        }
+        XCTAssertEqual(attempts.currentValue, 1)
+        XCTAssertFalse(backend.isAuthenticated)
+        XCTAssertNil(backend.profile)
+    }
+
+    func testMultiplayerTicketDoesNotIssueForSignedOutOrUnconfirmedProfile() async throws {
+        var profileJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(Self.signedInSession.profile)) as? [String: Any])
+        profileJSON["nicknameConfirmed"] = false
+        let unconfirmed = try JSONDecoder().decode(
+            PlayerProfile.self, from: JSONSerialization.data(withJSONObject: profileJSON))
+        for session in [Self.signedOutSession, multiplayerSession(profile: unconfirmed)] {
+            let recorder = RequestRecorder()
+            let data = try JSONEncoder().encode(session)
+            StubURLProtocol.handler = { request in
+                recorder.append(request)
+                return StubResponse(data: data)
+            }
+            let backend = makeBackend()
+            do {
+                _ = try await backend.createMultiplayerV2Ticket()
+                XCTFail("Only an authenticated, confirmed name may enter multiplayer.")
+            } catch let error as BackendError {
+                XCTAssertEqual(error.status, session.authenticated ? 403 : 401)
+            }
+            XCTAssertTrue(recorder.requests(forPath: "/api/mobile/v2/multiplayer/tickets").isEmpty)
+        }
+    }
+
+    func testMultiplayerTicketRetriesAtMostOnce() async throws {
+        let sessions = LockedCounter()
+        let attempts = LockedCounter()
+        let initial = try JSONEncoder().encode(Self.signedInSession)
+        StubURLProtocol.handler = { request in
+            if request.url?.path == "/api/session" {
+                _ = sessions.increment()
+                return StubResponse(data: initial)
+            }
+            _ = attempts.increment()
+            return StubResponse(data: Data(#"{"error":"Sign in again."}"#.utf8), statusCode: 401)
+        }
+        let backend = makeBackend()
+        do {
+            _ = try await backend.createMultiplayerV2Ticket()
+            XCTFail("Repeated rejection must not loop forever.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.status, 401)
+        }
+        XCTAssertEqual(sessions.currentValue, 2)
+        XCTAssertEqual(attempts.currentValue, 2)
+    }
+
+    func testMultiplayerTicketRejectsResponseAfterLogout() async throws {
+        let requested = expectation(description: "Ticket request started")
+        let session = try JSONEncoder().encode(Self.signedInSession)
+        let signedOut = try JSONEncoder().encode(Self.signedOutSession)
+        let ticket = multiplayerTicketData()
+        StubURLProtocol.handler = { request in
+            switch request.url?.path {
+            case "/api/session": return StubResponse(data: session)
+            case "/api/logout": return StubResponse(data: signedOut)
+            case "/api/mobile/v2/multiplayer/tickets":
+                requested.fulfill()
+                return StubResponse(data: ticket, statusCode: 201, delay: 0.15)
+            default: return StubResponse(data: Data("{}".utf8), statusCode: 404)
+            }
+        }
+        let backend = makeBackend()
+        let pending = Task { @MainActor in try await backend.createMultiplayerV2Ticket() }
+        await fulfillment(of: [requested], timeout: 2)
+        _ = try await backend.logout()
+        do {
+            _ = try await pending.value
+            XCTFail("A ticket issued before logout must not be returned for a new connection.")
+        } catch let error as BackendError {
+            XCTAssertEqual(error.code, "stale-session")
+        }
+        XCTAssertFalse(backend.isAuthenticated)
+    }
+
+    private func multiplayerSession(csrf: String = "csrf-2", profile: PlayerProfile? = nil) -> SessionResponse {
+        SessionResponse(
+            authenticated: true, csrfToken: csrf, googleClientId: Self.signedInSession.googleClientId,
+            season: Self.signedInSession.season, profile: profile ?? Self.signedInSession.profile, ranks: nil)
+    }
+
+    private func multiplayerTicketData() -> Data {
+        Data(
+            """
+            {"ticket":"opaque-unit-ticket","expiresAt":\(Int(Date().timeIntervalSince1970) + 60),
+             "realtimeURL":"wss://unit.test/multiplayer/v2"}
+            """.utf8)
+    }
+
     func testSessionModelsDecodeLegacyAndAdditiveStoreKitState() throws {
         let legacy = try JSONDecoder().decode(
             SessionResponse.self,
