@@ -1,8 +1,8 @@
 # Multiplayer v2 — current gameplay contract
 
-Updated 2026-09-10. Gameplay revision 2 is the **build-26 candidate**, not yet
-established as deployed or available in TestFlight by this document. Build 25
-released revision 1 on Railway; exact release evidence is in
+Updated 2026-09-10. Gameplay revision 2 is deployed and available in build 26
+to both existing TestFlight QA groups. Build 25 retains revision 1 in separate
+compatible rooms; exact source, deployment and Apple evidence is in
 [CURRENT_VERSION](CURRENT_VERSION.md). Historical plans and superseded FAST/v1
 decisions remain in Git history, not parallel binding contracts.
 
@@ -159,4 +159,4 @@ feedback and peer convergence separately on named 60/120 Hz hardware. Sub-frame
 feedback and convergence goals remain unmeasured until that evidence exists.
 A service restart still loses in-memory matches; only outbox evidence persists.
 Drain, sustained load, multi-region failover and live-match recovery are not
-established by this candidate.
+established by this unranked beta.

@@ -14,16 +14,18 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (26)` candidate; build 25 remains the uploaded beta |
-| TestFlight state | Build 25 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-09) |
-| Exact released source | `962a39de80277534dd45eca56ca913217bde1fbb` |
-| Hosting | Railway Amsterdam; separate PHP v2 bridge and migration 023 deployed |
-| Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (26)` |
+| TestFlight state | Build 26 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-10) |
+| Exact uploaded iOS source | `6a94d64312b113c8013782aca0a3ea8c8718eaf9` |
+| Hosting | Railway Amsterdam revision 2; separate PHP reconnect fix and migration 024 deployed |
+| Previous supported beta | Build 25 / gameplay revision 1; prior-build installability not reverified |
 | Open QA gates | Real-account hosted matches, physical 2/3/4-device/network/latency acceptance; public legal URLs and reviewer access |
 | Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-Build 24 is the earlier GameKit/v1 beta; build 25 contains v2.
+Build 24 is the earlier GameKit/v1 beta; build 25 retains v2 gameplay revision 1
+in separate compatible rooms. Build 26 adds Arcade pacing, changing unique colors,
+persistent safe-color decoys and shared hearts.
 V2 replaces live peer synchronization with a persistent Swift room authority and
 reuses the Arcade SpriteKit board. The owner confirmed one identical shared board;
 waiting for an own-color opportunity, including on 1×1, is intentional. Numerical

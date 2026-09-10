@@ -1,9 +1,9 @@
 # Railway EU beta deployment
 
-Owner-authorized on 2026-09-09: one EU multiplayer service, the separate PHP v2
-bridge, and a new TestFlight build for the existing Internal QA and External QA
-groups. The hosted release and boundary checks below passed. Real-player match
-acceptance and Apple's external beta approval are separate gates.
+Owner-authorized EU service and PHP bridge were updated on 2026-09-10 for
+TestFlight build 26. Hosted release and boundary checks passed; Apple approved
+build 26 for the existing Internal QA and External QA groups. Real-player match
+acceptance remains a separate gate.
 
 ## Provisioned target
 
@@ -52,7 +52,9 @@ The following endpoints must be deployed on the separate PHP host:
 `SPEEDYTAPPER_MULTIPLAYER_SERVICE_SECRET`, and the public socket URL above as
 `SPEEDYTAPPER_REALTIME_URL`. Keep the key out of URLs, source, command arguments,
 release records and logs. Pass it through stdin/private configuration only.
-PHP migration 023 must be applied before the v2 code serves requests.
+PHP migration 023 is required for v2. Additive migration 024 must also be applied
+before gameplay revision 2 serves heart-enabled matches: cumulative misses can
+exceed three when hearts restore lives. Live lives remain capped at three.
 
 ## Deployment and operation
 
@@ -88,14 +90,57 @@ the processed build to both existing QA groups and submit external Beta App
 Review when required. Report assignment and approval separately; do not create
 or change a public testing link.
 
-For the first release there is no prior Railway application deployment to roll
-back to. Retain its source artifact for exact redeployment. If the rollout fails,
-stop new v2 admission through PHP configuration while retaining the volume and
-existing Arcade/v1 behavior. A later Railway rollback restores an earlier image,
-not in-progress room memory. Retain the separate PHP predeployment source/config/
-database backups and do not drop additive v2 tables as routine rollback.
+Build 25's prior Railway deployment `ece352a2-d7e1-4512-9f16-aad11daa6602` is the
+runtime rollback reference. A rollback restores an earlier image, not live room
+memory. Coordinate client revision compatibility and PHP admission before rolling
+back; do not leave build 26 pointing at a revision-1-only service. Retain the volume,
+PHP backups and additive 023/024 schema. Old PHP's three-miss validation must not
+receive revision-2 heart results. Never drop v2 tables as routine rollback.
 
-## Evidence
+## Current build 26 deployment evidence
+
+Verified 2026-09-10; PHP 024 was directly verified before Railway activation.
+
+| Evidence | Value |
+| --- | --- |
+| Clean service source | `6629fe09f31d34584ec39e49e99b49633bf035ea` |
+| Railway deployment | `920bd2bf-217e-44b3-ac4c-d3a0f964b812`, SUCCESS around 19:19 UTC, one Amsterdam replica |
+| Source tar SHA-256 | `a4c8aff288239aa3387beaa6d2e403f2e0a55c5f35b15c3714521618a4a3f74c` |
+| Linux/amd64 image manifest | `sha256:6e4f4764f539d9a82be9d8bdc07f34236fee1a78c26286b1eb4bb6cab6acd204` |
+| Railway image/index digest | `sha256:dfc2849ff5001edd5da45218bc65d8a4f1c55885dd19382f0b5c37c4baab7081` |
+| Runtime binary SHA-256 | `126e137265c98077fe2cb9acbecef4b93f41df2a88b58a5c59a64dc8135879ad` |
+| PHP deployed source | `9fe555d179326cecd5e23f0a6a16788b4af0ba34` |
+| PHP artifact SHA-256 | `080b96234b290687ddc5b3f38c88881209f640cf423766fbbfe524e3179f99c5` |
+| PHP host/root | `speedytapper.otcsoft.com` / `/home/u966828068/domains/speedytapper.otcsoft.com/public_html` |
+| PHP migration/season | Ledger 001–024 directly verified; only 024 newly applied, season-1 unchanged |
+| PHP rollback artifact SHA-256 | `dbea09d4c9e29f36d4140614073dbf71a6fc4d9c0c77e50acc3b779da2007882` (pre-build-26 runtime, tested readable, not redeployed) |
+
+Fresh read-only Railway SSH verified x86_64 and PID 1 PimPoPomRealtime running as
+UID/GID 10001, `NoNewPrivs=1`, with owner-only 0700 outbox/archive directories on
+the writable ext4 volume. Startup's own write/rename/read readiness check passed.
+No extra restart or result mutation was performed in this verification. The
+temporary SSH registration and private material were removed; the pinned host key
+matched the previous first-use record, not an independently published key.
+
+Health reported ranking disabled and zero rooms/connections before/after ten live
+WSS boundary tests. Both legacy and revision-2 invalid tickets reached the expected
+authenticated rejection, development tickets remained disabled, and PHP passed
+35 TLS/session/service-auth/private-path boundary checks. These do not establish
+positive player sign-in, real-device latency or complete hosted-match delivery.
+The 43-second positive heart/color/decoy match used local fixture accounts only.
+
+The one-replica, sleep-disabled, 120-second healthcheck, zero-overlap, 30-second
+drain and On Failure/10 settings were verified unchanged. No service secrets,
+billing plan, existing workers, account data or economy values were changed.
+Private PHP runtime/config/database backups were hash-verified; all temporary
+deployment cron jobs and the bootstrap helper were removed from the live site.
+
+Artifacts: `build/releases/build26-20260910/`; separate PHP release/backup record:
+`/Users/vlad/Documents/SpeedyTapper-release-artifacts/20260910-mp26.S14gtt/RELEASE.md`.
+Final uploaded iOS source `6a94d64312b113c8013782aca0a3ea8c8718eaf9` contains no
+Server/Core changes from the deployed service source above.
+
+## Historical build 25 deployment evidence
 
 Verified 2026-09-09:
 

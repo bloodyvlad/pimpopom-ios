@@ -7,23 +7,66 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 | Item | Current truth |
 | --- | --- |
-| Current beta | `1.02 (25)`, uploaded 2026-09-09; VALID |
-| App Store Connect build | `b8afe802-32d4-4538-aaf1-b27182693653`; external-eligible, non-exempt encryption false |
+| Current beta | `1.02 (26)`, uploaded 2026-09-10; VALID |
+| App Store Connect build | `36664ea8-abbb-4fe2-bfb8-a06783de23c9`; external-eligible, non-exempt encryption false |
 | Groups / external state | Internal QA and External QA both `IN_BETA_TESTING`; beta review `APPROVED` |
-| Uploaded source | `962a39de80277534dd45eca56ca913217bde1fbb`, clean Staging archive/export |
-| Hosted backend | Railway Amsterdam v2 and PHP bridge/migration 023 deployed; boundary checks passed |
-| Rollback beta reference | Build 20, source `69fe7422719dd4953e90354a2ae3f3c976995db7`; current installability not reverified |
-| Authorized work | Railway EU service, separate PHP v2 bridge/migration 023, TestFlight Internal QA/External QA; no paid-plan upgrade or App Store production submission |
+| Uploaded source | `6a94d64312b113c8013782aca0a3ea8c8718eaf9`, clean Staging archive/export |
+| Hosted backend | Railway Amsterdam gameplay revision 2 and PHP bridge/migration 024 deployed; boundary checks passed |
+| Prior beta / rollback reference | Build 25, source `962a39de80277534dd45eca56ca913217bde1fbb`; revision-1 rooms remain compatible; current prior-build installability not reverified |
+| Authorized work | Multiplayer fixes, Railway/PHP alignment and TestFlight Internal QA/External QA; no paid-plan upgrade or App Store production submission |
 | Production App Store | No production release established by this task |
 
 Real signed-in 2/3/4-device matches, 60/120 Hz acceptance and public legal URLs
 remain open. Build 24 remains the historical GameKit/v1 binary.
 
-## Build 25 evidence
+## Build 26 evidence
+
+Direct Apple verification at **2026-09-10 19:40:39 UTC** confirmed VALID,
+`APP_STORE_ELIGIBLE`, beta review APPROVED and both existing QA groups
+`IN_BETA_TESTING`. The en-US What to Test and reviewer notes were updated;
+contacts, demo-account settings and existing public-link settings were preserved.
+`autoNotifyEnabled=true`; no duplicate manual notification was sent.
 
 | Item | Verified value |
 | --- | --- |
-| Source branch | `codex/railway-eu-testflight`; uploaded source SHA above, later documentation commits are not new binaries |
+| Branch / uploaded source | `codex/mp26-gameplay-release` / `6a94d64312b113c8013782aca0a3ea8c8718eaf9`; subsequent docs commits do not change the binary |
+| Toolchain | Xcode 26.6 (17F113), Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.6.2 |
+| Configuration | PimPoPom Staging; iOS 17+, `-O`, whole-module, `STAGING` without `DEBUG`; owner-split test ads |
+| Archive TGZ SHA-256 | `5fe13c1c30be52a84522b0c4ef47ea7a6bc3f204240026b774f897e86a93a45d` |
+| 115-file archive manifest SHA-256 | `516712c07b124e07354f1d681f3101ec7e87a39f3bbfbcca885bf16b4c0536d8` |
+| App and matching dSYM UUID | `31442D1A-D3CD-3472-8429-171A1AA0D80B` |
+| App binary SHA-256 | `ff61d3ea8b135d90074525dff261c847a8922dad9955506a262cde25fb16a29f` |
+| App dSYM SHA-256 | `3e10fe673478b0e89eefa9ff7f98fb2ab80447cf11f426d6fb1c6fd724a95052` |
+| Apple upload / expiration | 2026-09-10 19:38:15 UTC / 2026-12-09 19:38:15 UTC |
+| Deployed Railway source | `6629fe09f31d34584ec39e49e99b49633bf035ea`; later iOS lifecycle-only change leaves deployed Server/Core identical |
+| Deployed PHP source | `9fe555d179326cecd5e23f0a6a16788b4af0ba34`; additive 024 applied, season-1 unchanged |
+
+`ARCHIVE SUCCEEDED`, `Upload succeeded` and `EXPORT SUCCEEDED` were verified.
+Signature and app symbols match; twelve privacy manifests and zero prohibited
+files were found. Distribution export disabled task allowance. Apple accepted
+GoogleMobileAds/UserMessagingPlatform missing-dSYM warnings; third-party crash
+symbolication can be incomplete, while the matching app-owned dSYM is retained.
+
+Final clean source passed **225 app/UI tests (220 unit + 5 UI), 72 core tests and
+26 service tests**, with zero app/UI failures or skips. Service/core Linux checks,
+local 2/3/4-client sockets and a 43-second heart/color/decoy gameplay check passed.
+Hosted service verification covered runtime identity, writable persistent storage,
+ten WSS boundary cases and 35 PHP boundary checks. This is not physical-device
+latency or positive signed-in internet-match evidence.
+
+Artifacts are retained under `build/releases/build26-20260910/`, including
+`PimPoPom-build26-final.xcresult`, the final archive TGZ, `apple-final-state.json`,
+What to Test, private upload logs, source manifests and backend evidence. The
+earlier local build-26 archive is marked superseded and was never uploaded.
+The [Railway deployment record](../Server/DEPLOYMENT_RAILWAY.md) contains exact
+hosted artifact and rollback identities. Both players must install build 26 to
+exercise the new gameplay; build 25 uses separate compatible revision-1 rooms.
+
+## Historical build 25 evidence
+
+| Item | Verified value |
+| --- | --- |
+| Source branch | `codex/railway-eu-testflight`; uploaded source `962a39de80277534dd45eca56ca913217bde1fbb`, later documentation commits are not new binaries |
 | Toolchain | Xcode 26.6 (17F113), Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.6.2 |
 | Configuration | PimPoPom Staging; iOS 17+, `-O`, whole-module, `STAGING` without `DEBUG`; test ads |
 | Archive TGZ SHA-256 | `915eee26aa49000f0c436c4197afca02892f5aa8642ae308c41434d8421e4e80` |
@@ -96,8 +139,8 @@ For every archive record:
    age, privacy, IAP, Game Center, ads/UMP, and reviewer metadata.
 6. A TestFlight QA candidate may upload with physical gates explicitly open. Complete
    real 2/3/4-device and latency/loss/reorder acceptance before v2 acceptance or
-   production submission. The owner authorized this QA upload on 2026-09-09 after
-   the Railway service and required PHP bridge are aligned.
+   production submission. The owner authorized build 26 QA distribution on
+   2026-09-10; the Railway service and required PHP bridge were aligned first.
 
 ### Configuration gates
 

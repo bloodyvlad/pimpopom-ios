@@ -1,8 +1,9 @@
 # Current native API contract
 
 Arcade, identity and economy retain the existing PHP compatibility surface.
-Multiplayer v2 below is an isolated local candidate, not a deployed API claim.
-The uploaded build 24 uses the historical v1 backend; see CURRENT_VERSION.md.
+Multiplayer v2 is isolated from historical v1. Build 26 uses gameplay revision 2;
+build 25 retains revision 1 and build 24 uses the historical v1 backend.
+Exact dated deployment and Apple evidence is in CURRENT_VERSION.md.
 PHP implementation/deployment remain owned by the separate PHP repository.
 
 ## Transport and session
@@ -145,7 +146,8 @@ The build-25 PHP bridge was deployed from commit
 `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0`, migration
 `023_multiplayer_v2_auth.sql`. It defaults to 503 until valid private
 `SPEEDYTAPPER_REALTIME_URL` and `SPEEDYTAPPER_MULTIPLAYER_SERVICE_SECRET`
-configuration exists. Deployment/migration evidence is recorded separately in
+configuration exists. The current PHP runtime is `9fe555d179326cecd5e23f0a6a16788b4af0ba34`
+with additive migration 024 verified on 2026-09-10. Deployment/migration evidence is recorded in
 CURRENT_VERSION.md and Server/DEPLOYMENT_RAILWAY.md.
 
 Build 26 retains this authentication tuple and negotiates `gameplayRevision:2`
@@ -188,7 +190,7 @@ Redeem/validate bodies are at most 1,024 bytes; result bodies at most 16,384 byt
 Identity contains `playerID, name, petID, sessionBinding, expiresAt,
 protocolVersion, ruleset`. Pet is nullable. The opaque binding is not a PHP
 session ID/digest; it expires within an hour and no later than its source session.
-Validation does not extend it. The build-26 PHP candidate keeps at most twelve
+Validation does not extend it. The deployed build-26 PHP compatibility update keeps at most twelve
 bindings per primary session by retiring the oldest binding after a valid fresh
 ticket redemption, instead of locking a valid login out after twelve reconnects.
 Invalid, replayed or expired tickets cannot evict a binding.
@@ -196,7 +198,8 @@ Invalid, replayed or expired tickets cannot evict a binding.
 Vapor validates every 15 seconds and authenticates a fresh ticket before resume.
 Logout/rotation/deletion revocation is bounded polling, not instantaneous push.
 On failed validation, stop the affected seat rather than retaining stale authority.
-Full-host TLS/Authorization forwarding and revocation acceptance remain open.
+Full-host TLS/Authorization forwarding was verified. Genuine player revocation
+and end-to-end device acceptance remain separate gates.
 
 ### Socket directory and live play
 
@@ -236,8 +239,8 @@ matching `stored_unranked` acknowledgement.
 These are **service-reported, unranked aggregates**, not independent PHP replay
 proof, human verification or a new ranked season. No v1 result/rank, progression,
 coin, achievement or Game Center publication writes occur. No public v2 result
-read is implemented. Railway EU persistence and the PHP bridge were verified for
-build 25; each later candidate still requires direct deployment verification.
+read is implemented. Railway EU runtime and PHP bridge/migration 024 were directly
+verified for build 26; complete real-account result delivery remains a device-QA gate.
 
 ## Historical v1 compatibility — read-only in the new client
 
@@ -250,6 +253,6 @@ historical top/context reads. Accepted entries require
 `verification:"peer_consistent_v1"`; they are never relabeled v2 or merged with
 unranked alpha aggregates. Historical Game Center best-score publication remains
 separate. V1 create/join/readiness/GameKit roster/start/submission/settlement
-mutation clients and live wire are removed from the integration candidate.
+mutation clients and live wire are removed from the released v2 client.
 The full old contract is recoverable from Git history, including audit baseline
 `df16cb8ef43adf3752023d12329384c2e0a08eaa`.

@@ -1,7 +1,7 @@
 # Current gameplay specification
 
 Arcade/Zen rules are unchanged. Multiplayer gameplay revision 2 below is the
-build-26 candidate; build 25 uses the retained revision-1 behavior. Release and
+build-26 beta; build 25 uses the retained revision-1 behavior. Release and
 deployment evidence remain separate in CURRENT_VERSION.md.
 
 ## Modes
@@ -28,7 +28,7 @@ deployment evidence remain separate in CURRENT_VERSION.md.
 - **End run** freezes an ephemeral local Results view. Restart/menu/app termination
   discards it.
 
-### Multiplayer v2 — gameplay revision 2 candidate
+### Multiplayer v2 — gameplay revision 2 beta
 
 - Exactly 2–4 players; `multiplayer-shared-arcade-v2`, protocol 2, negotiated
   gameplay revision 2. Primary sign-in and confirmed nickname; no Game Center

@@ -33,7 +33,7 @@ touch path.
 
 ## D-04 — Preserve the current three mode contracts
 
-Status: Arcade/Zen retained; Multiplayer v2 revision 2 is the build-26 candidate.
+Status: Arcade/Zen retained; Multiplayer v2 revision 2 released in the build-26 beta.
 
 Arcade is endless until three mistakes and is the only coin/achievement-eligible
 mode. Zen is endless local practice with no deadlines, decoys, durable result, or
@@ -114,7 +114,7 @@ handle lifecycle/interruption without blocking play.
 
 ## D-12 — Replace live Multiplayer v1 with an isolated v2 authority
 
-Status: v2 revision 1 released in build 25; revision 2 is an unreleased build-26 candidate.
+Status: v2 revision 1 retained for build 25; revision 2 released in the build-26 beta.
 
 Native `URLSessionWebSocketTask` connects to one persistent Vapor 4 room service.
 The shared pure Swift engine owns targets, input admission, scores and lives;
@@ -139,7 +139,7 @@ and compatible validator before server rollout; no authentication protocol chang
 
 ## D-13 — Share one board with Arcade tempo and safe color ownership
 
-Status: owner-directed revision-2 implementation candidate; release acceptance pending.
+Status: owner-directed revision 2 released to TestFlight; physical-device acceptance pending.
 
 Every seat sees the same board. Waiting for an own-color target is accepted,
 including on 1×1. There is no fixed turn order: random arbitration permits repeats,

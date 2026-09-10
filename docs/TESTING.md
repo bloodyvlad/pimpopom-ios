@@ -1,28 +1,23 @@
 # Testing and quality gates
 
 PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranked
-Arcade and an unranked Multiplayer v2 candidate. Automated checks are necessary;
+Arcade and an unranked Multiplayer v2 beta. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
 ## Current release evidence
 
-- Build 26 is the local revision-2 candidate. Its first integrated gate passed
-  223 app/UI tests (zero failures/skips), 72 core tests and Linux verification.
-  The final source gate, deployment and Apple state must be recorded separately.
+- Build 26 is VALID, approved and available to both existing QA groups. Exact
+  final source passed 225 app/UI tests (zero failures/skips), 72 core tests and
+  26 service tests, plus Linux/runtime and local/live socket checks. PHP 024 and
+  the Railway revision-2 deployment were directly verified before distribution.
 - Revision-2 regressions cover post-hit Arcade quiet windows, color uniqueness,
   persistent non-player-color decoys, first-admitted heart claims, delayed input,
   spectating, session-ticket recovery and pushed joinable room lists. Both legacy
   and new revisions require 2/3/4-client socket coverage and isolated directories.
-- Build `1.02 (25)` was uploaded on 2026-09-09 and is VALID, with Internal QA and
-  External QA both `IN_BETA_TESTING` and beta review `APPROVED`.
-  Railway EU and the PHP v2 bridge/migration 023 are deployed and boundary-tested.
-  Current Apple/group/review evidence is recorded in [RELEASE](RELEASE.md).
-- Build 24 is the historical GameKit/v1 beta. Local/hosted checks do not establish
-  a real signed-in match, physical touch latency or external beta availability.
-- Final integrated v2 check counts/logs must be recorded in
-  [CURRENT_VERSION](CURRENT_VERSION.md) after the exact candidate runs.
-  Build 20 remains the historical rollback reference; current installability
-  and physical acceptance are not inferred from old notes.
+- Build 25 is the prior revision-1 beta; build 24 is historical GameKit/v1.
+  Apple/group evidence and exact retained logs are in [RELEASE](RELEASE.md) and
+  [CURRENT_VERSION](CURRENT_VERSION.md). Prior installability and real physical
+  acceptance are not inferred from old notes or Simulator checks.
 
 ## Required local gate
 
@@ -110,10 +105,10 @@ Use the shared-core tests, `swift test --package-path Server -j 4`,
 disposable MariaDB migration/auth/result tests and account-deletion tests.
 Passing one layer does not imply the integrated others passed.
 
-The 2026-09-09 integrated run passed 63 current core tests, 209 app/UI tests
-(zero skips, including real native loopback sockets), and 8 service tests.
-Exact logs, Simulator identity and separate PHP evidence are recorded in
-[CURRENT_VERSION](CURRENT_VERSION.md#verification-and-open-gates). Linux and
+The final build-26 run passed 72 core tests, 225 app/UI tests (zero skips,
+including real native loopback sockets), and 26 service tests. Exact logs,
+Simulator identity and separate PHP evidence are recorded in
+[CURRENT_VERSION](CURRENT_VERSION.md#verification-and-remaining-gates). Linux and
 physical/public-network evidence must be recorded separately.
 
 Acceptance covers 2/3/4 independent clients, no tap before Start, natural finishes,

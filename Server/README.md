@@ -1,8 +1,8 @@
 # Multiplayer v2 room service
 
-Build-26 gameplay revision 2 is a candidate; this document does not establish its
-deployment or TestFlight availability. Build 25 released revision 1 on Railway;
-see the separate deployment/release records. The Swift authority uses
+Build-26 gameplay revision 2 is deployed on Railway and available to the existing
+TestFlight QA groups; build 25 retains revision 1 in separate compatible rooms.
+Exact evidence is in the separate deployment/release records. The Swift authority uses
 `multiplayer-shared-arcade-v2`, protocol `2`, with separately negotiated gameplay
 revisions. All results remain unranked and award no coins, achievements or
 Game Center publication.
