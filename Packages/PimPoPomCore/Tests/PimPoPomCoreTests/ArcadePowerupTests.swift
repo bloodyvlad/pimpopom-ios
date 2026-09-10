@@ -230,3 +230,47 @@ func pickupDeadlineRounding() throws {
     #expect(engine.activePickups.count == 1)
     #expect(engine.proofEvents().last?.first == 7)
 }
+
+@Test("Correct hits preserve pickups while target and decoy placement continue to exclude their cells")
+func pickupSurvivesCorrectHit() throws {
+    let engine = pickupEngine()
+    let pickup = try #require(engine.activatePickup(now: 12_000).pickup)
+    let target = engine.activateRound(now: 12_100)
+    #expect(engine.tap(cellIndex: target.snapshot.targetIndex!, now: 12_200).kind == .hit)
+    #expect(engine.activePickups == [pickup])
+    let next = engine.activateRound(now: 12_900)
+    #expect(next.snapshot.targetIndex != pickup.cellIndex)
+    let decoy = try #require(engine.activateDecoy(now: 13_000).decoy)
+    #expect(decoy.cellIndex != pickup.cellIndex)
+    #expect(decoy.cellIndex != next.snapshot.targetIndex)
+}
+
+@Test("Clock recharge is nonmultiplicative and difficulty uses real elapsed time and hit progression")
+func clockRechargeAndUnderlyingProgression() throws {
+    let random = PickupRandom()
+    let engine = pickupEngine(random: random)
+    random.value = 0.75
+    let first = try #require(engine.activatePickup(now: 12_000).pickup)
+    _ = engine.tap(cellIndex: first.cellIndex, now: 12_100)
+    #expect(engine.speedRate(now: 12_100) == 0.7)
+    let second = try #require(engine.activatePickup(now: 30_000).pickup)
+    _ = engine.tap(cellIndex: second.cellIndex, now: 30_100)
+    #expect(engine.speedRate(now: 30_100) == 0.7)
+    let duplicate = engine.tap(cellIndex: second.cellIndex, now: 30_100, resolvedAt: 30_110)
+    #expect(duplicate.kind == .ignored)
+    #expect(engine.speedRate(now: 35_100) == 0.85)
+    #expect(engine.snapshot(now: 40_000).difficulty.gridDimension == 4)
+    #expect(engine.snapshot(now: 40_000).elapsedMilliseconds == 40_000)
+    let third = try #require(engine.activatePickup(now: 48_000).pickup)
+    _ = engine.tap(cellIndex: third.cellIndex, now: 48_100)
+    random.value = 0
+    let initial = engine.activateRound(now: 50_000)
+    #expect(engine.challengeStartHits == 4)
+    #expect(initial.snapshot.difficulty.phaseID == "four-by-four-challenge")
+    _ = engine.tap(cellIndex: initial.snapshot.targetIndex!, now: 50_100)
+    let advanced = engine.activateRound(now: 51_000)
+    let rate = ArcadePowerupRules.rateUnits(atMilliseconds: 51_000, clockClaimHandledAtMilliseconds: 48_100)
+    #expect(
+        advanced.snapshot.difficulty.responseWindowMilliseconds
+            == ArcadePowerupRules.scaledInterval(baseMilliseconds: 995, rateUnits: rate))
+}
