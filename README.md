@@ -5,6 +5,11 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained; the new 2–4-player Multiplayer v2 is an online, unranked playtest.
 Game Center remains a separate account/publication integration.
 
+Current local work adds theme-matched hearts and Arcade heart/clock power-ups.
+It is **not yet released** and requires the separate PHP v4 proof update before
+ranked use. [Power-up contract and QA](docs/ARCADE_POWERUPS.md). TestFlight build 26
+and hosted services remain unchanged by this follow-up.
+
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
 automation; generated work was reviewed through the same gates as hand-written

@@ -412,10 +412,10 @@ struct GameView: View {
                 .foregroundStyle(Color(hex: palette.muted))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
-            if identifier == "game-lives", palette.isPixel, coordinator.mode == .arcade {
-                PixelLivesView(
+            if identifier == "game-lives", coordinator.mode == .arcade {
+                GameplayLivesView(
                     remaining: max(0, min(3, coordinator.snapshot.lives)),
-                    color: valueColor ?? Color(hex: palette.foreground)
+                    theme: palette
                 )
                 .frame(height: 16)
             } else {
@@ -473,9 +473,11 @@ struct GameView: View {
                 .allowsHitTesting(false)
                 .zIndex(GameplayOverlayLayer.boardShell)
 
-            SpriteView(
+            ArcadeSpriteBoard(
                 scene: coordinator.scene,
-                options: [.allowsTransparency, .ignoresSiblingOrder]
+                snapshot: coordinator.snapshot,
+                roundPresentationExpired: coordinator.isRoundPresentationExpired,
+                preparing: preparing
             )
             .clipShape(shell)
             .allowsHitTesting(
@@ -583,6 +585,7 @@ struct GameView: View {
             multiplier: coordinator.snapshot.multiplier,
             progress: coordinator.snapshot.streakProgress,
             target: coordinator.snapshot.streakTarget,
+            speedRate: coordinator.snapshot.speedRate,
             accessibilityIdentifier: "speed-streak"
         )
     }
@@ -1031,26 +1034,12 @@ struct GameView: View {
     }
 }
 
-struct PixelLivesView: View {
-    let remaining: Int
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 3) {
-            ForEach(0..<3, id: \.self) { index in
-                PixelHeartIcon(filled: index < remaining, color: color)
-                    .frame(width: 14, height: 12)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-}
-
 struct GameplaySpeedBarView: View {
     let theme: ThemePalette
     let multiplier: Int
     let progress: Int
     let target: Int
+    var speedRate: Double = 1
     var accessibilityIdentifier = "speed-streak"
 
     var body: some View {
@@ -1089,7 +1078,7 @@ struct GameplaySpeedBarView: View {
                         .allowsHitTesting(false)
                     }
 
-                    Text("SPEED BAR")
+                    Text(speedRate < 1 ? "PACE \(Int((speedRate * 100).rounded()))%" : "SPEED BAR")
                         .font(theme.appFont(size: 10, weight: .black, relativeTo: .caption2))
                         .tracking(0.65)
                         .foregroundStyle(Color(hex: theme.foreground))
@@ -1128,7 +1117,9 @@ struct GameplaySpeedBarView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Speed bar")
-        .accessibilityValue("Multiplier \(multiplier), \(progress) of \(target)")
+        .accessibilityValue(
+            "Multiplier \(multiplier), \(progress) of \(target), pace \(Int((speedRate * 100).rounded())) percent"
+        )
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
@@ -1143,7 +1134,7 @@ struct GameplaySpeedBarView: View {
     }
 }
 
-private struct PixelHeartIcon: View {
+struct PixelHeartIcon: View {
     let filled: Bool
     let color: Color
 

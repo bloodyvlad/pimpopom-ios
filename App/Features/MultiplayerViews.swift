@@ -1109,17 +1109,11 @@ struct MultiplayerLiveView: View {
                 .font(palette.appFont(size: 7, weight: .black, relativeTo: .caption2))
                 .tracking(0.35)
                 .foregroundStyle(Color(hex: palette.muted))
-            if palette.isPixel {
-                PixelLivesView(
-                    remaining: max(0, min(3, state.localPlayer?.lives ?? 0)),
-                    color: Color(hex: GameHUDMetrics.livesColorHex)
-                )
-                .frame(height: 14)
-            } else {
-                Text(multiplayerLivesPresentation)
-                    .font(.system(size: 13, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(hex: GameHUDMetrics.livesColorHex))
-            }
+            GameplayLivesView(
+                remaining: max(0, min(3, state.localPlayer?.lives ?? 0)),
+                theme: palette
+            )
+            .frame(height: 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 3)
@@ -1137,12 +1131,6 @@ struct MultiplayerLiveView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("multiplayer-lives")
-    }
-
-    private var multiplayerLivesPresentation: String {
-        let lives = max(0, min(3, state.localPlayer?.lives ?? 0))
-        return String(repeating: "♥", count: lives)
-            + String(repeating: "♡", count: 3 - lives)
     }
 
     private func localColorName(_ colorIndex: Int?) -> String {

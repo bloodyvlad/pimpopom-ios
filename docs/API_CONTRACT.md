@@ -80,10 +80,16 @@ local identity only after `deleted: true` and `authenticated: false`.
 
 ## Arcade ranking
 
-Compiled tuple: build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2.
+Released build 26 uses build `20260729-1`, `reaction-proof-v3`, proof 2.
+The unreleased local client keeps the same compatibility build ID and explicitly
+requests `reaction-proof-v4`, proof 3 for Arcade power-ups. It requires the separate
+local PHP compatibility update to be deployed first. A higher build ID does not
+select new semantics. See [ARCADE_POWERUPS](ARCADE_POWERUPS.md).
 
 1. Bootstrap the PHP session.
-2. A signed-in confirmed profile requests `/api/runs` before gameplay.
+2. A signed-in confirmed profile requests `/api/runs` before gameplay, with
+   `mode, buildId, ruleset, proofVersion`. Only older clients omit the last two;
+   the compatible PHP runtime keeps omitted capabilities on v3/proof 2.
 3. Reject a ticket whose build, mode, ruleset, proof version, or run identity does
    not match the compiled contract. Failure is blocking/retryable, not local fallback.
 4. Submit the engine's chronological integer tuples to `/api/runs/finish`.

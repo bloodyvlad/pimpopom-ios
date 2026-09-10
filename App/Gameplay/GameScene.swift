@@ -24,6 +24,7 @@ final class GameScene: SKScene {
     private var snapshot: GameSnapshot?
     private var sharedBoard: [Cell]?
     private var sharedHearts: Set<Int> = []
+    private var expiredPickupIDs: Set<Int> = []
     private var sharedDimension = 1
     private struct SharedGeometry {
         let presentedAt: Double
@@ -44,6 +45,7 @@ final class GameScene: SKScene {
         scaleMode = .resizeFill
         backgroundColor = .clear
         anchorPoint = .zero
+        GameplayPickupTextureFactory.prewarm(theme: theme)
     }
 
     @available(*, unavailable)
@@ -52,10 +54,11 @@ final class GameScene: SKScene {
     }
 
     func apply(_ snapshot: GameSnapshot) {
+        if sharedBoard != nil { resetBoardPresentationHistory() }
         sharedBoard = nil
         sharedHearts.removeAll()
-        sharedGeometry.removeAll()
         self.snapshot = snapshot
+        expiredPickupIDs.formIntersection(snapshot.activePickups.map(\.id))
         rebuildBoard()
     }
 
@@ -63,7 +66,9 @@ final class GameScene: SKScene {
     func applySharedBoard(dimension: Int, cells: [Cell], hearts: Set<Int> = []) {
         guard [1, 2, 4].contains(dimension), cells.count == dimension * dimension else { return }
         guard sharedDimension != dimension || sharedBoard != cells || sharedHearts != hearts else { return }
+        if snapshot != nil { resetBoardPresentationHistory() }
         snapshot = nil
+        expiredPickupIDs.removeAll()
         sharedDimension = dimension
         sharedBoard = cells
         sharedHearts = hearts
@@ -73,6 +78,7 @@ final class GameScene: SKScene {
 
     func applyTheme(_ themeID: String) {
         theme = ThemePalette.resolve(themeID)
+        GameplayPickupTextureFactory.prewarm(theme: theme)
         if theme.id == "disco" {
             GameCellTextureFactory.prewarmDisco()
         }
@@ -101,6 +107,16 @@ final class GameScene: SKScene {
         guard roundPresentationExpired != expired else { return }
         roundPresentationExpired = expired
         rebuildBoard()
+    }
+
+    func setExpiredPickupIDs(_ ids: Set<Int>) {
+        guard ids != expiredPickupIDs else { return }
+        expiredPickupIDs = ids
+        rebuildBoard()
+    }
+
+    func isPickupPresented(_ id: Int) -> Bool {
+        !expiredPickupIDs.contains(id) && snapshot?.activePickups.contains(where: { $0.id == id }) == true
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -140,8 +156,15 @@ final class GameScene: SKScene {
         if sharedBoard != nil {
             index = sharedCellIndex(at: location, inputAt: inputAt)
         } else {
-            guard boardFrame.contains(location) else { return }
-            index = cellFrames.firstIndex(where: { $0.contains(location) }) ?? gapMissCellIndex(closestTo: location)
+            let geometry = sharedGeometry.last(where: { $0.presentedAt <= inputAt })
+            // No presentation history is available in direct, unrendered tests.
+            // Once rendering starts, never map an older contact onto a new grid.
+            guard geometry != nil || sharedGeometry.isEmpty else { return }
+            let frames = geometry?.cells ?? cellFrames
+            guard (geometry?.board ?? boardFrame).contains(location) else { return }
+            index =
+                frames.firstIndex(where: { $0.contains(location) })
+                ?? gapMissCellIndex(closestTo: location, frames: frames)
         }
         guard let index else { return }
         let normalizedLocation = CGPoint(
@@ -159,9 +182,9 @@ final class GameScene: SKScene {
     }
 
     /// A delayed UIKit contact belongs to the grid that was visible at contact,
-    /// even if the shared board expanded before delivery on the main actor.
+    /// even if either game mode expanded before delivery on the main actor.
     func recordSharedBoardPresentation(at milliseconds: Double) {
-        guard sharedBoard != nil else { return }
+        guard sharedBoard != nil || snapshot != nil else { return }
         if sharedGeometry.last?.cells != cellFrames || sharedGeometry.last?.board != boardFrame {
             sharedGeometry.append(.init(presentedAt: milliseconds, board: boardFrame, cells: cellFrames))
         }
@@ -171,6 +194,10 @@ final class GameScene: SKScene {
             sharedGeometry.removeFirst()
         }
         if sharedGeometry.count > 32 { sharedGeometry.removeFirst(sharedGeometry.count - 32) }
+    }
+
+    func resetBoardPresentationHistory() {
+        sharedGeometry.removeAll(keepingCapacity: true)
     }
 
     func sharedCellIndex(at location: CGPoint, inputAt: Double) -> Int? {
@@ -195,21 +222,22 @@ final class GameScene: SKScene {
         )
     }
 
-    private func gapMissCellIndex(closestTo location: CGPoint) -> Int? {
+    private func gapMissCellIndex(closestTo location: CGPoint, frames: [CGRect]) -> Int? {
         // A gap must never be resolved to another player's target.
         if sharedBoard != nil { return -1 }
-        guard let snapshot, cellFrames.count > 1 else { return nil }
+        guard let snapshot, frames.count > 1 else { return nil }
         let excludedTarget = snapshot.state == .active ? snapshot.targetIndex : nil
-        return cellFrames.indices
-            .filter { $0 != excludedTarget }
+        let pickupCells = Set(snapshot.activePickups.map(\.cellIndex))
+        return frames.indices
+            .filter { $0 != excludedTarget && !pickupCells.contains($0) }
             .min { lhs, rhs in
                 squaredDistance(
                     from: location,
-                    to: CGPoint(x: cellFrames[lhs].midX, y: cellFrames[lhs].midY)
+                    to: CGPoint(x: frames[lhs].midX, y: frames[lhs].midY)
                 )
                     < squaredDistance(
                         from: location,
-                        to: CGPoint(x: cellFrames[rhs].midX, y: cellFrames[rhs].midY)
+                        to: CGPoint(x: frames[rhs].midX, y: frames[rhs].midY)
                     )
             }
     }
@@ -316,18 +344,23 @@ final class GameScene: SKScene {
             }
             cellFrames.append(rect)
             if sharedBoard != nil, sharedHearts.contains(index) {
-                let heart = SKLabelNode(text: "♥")
-                heart.name = "cell-heart-\(index)"
-                heart.fontName = "AvenirNext-Heavy"
-                heart.fontSize = max(24, cellSide * 0.52)
-                heart.fontColor = UIColor(hexString: GameHUDMetrics.livesColorHex)
-                heart.verticalAlignmentMode = .center
-                heart.horizontalAlignmentMode = .center
-                heart.position = CGPoint(x: rect.midX, y: rect.midY)
-                heart.zPosition = GameCellLayerOrder.glyph
-                addChild(heart)
+                addPickup(.heart, in: rect, cellSide: cellSide, index: index)
+            } else if let pickup = snapshot?.activePickups.first(where: {
+                $0.cellIndex == index && !expiredPickupIDs.contains($0.id)
+            }) {
+                addPickup(pickup.kind == .heart ? .heart : .clock, in: rect, cellSide: cellSide, index: index)
             }
         }
+    }
+
+    private func addPickup(_ symbol: GameplayPickupSymbol, in rect: CGRect, cellSide: CGFloat, index: Int) {
+        let node = SKSpriteNode(texture: GameplayPickupTextureFactory.texture(symbol: symbol, theme: theme))
+        node.name = "cell-\(symbol.rawValue)-\(index)"
+        let side = max(24, cellSide * 0.52)
+        node.size = CGSize(width: side, height: side)
+        node.position = CGPoint(x: rect.midX, y: rect.midY)
+        node.zPosition = GameCellLayerOrder.glyph
+        addChild(node)
     }
 
     private func addDiscoWear(

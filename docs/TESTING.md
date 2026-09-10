@@ -4,6 +4,24 @@ PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranke
 Arcade and an unranked Multiplayer v2 beta. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
+## Unreleased power-up verification
+
+The local Arcade v4/proof-3 extension has 84 pure-core tests, including complete
+heart/clock traces independently replayed by the compatible PHP implementation.
+Focused coverage includes three-life caps, cumulative misses, clock refresh and
+recovery, immutable active deadlines, pickup expiry/input races, stopped-run
+immutability, and delayed pickup contacts across grid expansion. V3 and Zen remain
+covered independently; an old v3 ticket cannot start the new client's ranked run.
+
+Four real local WebSocket clients completed the 92-second color/heart scenario;
+all four theme captures and native Arcade heart/clock collection were checked on
+the iPhone 17 / iOS 26.5 Simulator. This is not four physical-device or internet
+latency evidence. See [ARCADE_POWERUPS](ARCADE_POWERUPS.md) and retained artifacts
+under `build/powerups-20260910/`. Released build 26 below is unchanged.
+The final app gate passed 232 tests with one local-socket fixture skip; the skipped
+test subsequently passed against the rebuilt loopback server. All 26 service tests
+passed. The isolated PHP gate passed 111 SQLite / 112 MariaDB power-up assertions.
+
 ## Current release evidence
 
 - Build 26 is VALID, approved and available to both existing QA groups. Exact
@@ -31,7 +49,7 @@ git diff --check
 The check regenerates the project, enforces Swift format, validates assets/hashes,
 privacy and ad configuration, builds the generic Simulator target, checks Staging
 version/configuration, runs pure core tests, the native unit suite, and the focused
-four-theme Multiplayer/Pixel back-button UI regressions.
+four-theme Multiplayer/Pixel back-button and Arcade pickup contact UI regressions.
 Behavior changes require focused tests before the full gate.
 
 ## Test layers

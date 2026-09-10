@@ -2,6 +2,15 @@
 
 Verified 2026-09-10. Source, deployment and Apple state are separate evidence.
 
+## Unreleased local work
+
+The current branch adds themed pickup/HUD artwork and Arcade hearts/clocks using
+`reaction-proof-v4`, proof 3. The PHP compatibility update is local only; it must
+be deployed before this client can start ranked Arcade runs. No new TestFlight
+build or live service was published for this follow-up. See
+[ARCADE_POWERUPS](ARCADE_POWERUPS.md) for rules and four-player test evidence.
+The table below identifies the unchanged released build, not the new local source.
+
 ## Released beta
 
 | Item | Current truth |

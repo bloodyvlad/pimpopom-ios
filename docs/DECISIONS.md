@@ -35,7 +35,7 @@ touch path.
 
 Status: Arcade/Zen retained; Multiplayer v2 revision 2 released in the build-26 beta.
 
-Arcade is endless until three mistakes and is the only coin/achievement-eligible
+Arcade is endless until zero lives and is the only coin/achievement-eligible
 mode. Zen is endless local practice with no deadlines, decoys, durable result, or
 rewards. Multiplayer v2 is 2–4-player own-color play on one identical shared board,
 with individual three-life state. Shared hearts can restore one life up to three;
@@ -43,6 +43,10 @@ eliminated seats remain spectators. It ends when all are out or the 15-minute
 bound is reached, after the input admission horizon. No Multiplayer coins/achievements.
 Arcade/Zen rules remain in `docs/GAMEPLAY_SPEC.md`; v2 rules and deliberate shared
 board adaptations are in `docs/MULTIPLAYER_V2_REBUILD.md`.
+The owner-directed local Arcade v4 extension adds heart restoration and temporary
+70%-rate clocks, isolated from released v3 and all Multiplayer clock semantics.
+It is unreleased and requires the matching PHP proof update; see
+`docs/ARCADE_POWERUPS.md`. No season/economy reset is included.
 
 ## D-05 — Keep identity provider-separated
 

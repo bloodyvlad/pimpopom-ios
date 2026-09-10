@@ -30,6 +30,7 @@
 		339BFE056EAC7EFF394CC904 /* audio-pimpopom-sting.wav in Resources */ = {isa = PBXBuildFile; fileRef = 36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */; };
 		33CE829944CE88CF56F940A8 /* foka-ice-floe.png in Resources */ = {isa = PBXBuildFile; fileRef = A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */; };
 		36B37175BB6E0CBFE6607C34 /* muse-floor.png in Resources */ = {isa = PBXBuildFile; fileRef = AE0A4CFFE2AEF83863978D0D /* muse-floor.png */; };
+		3780B05BB7ABF2CF007C6646 /* ArcadeSpriteBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1785BF50D237132FAB0E6782 /* ArcadeSpriteBoard.swift */; };
 		37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */; };
 		3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */; };
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
@@ -94,6 +95,7 @@
 		C132456E3372F15EA38F2091 /* MultiplayerBackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4077B55945CD1DEBC158188 /* MultiplayerBackendClient.swift */; };
 		C528DC121C2F2E97DA521941 /* MultiplayerSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1211EE9DABA1635C2D682EAB /* MultiplayerSocket.swift */; };
 		D2FF783D7B37B3FD555CEF37 /* misha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */; };
+		D42D180C72C2F118F43D918D /* GameplayPickupIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC7DB10D577291DC238A5DF /* GameplayPickupIcon.swift */; };
 		D67810BA07DC1F0D8729A51C /* muse-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = BE684D0E61B8053630D1E5B0 /* muse-sprite.png */; };
 		D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */ = {isa = PBXBuildFile; fileRef = EB365660F1E96C034ECE4A85 /* tauta-bed.png */; };
 		DFBB0EAB96AFD9C8BC9AA6F9 /* LocalStoreKitCreditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */; };
@@ -144,6 +146,7 @@
 		1211EE9DABA1635C2D682EAB /* MultiplayerSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerSocket.swift; sourceTree = "<group>"; };
 		12AF44BA9D72AACA0C78C26A /* audio-pixel-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pixel-tones.wav"; sourceTree = "<group>"; };
 		14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsTests.swift; sourceTree = "<group>"; };
+		1785BF50D237132FAB0E6782 /* ArcadeSpriteBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcadeSpriteBoard.swift; sourceTree = "<group>"; };
 		1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterService.swift; sourceTree = "<group>"; };
 		1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStoreKitCreditService.swift; sourceTree = "<group>"; };
 		1EAF0D8DD171854555FDD1CF /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
@@ -177,6 +180,7 @@
 		6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsModels.swift; sourceTree = "<group>"; };
 		6D8B77DB0BBFFF1688760C67 /* pancake-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pancake-sprite.png"; sourceTree = "<group>"; };
 		6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseControllerTests.swift; sourceTree = "<group>"; };
+		6EC7DB10D577291DC238A5DF /* GameplayPickupIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayPickupIcon.swift; sourceTree = "<group>"; };
 		6FF762CE49FF020FD9A3F626 /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
 		753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-disco-tones.wav"; sourceTree = "<group>"; };
 		7A7AAB5003782A88EC74437A /* audio-light-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-light-tones.wav"; sourceTree = "<group>"; };
@@ -328,6 +332,7 @@
 			children = (
 				08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */,
 				E7C97DB7185189A114B58620 /* GameCellArtwork.swift */,
+				6EC7DB10D577291DC238A5DF /* GameplayPickupIcon.swift */,
 				500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */,
 				06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */,
 				D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */,
@@ -503,6 +508,7 @@
 		EBEF85AB212E22ED8DE20E6C /* Gameplay */ = {
 			isa = PBXGroup;
 			children = (
+				1785BF50D237132FAB0E6782 /* ArcadeSpriteBoard.swift */,
 				B807723F13D7024F84747F72 /* GameCoordinator.swift */,
 				9648B3C4989B1B1FF9557057 /* GameScene.swift */,
 				5D742807F5506EC05BA9FAFE /* GameView.swift */,
@@ -721,6 +727,7 @@
 				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
 				97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */,
 				60D82B86C5B02B0DE3F426DB /* AppleSignInButton.swift in Sources */,
+				3780B05BB7ABF2CF007C6646 /* ArcadeSpriteBoard.swift in Sources */,
 				3E8B789C6846539EE101679E /* AudioController.swift in Sources */,
 				EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */,
 				46F5040558302ED97373D477 /* BackendModels.swift in Sources */,
@@ -733,6 +740,7 @@
 				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
 				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,
+				D42D180C72C2F118F43D918D /* GameplayPickupIcon.swift in Sources */,
 				88C71DF6DB15C66DC889A60E /* GoogleAdsServices.swift in Sources */,
 				2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */,
 				772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */,

@@ -824,6 +824,31 @@ final class PimPoPomUITests: XCTestCase {
         }
     }
 
+    func testArcadeHeartAndClockUseTheLiveBoardContactPath() {
+        let app = XCUIApplication()
+        for (theme, kind) in [("classic", "heart"), ("pixel", "clock")] {
+            app.launchArguments = [
+                "--uitesting", "--deterministic-game", "--screenshot-mode",
+                "--screenshot-screen=arcade", "--screenshot-theme=\(theme)",
+                "--screenshot-autoplay", "--ui-test-pickup-kind=\(kind)",
+            ]
+            app.launch()
+            let label = kind == "heart" ? "Heart, restores" : "Clock, slows"
+            let pickup = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+            XCTAssertTrue(pickup.waitForExistence(timeout: 30), "Missing \(theme) \(kind) pickup")
+            XCTAssertTrue(pickup.isHittable)
+            attachScreenshot(of: app, name: "Arcade \(theme) \(kind) before collection")
+            pickup.tap()
+            if kind == "clock" {
+                let pace = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'PACE '")).firstMatch
+                XCTAssertTrue(pace.waitForExistence(timeout: 3))
+                attachScreenshot(of: app, name: "Arcade Pixel clock slowed pace")
+            }
+            XCTAssertFalse(pickup.exists)
+            app.terminate()
+        }
+    }
+
     func testMultiplayerSpectatorNoticeKeepsMatchVisibleAndMenuUsable() {
         let app = XCUIApplication()
         app.launchArguments = [

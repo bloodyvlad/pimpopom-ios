@@ -65,15 +65,17 @@ final class GameCoordinator: ObservableObject {
     private var decoyTask: Task<Void, Never>?
     private var screenshotAutoplayTask: Task<Void, Never>?
     private var pendingDeadlineCommit: PendingDeadlineCommit?
+    private var pendingPickupExpiryCommit: PendingPickupExpiryCommit?
     private var lastDeadlineResolutionAt: Double?
     private var generation = 0
     private var lastPublishedAt = 0.0
     private var started = false
+    private var isRunning = false
     private var hitFeedbackSequence = 0
     private let screenshotAutoplayEnabled: Bool
     private var screenshotAutoplayRandom: ScreenshotAutoplayRandom
 
-    init(mode: GameMode) {
+    init(mode: GameMode, engine suppliedEngine: GameEngine? = nil) {
         self.mode = mode
         #if DEBUG
             let arguments = ProcessInfo.processInfo.arguments
@@ -84,20 +86,25 @@ final class GameCoordinator: ObservableObject {
                 : .standard
             let engine =
                 arguments.contains("--deterministic-game")
-                ? GameEngine(configuration: configuration, random: { 0 })
-                : GameEngine(configuration: configuration)
+                ? GameEngine(
+                    configuration: configuration, ruleset: .v4,
+                    random: {
+                        arguments.contains("--uitesting") && arguments.contains("--ui-test-pickup-kind=clock")
+                            ? 0.99 : 0
+                    })
+                : GameEngine(configuration: configuration, ruleset: .v4)
             screenshotAutoplayEnabled = screenshotFixture?.autoplayEnabled == true
             screenshotAutoplayRandom = ScreenshotAutoplayRandom(
                 seed: screenshotFixture?.autoplaySeed ?? 0
             )
         #else
-            let engine = GameEngine()
+            let engine = GameEngine(ruleset: .v4)
             screenshotAutoplayEnabled = false
             screenshotAutoplayRandom = ScreenshotAutoplayRandom(seed: 0)
         #endif
-        self.engine = engine
+        self.engine = suppliedEngine ?? engine
         scene = GameScene()
-        snapshot = engine.snapshot(now: 0)
+        snapshot = self.engine.snapshot(now: 0)
         scene.eventDelegate = self
         scene.apply(snapshot)
     }
@@ -126,14 +133,17 @@ final class GameCoordinator: ObservableObject {
         generation += 1
         gameplaySessionID = UUID()
         started = true
+        isRunning = true
         isFinished = false
         wasAbandoned = false
         pendingDeadlineCommit = nil
+        pendingPickupExpiryCommit = nil
         lastDeadlineResolutionAt = nil
         feedback = "Get ready"
         hitFeedbackEvent = nil
         let now = monotonicMilliseconds()
         snapshot = engine.start(now: now, mode: mode)
+        scene.resetBoardPresentationHistory()
         scene.apply(snapshot)
         onLifecycleEvent?(.started)
         scheduleTarget(from: now)
@@ -147,6 +157,7 @@ final class GameCoordinator: ObservableObject {
 
     func abandonForBackground() {
         guard started, !isFinished, !wasAbandoned else { return }
+        isRunning = false
         cancelScheduling()
         generation += 1
         engine.reset()
@@ -158,6 +169,7 @@ final class GameCoordinator: ObservableObject {
     }
 
     func stop() {
+        isRunning = false
         cancelScheduling()
     }
 
@@ -230,11 +242,14 @@ final class GameCoordinator: ObservableObject {
         case .zenEnded:
             setRoundPresentationExpired(false)
             feedback = "Zen complete"
-        case .ignored, .decoyActive:
+        case .pickupCollected:
+            feedback = transition.pickup?.kind == .clock ? "Pace slowed to 70%" : "Heart collected"
+        case .ignored, .decoyActive, .pickupActive, .pickupsExpired:
             break
         }
 
         if snapshot.state == .gameOver {
+            isRunning = false
             cancelScheduling()
             if !isFinished {
                 isFinished = true
@@ -251,7 +266,9 @@ final class GameCoordinator: ObservableObject {
         decoyTask = nil
         screenshotAutoplayTask = nil
         pendingDeadlineCommit = nil
+        pendingPickupExpiryCommit = nil
         scene.cancelQueuedActivations()
+        scene.setExpiredPickupIDs([])
         setRoundPresentationExpired(false)
     }
 
@@ -315,6 +332,7 @@ final class GameCoordinator: ObservableObject {
 
 extension GameCoordinator: GameSceneEventDelegate {
     func gameScene(_: GameScene, requestsRoundActivationAt milliseconds: Double) {
+        guard isRunning else { return }
         let result = engine.activateRound(now: milliseconds)
         handle(result)
         if result.kind == .ignored, engine.state == .waiting {
@@ -326,17 +344,28 @@ extension GameCoordinator: GameSceneEventDelegate {
     }
 
     func gameScene(_: GameScene, requestsDecoyActivationAt milliseconds: Double) {
+        guard isRunning else { return }
         let result = engine.activateDecoy(now: milliseconds)
         handle(result)
         scheduleDecoy(from: milliseconds)
     }
 
     func gameScene(_: GameScene, didAdvanceTo milliseconds: Double) {
+        guard isRunning else { return }
         if let expiry = engine.nextDecoyExpiryAt(), expiry <= milliseconds {
             let result = engine.expireDecoys(now: milliseconds)
             if result.kind != .ignored { handle(result) }
         }
+        advancePickupExpiryCommit(at: milliseconds)
         advanceDeadlineCommit(at: milliseconds)
+        if let opportunity = engine.nextPickupOpportunityAt,
+            milliseconds >= opportunity,
+            engine.recoveryRemainingMilliseconds(now: milliseconds) <= 0,
+            engine.state != .idle, engine.state != .gameOver
+        {
+            let result = engine.activatePickup(now: milliseconds)
+            if result.kind != .ignored { handle(result) }
+        }
         if milliseconds - lastPublishedAt >= 33,
             engine.state != .idle,
             engine.state != .gameOver
@@ -357,6 +386,7 @@ extension GameCoordinator: GameSceneEventDelegate {
         inputAt milliseconds: Double,
         handledAt: Double
     ) {
+        guard isRunning else { return }
         var inputAt = InputTiming.resolveInputTimestamp(
             eventTimestampMilliseconds: milliseconds,
             currentTimeMilliseconds: handledAt
@@ -372,7 +402,8 @@ extension GameCoordinator: GameSceneEventDelegate {
                 inputAt = activeAt + max(0, forcedReaction)
             }
         #endif
-        if let activeAt = engine.activeAt,
+        let contactedPickup = engine.pickup(atCell: index, inputAt: inputAt)
+        if contactedPickup == nil, let activeAt = engine.activeAt,
             InputTiming.predatesPresentation(
                 inputAtMilliseconds: inputAt,
                 visibleAtMilliseconds: activeAt
@@ -380,7 +411,7 @@ extension GameCoordinator: GameSceneEventDelegate {
         {
             return
         }
-        if engine.state == .waiting,
+        if contactedPickup == nil, engine.state == .waiting,
             let lastDeadlineResolutionAt,
             InputTiming.wasCoveredByDeadlineResolution(
                 inputAtMilliseconds: inputAt,
@@ -393,6 +424,12 @@ extension GameCoordinator: GameSceneEventDelegate {
         let stateBeforeTap = engine.state
         let result = engine.tap(cellIndex: index, now: inputAt, resolvedAt: handledAt)
         guard result.kind != .ignored else { return }
+        if result.kind == .pickupCollected {
+            // A pickup is independent of the current target/deadline and must
+            // not resample an already-running quiet interval.
+            handle(result)
+            return
+        }
         pendingDeadlineCommit = nil
         if result.kind == .miss, result.reason == "late" {
             lastDeadlineResolutionAt = handledAt
@@ -423,6 +460,37 @@ extension GameCoordinator: GameSceneEventDelegate {
 }
 
 extension GameCoordinator {
+    fileprivate struct PendingPickupExpiryCommit {
+        let generation: Int
+        let expiry: Double
+        var framesRemaining: Int
+    }
+
+    fileprivate func advancePickupExpiryCommit(at milliseconds: Double) {
+        guard let expiry = engine.nextPickupExpiryAt(), milliseconds >= expiry else {
+            pendingPickupExpiryCommit = nil
+            scene.setExpiredPickupIDs([])
+            return
+        }
+        scene.setExpiredPickupIDs(Set(engine.activePickups.filter { $0.expiresAt <= milliseconds }.map(\.id)))
+        if var pending = pendingPickupExpiryCommit,
+            pending.generation == generation, pending.expiry == expiry
+        {
+            if pending.framesRemaining > 1 {
+                pending.framesRemaining -= 1
+                pendingPickupExpiryCommit = pending
+                return
+            }
+            pendingPickupExpiryCommit = nil
+            let result = engine.expirePickups(now: milliseconds)
+            if result.kind != .ignored { handle(result) }
+        } else {
+            // Hide on the deadline frame, then drain original pre-expiry UIKit
+            // contacts before appending the irreversible expiry proof event.
+            pendingPickupExpiryCommit = .init(generation: generation, expiry: expiry, framesRemaining: 2)
+        }
+    }
+
     fileprivate struct PendingDeadlineCommit {
         let generation: Int
         let activeAt: Double

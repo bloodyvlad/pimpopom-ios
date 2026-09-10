@@ -14,8 +14,8 @@ struct BackendError: LocalizedError {
 final class BackendClient: ObservableObject, StoreKitCreditServing {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
     static let deployedBuildID = "20260729-1"
-    static let rankedRuleset = "reaction-proof-v3"
-    static let rankedProofVersion = 2
+    static let rankedRuleset = "reaction-proof-v4"
+    static let rankedProofVersion = 3
     static let accountDeletionConfirmation = "DELETE MY ACCOUNT"
     static let accountDeletionAccountMismatchCode = "account-reauthentication-mismatch"
     static var localStoreKitFixtureRequested: Bool {
@@ -980,10 +980,13 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 proofVersion: Self.rankedProofVersion
             )
         }
-        let body = try encoder.encode([
-            "mode": GameMode.arcade.rawValue,
-            "buildId": Self.deployedBuildID,
-        ])
+        let body = try encoder.encode(
+            RunStartPayload(
+                mode: GameMode.arcade.rawValue,
+                buildId: Self.deployedBuildID,
+                ruleset: Self.rankedRuleset,
+                proofVersion: Self.rankedProofVersion
+            ))
         let ticket: RunTicket = try await mutation(
             path: "/api/runs",
             method: "POST",

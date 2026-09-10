@@ -1,18 +1,21 @@
 # Current gameplay specification
 
-Arcade/Zen rules are unchanged. Multiplayer gameplay revision 2 below is the
-build-26 beta; build 25 uses the retained revision-1 behavior. Release and
-deployment evidence remain separate in CURRENT_VERSION.md.
+Released Arcade v3 and Multiplayer revision 2 are the build-26 beta. The local
+unreleased Arcade v4 power-up extension is specified in
+[ARCADE_POWERUPS](ARCADE_POWERUPS.md); it requires a compatible PHP deployment.
+Zen and Multiplayer rules are unchanged by that extension. Release and deployment
+evidence remain separate in CURRENT_VERSION.md.
 
 ## Modes
 
 ### Arcade
 
 - Wire identifier `normal`; player-facing name **Arcade**.
-- Endless until exactly three mistakes.
+- Released v3 ends after three mistakes. Unreleased v4 ends at zero lives;
+  randomly collected hearts restore one life, capped at three.
 - Wrong color, decoy, inactive/empty space, and expired correct target are mistakes.
-- Mistakes reset the multiplier. The first two start 1.5 seconds of recovery;
-  board input during recovery is ignored. The third ends the run immediately.
+- Mistakes reset the multiplier and cost one life. Nonterminal mistakes start
+  1.5 seconds of recovery; input during recovery is ignored. Zero lives ends play.
 - A signed-in profile with a confirmed nickname must receive a matching ranked
   ticket before the first target. Session/ticket failure blocks with retry/menu.
 - Signed-out or unconfirmed players may play local practice only; it cannot become
@@ -147,7 +150,9 @@ are neutral and never multiplied. Input exactly at the deadline is late.
 
 ## Arcade proof and ranking
 
-Arcade uses build `20260729-1`, `reaction-proof-v3`, proof version 2. Integer tuples:
+Released Arcade uses build `20260729-1`, `reaction-proof-v3`, proof version 2.
+The local v4/proof-3 extension retains these tuple shapes and adds pickup events
+7–10 as specified in [ARCADE_POWERUPS](ARCADE_POWERUPS.md). V3 integer tuples:
 
 | Opcode | Tuple |
 | ---: | --- |
