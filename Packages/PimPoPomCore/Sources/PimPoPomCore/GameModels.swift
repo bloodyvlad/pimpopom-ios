@@ -107,6 +107,10 @@ public struct GameSnapshot: Equatable, Sendable {
     public let roundKind: RoundKind?
     public let difficulty: Difficulty
     public let cells: [Cell]
+    public let activePickups: [ArcadePickup]
+    public let nextPickupOpportunityAt: Double?
+    public let nextPickupExpiryAt: Double?
+    public let speedRate: Double
 }
 
 public enum TransitionKind: String, Sendable {
@@ -117,6 +121,9 @@ public enum TransitionKind: String, Sendable {
     case hit
     case miss
     case zenEnded = "zen-ended"
+    case pickupActive = "pickup-active"
+    case pickupCollected = "pickup-collected"
+    case pickupsExpired = "pickups-expired"
 }
 
 public struct GameTransition: Sendable {
@@ -141,6 +148,8 @@ public struct GameTransition: Sendable {
     public let colorChanged: Bool?
     public let lifeLost: Bool?
     public let targetRetained: Bool?
+    public let pickup: ArcadePickup?
+    public let pickupIDs: [Int]
 
     init(
         kind: TransitionKind,
@@ -163,7 +172,9 @@ public struct GameTransition: Sendable {
         speedRating: SpeedRating? = nil,
         colorChanged: Bool? = nil,
         lifeLost: Bool? = nil,
-        targetRetained: Bool? = nil
+        targetRetained: Bool? = nil,
+        pickup: ArcadePickup? = nil,
+        pickupIDs: [Int] = []
     ) {
         self.kind = kind
         self.reason = reason
@@ -186,5 +197,7 @@ public struct GameTransition: Sendable {
         self.colorChanged = colorChanged
         self.lifeLost = lifeLost
         self.targetRetained = targetRetained
+        self.pickup = pickup
+        self.pickupIDs = pickupIDs
     }
 }
