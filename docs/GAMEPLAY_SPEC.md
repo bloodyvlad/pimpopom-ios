@@ -1,8 +1,8 @@
 # Current gameplay specification
 
-Arcade/Zen rules are retained. Multiplayer v2 below is an owner-approved local
-candidate, not the uploaded build-24 v1 beta. Presentation and economy cannot
-silently change rules; release evidence is separate in CURRENT_VERSION.md.
+Arcade/Zen rules are unchanged. Multiplayer gameplay revision 2 below is the
+build-26 candidate; build 25 uses the retained revision-1 behavior. Release and
+deployment evidence remain separate in CURRENT_VERSION.md.
 
 ## Modes
 
@@ -28,26 +28,41 @@ silently change rules; release evidence is separate in CURRENT_VERSION.md.
 - **End run** freezes an ephemeral local Results view. Restart/menu/app termination
   discards it.
 
-### Multiplayer v2 — local unranked candidate
+### Multiplayer v2 — gameplay revision 2 candidate
 
-- Exactly 2–4 players, fixed unique colors; `multiplayer-shared-arcade-v2`,
-  protocol 2. Primary sign-in and confirmed nickname; no Game Center requirement.
+- Exactly 2–4 players; `multiplayer-shared-arcade-v2`, protocol 2, negotiated
+  gameplay revision 2. Primary sign-in and confirmed nickname; no Game Center
+  requirement. Revision-1 clients use separate rooms and their original rules.
 - The owner confirmed **one identical shared board**, accepting waits for an
   own-color opportunity on 1×1. Random owner arbitration permits repeats; targets
   overlap only when different cells are available. There is no fixed turn order.
 - Start at 1×1; grow to 2×2 after four total valid hits and 4×4 at 40 seconds.
-  Shared Arcade numerical configuration/scoring remains authoritative; personal
-  target spacing can increase due to contention and delivery headroom.
+  After a correct hit, use Arcade's sampled quiet delay and phase progression
+  below as a shared lower bound for newly issued targets, regardless of owner.
+  Already announced targets retain their windows and may overlap. Waiting for
+  cells and late delivery can extend spacing; never accelerate it by cycling seats.
 - Only an owner can hit a target. Wrong-color, empty/gap or trap taps cost only
   the tapping seat's life and cannot consume another seat's target.
-- Each seat has three lives, score, streak, multiplier, reactions and 1.5-second
-  recovery. Eliminated seats spectate; disconnect has 15 seconds to return while
+- Each seat starts with three lives, score, streak, multiplier, reactions and
+  1.5-second recovery. Eliminated seats see **YOU LOSE / SPECTATING** over the
+  shared board and cannot claim hearts. Disconnect has 15 seconds to return while
   other seats continue. All-out or 15 minutes ends play after admission drains.
-- Marked traps use another participant's color and are unscorable by every seat.
-  Natural expiry grants one beneficiary the unmultiplied 550-point dodge. A global
-  Arcade cap reserves capacity for connected living targets; it is not multiplied
-  by player count. Correct hits preserve decoys; personal mistakes clear that
-  seat's decoys without credit. Trap markers remain visible with glyphs off.
+- Before 10 seconds assigned colors stay fixed. A valid hit thereafter selects
+  a different color excluding every player's current color and every live decoy
+  color; keep the current color if no alternative is free. A delayed correction
+  cannot recolor an already issued target. Player colors always remain distinct.
+- Decoys use only colors assigned to no player. They have ordinary optional color
+  glyphs, never an `!` marker, and remain for their Arcade 1–3-second lifetime
+  after correct taps. Natural expiry grants one beneficiary the unmultiplied
+  550-point dodge. Use one global Arcade cap, bounded by `cellCount - 1`, even
+  with four players. Personal mistakes clear that seat's decoys without credit.
+- Neutral heart pickups begin on 2×2 or larger: a random 12–20-second opportunity,
+  one live heart at most, three seconds visible, only when at least two cells are
+  free so one remains available for targets. A failed placement retries after
+  250 ms. The first server-admitted claimant restores one life, capped at three;
+  claiming at the cap consumes it. Competing/expired claims never cost a life.
+  Hearts grant no score, hit, streak or reward. Misses remain cumulative and can
+  exceed three; final-result storage must support this before revision 2 deploys.
 - The persistent Swift service, not peers, derives scores/lives using the same
   pure rules. The app projects local feedback and reconciles receipts/snapshots.
   PHP stores isolated service-reported unranked aggregates, not replayed v2 proof.
@@ -56,9 +71,9 @@ silently change rules; release evidence is separate in CURRENT_VERSION.md.
 
 The complete shared-board adaptations, input admission boundaries and remaining
 acceptance work are in [MULTIPLAYER_V2_REBUILD](MULTIPLAYER_V2_REBUILD.md).
-They do not promise exact independent Arcade cadence, measured latency, or a
-hosted/physically validated service. Arcade's changing player-color rule below
-does not apply to the fixed seat colors in v2.
+These shared-board adaptations do not promise independent personal Arcade
+cadence or measured physical latency. The unchanged Arcade details below also
+supply revision 2's numerical timing, scoring and color-patience boundary.
 
 ## Arcade/Zen board progression
 

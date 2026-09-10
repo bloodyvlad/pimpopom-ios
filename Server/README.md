@@ -1,9 +1,11 @@
 # Multiplayer v2 room service
 
-Local implementation candidate; no hosting, production migration, deployment or
-TestFlight release is implied. This is the separately versioned authoritative
-Swift service for `multiplayer-shared-arcade-v2`, protocol `2`. All results remain
-unranked and award no coins, achievements or Game Center publication.
+Build-26 gameplay revision 2 is a candidate; this document does not establish its
+deployment or TestFlight availability. Build 25 released revision 1 on Railway;
+see the separate deployment/release records. The Swift authority uses
+`multiplayer-shared-arcade-v2`, protocol `2`, with separately negotiated gameplay
+revisions. All results remain unranked and award no coins, achievements or
+Game Center publication.
 
 ## Run locally
 
@@ -46,7 +48,7 @@ Wire values use the shared `MP2ClientMessage`/`MP2ServerMessage` Codable enums.
 Examples of Swift's enum JSON encoding:
 
 ```json
-{"hello":{"ticket":"dev:00000000-0000-4000-8000-000000000001","protocolVersion":2}}
+{"hello":{"ticket":"dev:00000000-0000-4000-8000-000000000001","protocolVersion":2,"gameplayRevision":2}}
 {"create":{"capacity":2}}
 {"ready":{"value":true,"intentID":1,"rosterRevision":2}}
 {"start":{}}
@@ -54,8 +56,11 @@ Examples of Swift's enum JSON encoding:
 ```
 
 Hello must arrive within five seconds and must authenticate before any action.
-Welcome contains the connection ID and monotonic server time. List/create/join
-use this same authenticated socket. Room membership is the sole Ready authority.
+Welcome contains the connection ID, monotonic server time and accepted gameplay
+revision. Omitted Hello revision means legacy `1`; build 26 explicitly requests
+and requires `2`. Browse/join/resume are partitioned by that revision, keeping
+build-25 gameplay and decoding compatible. List/create/join use the same
+authenticated socket. Room membership is the sole Ready authority.
 Server enums with an unlabeled associated value wrap it in `_0`, e.g.
 `{"room":{"_0":{...}}}`; the iOS app decodes shared DTOs directly.
 
@@ -66,6 +71,16 @@ and the current roster revision. Duplicate Ready cannot reverse newer intent.
 Duplicate Start returns the same match and countdown. Roster changes cancel a
 countdown; zero input activity never blocks starting or advancing.
 
+The directory lists only connected, non-full waiting rooms with a connected host.
+Changes push immediately to compatible browsing connections, including creation,
+leave, disconnect, full rooms and removal. A valid new create/join may release
+the same player's abandoned waiting/countdown membership on another socket,
+notify/close that old socket, preserve guests and transfer host ownership.
+It cannot replace a live match or reinterpret a duplicate action on one socket.
+Revision-2 Leave emits ordered `left` acknowledgement after removing membership;
+legacy clients never receive that new enum case. Clients fence late Create
+responses while awaiting it and clear abandoned admission on a replaced socket.
+
 Reconnection first authenticates a new socket with a fresh ticket, then sends
 `resume(roomID, credential, generation)`. The credential is bound to the
 authenticated player and room epoch; success rotates the credential/generation,
@@ -74,11 +89,12 @@ Old input generations cannot enter the engine. The client must discard old
 generation predictions when it installs the reconnect snapshot. Disconnects
 suspend only that seat's opportunities; peers continue. A 15-second grace allows
 return, then only the absent seat is eliminated. Intentional Leave eliminates
-that seat immediately. Completed rooms stay available for 60 seconds after
-completion and are removed only after their result is journaled.
+that seat immediately. Completed rooms are never joinable and cannot block a
+fresh create. They remain internally retained for at least 60 seconds and until
+their result is journaled. Old-room cleanup cannot clear a connection's new room.
 
 The service advances at a requested 60 Hz and emits periodic snapshots at a
-requested 10 Hz, plus immediate target/decoy/phase changes and input receipts.
+requested 10 Hz, plus immediate target/decoy/heart/phase changes and input receipts.
 These are scheduler settings, not measured timing guarantees. Every room and
 connection mutation is serialized by `RoomService`; it never awaits disk,
 network, or a socket writer. One ordered reader and writer serve each socket.
@@ -91,6 +107,16 @@ application ping messages at least every 30 seconds (the app/harness uses one
 second). WebSocket ping/pong runs every five seconds separately. Invalid JSON,
 invalid authentication and overflow close only the affected connection. Error
 codes are typed descriptive strings; ordinary tap failures never abort peers.
+
+Revision 2 reuses Arcade quiet-delay/response progression and gates newly issued
+targets after every correct hit; existing announced overlaps remain immutable.
+After ten seconds, successful taps rotate the owner's color while excluding
+every assigned player and live-decoy color. Decoys use only non-player colors,
+persist across correct taps, have no exclamation marker, and use Arcade's global
+cap reserving one target cell. Neutral hearts are first-admitted-claim pickups,
+one live at most, appearing at random 12–20-second opportunities for three seconds
+on 2×2 or larger. They restore one life up to three without reviving spectators.
+See [the current gameplay contract](../docs/MULTIPLAYER_V2_REBUILD.md).
 
 ## PHP integration configuration
 
@@ -113,6 +139,13 @@ with a five-second request timeout,
 including PHP's logout/deletion revocation. Fresh ticket authentication precedes
 every resume. Network/auth validation failure closes the affected connection.
 
+Failures distinguish `ticket_expired`, `protocol_unsupported`, `profile_required`,
+`authentication_rate_limited`, `service_unavailable` and `session_revoked`.
+An expired realtime binding, PHP service-key error, malformed response or transport
+failure does not prove primary account logout. The app rechecks its PHP session
+before requiring sign-in. Transient validation remains fail-closed and may trigger
+a brief reconnect, rather than retaining stale authenticated authority.
+
 Final results contain immutable match ID, protocol/ruleset, duration, explicit
 `rankingEligible:false`, and stable-seat UUID/score/lives/hit/miss/dodge/reaction
 fields. The server queues these off the input path. A private serial filesystem
@@ -122,6 +155,12 @@ Restart retries pending files every five seconds when `MP2_RESULTS_URL` is set.
 The outbox archives a file only after PHP acknowledges the same match ID as
 `stored_unranked` with ranking disabled. HTTP failures and conflicting results
 retain evidence for operator recovery.
+
+Heart-restored lives make cumulative misses greater than three legitimate.
+Preserve the actual count; do not clamp it to remaining/initial lives. Deploy and
+verify the separate additive PHP migration 024 and matching validator before
+revision-2 service rollout. This extends result storage without changing protocol
+2 tickets, existing results, the three-life cap or unrelated account/economy data.
 
 Pending evidence is capped at 1,000 files and is never evicted to admit new
 results. A full/unwritable outbox retains completed room state and blocks cleanup
@@ -150,10 +189,12 @@ no credential is built into the image. `/health` exposes protocol, ruleset,
 ranking flag and room/connection counts. Do not publish the private port without
 the authenticated TLS reverse proxy and operational review.
 
-The real local WebSocket harness covers 2/3/4 clients, no-tap matches, immediate
-Ready, duplicate Start, reconnect credential rotation and malformed/unauthenticated
-socket isolation. Unit tests cover stale Ready, countdown invalidation, personal
-disconnect grace, session revocation, coalescing and restart/idempotent outbox.
+The real local WebSocket harness covers both gameplay revisions with 2/3/4 clients,
+no-tap matches, Ready, duplicate Start, reconnect, fresh creation after finish and
+malformed/unauthenticated socket isolation. Unit tests cover directory push,
+quick leave/recreate, replaced abandoned lobbies, version isolation, stale Ready,
+personal disconnect grace, differentiated authentication failures, coalescing
+and restart/idempotent outbox, including cumulative misses above three.
 Run `Scripts/check.sh` in the integrated iOS checkout separately; this package
 does not establish app visual, physical device, 60/120 Hz, WSS, production PHP,
 loss/jitter, load, or latency acceptance. Ranking remains disabled until those

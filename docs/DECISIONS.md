@@ -33,13 +33,14 @@ touch path.
 
 ## D-04 — Preserve the current three mode contracts
 
-Status: Arcade/Zen retained; Multiplayer v2 implemented as a local candidate.
+Status: Arcade/Zen retained; Multiplayer v2 revision 2 is the build-26 candidate.
 
 Arcade is endless until three mistakes and is the only coin/achievement-eligible
 mode. Zen is endless local practice with no deadlines, decoys, durable result, or
 rewards. Multiplayer v2 is 2–4-player own-color play on one identical shared board,
-with individual three-life state. It ends when all are out or the 15-minute bound
-is reached, after the input admission horizon. No Multiplayer coins/achievements.
+with individual three-life state. Shared hearts can restore one life up to three;
+eliminated seats remain spectators. It ends when all are out or the 15-minute
+bound is reached, after the input admission horizon. No Multiplayer coins/achievements.
 Arcade/Zen rules remain in `docs/GAMEPLAY_SPEC.md`; v2 rules and deliberate shared
 board adaptations are in `docs/MULTIPLAYER_V2_REBUILD.md`.
 
@@ -113,7 +114,7 @@ handle lifecycle/interruption without blocking play.
 
 ## D-12 — Replace live Multiplayer v1 with an isolated v2 authority
 
-Status: approved; local implementation candidate, not deployed.
+Status: v2 revision 1 released in build 25; revision 2 is an unreleased build-26 candidate.
 
 Native `URLSessionWebSocketTask` connects to one persistent Vapor 4 room service.
 The shared pure Swift engine owns targets, input admission, scores and lives;
@@ -129,17 +130,32 @@ unranked aggregates; it does not independently replay v2 inputs. No public v2
 ranking, ranked season, reward, achievement or Game Center publication is enabled.
 Historical clean v1 results remain `peer_consistent_v1`; do not relabel them.
 
-## D-13 — Share one board and Arcade numbers, not independent personal cadence
+Negotiate gameplay revision separately in socket Hello/Welcome: an omitted
+revision means legacy `1`; build 26 explicitly requires `2`. Partition browsing,
+joining and resuming by that revision. Never feed new pickup gameplay to build-25
+clients, or silently downgrade a new client when the service is not ready.
+Revision 2's cumulative misses require the separate additive PHP migration 024
+and compatible validator before server rollout; no authentication protocol change.
 
-Status: owner-confirmed; local implementation candidate, acceptance incomplete.
+## D-13 — Share one board with Arcade tempo and safe color ownership
+
+Status: owner-directed revision-2 implementation candidate; release acceptance pending.
 
 Every seat sees the same board. Waiting for an own-color target is accepted,
 including on 1×1. There is no fixed turn order: random arbitration permits repeats,
 and different owners can overlap when cells are free. Grow to 2×2 after four total
 valid hits and 4×4 at 40 seconds. Share Arcade configuration, difficulty and scoring
-instead of copying its numerical rules. Cell contention, reserved presentation
-windows and network delivery headroom may extend personal target spacing; exact
-independent single-player cadence is not promised.
+instead of copying its numerical rules. Every correct hit starts an Arcade quiet
+interval that gates newly issued targets for every owner; already announced
+windows remain immutable and may overlap. Cell contention and delivery can still
+extend personal spacing; exact independent personal cadence is not promised.
+
+After the ten-second Arcade boundary, valid hits rotate the owner's color without
+colliding with any assigned player or live-decoy color. Decoys never use any
+player's color, have no exclamation marker, and survive correct taps for their
+normal lifetime. One global Arcade decoy cap reserves one target cell rather than
+one per player. Neutral, first-admitted-claim hearts restore one life up to three
+without reviving spectators, granting points or changing target timing.
 
 Reuse Arcade's SpriteKit rendering and original-contact bridge; project local
 feedback without waiting for a network round trip. Server receipts/snapshots reconcile
