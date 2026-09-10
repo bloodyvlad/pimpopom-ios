@@ -6,6 +6,47 @@ import XCTest
 
 @MainActor
 final class GameplayLifecycleTests: XCTestCase {
+    func testArcadeAccessibilityCellsKeepIdentityAndRefreshContentAndGeometry() throws {
+        let view = ArcadeSKView(frame: CGRect(x: 0, y: 0, width: 380, height: 380))
+        view.renderer.presentScene(GameScene())
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 2, cells: Array(repeating: Cell(), count: 4),
+            pickups: [ArcadePickup(id: 1, kind: .heart, cellIndex: 0, visibleAt: 0, expiresAt: 3_000)],
+            roundPresentationExpired: false, enabled: true)
+        view.refreshAccessibility()
+        let initial = try XCTUnwrap(view.accessibilityElements as? [UIAccessibilityElement])
+        XCTAssertEqual(initial.count, 4)
+        XCTAssertEqual(initial[0].accessibilityLabel, "Heart, restores one life, cell 1")
+        let initialFrame = initial[0].accessibilityFrameInContainerSpace
+        XCTAssertGreaterThan(initialFrame.width, 0)
+
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 2, cells: Array(repeating: Cell(), count: 4),
+            pickups: [ArcadePickup(id: 2, kind: .clock, cellIndex: 1, visibleAt: 0, expiresAt: 3_000)],
+            roundPresentationExpired: false, enabled: false)
+        view.refreshAccessibility()
+        let refreshed = try XCTUnwrap(view.accessibilityElements as? [UIAccessibilityElement])
+        for index in initial.indices { XCTAssertTrue(initial[index] === refreshed[index]) }
+        XCTAssertEqual(refreshed[0].accessibilityLabel, "Inactive cell 1")
+        XCTAssertEqual(refreshed[1].accessibilityLabel, "Clock, slows pace by 30 percent, cell 2")
+        XCTAssertTrue(refreshed[1].accessibilityTraits.contains(.notEnabled))
+        XCTAssertFalse(refreshed[1].accessibilityActivate())
+
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 4, cells: Array(repeating: Cell(), count: 16), pickups: [],
+            roundPresentationExpired: false, enabled: true)
+        view.refreshAccessibility()
+        let expanded = try XCTUnwrap(view.accessibilityElements as? [UIAccessibilityElement])
+        XCTAssertEqual(expanded.count, 16)
+        XCTAssertTrue(initial[0] === expanded[0])
+        XCTAssertLessThan(expanded[0].accessibilityFrameInContainerSpace.width, initialFrame.width)
+        XCTAssertFalse(expanded[0].accessibilityTraits.contains(.notEnabled))
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 1, cells: [Cell()], pickups: [], roundPresentationExpired: false, enabled: true)
+        view.refreshAccessibility()
+        XCTAssertEqual(view.accessibilityElements?.count, 1)
+    }
+
     func testStoppedRunCannotAdvanceOrAcceptInputAndRestartResumes() throws {
         let engine = GameEngine(ruleset: .v4, random: { 0 })
         let coordinator = GameCoordinator(mode: .arcade, engine: engine)

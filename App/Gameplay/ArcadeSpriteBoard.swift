@@ -40,6 +40,7 @@ struct ArcadeBoardAccessibilityState: Equatable {
 final class ArcadeSKView: UIView {
     let renderer = SKView()
     var boardState: ArcadeBoardAccessibilityState?
+    private var cellAccessibilityElements: [ArcadeCellAccessibilityElement] = []
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -65,8 +66,20 @@ final class ArcadeSKView: UIView {
     func refreshAccessibility() {
         guard let state = boardState, let scene = renderer.scene as? GameScene else { return }
         let layout = GameBoardLayout(size: bounds.size, dimension: state.dimension)
-        accessibilityElements = state.cells.enumerated().map { index, cell in
-            let element = ArcadeCellAccessibilityElement(accessibilityContainer: self)
+        // Keep each cell's identity while targets and pickups change. Replacing
+        // virtual elements between accessibility queries can invalidate focus
+        // and hit testing on a live board.
+        if cellAccessibilityElements.count != state.cells.count {
+            cellAccessibilityElements = state.cells.indices.map { index in
+                if cellAccessibilityElements.indices.contains(index) {
+                    return cellAccessibilityElements[index]
+                }
+                return ArcadeCellAccessibilityElement(accessibilityContainer: self)
+            }
+            accessibilityElements = cellAccessibilityElements
+        }
+        for (index, cell) in state.cells.enumerated() {
+            let element = cellAccessibilityElements[index]
             let pickup = state.pickups.first { $0.cellIndex == index }
             element.accessibilityIdentifier = "arcade-cell-\(index)"
             if let pickup {
@@ -91,7 +104,6 @@ final class ArcadeSKView: UIView {
                 scene.handleBoardTouch(at: point, inputAt: now, handledAt: now)
                 return true
             }
-            return element
         }
     }
 }
