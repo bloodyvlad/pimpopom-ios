@@ -67,6 +67,7 @@ func arcadeRevisionWireCompatibility() throws {
     #expect(try decoder.decode(MP2Snapshot.self, from: JSONEncoder().encode(snapshot)) == snapshot)
     let input = heartInput(heart, seat: 0, id: 900, at: 20)
     #expect(try decoder.decode(MP2Input.self, from: JSONEncoder().encode(input)) == input)
+    #expect(try decoder.decode(MP2ServerMessage.self, from: JSONEncoder().encode(MP2ServerMessage.left)) == .left)
 }
 
 @Test("MP2 revision 2 opening replacements retain the complete Arcade quiet interval for any next owner")
@@ -134,6 +135,7 @@ func arcadeColorAndDecoyInvariants() throws {
         var engine = try MP2Engine(
             matchID: "m", players: arcadePlayers(count), seed: UInt64(count), gameplayRevision: 2)
         var sawDecoy = false
+        var sawTwoByTwoDecoy = false
         var changes = 0
         var preserved = 0
         while engine.elapsedMs < 100_000 {
@@ -166,9 +168,11 @@ func arcadeColorAndDecoyInvariants() throws {
                 #expect((1_000...3_000).contains(decoy.expiresAtMs - decoy.activateAtMs))
             }
             sawDecoy = sawDecoy || !snapshot.decoys.isEmpty
+            sawTwoByTwoDecoy = sawTwoByTwoDecoy || (snapshot.gridDimension == 2 && !snapshot.decoys.isEmpty)
         }
         #expect(changes > 10)
         #expect(sawDecoy)
+        #expect(sawTwoByTwoDecoy)
         #expect(preserved > 0)
     }
 }
@@ -243,4 +247,62 @@ func arcadeRevisionDeterminism() throws {
         #expect(silent.advance(to: 60_000).phase == .finished)
         #expect(silent.snapshot.hearts.isEmpty)
     }
+}
+
+@Test("MP2 heart admission tolerates ordinary delayed delivery and rejects malformed or ambiguous claims")
+func arcadeDelayedHeartAdmission() throws {
+    var engine = try MP2Engine(matchID: "m", players: arcadePlayers(), seed: 7, gameplayRevision: 2)
+    let heart = try firstHeart(&engine)
+    let ambiguous = MP2Input(
+        id: 900_000, seat: 0, targetID: 1, cell: heart.cell, presentedAtMs: heart.activateAtMs,
+        contactAtMs: engine.elapsedMs, heartID: heart.id)
+    #expect(!engine.submit(ambiguous, receivedAt: engine.elapsedMs).accepted)
+    #expect(engine.snapshot.hearts.contains(heart))
+    let wrongCell = MP2Input(
+        id: 900_001, seat: 0, targetID: nil, cell: (heart.cell + 1) % 4,
+        presentedAtMs: heart.activateAtMs, contactAtMs: engine.elapsedMs, heartID: heart.id)
+    #expect(!engine.submit(wrongCell, receivedAt: engine.elapsedMs).accepted)
+    let beforePresentation = MP2Input(
+        id: 900_002, seat: 0, targetID: nil, cell: heart.cell,
+        presentedAtMs: heart.activateAtMs - 1, contactAtMs: engine.elapsedMs, heartID: heart.id)
+    #expect(!engine.submit(beforePresentation, receivedAt: engine.elapsedMs).accepted)
+    playArcade(&engine, to: heart.expiresAtMs + 300)
+    let delayed = heartInput(heart, seat: 0, id: 900_003, at: heart.expiresAtMs - 1)
+    #expect(engine.submit(delayed, receivedAt: engine.elapsedMs).accepted)
+    let repeated = engine.snapshot.players[0]
+    playArcade(&engine, to: engine.elapsedMs + 6_000)
+    #expect(engine.snapshot.players[0].lives == repeated.lives)
+    #expect(engine.snapshot.players[0].lives == 3)
+}
+
+@Test("MP2 revision 2 late target corrections preserve immutable colors and unique shared-board assignments")
+func arcadeDelayedTargetColorInvariants() throws {
+    var engine = try MP2Engine(matchID: "m", players: arcadePlayers(4), seed: 18, gameplayRevision: 2)
+    var pending: [Int: MP2Target] = [:]
+    var seen: Set<Int> = []
+    var corrections = 0
+    while engine.elapsedMs < 100_000, engine.snapshot.phase != .finished {
+        engine.advance(to: engine.elapsedMs + 20)
+        for target in engine.snapshot.targets where seen.insert(target.id).inserted {
+            pending[target.id] = target
+        }
+        let due = pending.values.filter { $0.activateAtMs + 1_100 <= engine.elapsedMs }.sorted { $0.id < $1.id }
+        for target in due {
+            let input = MP2Input(
+                id: target.id, seat: target.ownerSeat, targetID: target.id, cell: target.cell,
+                presentedAtMs: target.activateAtMs + 400, contactAtMs: target.activateAtMs + 500)
+            let receipt = engine.submit(input, receivedAt: engine.elapsedMs)
+            #expect(receipt.accepted)
+            if receipt.reason == "corrected-hit" { corrections += 1 }
+            pending.removeValue(forKey: target.id)
+        }
+        let snapshot = engine.snapshot
+        #expect(Set(snapshot.players.map(\.colorIndex)).count == 4)
+        #expect(Set(snapshot.players.map(\.colorIndex)).isDisjoint(with: snapshot.decoys.map(\.colorIndex)))
+        for target in snapshot.targets {
+            #expect(snapshot.players[target.ownerSeat].colorIndex == target.colorIndex)
+        }
+    }
+    #expect(corrections > 20)
+    #expect(engine.snapshot.players.allSatisfy { $0.lives == 3 })
 }

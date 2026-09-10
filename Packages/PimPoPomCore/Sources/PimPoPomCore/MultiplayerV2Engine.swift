@@ -455,8 +455,9 @@ public struct MP2Engine: Sendable {
             let seat = eligible.remove(at: randomIndex(eligible.count))
             let difficulty = difficulty(for: seat)!
             let livingCount = seats.values.filter { !$0.player.isOut && $0.player.connected }.count
-            // One global Arcade cap, with one cell reserved for each living seat where geometry permits.
-            let cap = min(difficulty.maximumActiveDecoys, max(0, gridDimension * gridDimension - livingCount))
+            // Revision 2 shares Arcade's global cap and reserves one target cell; owners may wait for a free cell.
+            let targetReservation = usesArcadeCadence ? 1 : livingCount
+            let cap = min(difficulty.maximumActiveDecoys, max(0, gridDimension * gridDimension - targetReservation))
             let occupied = occupiedCells
             let free = (0..<(gridDimension * gridDimension)).filter { !occupied.contains($0) }
             guard decoys.count < cap, !free.isEmpty, let range = difficulty.decoySpawnDelayRangeMilliseconds else {
