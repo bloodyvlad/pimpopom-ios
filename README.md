@@ -5,10 +5,10 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained; the new 2–4-player Multiplayer v2 is an online, unranked playtest.
 Game Center remains a separate account/publication integration.
 
-Current local work adds theme-matched hearts and Arcade heart/clock power-ups.
-It is **not yet released** and requires the separate PHP v4 proof update before
-ranked use. [Power-up contract and QA](docs/ARCADE_POWERUPS.md). TestFlight build 26
-and hosted services remain unchanged by this follow-up.
+Build 27 adds theme-matched hearts and Arcade heart/clock power-ups. The compatible
+PHP v4 verifier was deployed first; Apple approved the build for both QA groups.
+[Power-up contract and QA](docs/ARCADE_POWERUPS.md). Multiplayer remains revision 2
+with hearts only; the Railway runtime is unchanged from build 26.
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
@@ -19,11 +19,11 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (26)` |
-| TestFlight state | Build 26 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-10) |
-| Exact uploaded iOS source | `6a94d64312b113c8013782aca0a3ea8c8718eaf9` |
-| Hosting | Railway Amsterdam revision 2; separate PHP reconnect fix and migration 024 deployed |
-| Previous supported beta | Build 25 / gameplay revision 1; prior-build installability not reverified |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (27)` |
+| TestFlight state | Build 27 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-10) |
+| Exact uploaded iOS source | `753787005b2773e93d02e319ad3713847cf4db0d` |
+| Hosting | Railway Amsterdam revision 2 unchanged; PHP v4 verifier `0a94f5c` deployed with existing schema 024 |
+| Previous supported beta | Build 26 / gameplay revision 2; build 25 uses separate revision-1 rooms |
 | Open QA gates | Real-account hosted matches, physical 2/3/4-device/network/latency acceptance; public legal URLs and reviewer access |
 | Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
@@ -42,7 +42,8 @@ or App Store production submission is authorized. See [current status](docs/CURR
 ## Implemented product
 
 - **Arcade:** endless three-life play with progressive boards, decoys, reaction
-  ratings, streak multipliers, protocol-verified ranking, coins, and achievements.
+  ratings, streak multipliers, heart/clock pickups, protocol-verified ranking,
+  coins, and achievements.
 - **Zen:** endless local practice with no lives, deadline, decoys, ranking, coins,
   achievements, or durable result.
 - **Multiplayer v2 playtest:** 2–4 signed-in, confirmed-name players on one shared

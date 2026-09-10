@@ -1,17 +1,16 @@
 # Current gameplay specification
 
-Released Arcade v3 and Multiplayer revision 2 are the build-26 beta. The local
-unreleased Arcade v4 power-up extension is specified in
-[ARCADE_POWERUPS](ARCADE_POWERUPS.md); it requires a compatible PHP deployment.
-Zen and Multiplayer rules are unchanged by that extension. Release and deployment
-evidence remain separate in CURRENT_VERSION.md.
+Build 27 uses Arcade v4 power-ups and Multiplayer revision 2. The compatible PHP
+verifier is deployed and legacy v3 clients remain supported. Power-up rules are in
+[ARCADE_POWERUPS](ARCADE_POWERUPS.md); Zen and Multiplayer timing are unchanged.
+Release and deployment evidence remain separate in CURRENT_VERSION.md.
 
 ## Modes
 
 ### Arcade
 
 - Wire identifier `normal`; player-facing name **Arcade**.
-- Released v3 ends after three mistakes. Unreleased v4 ends at zero lives;
+- Legacy v3 ends after three mistakes. Current v4 ends at zero lives;
   randomly collected hearts restore one life, capped at three.
 - Wrong color, decoy, inactive/empty space, and expired correct target are mistakes.
 - Mistakes reset the multiplier and cost one life. Nonterminal mistakes start
@@ -86,6 +85,9 @@ else if correctHits >= 4: grid = 2×2
 else: grid = 1×1
 ```
 
+These are baseline intervals before an Arcade v4 clock scales newly sampled
+delays/windows; see [clock scaling](ARCADE_POWERUPS.md). Multiplayer has no clock.
+
 | Phase | Response | Target quiet | Decoy opportunity | Live decoys |
 | --- | ---: | ---: | ---: | ---: |
 | 0–10 s | 1,000 ms | 550–1,100 ms | none | 0 |
@@ -150,9 +152,10 @@ are neutral and never multiplied. Input exactly at the deadline is late.
 
 ## Arcade proof and ranking
 
-Released Arcade uses build `20260729-1`, `reaction-proof-v3`, proof version 2.
-The local v4/proof-3 extension retains these tuple shapes and adds pickup events
-7–10 as specified in [ARCADE_POWERUPS](ARCADE_POWERUPS.md). V3 integer tuples:
+Current Arcade uses compatibility build `20260729-1`, `reaction-proof-v4`, proof 3.
+Legacy v3/proof 2 remains accepted under its issued contract. V4 retains these
+tuple shapes and adds pickup events 7–10 as specified in
+[ARCADE_POWERUPS](ARCADE_POWERUPS.md). Shared integer tuples:
 
 | Opcode | Tuple |
 | ---: | --- |

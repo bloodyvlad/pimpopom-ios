@@ -1,7 +1,8 @@
-# Arcade power-ups — unreleased local implementation
+# Arcade power-ups — build 27
 
-Owner-requested 2026-09-10. Build 26 remains the TestFlight release; these changes
-have not been deployed or uploaded. Zen and Multiplayer timing are unchanged.
+Owner-requested and released 2026-09-10. Build 27 is VALID and approved for Internal
+QA and External QA; the compatible PHP verifier was deployed first. Zen and
+Multiplayer timing are unchanged. Exact release evidence is in [RELEASE](RELEASE.md).
 
 ## Gameplay
 
@@ -58,13 +59,13 @@ gameplay with an old v3 ticket or silently downgrade a signed-in run to practice
 
 ## Integration and release gates
 
-The required PHP changes are isolated in the local worktree
+The PHP changes were released from the isolated worktree
 `/Users/vlad/Documents/SpeedyTapper-arcade-powerups`, branch
 `codex/arcade-powerups`, commit `0a94f5cfe2a36ae89f0d26db1c72bf7cfe4d683c`.
 Existing solo miss storage is already large enough; no migration or account/economy
-reset is needed. Deploy and directly verify that
-compatible PHP runtime before releasing the new iOS client. The currently hosted
-build-26 PHP service does not accept these new ranked requests.
+reset was needed. The exact compatible runtime is deployed to
+`speedytapper.otcsoft.com`; all 69 source hashes, schema 024, private configuration
+and 35 HTTPS boundary checks were verified before build 27 was uploaded.
 
 The existing leaderboard/achievement/coin policies remain unchanged. V4's extra
 lives and slower windows affect score comparability with historical v3 results;
@@ -88,13 +89,16 @@ and boundary/reconnect tests. Do not activate it implicitly.
   scores, reactions, lives and timing in PHP. The isolated PHP `composer check`
   and 111 focused SQLite / 112 disposable MariaDB assertions passed; v3's 276
   existing backend assertions also remain unchanged and passing.
-- `Scripts/check.sh` passed: 232 app/UI tests, zero failures, one local-socket
-  fixture skip. That test was then rerun against the rebuilt local service and
-  passed with zero skips. All 26 service tests also passed; no remaining untested
-  case from that app gate is hidden as a pass.
-- These are local socket and iPhone 17 / iOS 26.5 Simulator checks, not four physical
-  iPhones, measured internet latency or production validation.
+- Final build-27 `Scripts/check.sh` passed: 234 app/UI tests, zero failures/skips,
+  including the native socket fixture. A new regression keeps accessibility cell
+  identities stable across live board changes; the unchanged Simulator heart/clock
+  board-contact test passes. All 26 service tests passed in the preceding feature gate.
+- Additional full persisted PHP settlement: 72 disposable MariaDB assertions
+  passed for v4 goldens, legacy-default v3, eligible rewards and exact retries.
+- Gameplay evidence is local sockets and iPhone 17 / iOS 26.5 Simulator, not four
+  physical iPhones or measured internet latency. Deployment checks above do not
+  establish a positive signed-in production match or ranked result.
 
 Logs, screenshots and the four-client harness are retained under
-`build/powerups-20260910/`. Final automated counts and exact source commits belong
-in that evidence record after the integrated source gate.
+`build/powerups-20260910/`; final release source, Apple state and corrected
+release-gate evidence are under `build/releases/build27-20260910/`.

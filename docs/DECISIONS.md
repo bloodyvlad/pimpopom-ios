@@ -43,9 +43,9 @@ eliminated seats remain spectators. It ends when all are out or the 15-minute
 bound is reached, after the input admission horizon. No Multiplayer coins/achievements.
 Arcade/Zen rules remain in `docs/GAMEPLAY_SPEC.md`; v2 rules and deliberate shared
 board adaptations are in `docs/MULTIPLAYER_V2_REBUILD.md`.
-The owner-directed local Arcade v4 extension adds heart restoration and temporary
-70%-rate clocks, isolated from released v3 and all Multiplayer clock semantics.
-It is unreleased and requires the matching PHP proof update; see
+The owner-directed Arcade v4 extension, released in build 27, adds heart restoration
+and temporary 70%-rate clocks. The compatible PHP verifier was deployed first;
+legacy v3 defaults remain supported and Multiplayer has no clocks. See
 `docs/ARCADE_POWERUPS.md`. No season/economy reset is included.
 
 ## D-05 — Keep identity provider-separated

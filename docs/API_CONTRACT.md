@@ -80,11 +80,11 @@ local identity only after `deleted: true` and `authenticated: false`.
 
 ## Arcade ranking
 
-Released build 26 uses build `20260729-1`, `reaction-proof-v3`, proof 2.
-The unreleased local client keeps the same compatibility build ID and explicitly
-requests `reaction-proof-v4`, proof 3 for Arcade power-ups. It requires the separate
-local PHP compatibility update to be deployed first. A higher build ID does not
-select new semantics. See [ARCADE_POWERUPS](ARCADE_POWERUPS.md).
+Build 27 uses compatibility build `20260729-1` and explicitly requests
+`reaction-proof-v4`, proof 3 for Arcade power-ups. The compatible PHP verifier
+was deployed before release and retains v3/proof 2 for build 26 and older clients.
+A higher build ID does not select new semantics. See
+[ARCADE_POWERUPS](ARCADE_POWERUPS.md).
 
 1. Bootstrap the PHP session.
 2. A signed-in confirmed profile requests `/api/runs` before gameplay, with
@@ -152,11 +152,12 @@ The build-25 PHP bridge was deployed from commit
 `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0`, migration
 `023_multiplayer_v2_auth.sql`. It defaults to 503 until valid private
 `SPEEDYTAPPER_REALTIME_URL` and `SPEEDYTAPPER_MULTIPLAYER_SERVICE_SECRET`
-configuration exists. The current PHP runtime is `9fe555d179326cecd5e23f0a6a16788b4af0ba34`
-with additive migration 024 verified on 2026-09-10. Deployment/migration evidence is recorded in
-CURRENT_VERSION.md and Server/DEPLOYMENT_RAILWAY.md.
+configuration exists. The current PHP runtime is `0a94f5cfe2a36ae89f0d26db1c72bf7cfe4d683c`;
+build 27's Arcade update leaves this bridge and schema 024 unchanged. Deployment
+evidence is recorded in CURRENT_VERSION.md and RELEASE.md; historical Railway
+bridge/migration evidence remains in Server/DEPLOYMENT_RAILWAY.md.
 
-Build 26 retains this authentication tuple and negotiates `gameplayRevision:2`
+Builds 26/27 retain this authentication tuple and negotiate `gameplayRevision:2`
 in the socket hello/welcome. Omission means revision 1 (build 25). Rooms, browse,
 join and resume are revision-isolated. Revised snapshots add neutral hearts;
 inputs optionally identify `heartID`, mutually exclusive with `targetID`.

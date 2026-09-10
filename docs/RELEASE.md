@@ -7,19 +7,65 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 | Item | Current truth |
 | --- | --- |
-| Current beta | `1.02 (26)`, uploaded 2026-09-10; VALID |
-| App Store Connect build | `36664ea8-abbb-4fe2-bfb8-a06783de23c9`; external-eligible, non-exempt encryption false |
+| Current beta | `1.02 (27)`, uploaded 2026-09-10; VALID |
+| App Store Connect build | `9e0b4ce6-ea42-4d75-b7f6-b5201932665d`; external-eligible, non-exempt encryption false |
 | Groups / external state | Internal QA and External QA both `IN_BETA_TESTING`; beta review `APPROVED` |
-| Uploaded source | `6a94d64312b113c8013782aca0a3ea8c8718eaf9`, clean Staging archive/export |
-| Hosted backend | Railway Amsterdam gameplay revision 2 and PHP bridge/migration 024 deployed; boundary checks passed |
-| Prior beta / rollback reference | Build 25, source `962a39de80277534dd45eca56ca913217bde1fbb`; revision-1 rooms remain compatible; current prior-build installability not reverified |
+| Uploaded source | `753787005b2773e93d02e319ad3713847cf4db0d`, clean Staging archive/export |
+| Hosted backend | Railway Amsterdam revision 2 unchanged; PHP v4 verifier `0a94f5c` deployed, schema 024 unchanged; boundary checks passed |
+| Prior beta / rollback reference | Build 26, source `6a94d64312b113c8013782aca0a3ea8c8718eaf9`, still VALID and assigned to both QA groups when checked |
 | Authorized work | Multiplayer fixes, Railway/PHP alignment and TestFlight Internal QA/External QA; no paid-plan upgrade or App Store production submission |
 | Production App Store | No production release established by this task |
 
 Real signed-in 2/3/4-device matches, 60/120 Hz acceptance and public legal URLs
 remain open. Build 24 remains the historical GameKit/v1 binary.
 
-## Build 26 evidence
+## Build 27 evidence
+
+Direct Apple verification on **2026-09-10** confirmed VALID,
+`APP_STORE_ELIGIBLE`, beta review APPROVED and both existing QA groups
+`IN_BETA_TESTING`. en-US What to Test and reviewer notes were updated. Existing
+contacts, demo-account settings, public link and automatic notifications were
+preserved; no duplicate notification was sent.
+
+| Item | Verified value |
+| --- | --- |
+| Branch / binary source | `codex/build27-powerups-release` / `753787005b2773e93d02e319ad3713847cf4db0d` |
+| Configuration | PimPoPom Staging, iOS 17+, `-O`, whole-module, `STAGING` without `DEBUG`, existing owner-split test ads |
+| Archive TGZ SHA-256 | `e49dec84e2ac30ecb635930a18c3cfa00fd8fa91836ec6127db87fa63741bec3` |
+| 115-file manifest SHA-256 | `975be843ba67f3f58c420ca262439b9d59217f60d98fdaf0887a8174cd2bc1b3` |
+| App/dSYM UUID | `AF31E400-575D-3B3E-B1D7-B5FD3426A1C7` |
+| App binary SHA-256 | `47f59d62b4debe054092cc727a05a23589d39bbd011be2e225e268fc2322df08` |
+| App dSYM SHA-256 | `00c84a289819010b147c3686ab11c0fb0ddd2a77210757ca465a18ec3738c939` |
+| Apple upload / expiration | 2026-09-10 21:19:08 UTC / 2026-12-09 21:19:08 UTC |
+| Deployed PHP source | `0a94f5cfe2a36ae89f0d26db1c72bf7cfe4d683c`; exact clean isolated source, no migration/season change |
+| PHP artifact SHA-256 | `3e9ad75ff087388038374be64846fe2b3f77ad2ac503379c13f651344cee6d9a` |
+
+Archive/export/upload succeeded. App signature and symbols match; 12 privacy
+manifests and no prohibited files. Export applied distribution signing with task
+allowance disabled. Apple accepted the same GoogleMobileAds/UMP missing-dSYM
+warnings as build 26; app-owned symbols are retained.
+
+Final source passed **234 app/UI tests, zero failures/skips, and 84 core tests**.
+The initial pickup hittability failure was fixed with stable accessibility cell
+identities; the original Simulator board-contact assertion remains. Its regression and
+focused pickup test passed, then the full gate passed. Prior feature verification
+includes 26 service tests and a 92-second four-client color/heart scenario.
+
+PHP was deployed before upload: 69 deployed source hashes matched; direct schema
+024/private-configuration status and 35 live HTTP checks passed. Local PHP tests
+include 111 v4 SQLite, 112 MariaDB and 72 full persisted-path assertions. Ten live
+WSS boundary checks passed; Railway was not redeployed. No live player result,
+physical-device latency or four-iPhone match is implied by these checks.
+
+Artifacts and exact Apple state are retained under `build/releases/build27-20260910/`.
+Backend release/rollback evidence is at
+`/Users/vlad/Documents/SpeedyTapper-release-artifacts/20260910-arcade-v4.fgRKTb/`.
+The original PHP checkout was untouched. Code-only PHP rollback to 9fe555d retains
+schema 024 but cannot complete v4 runs: coordinate with build-27 availability,
+never restore account data or downgrade schema. Build 26 works with the new PHP;
+builds 26/27 share revision-2 multiplayer rooms.
+
+## Historical build 26 evidence
 
 Direct Apple verification at **2026-09-10 19:40:39 UTC** confirmed VALID,
 `APP_STORE_ELIGIBLE`, beta review APPROVED and both existing QA groups

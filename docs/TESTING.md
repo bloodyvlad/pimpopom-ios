@@ -4,10 +4,10 @@ PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranke
 Arcade and an unranked Multiplayer v2 beta. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
-## Unreleased power-up verification
+## Build 27 power-up verification
 
-The local Arcade v4/proof-3 extension has 84 pure-core tests, including complete
-heart/clock traces independently replayed by the compatible PHP implementation.
+The pure-core suite has 84 tests, including Arcade v4/proof-3 complete heart/clock
+traces independently replayed by the compatible PHP implementation.
 Focused coverage includes three-life caps, cumulative misses, clock refresh and
 recovery, immutable active deadlines, pickup expiry/input races, stopped-run
 immutability, and delayed pickup contacts across grid expansion. V3 and Zen remain
@@ -17,17 +17,22 @@ Four real local WebSocket clients completed the 92-second color/heart scenario;
 all four theme captures and native Arcade heart/clock collection were checked on
 the iPhone 17 / iOS 26.5 Simulator. This is not four physical-device or internet
 latency evidence. See [ARCADE_POWERUPS](ARCADE_POWERUPS.md) and retained artifacts
-under `build/powerups-20260910/`. Released build 26 below is unchanged.
-The final app gate passed 232 tests with one local-socket fixture skip; the skipped
-test subsequently passed against the rebuilt loopback server. All 26 service tests
-passed. The isolated PHP gate passed 111 SQLite / 112 MariaDB power-up assertions.
+under `build/powerups-20260910/`. The final build-27 app gate passed 234 tests,
+zero failures/skips, including the native socket fixture. Focused coverage also
+checks stable accessibility identity and Simulator board-contact taps. All 26 service
+tests passed in the preceding feature gate. PHP passed 111 SQLite / 112 MariaDB
+power-up assertions plus 72 full persisted-path assertions for proofs, rewards,
+legacy defaults and retries. Initial failed and corrected UI evidence are retained.
 
 ## Current release evidence
 
-- Build 26 is VALID, approved and available to both existing QA groups. Exact
-  final source passed 225 app/UI tests (zero failures/skips), 72 core tests and
-  26 service tests, plus Linux/runtime and local/live socket checks. PHP 024 and
-  the Railway revision-2 deployment were directly verified before distribution.
+- Build 27 is VALID, approved and available to both existing QA groups. Exact
+  uploaded source passed 234 app/UI and 84 core tests. PHP v4 was deployed first:
+  all 69 source hashes, unchanged schema 024 and 35 live HTTP checks verified.
+  Ten WSS boundary checks passed against the unchanged Railway revision-2 service.
+- Historical build 26 passed 225 app/UI, 72 core and 26 service tests plus
+  Linux/runtime checks before its release. Its service deployment is unchanged;
+  those Linux checks do not independently verify the new Arcade-only code.
 - Revision-2 regressions cover post-hit Arcade quiet windows, color uniqueness,
   persistent non-player-color decoys, first-admitted heart claims, delayed input,
   spectating, session-ticket recovery and pushed joinable room lists. Both legacy
@@ -58,7 +63,8 @@ Behavior changes require focused tests before the full gate.
 
 - Arcade/Zen phase, grid, response-window, recovery, decoy, scoring, rating,
   multiplier, proof, and terminal boundaries.
-- Exact Arcade v3 color-bearing proof tuples and monotonic timestamps.
+- Exact Arcade v3/v4 color-bearing proof tuples, pickup events and monotonic
+  timestamps; complete Swift fixtures replayed independently in PHP.
 - V2 protocol and shared-board engine: zero-input advancement, random repeats,
   overlapping owners/cell reservation, total-hit grid growth, per-seat Arcade
   boundaries, decoy beneficiary/cap rules, recovery, late correction, generation
