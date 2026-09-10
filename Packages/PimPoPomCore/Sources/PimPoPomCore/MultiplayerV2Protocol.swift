@@ -168,7 +168,8 @@ public struct MP2Snapshot: Codable, Equatable, Sendable {
         targets = try values.decode([MP2Target].self, forKey: .targets)
         decoys = try values.decode([MP2Decoy].self, forKey: .decoys)
         hearts = try values.decodeIfPresent([MP2Heart].self, forKey: .hearts) ?? []
-        gameplayRevision = try values.decodeIfPresent(Int.self, forKey: .gameplayRevision)
+        gameplayRevision =
+            try values.decodeIfPresent(Int.self, forKey: .gameplayRevision)
             ?? MP2Protocol.legacyGameplayRevision
     }
 }
@@ -297,6 +298,8 @@ public enum MP2ClientMessage: Codable, Equatable, Sendable {
 public enum MP2ServerMessage: Codable, Equatable, Sendable {
     case welcome(playerID: String, connectionID: String, serverTimeMs: Int, gameplayRevision: Int? = nil)
     case resumeCredential(roomID: String, credential: String, generation: Int)
+    /// Revision 2 only: ordered acknowledgement that pending or joined room membership was left.
+    case left
     case list([MP2RoomSummary])
     case room(MP2Room)
     case snapshot(MP2Snapshot)
