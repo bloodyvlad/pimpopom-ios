@@ -6,8 +6,9 @@ const endpoint = process.env.MP2_WS_URL ?? 'ws://127.0.0.1:8080/multiplayer/v2';
 assert(['127.0.0.1', '[::1]', 'localhost'].includes(new URL(endpoint).hostname), 'Harness is local-only');
 
 class Client {
-  constructor(playerID = randomUUID()) {
+  constructor(playerID = randomUUID(), gameplayRevision = 1) {
     this.playerID = playerID;
+    this.gameplayRevision = gameplayRevision;
     this.messages = [];
     this.waiters = [];
     this.socket = new WebSocket(endpoint);
@@ -27,8 +28,10 @@ class Client {
       this.socket.addEventListener('error', () => { clearTimeout(timer); reject(new Error('socket open failed')); }, { once: true });
     });
     if (authenticate) {
-      this.send({ hello: { ticket: `dev:${this.playerID}`, protocolVersion: 2 } });
-      await this.wait('welcome');
+      this.send({ hello: { ticket: `dev:${this.playerID}`, protocolVersion: 2,
+        ...(this.gameplayRevision === 1 ? {} : { gameplayRevision: this.gameplayRevision }) } });
+      const welcome = await this.wait('welcome');
+      assert.equal(welcome.gameplayRevision, this.gameplayRevision);
       let ping = 0;
       this.pinger = setInterval(() => this.send({ ping: { id: ++ping, clientTimeMs: performance.now() | 0 } }), 1000);
     }
@@ -57,8 +60,8 @@ class Client {
   close() { clearInterval(this.pinger); this.socket.close(); }
 }
 
-async function runRoom(capacity, duplicateInput = false) {
-  const clients = await Promise.all(Array.from({ length: capacity }, () => new Client().open()));
+async function runRoom(capacity, duplicateInput = false, gameplayRevision = 1) {
+  const clients = await Promise.all(Array.from({ length: capacity }, () => new Client(randomUUID(), gameplayRevision).open()));
   try {
     const host = clients[0];
     host.send({ create: { capacity } });
@@ -77,6 +80,7 @@ async function runRoom(capacity, duplicateInput = false) {
     const duplicate = await host.wait('room', room => room.phase === 'countdown');
     assert.equal(countdown.matchID, duplicate.matchID);
     const initialSnapshots = await Promise.all(clients.map(client => client.wait('snapshot', snapshot => snapshot.phase === 'playing')));
+    assert(initialSnapshots.every(snapshot => snapshot.gameplayRevision === gameplayRevision));
     if (duplicateInput) {
       const hostCredential = await host.wait('resumeCredential');
       const payload = { input: { _0: {
@@ -98,7 +102,7 @@ async function runRoom(capacity, duplicateInput = false) {
     const dropped = clients.at(-1);
     const old = await dropped.wait('resumeCredential');
     dropped.close();
-    const resumed = await new Client(dropped.playerID).open();
+    const resumed = await new Client(dropped.playerID, gameplayRevision).open();
     clients[clients.length - 1] = resumed;
     resumed.send({ resume: { roomID: old.roomID, credential: old.credential, generation: old.generation } });
     const credential = await resumed.wait('resumeCredential');
@@ -110,14 +114,17 @@ async function runRoom(capacity, duplicateInput = false) {
     assert.equal(finished.players.length, capacity);
     assert(finished.players.every(player => player.score === 0 && player.hits === 0 && player.lives === 0));
     assert.equal(clients.flatMap(client => client.messages).filter(message => message.error).length, 0);
-    console.log(`PASS ${capacity} sockets: duplicate atomic start, ${duplicateInput ? 'duplicate input' : 'zero taps'}, rotating reconnect, independent completion`);
+    host.send({ create: { capacity } });
+    const nextRoom = await host.wait('room', room => room.id !== created.id && room.phase === 'waiting');
+    assert.notEqual(nextRoom.id, created.id, 'Completed results must not block the next room');
+    console.log(`PASS revision${gameplayRevision} ${capacity} sockets: duplicate atomic start, ${duplicateInput ? 'duplicate input' : 'zero taps'}, rotating reconnect, independent completion, new create`);
   } finally { clients.forEach(client => client.close()); }
 }
 
 async function rejectMalformedAndUnauthenticated() {
   const unauthenticated = await new Client().open(false);
   unauthenticated.send({ create: { capacity: 2 } });
-  assert.equal((await unauthenticated.wait('error')).code, 'authentication_failed');
+  assert.equal((await unauthenticated.wait('error')).code, 'authentication_required');
   unauthenticated.close();
   const malformed = await new Client().open();
   malformed.socket.send('{broken');
@@ -130,7 +137,37 @@ async function rejectMalformedAndUnauthenticated() {
   console.log('PASS malformed/unauthenticated socket isolation');
 }
 
+async function directoryLifecycle() {
+  const [host, observer, legacy] = await Promise.all([
+    new Client(randomUUID(), 2).open(), new Client(randomUUID(), 2).open(), new Client().open(),
+  ]);
+  try {
+    await observer.wait('list');
+    await legacy.wait('list');
+    host.send({ create: { capacity: 2 } });
+    const first = await host.wait('room');
+    await observer.wait('list', list => list.some(room => room.id === first.id));
+    legacy.send({ join: { roomID: first.id } });
+    assert.equal((await legacy.wait('error')).code, 'cannot_join');
+    host.send({ leave: {} });
+    await host.wait('left');
+    await observer.wait('list', list => !list.some(room => room.id === first.id));
+    host.send({ create: { capacity: 2 } });
+    const second = await host.wait('room', room => room.id !== first.id);
+    await observer.wait('list', list => list.some(room => room.id === second.id));
+    observer.send({ join: { roomID: second.id } });
+    await observer.wait('room', room => room.id === second.id && room.players.length === 2);
+    observer.send({ leave: {} });
+    await observer.wait('left');
+    await observer.wait('list', list => list.some(room => room.id === second.id && room.playerCount === 1));
+    legacy.send({ list: {} });
+    assert(!(await legacy.wait('list')).some(room => room.id === second.id));
+    console.log('PASS pushed directory create/quick leave/new create/full-seat reopen and legacy revision isolation');
+  } finally { [host, observer, legacy].forEach(client => client.close()); }
+}
+
 await rejectMalformedAndUnauthenticated();
-await Promise.all([2, 3, 4].map(capacity => runRoom(capacity)));
+await directoryLifecycle();
+await Promise.all([1, 2].flatMap(revision => [2, 3, 4].map(capacity => runRoom(capacity, false, revision))));
 await runRoom(2, true);
 console.log('All local real WebSocket checks passed. No WSS/network impairment or physical-device claim.');

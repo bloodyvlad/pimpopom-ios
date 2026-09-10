@@ -28,8 +28,15 @@ public enum RealtimeApplication {
                 await withTaskGroup(of: Void.self) { group in
                     for validation in due {
                         group.addTask {
-                            let refreshed = try? await authenticator.validate(validation.player)
-                            await service.validated(validation, refreshed: refreshed, now: ServerClock.milliseconds())
+                            do {
+                                let refreshed = try await authenticator.validate(validation.player)
+                                await service.validated(
+                                    validation, refreshed: refreshed, now: ServerClock.milliseconds())
+                            } catch {
+                                await service.validated(
+                                    validation, refreshed: nil, failure: .classify(error),
+                                    now: ServerClock.milliseconds())
+                            }
                         }
                     }
                 }
@@ -137,15 +144,25 @@ public enum RealtimeApplication {
                             do {
                                 let message = try decoder.decode(MP2ClientMessage.self, from: Data(text.utf8))
                                 if !authenticated {
-                                    guard case .hello(let ticket, let version) = message, version == MP2Protocol.version
+                                    guard case .hello(let ticket, let version, let gameplayRevision) = message else {
+                                        await service.authenticationFailed(
+                                            id: connectionID, failure: .authenticationRequired,
+                                            now: ServerClock.milliseconds())
+                                        break
+                                    }
+                                    guard version == MP2Protocol.version,
+                                        [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision].contains(
+                                            gameplayRevision ?? MP2Protocol.legacyGameplayRevision)
                                     else {
                                         await service.authenticationFailed(
-                                            id: connectionID, now: ServerClock.milliseconds())
+                                            id: connectionID, failure: .invalidCapability,
+                                            now: ServerClock.milliseconds())
                                         break
                                     }
                                     let player = try await authenticator.redeem(ticket)
                                     await service.authenticated(
-                                        id: connectionID, player: player, now: ServerClock.milliseconds())
+                                        id: connectionID, player: player, now: ServerClock.milliseconds(),
+                                        gameplayRevision: gameplayRevision ?? MP2Protocol.legacyGameplayRevision)
                                     identity = player
                                     authenticated = true
                                 } else {
@@ -158,18 +175,19 @@ public enum RealtimeApplication {
                                             identity = refreshed
                                         } catch {
                                             await service.authenticationFailed(
-                                                id: connectionID, now: ServerClock.milliseconds())
+                                                id: connectionID, failure: .classify(error),
+                                                now: ServerClock.milliseconds())
                                             break
                                         }
                                     }
                                     await service.receive(message, from: connectionID, now: ServerClock.milliseconds())
                                 }
                             } catch {
-                                if authenticated {
+                                if authenticated || error is DecodingError {
                                     await service.malformed(id: connectionID, now: ServerClock.milliseconds())
                                 } else {
                                     await service.authenticationFailed(
-                                        id: connectionID, now: ServerClock.milliseconds())
+                                        id: connectionID, failure: .classify(error), now: ServerClock.milliseconds())
                                 }
                                 break
                             }

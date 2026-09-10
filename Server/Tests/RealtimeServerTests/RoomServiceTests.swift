@@ -6,9 +6,10 @@ import Testing
 
 struct RoomServiceTests {
     func fixture(_ count: Int = 2) async throws -> (RoomService, [String], String) {
-        let config = try ServerConfiguration(environment: ["MP2_DEV_AUTH": "1"])
+        var config = try ServerConfiguration(environment: ["MP2_DEV_AUTH": "1"])
+        config.idleConnectionMs = 1_000_000
         let results = AsyncStream<CompletedMatch>.makeStream(bufferingPolicy: .bufferingOldest(128))
-        let service = RoomService(configuration: config, resultOutput: results.continuation)
+        let service = RoomService(configuration: config, resultOutput: results.continuation, randomSeed: { 42 })
         var ids: [String] = []
         for _ in 0..<count {
             let id = UUID().uuidString
@@ -39,7 +40,7 @@ struct RoomServiceTests {
         #expect(await service.rooms[roomID]?.value.matchID == originalMatch)
         await service.tick(now: 1_000)
         #expect(await service.rooms[roomID]?.value.phase == .playing)
-        for now in stride(from: 1_100, through: 28_000, by: 100) { await service.tick(now: now) }
+        for now in stride(from: 1_100, through: 60_000, by: 100) { await service.tick(now: now) }
         let snapshot = try #require(await service.rooms[roomID]?.engine?.snapshot)
         #expect(snapshot.players.allSatisfy { $0.hits == 0 && $0.score == 0 })
         #expect(snapshot.players.contains { $0.misses > 0 })
@@ -133,6 +134,25 @@ struct RoomServiceTests {
         #expect(files.count == 1)
         #expect(try JSONDecoder().decode(CompletedMatch.self, from: Data(contentsOf: files[0])) == match)
         #expect(match.rankingEligible == false)
+    }
+
+    @Test func resultOutboxRetainsCumulativeMissesAfterHeartPickups() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mp2-heart-outbox-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let player = MP2Player(id: UUID().uuidString, seat: 0, colorIndex: 0, name: "Local", lives: 0, misses: 7)
+        let snapshot = MP2Snapshot(
+            matchID: UUID().uuidString, revision: 1, elapsedMs: 100_000, phase: .finished,
+            gridDimension: 4, players: [player], targets: [], decoys: [], gameplayRevision: MP2Protocol.gameplayRevision
+        )
+        let result = CompletedMatch(snapshot: snapshot)
+        let outbox = ResultOutbox(directory: directory)
+        try await outbox.store(result)
+        let file = try #require(try await outbox.pending().first)
+        let retained = try JSONDecoder().decode(CompletedMatch.self, from: Data(contentsOf: file))
+        #expect(retained.players[0].misses == 7)
+        #expect(retained.players[0].lives == 0)
+        #expect(retained.rankingEligible == false)
     }
 
     @Test func periodicSnapshotsCoalesceWithoutReorderingReceipts() async throws {

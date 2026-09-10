@@ -6,6 +6,7 @@ import PimPoPomCore
 public actor RoomService {
     struct Connection {
         var player: AuthenticatedPlayer?
+        var gameplayRevision = MP2Protocol.legacyGameplayRevision
         let output: OutboundMessages
         let openedAt: Int
         var lastSeen: Int
@@ -37,12 +38,18 @@ public actor RoomService {
     }
     let configuration: ServerConfiguration
     let resultOutput: AsyncStream<CompletedMatch>.Continuation
+    private let randomSeed: @Sendable () -> UInt64
     var connections: [String: Connection] = [:]
     var rooms: [String: Room] = [:]
+    private var publishedDirectories: [Int: [MP2RoomSummary]] = [:]
 
-    public init(configuration: ServerConfiguration, resultOutput: AsyncStream<CompletedMatch>.Continuation) {
+    public init(
+        configuration: ServerConfiguration, resultOutput: AsyncStream<CompletedMatch>.Continuation,
+        randomSeed: @escaping @Sendable () -> UInt64 = { UInt64.random(in: 1...UInt64.max) }
+    ) {
         self.configuration = configuration
         self.resultOutput = resultOutput
+        self.randomSeed = randomSeed
     }
 
     public func connect(id: String, output: OutboundMessages, now: Int) -> Bool {
@@ -57,18 +64,29 @@ public actor RoomService {
         return true
     }
 
-    public func authenticated(id: String, player: AuthenticatedPlayer, now: Int) {
+    public func authenticated(
+        id: String, player: AuthenticatedPlayer, now: Int,
+        gameplayRevision: Int = MP2Protocol.legacyGameplayRevision
+    ) {
         guard var connection = connections[id], connection.player == nil else { return }
+        guard [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision].contains(gameplayRevision) else {
+            authenticationFailed(id: id, failure: .invalidCapability, now: now)
+            return
+        }
         connection.player = player
+        connection.gameplayRevision = gameplayRevision
         connection.lastValidated = now
         connection.lastSeen = now
         connections[id] = connection
-        send(.welcome(playerID: player.playerID, connectionID: id, serverTimeMs: now), to: id)
+        send(
+            .welcome(
+                playerID: player.playerID, connectionID: id, serverTimeMs: now, gameplayRevision: gameplayRevision),
+            to: id)
         sendDirectory(to: id)
     }
 
-    public func authenticationFailed(id: String, now: Int) {
-        sendError("authentication_failed", "Sign in again to connect.", to: id)
+    public func authenticationFailed(id: String, failure: AuthenticationFailure = .invalidTicket, now: Int) {
+        sendError(failure.code, failure.userMessage, to: id)
         disconnect(id: id, now: now)
     }
 
@@ -91,6 +109,7 @@ public actor RoomService {
             disconnect(id: id, now: now)
             return
         }
+        defer { publishDirectoryChanges() }
         switch message {
         case .hello:
             sendError("already_authenticated", "This connection is already authenticated.", to: id)
@@ -99,7 +118,12 @@ public actor RoomService {
         case .list:
             sendDirectory(to: id)
         case .create(let capacity):
-            guard (2...4).contains(capacity), connection.roomID == nil,
+            guard (2...4).contains(capacity) else {
+                sendError("cannot_create", "Choose a game for two to four players.", to: id)
+                return
+            }
+            releasePreviousLobbyMembership(playerID: player.playerID, connectionID: id, now: now)
+            guard connections[id]?.roomID == nil,
                 rooms.count < configuration.maximumRooms, !hasMembership(player.playerID)
             else {
                 sendError("cannot_create", "Leave your current room, or try another capacity.", to: id)
@@ -109,14 +133,16 @@ public actor RoomService {
             let member = MP2Player(id: player.playerID, seat: 0, colorIndex: 0, name: player.name, petID: player.petID)
             let value = MP2Room(
                 id: roomID, revision: 1, rosterRevision: 1, hostPlayerID: player.playerID,
-                capacity: capacity, phase: .waiting, players: [member], epoch: UUID().uuidString)
+                capacity: capacity, phase: .waiting, players: [member], epoch: UUID().uuidString,
+                gameplayRevision: connection.gameplayRevision)
             rooms[roomID] = Room(value: value, presence: [player.playerID: freshPresence(id: id)])
             connections[id]?.roomID = roomID
             sendCredential(roomID: roomID, playerID: player.playerID, to: id)
             broadcastRoom(roomID)
         case .join(let roomID):
-            guard connection.roomID == nil, !hasMembership(player.playerID), var room = rooms[roomID],
-                room.value.phase == .waiting, room.value.players.count < room.value.capacity,
+            releasePreviousLobbyMembership(playerID: player.playerID, connectionID: id, now: now)
+            guard connections[id]?.roomID == nil, !hasMembership(player.playerID), var room = rooms[roomID],
+                isJoinable(room), roomGameplayRevision(room) == connection.gameplayRevision,
                 let seat = (0..<room.value.capacity).first(where: { seat in
                     !room.value.players.contains { $0.seat == seat }
                 })
@@ -138,6 +164,7 @@ public actor RoomService {
             broadcastRoom(roomID)
         case .resume(let roomID, let credential, let generation):
             guard connection.roomID == nil, var room = rooms[roomID],
+                roomGameplayRevision(room) == connection.gameplayRevision,
                 !credential.isEmpty, var presence = room.presence[player.playerID], presence.credential == credential,
                 presence.generation == generation, room.value.phase != .finished,
                 presence.disconnectedAt == nil
@@ -170,6 +197,7 @@ public actor RoomService {
             if let snapshot = room.engine?.snapshot { send(.snapshot(snapshot), to: id) }
         case .leave:
             leave(id: id, playerID: player.playerID, now: now)
+            if connection.gameplayRevision == MP2Protocol.gameplayRevision { send(.left, to: id) }
             sendDirectory(to: id)
         case .ready(let ready, let intentID, let rosterRevision):
             guard let roomID = connection.roomID, var room = rooms[roomID], room.value.phase == .waiting,
@@ -245,6 +273,7 @@ public actor RoomService {
     }
 
     public func disconnect(id: String, now: Int) {
+        defer { publishDirectoryChanges() }
         guard let connection = connections.removeValue(forKey: id) else { return }
         connection.output.finish()
         guard let roomID = connection.roomID, let playerID = connection.player?.playerID,
@@ -266,6 +295,7 @@ public actor RoomService {
 
     /// Caller schedules at 60 Hz. No socket/HTTP/disk await can stall this method.
     public func tick(now: Int) {
+        defer { publishDirectoryChanges() }
         for (id, connection) in connections {
             let timeout =
                 connection.player == nil ? configuration.authenticationTimeoutMs : configuration.idleConnectionMs
@@ -302,7 +332,8 @@ public actor RoomService {
                     room.value.players.allSatisfy({ $0.ready && $0.connected }),
                     let matchID = room.value.matchID,
                     let engine = try? MP2Engine(
-                        matchID: matchID, players: room.value.players, seed: UInt64.random(in: 1...UInt64.max))
+                        matchID: matchID, players: room.value.players, seed: randomSeed(),
+                        gameplayRevision: roomGameplayRevision(room))
                 {
                     room.engine = engine
                     room.startedAt = start
@@ -331,7 +362,8 @@ public actor RoomService {
                 }
             }
             let critical =
-                before?.targets != after?.targets || before?.decoys != after?.decoys || before?.phase != after?.phase
+                before?.targets != after?.targets || before?.decoys != after?.decoys || before?.hearts != after?.hearts
+                || before?.phase != after?.phase
             let sendSnapshot = after != nil && (critical || now - room.lastSnapshotAt >= 100)
             if sendSnapshot { room.lastSnapshotAt = now }
             let oldRoom = rooms[roomID]?.value
@@ -340,7 +372,9 @@ public actor RoomService {
             if sendSnapshot, let after { broadcast(.snapshot(after), roomID: roomID, coalescible: !critical) }
             if let finished = room.finishedAt, now - finished > 60_000, room.resultPersisted {
                 for presence in room.presence.values {
-                    if let id = presence.connectionID { connections[id]?.roomID = nil }
+                    if let id = presence.connectionID, connections[id]?.roomID == roomID {
+                        connections[id]?.roomID = nil
+                    }
                 }
                 rooms.removeValue(forKey: roomID)
             }
@@ -359,11 +393,13 @@ public actor RoomService {
         return due
     }
 
-    public func validated(_ validation: Validation, refreshed: AuthenticatedPlayer?, now: Int) {
+    public func validated(
+        _ validation: Validation, refreshed: AuthenticatedPlayer?,
+        failure: AuthenticationFailure = .revokedSession, now: Int
+    ) {
         guard connections[validation.connectionID]?.player == validation.player else { return }
         guard let refreshed else {
-            sendError("session_revoked", "Your session ended. Sign in again.", to: validation.connectionID)
-            disconnect(id: validation.connectionID, now: now)
+            authenticationFailed(id: validation.connectionID, failure: failure, now: now)
             return
         }
         connections[validation.connectionID]?.player = refreshed
@@ -380,6 +416,7 @@ public actor RoomService {
     func elapsed(_ room: Room, _ now: Int) -> Int { max(0, now - (room.startedAt ?? now)) }
     func hasMembership(_ playerID: String) -> Bool {
         rooms.values.contains { room in
+            guard room.value.phase != .finished else { return false }
             guard let presence = room.presence[playerID] else { return false }
             return presence.connectionID != nil || !presence.credential.isEmpty
         }
@@ -420,22 +457,74 @@ public actor RoomService {
         if let value = rooms[roomID]?.value { broadcast(.room(value), roomID: roomID) }
     }
     func sendDirectory(to id: String) {
-        let directory = rooms.values.filter { $0.value.phase == .waiting }.map { room in
+        guard let connection = connections[id] else { return }
+        send(.list(directory(gameplayRevision: connection.gameplayRevision)), to: id)
+    }
+    func roomGameplayRevision(_ room: Room) -> Int { room.value.gameplayRevision ?? MP2Protocol.legacyGameplayRevision }
+    func isJoinable(_ room: Room) -> Bool {
+        room.value.phase == .waiting && !room.value.players.isEmpty
+            && room.value.players.count < room.value.capacity
+            && room.value.players.allSatisfy(\.connected)
+            && room.presence[room.value.hostPlayerID]?.connectionID != nil
+    }
+    func directory(gameplayRevision: Int = MP2Protocol.legacyGameplayRevision) -> [MP2RoomSummary] {
+        rooms.values.filter { isJoinable($0) && roomGameplayRevision($0) == gameplayRevision }.map { room in
             MP2RoomSummary(
                 id: room.value.id,
                 hostName: room.value.players.first(where: { $0.id == room.value.hostPlayerID })?.name ?? "",
                 capacity: room.value.capacity, playerCount: room.value.players.count, revision: room.value.revision,
-                phase: room.value.phase)
+                phase: room.value.phase, gameplayRevision: roomGameplayRevision(room))
         }.sorted { $0.id < $1.id }
-        send(.list(directory), to: id)
+    }
+    func publishDirectoryChanges() {
+        for gameplayRevision in [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision] {
+            let latest = directory(gameplayRevision: gameplayRevision)
+            guard latest != publishedDirectories[gameplayRevision] else { continue }
+            // Install before writes: closing a saturated observer can re-enter
+            // through disconnect, but cannot replay this directory revision.
+            publishedDirectories[gameplayRevision] = latest
+            let observers = connections.compactMap { id, connection in
+                connection.player != nil && connection.roomID == nil && connection.gameplayRevision == gameplayRevision
+                    ? id : nil
+            }
+            // Directory changes are critical: a full mailbox must reconnect the
+            // observer, not silently retain a ghost until another mutation.
+            for id in observers { send(.list(latest), to: id) }
+        }
+    }
+    /// Create/join is an explicit new-room intent, not a request to resume an
+    /// abandoned lobby. Keep live matches fenced and terminal result evidence.
+    func releasePreviousLobbyMembership(playerID: String, connectionID: String, now: Int) {
+        if let roomID = connections[connectionID]?.roomID, rooms[roomID]?.value.phase == .finished {
+            leave(id: connectionID, playerID: playerID, now: now)
+        }
+        for roomID in Array(rooms.keys) {
+            guard var room = rooms[roomID], room.engine == nil,
+                let presence = room.presence[playerID], presence.connectionID == nil
+            else { continue }
+            room.value.players.removeAll { $0.id == playerID }
+            room.presence.removeValue(forKey: playerID)
+            cancelCountdown(&room)
+            room.value.revision += 1
+            room.value.rosterRevision += 1
+            if room.value.players.isEmpty {
+                rooms.removeValue(forKey: roomID)
+            } else {
+                if room.value.hostPlayerID == playerID { room.value.hostPlayerID = room.value.players[0].id }
+                rooms[roomID] = room
+                broadcastRoom(roomID)
+            }
+        }
     }
     func leave(id: String, playerID: String, now: Int) {
         guard let roomID = connections[id]?.roomID, var room = rooms[roomID] else { return }
         connections[id]?.roomID = nil
         if let member = room.value.players.first(where: { $0.id == playerID }), room.engine != nil {
-            let time = elapsed(room, now)
-            room.engine?.disconnect(seat: member.seat, at: time)
-            room.engine?.eliminateDisconnected(seat: member.seat, at: time)
+            if room.value.phase != .finished {
+                let time = elapsed(room, now)
+                room.engine?.disconnect(seat: member.seat, at: time)
+                room.engine?.eliminateDisconnected(seat: member.seat, at: time)
+            }
             room.presence[playerID]?.connectionID = nil
             room.presence[playerID]?.credential = ""
             room.presence[playerID]?.disconnectedAt = nil
