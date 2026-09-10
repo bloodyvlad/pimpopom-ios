@@ -122,7 +122,8 @@ public actor RoomService {
                 sendError("cannot_create", "Choose a game for two to four players.", to: id)
                 return
             }
-            releasePreviousLobbyMembership(playerID: player.playerID, connectionID: id, now: now)
+            releasePreviousLobbyMembership(
+                playerID: player.playerID, connectionID: id, now: now, replaceConnectedLobby: true)
             guard connections[id]?.roomID == nil,
                 rooms.count < configuration.maximumRooms, !hasMembership(player.playerID)
             else {
@@ -140,7 +141,14 @@ public actor RoomService {
             sendCredential(roomID: roomID, playerID: player.playerID, to: id)
             broadcastRoom(roomID)
         case .join(let roomID):
-            releasePreviousLobbyMembership(playerID: player.playerID, connectionID: id, now: now)
+            guard let destination = rooms[roomID], isJoinable(destination),
+                roomGameplayRevision(destination) == connection.gameplayRevision
+            else {
+                sendError("cannot_join", "That room is unavailable. Refresh the list.", to: id)
+                return
+            }
+            releasePreviousLobbyMembership(
+                playerID: player.playerID, connectionID: id, now: now, replaceConnectedLobby: true)
             guard connections[id]?.roomID == nil, !hasMembership(player.playerID), var room = rooms[roomID],
                 isJoinable(room), roomGameplayRevision(room) == connection.gameplayRevision,
                 let seat = (0..<room.value.capacity).first(where: { seat in
@@ -494,13 +502,17 @@ public actor RoomService {
     }
     /// Create/join is an explicit new-room intent, not a request to resume an
     /// abandoned lobby. Keep live matches fenced and terminal result evidence.
-    func releasePreviousLobbyMembership(playerID: String, connectionID: String, now: Int) {
+    func releasePreviousLobbyMembership(
+        playerID: String, connectionID: String, now: Int, replaceConnectedLobby: Bool = false
+    ) {
         if let roomID = connections[connectionID]?.roomID, rooms[roomID]?.value.phase == .finished {
             leave(id: connectionID, playerID: playerID, now: now)
         }
         for roomID in Array(rooms.keys) {
             guard var room = rooms[roomID], room.engine == nil,
-                let presence = room.presence[playerID], presence.connectionID == nil
+                let presence = room.presence[playerID],
+                presence.connectionID == nil
+                    || (replaceConnectedLobby && presence.connectionID != connectionID)
             else { continue }
             room.value.players.removeAll { $0.id == playerID }
             room.presence.removeValue(forKey: playerID)
@@ -513,6 +525,14 @@ public actor RoomService {
                 if room.value.hostPlayerID == playerID { room.value.hostPlayerID = room.value.players[0].id }
                 rooms[roomID] = room
                 broadcastRoom(roomID)
+            }
+            if let oldID = presence.connectionID {
+                // A dropped Create reply can precede TCP-close detection. A
+                // newly authenticated Create is sufficient to abandon that
+                // player's old lobby, but never a started match or another seat.
+                connections[oldID]?.roomID = nil
+                sendError("room_replaced", "Your lobby was opened on another connection.", to: oldID)
+                disconnect(id: oldID, now: now)
             }
         }
     }

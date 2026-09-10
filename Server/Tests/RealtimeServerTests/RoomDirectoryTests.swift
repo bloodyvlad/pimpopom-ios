@@ -73,6 +73,73 @@ struct RoomDirectoryTests {
         #expect(await lists(observer).last?.map(\.id) == [newRoom])
     }
 
+    @Test func freshCreateRecoversLostCreateReplyBeforeOldSocketClosure() async throws {
+        let service = try service()
+        let oldOutput = try await connect(service, id: "old", playerID: "host", revision: 2)
+        _ = try await connect(service, id: "new", playerID: "host", revision: 2)
+        await service.receive(.create(capacity: 2), from: "old", now: 1)
+        let oldRoom = try #require(await service.connections["old"]?.roomID)
+        let credential = try #require(await service.rooms[oldRoom]?.presence["host"]?.credential)
+        // Do not consume the old socket's room/credential messages and do not
+        // disconnect it: the network can delay both delivery and close detection.
+        await service.receive(.create(capacity: 2), from: "new", now: 2)
+        let newRoom = try #require(await service.connections["new"]?.roomID)
+        #expect(newRoom != oldRoom)
+        #expect(await service.rooms[oldRoom] == nil)
+        #expect(await service.connections["old"] == nil)
+        var errors: [String] = []
+        for await message in oldOutput {
+            if case .error(let code, _) = message { errors.append(code) }
+        }
+        #expect(errors == ["room_replaced"])
+        _ = try await connect(service, id: "late", playerID: "host", revision: 2)
+        await service.receive(.resume(roomID: oldRoom, credential: credential, generation: 1), from: "late", now: 3)
+        #expect(await service.connections["late"]?.roomID == nil)
+        await service.disconnect(id: "old", now: 4)
+        #expect(await service.connections["new"]?.roomID == newRoom)
+        await service.receive(.create(capacity: 2), from: "new", now: 5)
+        #expect(await service.connections["new"]?.roomID == newRoom)  // Same-socket duplicate is not replacement.
+    }
+
+    @Test func freshCreateCannotReplaceAnAlreadyStartedMatch() async throws {
+        let (service, ids, roomID) = try await RoomServiceTests().fixture()
+        let revision = try #require(await service.rooms[roomID]?.value.rosterRevision)
+        for id in ids {
+            await service.receive(.ready(value: true, intentID: 1, rosterRevision: revision), from: id, now: 0)
+        }
+        await service.receive(.start, from: ids[0], now: 0)
+        await service.tick(now: 1_000)
+        let before = await service.rooms[roomID]?.engine?.snapshot
+        _ = try await connect(service, id: "fresh", playerID: ids[0])
+        await service.receive(.create(capacity: 2), from: "fresh", now: 1_001)
+        #expect(await service.connections["fresh"]?.roomID == nil)
+        #expect(await service.connections[ids[0]]?.roomID == roomID)
+        #expect(await service.rooms[roomID]?.engine?.snapshot == before)
+        #expect(await service.rooms[roomID]?.value.players.allSatisfy(\.connected) == true)
+    }
+
+    @Test func freshJoinTransfersOldLobbyHostWithoutDisconnectingOtherPlayers() async throws {
+        let service = try service()
+        for (id, player) in [("old", "host"), ("guest", "guest"), ("destination", "destination"), ("fresh", "host")] {
+            _ = try await connect(service, id: id, playerID: player, revision: 2)
+        }
+        await service.receive(.create(capacity: 3), from: "old", now: 1)
+        let oldRoom = try #require(await service.connections["old"]?.roomID)
+        await service.receive(.join(roomID: oldRoom), from: "guest", now: 2)
+        await service.receive(.join(roomID: "missing"), from: "fresh", now: 3)
+        #expect(await service.connections["old"]?.roomID == oldRoom)  // Invalid target cannot evict a lobby.
+        await service.receive(.create(capacity: 2), from: "destination", now: 4)
+        let destination = try #require(await service.connections["destination"]?.roomID)
+        await service.receive(.join(roomID: destination), from: "fresh", now: 5)
+        #expect(await service.connections["fresh"]?.roomID == destination)
+        #expect(await service.connections["old"] == nil)
+        #expect(await service.connections["guest"]?.roomID == oldRoom)
+        #expect(await service.rooms[oldRoom]?.value.hostPlayerID == "guest")
+        #expect(await service.rooms[oldRoom]?.value.players.map(\.id) == ["guest"])
+        #expect(await service.rooms[oldRoom]?.value.players[0].connected == true)
+        #expect(await service.directory(gameplayRevision: 2).map(\.id) == [oldRoom])
+    }
+
     @Test func fullRoomsDisappearAndASeatLeavingRestoresJoinabilityImmediately() async throws {
         let service = try service()
         let observer = try await connect(service, id: "observer")
