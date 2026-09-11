@@ -151,7 +151,7 @@ public enum RealtimeApplication {
                                         break
                                     }
                                     guard version == MP2Protocol.version,
-                                        [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision].contains(
+                                        MP2Protocol.supportedGameplayRevisions.contains(
                                             gameplayRevision ?? MP2Protocol.legacyGameplayRevision)
                                     else {
                                         await service.authenticationFailed(

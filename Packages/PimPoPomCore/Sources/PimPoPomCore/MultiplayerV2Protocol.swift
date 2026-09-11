@@ -170,7 +170,8 @@ public struct MP2Snapshot: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case matchID, revision, elapsedMs, phase, gridDimension, players, targets, decoys, hearts, gameplayRevision, finalReason
+        case matchID, revision, elapsedMs, phase, gridDimension, players, targets, decoys, hearts, gameplayRevision,
+            finalReason
     }
 
     public init(from decoder: Decoder) throws {

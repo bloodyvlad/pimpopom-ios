@@ -52,6 +52,44 @@ public struct MP2Engine: Sendable {
         var dueSince: Int
         var lastExpiredDecoyCell: Int?
         var receipts: [Int: (MP2Input, MP2InputReceipt)] = [:]
+        var presence = PresenceClock()
+    }
+
+    /// Retain only the correction horizon of connection transitions. Older time
+    /// is folded into a prefix; later replayed out-times can still trim it exactly.
+    private struct PresenceClock: Sendable {
+        var baseAt = 0
+        var creditedMs = 0
+        var connected = true
+        var transitions: [(at: Int, connected: Bool)] = []
+
+        mutating func record(at: Int, connected: Bool) {
+            if transitions.last?.at == at { transitions.removeLast() }
+            if (transitions.last?.connected ?? self.connected) != connected {
+                transitions.append((at, connected))
+            }
+        }
+
+        func duration(through cutoff: Int) -> Int {
+            var result = creditedMs
+            var cursor = baseAt
+            var active = connected
+            for transition in transitions where transition.at <= cutoff {
+                if active { result += max(0, transition.at - cursor) }
+                cursor = transition.at
+                active = transition.connected
+            }
+            if active { result += max(0, cutoff - cursor) }
+            return result
+        }
+
+        mutating func settle(through cutoff: Int) {
+            guard cutoff > baseAt else { return }
+            creditedMs = duration(through: cutoff)
+            connected = transitions.last(where: { $0.at <= cutoff })?.connected ?? connected
+            transitions.removeAll { $0.at <= cutoff }
+            baseAt = cutoff
+        }
     }
 
     public let matchID: String
@@ -103,13 +141,14 @@ public struct MP2Engine: Sendable {
             let player = MP2Player(
                 id: source.id, seat: source.seat, colorIndex: source.colorIndex,
                 name: source.name, petID: source.petID, connected: source.connected,
-                lives: configuration.startingLives
+                lives: configuration.startingLives, maxMultiplier: gameplayRevision >= 3 ? 1 : nil
             )
             let due = sample(configuration.spawnDelays.warmup)
             seats[player.seat] = SeatState(
                 base: player, player: player, nextTargetAt: due,
                 nextDecoyAt: configuration.phases.colorPatienceStartsAtMilliseconds, dueSince: due
             )
+            seats[player.seat]!.presence.connected = source.connected
         }
         if usesArcadeCadence { nextHeartAt = sample(DelayRange(12_000, 20_000)) }
         processCurrentTime()
@@ -119,14 +158,23 @@ public struct MP2Engine: Sendable {
         MP2Snapshot(
             matchID: matchID, revision: revision,
             elapsedMs: finishAt.map { $0 - finalAdmissionMs } ?? elapsedMs, phase: phase,
-            gridDimension: gridDimension, players: seats.keys.sorted().compactMap { seats[$0]?.player },
+            gridDimension: gridDimension,
+            players: seats.keys.sorted().map { seat in
+                var player = seats[seat]!.player
+                if gameplayRevision >= 3 {
+                    let cutoff = min(player.outAtMs ?? logicalEndMs, logicalEndMs)
+                    player.eligibleAliveMs = seats[seat]!.presence.duration(through: cutoff)
+                }
+                return player
+            },
             targets: targets.values.compactMap {
                 if case .open = $0.resolution { return $0.target }
                 return nil
             }.sorted { $0.id < $1.id },
             decoys: decoys.values.sorted { $0.id < $1.id },
             hearts: hearts.values.filter { !$0.claimed && !$0.expired }.map(\.heart).sorted { $0.id < $1.id },
-            gameplayRevision: gameplayRevision
+            gameplayRevision: gameplayRevision,
+            finalReason: gameplayRevision >= 3 && phase != .playing ? (durationEnded ? .timeLimit : .allOut) : nil
         )
     }
 
@@ -187,6 +235,7 @@ public struct MP2Engine: Sendable {
     public mutating func disconnect(seat: Int, at: Int) -> MP2Snapshot {
         advance(to: at)
         guard seats[seat] != nil, phase != .finished else { return snapshot }
+        recordPresence(seat: seat, connected: false)
         seats[seat]!.base.connected = false
         seats[seat]!.player.connected = false
         for id in targets.keys.sorted() where targets[id]!.target.ownerSeat == seat {
@@ -207,7 +256,10 @@ public struct MP2Engine: Sendable {
     @discardableResult
     public mutating func reconnect(seat: Int, at: Int) -> MP2Snapshot {
         advance(to: at)
-        guard seats[seat] != nil, !seats[seat]!.player.isOut, phase == .playing else { return snapshot }
+        guard seats[seat] != nil, phase != .finished,
+            gameplayRevision >= 3 || (!seats[seat]!.player.isOut && phase == .playing)
+        else { return snapshot }
+        recordPresence(seat: seat, connected: true)
         seats[seat]!.base.connected = true
         seats[seat]!.player.connected = true
         scheduleNextTarget(seat: seat, after: elapsedMs)
@@ -239,7 +291,15 @@ public struct MP2Engine: Sendable {
 
     private var totalHits: Int { seats.values.reduce(0) { $0 + $1.player.hits } }
     private var finalAdmissionMs: Int { presentationAllowanceMs + MP2Protocol.lateInputGraceMs }
+    private var logicalEndMs: Int { finishAt.map { $0 - finalAdmissionMs } ?? elapsedMs }
     private var usesArcadeCadence: Bool { gameplayRevision >= 2 }
+
+    private mutating func recordPresence(seat: Int, connected: Bool) {
+        guard gameplayRevision >= 3,
+            (seats[seat]!.player.outAtMs ?? elapsedMs) >= elapsedMs - journalHorizonMs
+        else { return }
+        seats[seat]!.presence.record(at: elapsedMs, connected: connected)
+    }
 
     private func targetIssueAt(for seat: SeatState) -> Int {
         max(seat.nextTargetAt, usesArcadeCadence ? sharedQuietUntil : 0) - scheduleLeadMs
@@ -330,14 +390,18 @@ public struct MP2Engine: Sendable {
             return receipt(input, false, "heart-expired")
         }
         let before = replayedPlayer(seat: input.seat, through: input.contactAtMs)
-        guard !before.isOut, !seats[input.seat]!.player.isOut,
+        guard !before.isOut, gameplayRevision >= 3 || !seats[input.seat]!.player.isOut,
             input.contactAtMs >= before.recoveryUntilMs
         else { return receipt(input, false, "recovery-or-out") }
         // Serial room admission chooses the winner; backdated competing contacts never steal a claimed pickup.
         hearts[heartID]!.claimed = true
-        append(seat: input.seat, at: elapsedMs, outcome: .heart)
+        let lifeAwarded = before.lives < configuration.startingLives
+        append(seat: input.seat, at: gameplayRevision >= 3 ? input.contactAtMs : elapsedMs, outcome: .heart)
+        if gameplayRevision >= 3 { updateFinish() }
         revision += 1
-        return receipt(input, true, "heart")
+        return MP2InputReceipt(
+            id: input.id, accepted: true, reason: "heart", revision: revision,
+            lifeAwarded: gameplayRevision >= 3 ? lifeAwarded : nil)
     }
 
     private mutating func rotatePlayerColor(seat: Int, contactAt: Int) {
@@ -397,7 +461,11 @@ public struct MP2Engine: Sendable {
                 voidOpenTargets(seat: seat)
                 clearDecoys(seat: seat)
             }
-            hearts.removeAll()
+            if gameplayRevision >= 3 {
+                for id in hearts.keys { hearts[id]!.expired = true }
+            } else {
+                hearts.removeAll()
+            }
         }
         updateFinish()
         guard phase == .playing else { return }
@@ -633,6 +701,7 @@ public struct MP2Engine: Sendable {
             if player.multiplier == configuration.streak.maximumMultiplier {
                 player.streakProgress = configuration.streak.stepsPerMultiplier
             }
+            if gameplayRevision >= 3 { player.maxMultiplier = max(player.maxMultiplier ?? 1, player.multiplier) }
         case .mistake:
             guard !player.isOut, event.at >= player.recoveryUntilMs else { return }
             player.lives -= 1
@@ -651,6 +720,7 @@ public struct MP2Engine: Sendable {
     private mutating func pruneHistory() {
         let cutoff = elapsedMs - journalHorizonMs
         for seat in seats.keys.sorted() {
+            seats[seat]!.presence.settle(through: min(cutoff, seats[seat]!.player.outAtMs ?? cutoff))
             let settled = seats[seat]!.journal.filter { $0.at < cutoff }
             var base = seats[seat]!.base
             for event in settled { apply(event, to: &base) }

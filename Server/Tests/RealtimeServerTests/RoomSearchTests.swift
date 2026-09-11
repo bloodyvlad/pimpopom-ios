@@ -86,7 +86,7 @@ struct RoomSearchTests {
 
     @Test func authenticatedWelcomeAdvertisesDiscoveryIndependentlyOfGameplay() async throws {
         let service = try service()
-        for revision in [1, 2] {
+        for revision in MP2Protocol.supportedGameplayRevisions {
             let output = try await connect(service, "player-\(revision)", revision: revision)
             let all = await messages(output)
             let welcome = try #require(all.first)
@@ -94,7 +94,7 @@ struct RoomSearchTests {
                 welcome
                     == .welcome(
                         playerID: "player-\(revision)", connectionID: "player-\(revision)", serverTimeMs: 0,
-                        gameplayRevision: revision, roomDiscoveryRevision: 1))
+                        gameplayRevision: revision, roomDiscoveryRevision: 2))
             #expect(all.allSatisfy { if case .searchResults = $0 { false } else { true } })
         }
     }

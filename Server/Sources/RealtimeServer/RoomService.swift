@@ -37,6 +37,8 @@ public actor RoomService {
         var finishedAt: Int?
         var resultQueued = false
         var resultPersisted = false
+        /// Snapshot at actual match start, never overwritten by revalidation/resume.
+        var economyGenerations: [String: Int] = [:]
     }
 
     public struct Validation: Sendable {
@@ -80,7 +82,7 @@ public actor RoomService {
         gameplayRevision: Int = MP2Protocol.legacyGameplayRevision
     ) {
         guard var connection = connections[id], connection.player == nil else { return }
-        guard [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision].contains(gameplayRevision) else {
+        guard MP2Protocol.supportedGameplayRevisions.contains(gameplayRevision) else {
             authenticationFailed(id: id, failure: .invalidCapability, now: now)
             return
         }
@@ -239,8 +241,28 @@ public actor RoomService {
             if let snapshot = room.engine?.snapshot { send(.snapshot(snapshot), to: id) }
         case .leave:
             leave(id: id, playerID: player.playerID, now: now)
-            if connection.gameplayRevision == MP2Protocol.gameplayRevision { send(.left, to: id) }
+            if connection.gameplayRevision >= MP2Protocol.arcadeGameplayRevision { send(.left, to: id) }
             sendDirectory(to: id)
+
+        case .setPrivacy(let isPrivate, let requestedRoomID, let roomRevision):
+            guard connection.roomID == requestedRoomID, var room = rooms[requestedRoomID],
+                room.presence[player.playerID]?.connectionID == id,
+                room.value.hostPlayerID == player.playerID, room.value.phase == .waiting,
+                room.value.revision == roomRevision
+            else {
+                sendError(
+                    "privacy_update_rejected", "Only the host can change privacy in the current waiting room.", to: id)
+                if let roomID = connection.roomID, let room = rooms[roomID] { send(.room(room.value), to: id) }
+                return
+            }
+            if room.value.isPrivate != isPrivate {
+                room.value.isPrivate = isPrivate
+                room.value.revision += 1
+                rooms[requestedRoomID] = room
+                broadcastRoom(requestedRoomID)
+            } else {
+                send(.room(room.value), to: id)
+            }
         case .ready(let ready, let intentID, let rosterRevision):
             guard let roomID = connection.roomID, var room = rooms[roomID], room.value.phase == .waiting,
                 let index = room.value.players.firstIndex(where: { $0.id == player.playerID }),
@@ -378,6 +400,13 @@ public actor RoomService {
                         gameplayRevision: roomGameplayRevision(room))
                 {
                     room.engine = engine
+                    room.economyGenerations = Dictionary(
+                        uniqueKeysWithValues: room.value.players.compactMap { member in
+                            guard let connectionID = room.presence[member.id]?.connectionID,
+                                let generation = connections[connectionID]?.player?.economyGeneration
+                            else { return nil }
+                            return (member.id, generation)
+                        })
                     room.startedAt = start
                     room.value.phase = .playing
                     room.value.revision += 1
@@ -396,7 +425,11 @@ public actor RoomService {
                     room.value.revision += 1
                 }
                 if !room.resultQueued {
-                    switch resultOutput.yield(CompletedMatch(snapshot: after)) {
+                    switch resultOutput.yield(
+                        CompletedMatch(
+                            snapshot: after, competitive: !configuration.developmentAuthentication,
+                            economyGenerations: room.economyGenerations))
+                    {
                     case .enqueued: room.resultQueued = true
                     case .dropped, .terminated: break  // Retain and retry next tick; never restart a match.
                     @unknown default: break
@@ -555,7 +588,7 @@ public actor RoomService {
         return nil
     }
     func publishDirectoryChanges() {
-        for gameplayRevision in [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision] {
+        for gameplayRevision in MP2Protocol.supportedGameplayRevisions {
             let searchable = searchableRooms(gameplayRevision: gameplayRevision)
             let latest = searchable.filter { $0.isPrivate != true }
             let directoryChanged = latest != publishedDirectories[gameplayRevision]

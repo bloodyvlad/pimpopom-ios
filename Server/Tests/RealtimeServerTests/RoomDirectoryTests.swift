@@ -215,7 +215,7 @@ struct RoomDirectoryTests {
         #expect(await lists(newObserver).last?.map(\.id) == [roomID])
     }
 
-    @Test(arguments: [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision])
+    @Test(arguments: MP2Protocol.supportedGameplayRevisions)
     func leaveAcknowledgementFencesPendingCreateOnlyForNewClients(_ revision: Int) async throws {
         let service = try service()
         let output = try await connect(service, id: "host", revision: revision)
@@ -230,7 +230,7 @@ struct RoomDirectoryTests {
         var messages: [MP2ServerMessage] = []
         for await message in output { messages.append(message) }
         let leftIndex = messages.firstIndex(of: .left)
-        if revision == MP2Protocol.gameplayRevision {
+        if revision >= MP2Protocol.arcadeGameplayRevision {
             let roomIndex = try #require(messages.firstIndex { if case .room = $0 { true } else { false } })
             #expect(try #require(leftIndex) > roomIndex)
         } else {
@@ -238,7 +238,7 @@ struct RoomDirectoryTests {
         }
     }
 
-    @Test(arguments: [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision])
+    @Test(arguments: MP2Protocol.supportedGameplayRevisions)
     func startInstallsNegotiatedGameplayEngine(_ gameplayRevision: Int) async throws {
         let service = try service()
         _ = try await connect(service, id: "host", revision: gameplayRevision)

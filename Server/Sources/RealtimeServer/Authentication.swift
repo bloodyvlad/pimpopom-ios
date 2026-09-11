@@ -13,10 +13,12 @@ public struct AuthenticatedPlayer: Codable, Equatable, Sendable {
     public let expiresAt: Int
     public let protocolVersion: Int
     public let ruleset: String
+    public let economyGeneration: Int?
 
     public init(
         playerID: String, name: String, petID: String? = nil, sessionBinding: String,
-        expiresAt: Int, protocolVersion: Int = 2, ruleset: String = "multiplayer-shared-arcade-v2"
+        expiresAt: Int, protocolVersion: Int = 2, ruleset: String = "multiplayer-shared-arcade-v2",
+        economyGeneration: Int? = nil
     ) {
         self.playerID = playerID
         self.name = name
@@ -25,6 +27,7 @@ public struct AuthenticatedPlayer: Codable, Equatable, Sendable {
         self.expiresAt = expiresAt
         self.protocolVersion = protocolVersion
         self.ruleset = ruleset
+        self.economyGeneration = economyGeneration
     }
 }
 
@@ -142,7 +145,8 @@ public struct TicketAuthenticator: TicketAuthenticating {
         }
         guard UUID(uuidString: player.playerID) != nil, !player.name.isEmpty, player.name.count <= 20,
             !player.sessionBinding.isEmpty, player.expiresAt > Int(Date().timeIntervalSince1970),
-            player.protocolVersion == MP2Protocol.version, player.ruleset == MP2Protocol.ruleset
+            player.protocolVersion == MP2Protocol.version, player.ruleset == MP2Protocol.ruleset,
+            player.economyGeneration.map({ $0 >= 0 && $0 <= 2_147_483_647 }) ?? true
         else {
             throw AuthenticationFailure.invalidCapability
         }

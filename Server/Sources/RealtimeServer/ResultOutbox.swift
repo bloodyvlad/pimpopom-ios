@@ -16,6 +16,10 @@ public struct CompletedMatch: Codable, Equatable, Sendable {
         public let dodges: Int
         public let reactionTotalMs: Int
         public let fastestReactionMs: Int?
+        public let eligibleAliveMs: Int?
+        public let survivalMs: Int?
+        public let maxMultiplier: Int?
+        public let economyGeneration: Int?
 
         public func encode(to encoder: any Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
@@ -28,6 +32,10 @@ public struct CompletedMatch: Codable, Equatable, Sendable {
             try container.encode(dodges, forKey: .dodges)
             try container.encode(reactionTotalMs, forKey: .reactionTotalMs)
             try container.encode(fastestReactionMs, forKey: .fastestReactionMs)
+            try container.encodeIfPresent(eligibleAliveMs, forKey: .eligibleAliveMs)
+            try container.encodeIfPresent(survivalMs, forKey: .survivalMs)
+            try container.encodeIfPresent(maxMultiplier, forKey: .maxMultiplier)
+            if eligibleAliveMs != nil { try container.encode(economyGeneration, forKey: .economyGeneration) }
         }
     }
     public let matchID: String
@@ -36,18 +44,34 @@ public struct CompletedMatch: Codable, Equatable, Sendable {
     public let durationMs: Int
     public let rankingEligible: Bool
     public let players: [Player]
+    public let resultRevision: Int?
+    public let rewardPolicy: String?
+    public let gameplayRevision: Int?
+    public let matchKind: String?
+    public let completionReason: String?
 
-    public init(snapshot: MP2Snapshot) {
+    public init(snapshot: MP2Snapshot, competitive: Bool = false, economyGenerations: [String: Int] = [:]) {
         matchID = snapshot.matchID
         protocolVersion = MP2Protocol.version
         ruleset = MP2Protocol.ruleset
         durationMs = min(snapshot.elapsedMs, MP2Protocol.maximumDurationMs)
-        rankingEligible = false
+        let revised = snapshot.gameplayRevision == 3 && snapshot.phase == .finished && snapshot.finalReason != nil
+        resultRevision = revised ? 2 : nil
+        rewardPolicy = revised ? "multiplayer-alive-minute-v1" : nil
+        gameplayRevision = revised ? 3 : nil
+        matchKind = revised ? (competitive ? "competitive" : "tutorial") : nil
+        completionReason = revised ? "completed" : nil
+        rankingEligible = revised && competitive
+        let duration = durationMs
         players = snapshot.players.sorted { $0.seat < $1.seat }.map {
             Player(
                 playerID: $0.id, seat: $0.seat, score: $0.score, lives: $0.lives,
                 hits: $0.hits, misses: $0.misses, dodges: $0.dodges,
-                reactionTotalMs: $0.reactionTotalMs, fastestReactionMs: $0.fastestReactionMs)
+                reactionTotalMs: $0.reactionTotalMs, fastestReactionMs: $0.fastestReactionMs,
+                eligibleAliveMs: revised ? min($0.eligibleAliveMs ?? 0, min($0.outAtMs ?? duration, duration)) : nil,
+                survivalMs: revised ? min($0.outAtMs ?? duration, duration) : nil,
+                maxMultiplier: revised ? ($0.maxMultiplier ?? 1) : nil,
+                economyGeneration: revised ? economyGenerations[$0.id] : nil)
         }
     }
 }
@@ -147,15 +171,7 @@ public final class ResultOutbox: @unchecked Sendable {
             guard let response = response as? HTTPURLResponse, (200...299).contains(response.statusCode) else {
                 continue
             }
-            struct Acknowledgement: Decodable {
-                let matchID: String
-                let rankingEligible: Bool
-                let state: String
-            }
-            guard reply.count <= 16_384,
-                let acknowledgement = try? JSONDecoder().decode(Acknowledgement.self, from: reply),
-                acknowledgement.matchID == url.deletingPathExtension().lastPathComponent,
-                acknowledgement.rankingEligible == false, acknowledgement.state == "stored_unranked"
+            guard Self.acceptsAcknowledgement(reply, for: data, matchID: url.deletingPathExtension().lastPathComponent)
             else { continue }
             try await perform {
                 // Acknowledged evidence remains recoverable in a bounded archive.
@@ -189,6 +205,23 @@ public final class ResultOutbox: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    /// A rank-disabled or wrong-match acknowledgement cannot discard a ranked
+    /// pending result; legacy journal bytes still require the original response.
+    static func acceptsAcknowledgement(_ reply: Data, for data: Data, matchID: String) -> Bool {
+        struct Acknowledgement: Decodable {
+            let matchID: String
+            let rankingEligible: Bool
+            let state: String
+        }
+        guard reply.count <= 16_384,
+            let expected = try? JSONDecoder().decode(CompletedMatch.self, from: data),
+            let acknowledgement = try? JSONDecoder().decode(Acknowledgement.self, from: reply)
+        else { return false }
+        return expected.matchID == matchID && acknowledgement.matchID == matchID
+            && acknowledgement.rankingEligible == expected.rankingEligible
+            && acknowledgement.state == (expected.rankingEligible ? "stored_ranked" : "stored_unranked")
     }
 
     private func perform<T: Sendable>(_ operation: @escaping @Sendable () throws -> T) async throws -> T {

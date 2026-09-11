@@ -59,7 +59,7 @@ func arcadeRevisionWireCompatibility() throws {
     let current = try MP2Engine(matchID: "m", players: arcadePlayers(), seed: 1, gameplayRevision: 2)
     #expect(current.snapshot.gameplayRevision == 2)
     #expect(throws: MP2EngineError.invalidRoster) {
-        try MP2Engine(matchID: "m", players: arcadePlayers(), seed: 1, gameplayRevision: 3)
+        try MP2Engine(matchID: "m", players: arcadePlayers(), seed: 1, gameplayRevision: 4)
     }
     let heart = MP2Heart(id: 1, cell: 3, activateAtMs: 10, expiresAtMs: 3_010)
     let snapshot = MP2Snapshot(
