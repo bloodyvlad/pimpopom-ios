@@ -81,6 +81,47 @@ Revision-2 Leave emits ordered `left` acknowledgement after removing membership;
 legacy clients never receive that new enum case. Clients fence late Create
 responses while awaiting it and clear abandoned admission on a replaced socket.
 
+### Room codes, private rooms and search — local build-28 candidate
+
+This extension is implemented locally, not proof of a new hosted deployment.
+Welcome adds optional `roomDiscoveryRevision:1`, independent of gameplay revision
+and PHP tickets. A client must receive that capability before offering private
+creation/search: an older server can ignore the new Create flag and otherwise
+silently create a public room. Legacy public Create and DTO decoding remain valid.
+
+```json
+{"create":{"capacity":4,"isPrivate":true}}
+{"search":{"query":"ABCD2345","requestID":1}}
+{"join":{"roomID":"ABCD2345"}}
+```
+
+Every room gets an independent UUID plus a stable eight-character uppercase
+`roomCode` from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. OS-backed randomness gives
+40 bits; actor-isolated allocation rejects collisions against every retained
+room, with 32 bounded retries. The code and immutable `isPrivate` flag survive
+host transfer, countdown cancellation and reconnect. Both are optional additions
+to room/summary DTOs so older messages still decode; missing privacy means public.
+Codes are invitation identifiers, not passwords or authentication credentials.
+
+Private rooms never appear in List or nickname search. Search permits exact,
+case-insensitive room code or full UUID for any joinable compatible room; public
+rooms additionally match the current host nickname by case-insensitive substring.
+Whitespace is trimmed, empty search returns public rooms, and neither partial
+codes/UUIDs nor creator nickname reveal a private room. Join accepts the same
+exact code/UUID, but no nickname. Existing session, capacity, connection and
+gameplay-revision gates still apply; full, disconnected, active or completed
+rooms are not joinable/searchable. No password or new PHP authority is added.
+
+Search uses a query of at most 128 UTF-8 bytes and request IDs in 0...1,000,000,
+monotonically increasing per connection. `searchResults(query, requestID, rooms)`
+is sent only after that client requests Search. The latest request subscribes to
+matching lifecycle changes, including private rooms disappearing/reappearing as
+they fill, disconnect, resume or close. Same-ID/same-query refresh is allowed;
+older IDs and conflicting same-ID queries are ignored. List cancels the search;
+successful create/join/resume also clears it. Use a new ID for the next search
+and fence responses by the current request ID/query on the client. Regular public
+directory pushes continue and must not replace an active search's result list.
+
 Reconnection first authenticates a new socket with a fresh ticket, then sends
 `resume(roomID, credential, generation)`. The credential is bound to the
 authenticated player and room epoch; success rotates the credential/generation,

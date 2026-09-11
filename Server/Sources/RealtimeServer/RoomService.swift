@@ -14,6 +14,13 @@ public actor RoomService {
         var roomID: String?
         var rateWindow: Int
         var rateCount = 0
+        var search: Search?
+        var latestSearchRequestID = -1
+    }
+    struct Search {
+        let query: String
+        let requestID: Int
+        var results: [MP2RoomSummary]
     }
     struct Presence {
         var connectionID: String?
@@ -39,17 +46,21 @@ public actor RoomService {
     let configuration: ServerConfiguration
     let resultOutput: AsyncStream<CompletedMatch>.Continuation
     private let randomSeed: @Sendable () -> UInt64
+    private let roomCodeCandidate: @Sendable () -> String
     var connections: [String: Connection] = [:]
     var rooms: [String: Room] = [:]
     private var publishedDirectories: [Int: [MP2RoomSummary]] = [:]
+    private var publishedSearchableRooms: [Int: [MP2RoomSummary]] = [:]
 
     public init(
         configuration: ServerConfiguration, resultOutput: AsyncStream<CompletedMatch>.Continuation,
-        randomSeed: @escaping @Sendable () -> UInt64 = { UInt64.random(in: 1...UInt64.max) }
+        randomSeed: @escaping @Sendable () -> UInt64 = { UInt64.random(in: 1...UInt64.max) },
+        roomCodeCandidate: (@Sendable () -> String)? = nil
     ) {
         self.configuration = configuration
         self.resultOutput = resultOutput
         self.randomSeed = randomSeed
+        self.roomCodeCandidate = roomCodeCandidate ?? { RoomCode.generate() }
     }
 
     public func connect(id: String, output: OutboundMessages, now: Int) -> Bool {
@@ -80,7 +91,8 @@ public actor RoomService {
         connections[id] = connection
         send(
             .welcome(
-                playerID: player.playerID, connectionID: id, serverTimeMs: now, gameplayRevision: gameplayRevision),
+                playerID: player.playerID, connectionID: id, serverTimeMs: now, gameplayRevision: gameplayRevision,
+                roomDiscoveryRevision: MP2Protocol.roomDiscoveryRevision),
             to: id)
         sendDirectory(to: id)
     }
@@ -116,8 +128,23 @@ public actor RoomService {
         case .ping(let pingID, let clientTime):
             send(.pong(id: pingID, clientTimeMs: clientTime, serverTimeMs: now), to: id)
         case .list:
+            connections[id]?.search = nil
             sendDirectory(to: id)
-        case .create(let capacity):
+        case .search(let query, let requestID):
+            let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard query.utf8.count <= 128, (0...MP2Protocol.maximumInputID).contains(requestID),
+                connection.roomID == nil
+            else {
+                sendError("invalid_search", "Search with a room code or nickname of at most 128 bytes.", to: id)
+                return
+            }
+            guard requestID >= connection.latestSearchRequestID else { return }
+            if requestID == connection.latestSearchRequestID, connection.search?.query != trimmed { return }
+            let results = searchRooms(query: trimmed, gameplayRevision: connection.gameplayRevision)
+            connections[id]?.latestSearchRequestID = requestID
+            connections[id]?.search = Search(query: trimmed, requestID: requestID, results: results)
+            send(.searchResults(query: trimmed, requestID: requestID, rooms: results), to: id)
+        case .create(let capacity, let isPrivate):
             guard (2...4).contains(capacity) else {
                 sendError("cannot_create", "Choose a game for two to four players.", to: id)
                 return
@@ -130,18 +157,23 @@ public actor RoomService {
                 sendError("cannot_create", "Leave your current room, or try another capacity.", to: id)
                 return
             }
+            guard let roomCode = allocateRoomCode() else {
+                sendError("cannot_create", "A room code could not be allocated. Try again shortly.", to: id)
+                return
+            }
             let roomID = UUID().uuidString.lowercased()
             let member = MP2Player(id: player.playerID, seat: 0, colorIndex: 0, name: player.name, petID: player.petID)
             let value = MP2Room(
                 id: roomID, revision: 1, rosterRevision: 1, hostPlayerID: player.playerID,
                 capacity: capacity, phase: .waiting, players: [member], epoch: UUID().uuidString,
-                gameplayRevision: connection.gameplayRevision)
+                gameplayRevision: connection.gameplayRevision, roomCode: roomCode, isPrivate: isPrivate ?? false)
             rooms[roomID] = Room(value: value, presence: [player.playerID: freshPresence(id: id)])
             connections[id]?.roomID = roomID
+            connections[id]?.search = nil
             sendCredential(roomID: roomID, playerID: player.playerID, to: id)
             broadcastRoom(roomID)
-        case .join(let roomID):
-            guard let destination = rooms[roomID], isJoinable(destination),
+        case .join(let identifier):
+            guard let roomID = roomID(matching: identifier), let destination = rooms[roomID], isJoinable(destination),
                 roomGameplayRevision(destination) == connection.gameplayRevision
             else {
                 sendError("cannot_join", "That room is unavailable. Refresh the list.", to: id)
@@ -168,6 +200,7 @@ public actor RoomService {
             room.value.revision += 1
             rooms[roomID] = room
             connections[id]?.roomID = roomID
+            connections[id]?.search = nil
             sendCredential(roomID: roomID, playerID: player.playerID, to: id)
             broadcastRoom(roomID)
         case .resume(let roomID, let credential, let generation):
@@ -200,6 +233,7 @@ public actor RoomService {
             room.value.rosterRevision += 1
             rooms[roomID] = room
             connections[id]?.roomID = roomID
+            connections[id]?.search = nil
             sendCredential(roomID: roomID, playerID: player.playerID, to: id)
             broadcastRoom(roomID)
             if let snapshot = room.engine?.snapshot { send(.snapshot(snapshot), to: id) }
@@ -476,28 +510,76 @@ public actor RoomService {
             && room.presence[room.value.hostPlayerID]?.connectionID != nil
     }
     func directory(gameplayRevision: Int = MP2Protocol.legacyGameplayRevision) -> [MP2RoomSummary] {
+        searchableRooms(gameplayRevision: gameplayRevision).filter { $0.isPrivate != true }
+    }
+    func searchableRooms(gameplayRevision: Int) -> [MP2RoomSummary] {
         rooms.values.filter { isJoinable($0) && roomGameplayRevision($0) == gameplayRevision }.map { room in
             MP2RoomSummary(
                 id: room.value.id,
                 hostName: room.value.players.first(where: { $0.id == room.value.hostPlayerID })?.name ?? "",
                 capacity: room.value.capacity, playerCount: room.value.players.count, revision: room.value.revision,
-                phase: room.value.phase, gameplayRevision: roomGameplayRevision(room))
+                phase: room.value.phase, gameplayRevision: roomGameplayRevision(room),
+                roomCode: room.value.roomCode, isPrivate: room.value.isPrivate)
         }.sorted { $0.id < $1.id }
+    }
+    func searchRooms(query: String, gameplayRevision: Int) -> [MP2RoomSummary] {
+        matchingRooms(searchableRooms(gameplayRevision: gameplayRevision), query: query)
+    }
+    func matchingRooms(_ candidates: [MP2RoomSummary], query: String) -> [MP2RoomSummary] {
+        let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return candidates.filter { room in
+            let exact =
+                room.id.caseInsensitiveCompare(normalized) == .orderedSame
+                || room.roomCode?.caseInsensitiveCompare(normalized) == .orderedSame
+            if room.isPrivate == true { return exact }
+            return exact || normalized.isEmpty || room.hostName.range(of: normalized, options: .caseInsensitive) != nil
+        }
+    }
+    /// Room IDs/codes identify a room, not a password. Private-room discovery is
+    /// exact-only; neither nickname matching nor partial codes expose them.
+    func roomID(matching identifier: String) -> String? {
+        let normalized = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.utf8.count <= 128 else { return nil }
+        return rooms.values.first { room in
+            room.value.id.caseInsensitiveCompare(normalized) == .orderedSame
+                || room.value.roomCode?.caseInsensitiveCompare(normalized) == .orderedSame
+        }?.value.id
+    }
+    func allocateRoomCode() -> String? {
+        // Synchronous actor allocation makes the collision check and insertion
+        // atomic. Bound retries even if an injected generator is faulty.
+        for _ in 0..<32 {
+            let code = roomCodeCandidate()
+            if RoomCode.isValid(code), !rooms.values.contains(where: { $0.value.roomCode == code }) { return code }
+        }
+        return nil
     }
     func publishDirectoryChanges() {
         for gameplayRevision in [MP2Protocol.legacyGameplayRevision, MP2Protocol.gameplayRevision] {
-            let latest = directory(gameplayRevision: gameplayRevision)
-            guard latest != publishedDirectories[gameplayRevision] else { continue }
+            let searchable = searchableRooms(gameplayRevision: gameplayRevision)
+            let latest = searchable.filter { $0.isPrivate != true }
+            let directoryChanged = latest != publishedDirectories[gameplayRevision]
+            let searchableChanged = searchable != publishedSearchableRooms[gameplayRevision]
+            guard directoryChanged || searchableChanged else { continue }
             // Install before writes: closing a saturated observer can re-enter
             // through disconnect, but cannot replay this directory revision.
             publishedDirectories[gameplayRevision] = latest
+            publishedSearchableRooms[gameplayRevision] = searchable
             let observers = connections.compactMap { id, connection in
                 connection.player != nil && connection.roomID == nil && connection.gameplayRevision == gameplayRevision
                     ? id : nil
             }
             // Directory changes are critical: a full mailbox must reconnect the
             // observer, not silently retain a ghost until another mutation.
-            for id in observers { send(.list(latest), to: id) }
+            for id in observers {
+                if directoryChanged { send(.list(latest), to: id) }
+                guard searchableChanged, var search = connections[id]?.search else { continue }
+                let results = matchingRooms(searchable, query: search.query)
+                guard results != search.results else { continue }
+                search.results = results
+                connections[id]?.search = search
+                send(.searchResults(query: search.query, requestID: search.requestID, rooms: results), to: id)
+            }
         }
     }
     /// Create/join is an explicit new-room intent, not a request to resume an
