@@ -30,6 +30,7 @@ struct RootView: View {
     @State private var showsScreenshotPetShop = false
     @State private var showsScreenshotLeaderboard = false
     @State private var showsMultiplayerUITestFixture = false
+    @State private var tutorialFixtureMode: HowToPlayMode?
     @State private var motivationIndex: Int?
     @State private var hasCompletedGameThisLaunch = false
     @State private var isMenuSurfaceVisible = true
@@ -91,14 +92,10 @@ struct RootView: View {
             .coordinateSpace(name: "menu-space")
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: GameMode.self) { mode in
-                GameView(
-                    mode: mode,
-                    reservesAdSpacingForRun: ads.reservesBannerSlot
-                ) { completionID in
-                    ads.recordCompletedSession(id: completionID, mode: mode)
-                    guard !hasCompletedGameThisLaunch else { return }
-                    hasCompletedGameThisLaunch = true
-                    advanceMotivation()
+                if mode == .arcade {
+                    HowToPlayEntryView(mode: .arcade) { gameDestination(mode) }
+                } else {
+                    gameDestination(mode)
                 }
             }
             .navigationDestination(isPresented: $showsScreenshotThemeShop) {
@@ -163,6 +160,9 @@ struct RootView: View {
             NavigationStack {
                 MultiplayerFlowView()
             }
+        }
+        .fullScreenCover(item: $tutorialFixtureMode) { mode in
+            HowToPlayReplayView(mode: mode)
         }
         .task {
             configureDebugLaunch()
@@ -534,7 +534,7 @@ struct RootView: View {
                         availability: multiplayer.availability,
                         theme: palette
                     ) {
-                        MultiplayerFlowView()
+                        HowToPlayEntryView(mode: .multiplayer) { MultiplayerFlowView() }
                     }
                 }
             }
@@ -714,6 +714,15 @@ struct RootView: View {
         .accessibilityIdentifier("mode-\(mode.rawValue)")
     }
 
+    private func gameDestination(_ mode: GameMode) -> some View {
+        GameView(mode: mode, reservesAdSpacingForRun: ads.reservesBannerSlot) { completionID in
+            ads.recordCompletedSession(id: completionID, mode: mode)
+            guard !hasCompletedGameThisLaunch else { return }
+            hasCompletedGameThisLaunch = true
+            advanceMotivation()
+        }
+    }
+
     private func featureLabel(_ title: String, systemImage: String, value: String) -> some View {
         ZStack {
             VStack(spacing: 2) {
@@ -728,9 +737,8 @@ struct RootView: View {
             .frame(maxWidth: .infinity)
 
             HStack(spacing: 0) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 24, weight: .black))
-                    .frame(width: 28)
+                ThemedMenuFeatureIcon(systemImage: systemImage, theme: palette)
+                    .frame(width: 28, height: 28)
                 Spacer(minLength: 0)
             }
             .padding(.leading, WebMenuMetrics.featureIconLeadingInset)
@@ -891,6 +899,7 @@ struct RootView: View {
     private func configureDebugLaunch() {
         #if DEBUG
             let arguments = ProcessInfo.processInfo.arguments
+            tutorialFixtureMode = HowToPlayLaunchPolicy.fixtureMode(arguments: arguments)
             if arguments.contains("--ui-test-glyphs-off") {
                 preferences.glyphsEnabled = false
             } else if arguments.contains("--ui-test-glyphs-on") {

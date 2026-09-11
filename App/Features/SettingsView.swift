@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var preferences: AppPreferences
     @EnvironmentObject private var appIcons: AppIconController
     @EnvironmentObject private var ads: AdsController
+    @State private var tutorialMode: HowToPlayMode?
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -15,6 +16,16 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    settingCard(title: "How to play", systemImage: "hand.tap.fill") {
+                        ForEach(HowToPlayMode.allCases) { mode in
+                            Button("Replay \(mode.title) tutorial") { tutorialMode = mode }
+                                .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+                                .accessibilityIdentifier("replay-tutorial-\(mode.rawValue)")
+                        }
+                        Text("Practice safely, and change whether each tutorial appears before you play.")
+                            .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                    }
                     settingCard(title: "App Icon", systemImage: "app.badge") {
                         HStack(spacing: 12) {
                             ForEach(AppIconChoice.allCases) { choice in
@@ -159,6 +170,9 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $tutorialMode) { mode in
+            HowToPlayReplayView(mode: mode)
+        }
         .onAppear { appIcons.refresh() }
         .toolbar {
             ToolbarItem(placement: .principal) {
