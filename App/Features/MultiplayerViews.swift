@@ -544,7 +544,7 @@ struct MultiplayerWaitingRoomView: View {
                     if let code = state.roomCode {
                         MultiplayerRoomCodeView(code: code, isPrivate: state.displayedPrivate, theme: palette)
                         if state.isCreator {
-                            Toggle(isOn: Binding(get: { state.displayedPrivate }, set: { onTogglePrivacy($0) })) {
+                            HStack(spacing: 12) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Private game")
                                         .font(palette.appFont(size: 12, weight: .bold, relativeTo: .subheadline))
@@ -556,11 +556,18 @@ struct MultiplayerWaitingRoomView: View {
                                         )
                                         .foregroundStyle(Color(hex: palette.muted))
                                 }
+                                Spacer(minLength: 0)
+                                Toggle(
+                                    "Private game",
+                                    isOn: Binding(get: { state.displayedPrivate }, set: { onTogglePrivacy($0) })
+                                )
+                                .labelsHidden()
+                                .tint(Color(hex: palette.chromeAccent))
+                                .disabled(!state.canTogglePrivacy)
+                                .accessibilityHint("Hidden from the list. Join with the code.")
+                                .accessibilityIdentifier("multiplayer-private-toggle")
                             }
                             .frame(minHeight: 44)
-                            .tint(Color(hex: palette.chromeAccent))
-                            .disabled(!state.canTogglePrivacy)
-                            .accessibilityIdentifier("multiplayer-private-toggle")
                         }
                     }
                     if let message = state.message {

@@ -34,7 +34,9 @@ struct GameplayStampFeedback: View {
     @State private var visible = false
 
     var body: some View {
-        Group {
+        // Keep a real host while empty so the event task can reveal the first stamp.
+        // A Group with no visible child never starts that child's appearance task.
+        ZStack {
             if let event, visible {
                 GlowStampView(
                     text: event.kind.text, tone: event.kind.tone(theme: theme),

@@ -805,13 +805,14 @@ final class PimPoPomUITests: XCTestCase {
 
             let firstPlayer = app.descendants(matching: .any)["multiplayer-player-0"]
             XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
-            XCTAssertLessThanOrEqual(firstPlayer.frame.height, 64)
+            // Accessibility includes the crown's 9-point overhang above the 60-point card.
+            XCTAssertLessThanOrEqual(firstPlayer.frame.height, 72)
             XCTAssertEqual(firstPlayer.value as? String, "Pet half right")
             for seat in 1..<4 {
                 let player = app.descendants(matching: .any)["multiplayer-player-\(seat)"]
                 XCTAssertTrue(player.exists)
-                XCTAssertEqual(player.frame.midY, firstPlayer.frame.midY, accuracy: 3)
-                XCTAssertLessThanOrEqual(player.frame.height, 64)
+                XCTAssertEqual(player.frame.maxY, firstPlayer.frame.maxY, accuracy: 3)
+                XCTAssertLessThanOrEqual(player.frame.height, 72)
                 XCTAssertGreaterThan(player.frame.minX, firstPlayer.frame.minX)
                 XCTAssertEqual(player.value as? String, "Pet half right")
             }
@@ -841,7 +842,7 @@ final class PimPoPomUITests: XCTestCase {
             attachScreenshot(of: app, name: "Arcade \(theme) \(kind) before collection")
             pickup.tap()
             if kind == "clock" {
-                XCTAssertTrue(app.descendants(matching: .any)["game-pickup-stamp"].exists)
+                XCTAssertTrue(app.descendants(matching: .any)["game-pickup-stamp"].waitForExistence(timeout: 1))
                 let pace = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'PACE '")).firstMatch
                 XCTAssertTrue(pace.waitForExistence(timeout: 3))
                 attachScreenshot(of: app, name: "Arcade Pixel clock slowed pace")
