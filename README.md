@@ -5,31 +5,27 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained alongside 2–4-player online Multiplayer v2. Game Center remains a
 separate account/publication integration.
 
-The **unreleased local candidate** adds score-ranked multiplayer, two coins per
-eligible minute, guided practice, lobby privacy editing and themed gameplay
-feedback. See [candidate rules and verification](docs/MP29_GAMEPLAY_TUTORIALS.md).
-The released build-28 behavior and deployment evidence below are unchanged.
-
-Build 28 is available to both TestFlight QA groups: power-ups start only on 4×4, Arcade's
-clock has a theme-matched rewind arrow, and Multiplayer adds room codes, creator
-search and code-only private games. [Current feature contract](docs/BUILD28.md).
-Apple approved beta review on 2026-09-11. Multiplayer remains revision 2 with hearts only.
+Build 29 adds score-ranked Multiplayer, two coins per eligible connected/alive
+minute, guided practice, lobby privacy editing and themed gameplay feedback.
+See [build-29 rules and QA limitations](docs/MP29_GAMEPLAY_TUTORIALS.md).
+PHP migration 025 and Railway deployment are verified. Build 29 is approved and
+available to the existing Internal QA and External QA TestFlight groups.
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
-automation; generated work was reviewed through the same gates as hand-written
-work.
+automation. Per-release verification, failures and owner-authorized exceptions
+are recorded explicitly.
 
 ## Current version
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (28)` |
-| TestFlight state | Build 28 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-11) |
-| Exact uploaded iOS source | `3922867341c43c732e894805f829559140f5b5e4` |
-| Hosting | Railway Amsterdam `3041f2bb`, room discovery revision 1; PHP v5 verifier `f84dc921` deployed, schema 024 unchanged |
-| Previous supported beta | Build 27 / gameplay revision 2; build 25 uses separate revision-1 rooms |
-| Open QA gates | Real-account hosted matches, physical 2/3/4-device/network/latency acceptance; public legal URLs and reviewer access |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (29)` |
+| TestFlight state | Build 29 VALID; review APPROVED; both QA groups IN_BETA_TESTING (2026-09-11 19:02:18 UTC) |
+| Exact uploaded iOS source | `199bf48f6dccbc0b1a3b234dc12aca3977c16a50` |
+| Hosting | Railway Amsterdam `9ec61784`, gameplay revision 3 / discovery 2; PHP `bf0ef1b` verified, schema 025 |
+| Previous supported beta | Build 28 / gameplay revision 2; build 25 uses separate revision-1 rooms |
+| Open QA gates | Final tutorial/stamp UI checks; real-account rewards and hosted matches; physical/network/accessibility acceptance; legal/reviewer readiness |
 | Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
@@ -44,7 +40,7 @@ personal target spacing. The owner has now authorized Railway EU deployment,
 the separate PHP v2 bridge, and TestFlight QA distribution. No paid-plan upgrade
 or App Store production submission is authorized. See [current status](docs/CURRENT_VERSION.md).
 
-## Released build-28 product
+## Build-29 product
 
 - **Arcade:** endless three-life play with progressive boards, decoys, reaction
   ratings, streak multipliers, heart/clock pickups, protocol-verified ranking,
@@ -53,8 +49,10 @@ or App Store production submission is authorized. See [current status](docs/CURR
   achievements, or durable result.
 - **Multiplayer v2 playtest:** 2–4 signed-in, confirmed-name players on one shared
   progressive board; own-color targets, independent scores/lives, socket-owned
-  rooms and Ready/Start, and no Game Center prerequisite. Unranked, no coins,
-  achievements or v2 Game Center publication. Historical v1 leaderboard reads remain.
+  rooms and Ready/Start, and no Game Center prerequisite. Revision 3 continues
+  until all players are out; highest final score wins. Eligible completed results
+  enter the v2 leaderboard and earn two coins per alive-connected minute. No
+  achievements or Game Center publication; older revisions remain unranked/unrewarded.
 - **Identity:** Sign in with Apple and Google map to one internal profile; Game
   Center is a verified secondary link and never authenticates a wallet.
 - **Economy:** the server owns coins, achievements, catalogs, purchases, and

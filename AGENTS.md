@@ -71,13 +71,13 @@ the reaction path.
 - Arcade reaction time starts at first render and uses the original compatible
   touch-contact timestamp. Expiry/input resolves once.
 - Zen is local, unranked, unrewarded, and ephemeral.
-- The owner-approved local Multiplayer v2 candidate uses one identical shared
+- The owner-approved Multiplayer v2 implementation uses one identical shared
   board, 2–4 own-color seats, shared Arcade rules, a native WSS client and persistent
   Vapor authority. Gameplay revision 2 adds Arcade quiet intervals and unique
   changing colors, non-player-color persistent decoys, and first-claim hearts.
   Shared contention/delivery can extend personal spacing; no network wait belongs
   on the local feedback path. Revision-1 clients use separate compatible rooms.
-- V2 is `multiplayer-shared-arcade-v2`, protocol `2`. Owner-approved local revision 3
+- V2 is `multiplayer-shared-arcade-v2`, protocol `2`. Owner-approved revision 3
   enables a fresh server-reported leaderboard and two earned coins per cumulative
   connected/alive minute; older revisions remain unranked/unrewarded.
   No live GameKit, FAST seals, peer transcript or v1 client mutation path. Preserve

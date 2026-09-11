@@ -1,7 +1,9 @@
-# Multiplayer results, rewards and tutorials — local candidate
+# Build 29 — Multiplayer results, rewards and tutorials
 
-Status: implemented locally; native UI verification pending, not deployed or uploaded.
-The released beta remains 1.02 (28); this branch deliberately has no release-number bump.
+Source: `199bf48f6dccbc0b1a3b234dc12aca3977c16a50`, version 1.02 (29).
+PHP and Railway are verified; Apple approved build 29 for both existing QA groups
+at 19:02:18 UTC on 2026-09-11. Final UI QA is incomplete under the owner's explicit
+no-recheck instruction; see below.
 
 ## Accepted rules
 
@@ -37,10 +39,8 @@ economy generation at actual match start, then sends an immutable result revisio
 with reward policy `multiplayer-alive-minute-v1`. PHP accepts only the trusted service;
 clients never submit coin amounts, eligible time, results or balances.
 
-The isolated PHP candidate is `/Users/vlad/Documents/SpeedyTapper-mp29-rewards`.
-Its clean commit is `bf0ef1b030772872775ab64eaedcbaa1b256e0cf` on `codex/mp29-rewards`
-(implementation `1860c61`, followed by dated verification notes).
-Migration 025 adds a new empty v2 leaderboard and per-owner reward receipts. It does
+Verified PHP source is `bf0ef1b030772872775ab64eaedcbaa1b256e0cf` (implementation
+`1860c61`). Additive migration 025 creates a new empty v2 leaderboard and per-owner reward receipts. It does
 not erase old data, Arcade results or purchased value. Switching the client to this
 new lane provides the requested fresh visible leaderboard without destructive cleanup.
 
@@ -58,47 +58,33 @@ Unsupported speed-rating counts are not invented. Authenticated participant-only
 The app uses bounded retries and refreshes its authoritative session/wallet; final
 scores and Menu never wait for durable settlement. A failed wallet refresh stays retryable.
 
-## Verification and release gates
+## Verification and remaining QA
 
-Implemented areas: `App/Features/HowToPlay*`, `Multiplayer*`, `App/Gameplay`, shared
-stamp/icon design components, leaderboard models/client, shared core engine, Vapor
-service/outbox and isolated PHP reward/ranking services. Focused unit/UI, pure core,
-real socket, result-contract and disposable MariaDB tests accompany the changes.
+- The initial native gate ran 265 tests: 259 passed, six UI failures, zero skipped.
+  A focused three-test run passed badge layout and privacy but failed clock-stamp
+  feedback before its final correction. Native unit tests passed.
+- Tutorial accessibility (`b3b1473`) and stable stamp host (`199bf48`) corrections
+  were not Simulator-retested because the owner explicitly requested immediate
+  TestFlight distribution without more rechecks. They are implemented, not proven
+  UI fixes. Compact/all-theme tutorials and pickup feedback remain QA items.
+- Shared source `9b28b21` passed 95 core/47 service tests on macOS and Linux ARM64,
+  including readiness checks. Local four-client sockets verify privacy/Ready,
+  last-survivor scoring, frozen spectator time, final drain and reuse; retained
+  revision-1/2 socket scenarios also pass. No physical/network latency claim.
+- PHP Composer, 94 reward/ranking MariaDB assertions and 154 retained Arcade
+  assertions pass. Deployment verified 73 source hashes, additive 025 and 45 HTTPS
+  boundaries. Railway verified 13 WSS/auth boundaries and unprivileged runtime.
+- Actual rollout order: PHP verified first; Railway upload/build started; the owner
+  then authorized iOS upload while Railway was compiling, with runtime checks
+  afterward. Railway subsequently passed. Apple state is tracked in [RELEASE](RELEASE.md).
 
-- iOS branch: `codex/mp29-gameplay-tutorials`. Core/service source comes from clean
-  `9b28b210e44919cb6d1719ffb97054ab35764de1`, integrated as `6d4c6e8`.
-- Local macOS: 95 core and 47 service tests pass. Logs:
-  `/tmp/pimpopom-mp29-core-final.log`, `/tmp/pimpopom-mp29-server-final.log`.
-  Strict Swift formatting, asset/hash provenance, ad configuration, property-list
-  validation and `git diff --check` pass.
-- Linux ARM64: the exact final core/service source passes 95 core, 47 service,
-  unprivileged readiness/HTTP health and entrypoint checks. Evidence:
-  `/private/tmp/pimpopom-mp29-health-linux.FZtB1K/VERIFICATION.md`.
-  Image `ef27a233d960fa2241a6ad9b910cb7274032b4421d4c5333f3cf481e713719c0`
-  is a local verification image, not a deployed artifact. AMD64 is unverified here.
-- Four real local sockets pass privacy/Ready, all four scoring, last-survivor
-  continuation, frozen spectator time, final drain and room reuse. Retained
-  revision-1/2 and 2/3/4-player socket tests also pass. Logs:
-  `/tmp/mp29-final-four-client.log`, `/tmp/mp29-legacy-sockets.log`.
-- PHP: Composer check and new 94-assertion MariaDB upgrade/reward/ranking suite
-  pass, including the actual Swift aggregate, concurrent/idempotent credit,
-  transaction rollback, debt/reset, paid-value preservation and deletion isolation.
-  Retained Arcade 154, v2 authentication 132, Game Center 14 and reset harness pass.
-  Nickname's eight assertions pass using a temporary TCP-readiness wrapper after
-  the unchanged stock harness twice hit its startup-readiness race.
-- App and test targets compile on iOS Simulator; actual XCTest/UI execution is
-  pending a running Simulator, as required by the iOS debugger skill. Both simulators
-  were shut down when checked. `Scripts/check.sh` now includes the tutorial UI class.
-- Final build-for-testing log (2026-09-11):
-  `/Users/vlad/Library/Developer/XcodeBuildMCP/workspaces/SpeedyTapper-093dcbfd6194/logs/build_sim_2026-09-11T18-26-53-045Z_pid47808_66f87a43.log`.
-  The incremental build reports no warnings/errors; earlier full compiles retained
-  two pre-existing Game Center test capture warnings. No physical-device claim.
-- Required before release: full `Scripts/check.sh`, compact/four-theme tutorial,
-  multiplayer badges/privacy and pickup feedback inspection; fresh 2/3/4-client
-  checks and physical-iPhone timing/audio/touch acceptance.
-- Deployment order: authorized exact clean PHP artifact/migration/verification on
-  **speedytapper.otcsoft.com only**, then compatible Railway source, then newly
-  numbered TestFlight build. No production or Apple writes occurred in this update.
-- Existing limitation: deleting a participant before the service stores a match
-  can make the shared aggregate unavailable; already-awarded other players' value
-  and new leaderboard rows survive that participant's later account deletion.
+Evidence: `build/releases/build29-20260911/qa-status.md`, initial/focused xcresults
+and [release records](RELEASE.md). Earlier passing build-28 screenshots are a
+historical baseline, not final build-29 visual acceptance. Real-account hosted
+reward settlement, physical 2/3/4-iPhone play, timing/audio/haptics/accessibility
+and sustained-load acceptance remain open.
+
+Known limitation: deleting a participant before initial match settlement can
+make the whole aggregate unavailable; already-awarded other players' value and
+new leaderboard rows survive that participant's later deletion. Rollback must
+preserve migration 025, receipts, rewards and pending revision-3 outbox evidence.

@@ -4,20 +4,29 @@ PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranke
 Arcade and Multiplayer v2. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
-## Unreleased revision-3 candidate
+## Build 29 verification and explicit UI exception
 
 Local macOS and Linux ARM64 checks pass: 95 pure-core and 47 service tests. Real
 four-client sockets cover final scoring after earlier elimination, last-survivor
 continuation, spectator-time exclusion and lobby privacy; retained revision-1/2
-socket cases also pass. PHP candidate `1860c61` passes Composer and the new
+socket cases also pass. PHP release `bf0ef1b` passes Composer and the new
 94-assertion disposable MariaDB reward/ranking suite plus retained regressions.
 
-The updated app and native test targets compile; XCTest/UI execution and visual
-inspection remain **pending**, not passed. Both configured simulators were shut
-down. The full `Scripts/check.sh` gate has not run for this candidate. See
-[exact evidence and remaining gates](MP29_GAMEPLAY_TUTORIALS.md).
+The initial `Scripts/check.sh` passed core/static/configuration and generic
+Simulator compilation, then ran 265 native tests: **259 passed, six UI tests
+failed, zero skipped**. A focused three-test run passed four-player badge layout
+and privacy, but failed clock-stamp feedback on the pre-ZStack build.
 
-## Build 28 verification
+Final source `199bf48` includes tutorial accessibility (`b3b1473`) and stable stamp
+container corrections. Neither was Simulator-retested: the owner explicitly
+requested no further rechecks and immediate TestFlight distribution. These are
+**implemented, not UI-verified fixes**. Final compact/all-theme tutorial and pickup
+acceptance remains incomplete; archive success is not a green final UI gate.
+Retained evidence: `build/releases/build29-20260911/qa-status.md`,
+`full-initial.xcresult`, `focused-ui-1.xcresult` and their attachments.
+See [release state](RELEASE.md) and [remaining QA](MP29_GAMEPLAY_TUTORIALS.md).
+
+## Build 28 verification — historical baseline
 
 The release adds five pure-core regressions (89 total), 14 room-service tests
 (40 total), request-fenced native search/private-capability tests, themed rewind
@@ -57,7 +66,9 @@ legacy defaults and retries. Initial failed and corrected UI evidence are retain
 
 ## Current release evidence
 
-- Build 28 is VALID, approved and available to both existing QA groups. PHP v5
+- Build 29's current deployment/Apple state is in RELEASE.md; its incomplete final
+  UI gate is recorded above. Earlier passing suites do not certify the latest fixes.
+- Historical build 28 is VALID, approved and available to both existing QA groups. PHP v5
   and Railway room discovery were deployed/verified before upload. The exact final
   source gate, compact UI, Linux, 35 PHP HTTPS and ten WSS checks passed as above.
 - Prior build 27 passed 234 app/UI and 84 core tests. PHP v4 was deployed first:
@@ -89,6 +100,8 @@ privacy and ad configuration, builds the generic Simulator target, checks Stagin
 version/configuration, runs pure core tests, the native unit suite, and the focused
 four-theme Multiplayer/Pixel back-button and Arcade pickup contact UI regressions.
 Behavior changes require focused tests before the full gate.
+Build 29's owner-authorized no-rerun exception is recorded above; it does not
+change the normal gate or establish production/device acceptance.
 
 ## Test layers
 

@@ -1,11 +1,12 @@
 # Multiplayer v2 room service
 
-Build-26 gameplay revision 2 is deployed on Railway and available to the existing
-TestFlight QA groups; build 25 retains revision 1 in separate compatible rooms.
-Exact evidence is in the separate deployment/release records. The Swift authority uses
+Build-29 gameplay revision 3 is deployed on Railway; builds 26–28 retain revision 2
+and build 25 revision 1 in separate compatible rooms. Exact Apple availability
+is in the separate deployment/release records. The Swift authority uses
 `multiplayer-shared-arcade-v2`, protocol `2`, with separately negotiated gameplay
-revisions. All results remain unranked and award no coins, achievements or
-Game Center publication.
+revisions. Eligible completed revision-3 results enter a fresh service-reported
+leaderboard; PHP awards two coins per cumulative connected/alive minute. Older
+revisions remain unranked/unrewarded. No Multiplayer achievements or Game Center publication.
 
 ## Run locally
 
@@ -48,7 +49,7 @@ Wire values use the shared `MP2ClientMessage`/`MP2ServerMessage` Codable enums.
 Examples of Swift's enum JSON encoding:
 
 ```json
-{"hello":{"ticket":"dev:00000000-0000-4000-8000-000000000001","protocolVersion":2,"gameplayRevision":2}}
+{"hello":{"ticket":"dev:00000000-0000-4000-8000-000000000001","protocolVersion":2,"gameplayRevision":3}}
 {"create":{"capacity":2}}
 {"ready":{"value":true,"intentID":1,"rosterRevision":2}}
 {"start":{}}
@@ -57,8 +58,8 @@ Examples of Swift's enum JSON encoding:
 
 Hello must arrive within five seconds and must authenticate before any action.
 Welcome contains the connection ID, monotonic server time and accepted gameplay
-revision. Omitted Hello revision means legacy `1`; build 26 explicitly requests
-and requires `2`. Browse/join/resume are partitioned by that revision, keeping
+revision. Omitted Hello revision means legacy `1`; builds 26–28 require `2`,
+and build 29 requires `3`. Browse/join/resume are partitioned by that revision, keeping
 build-25 gameplay and decoding compatible. List/create/join use the same
 authenticated socket. Room membership is the sole Ready authority.
 Server enums with an unlabeled associated value wrap it in `_0`, e.g.
@@ -77,15 +78,15 @@ leave, disconnect, full rooms and removal. A valid new create/join may release
 the same player's abandoned waiting/countdown membership on another socket,
 notify/close that old socket, preserve guests and transfer host ownership.
 It cannot replace a live match or reinterpret a duplicate action on one socket.
-Revision-2 Leave emits ordered `left` acknowledgement after removing membership;
+Revision-2/3 Leave emits ordered `left` acknowledgement after removing membership;
 legacy clients never receive that new enum case. Clients fence late Create
 responses while awaiting it and clear abandoned admission on a replaced socket.
 
-### Room codes, private rooms and search — local build-28 candidate
+### Room codes, private rooms and search
 
-This extension is implemented locally, not proof of a new hosted deployment.
-Welcome adds optional `roomDiscoveryRevision:1`, independent of gameplay revision
-and PHP tickets. A client must receive that capability before offering private
+Welcome advertises `roomDiscoveryRevision:2` for gameplay revision 3; older lanes
+retain discovery 1, independent of PHP tickets. A client must receive the required
+capability before offering private
 creation/search: an older server can ignore the new Create flag and otherwise
 silently create a public room. Legacy public Create and DTO decoding remain valid.
 
@@ -98,10 +99,14 @@ silently create a public room. Legacy public Create and DTO decoding remain vali
 Every room gets an independent UUID plus a stable eight-character uppercase
 `roomCode` from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. OS-backed randomness gives
 40 bits; actor-isolated allocation rejects collisions against every retained
-room, with 32 bounded retries. The code and immutable `isPrivate` flag survive
+room, with 32 bounded retries. The code and current `isPrivate` flag survive
 host transfer, countdown cancellation and reconnect. Both are optional additions
 to room/summary DTOs so older messages still decode; missing privacy means public.
 Codes are invitation identifiers, not passwords or authentication credentials.
+Discovery 2 adds `setPrivacy(isPrivate, roomID, roomRevision)`: only the current
+host of an exact matching waiting room can change it. Ready is preserved; room
+revision and subscribed public/search directories update atomically. Earlier
+discovery clients cannot request this mutation.
 
 Private rooms never appear in List or nickname search. Search permits exact,
 case-insensitive room code or full UUID for any joinable compatible room; public
@@ -156,7 +161,12 @@ every assigned player and live-decoy color. Decoys use only non-player colors,
 persist across correct taps, have no exclamation marker, and use Arcade's global
 cap reserving one target cell. Neutral hearts are first-admitted-claim pickups,
 one live at most, appearing at random 12–20-second opportunities for three seconds
-on 2×2 or larger. They restore one life up to three without reviving spectators.
+only on 4×4. They restore one life up to three; valid original pre-death contacts
+may still be admitted during input grace, but new spectator taps cannot revive.
+Revision 3 lets the last living player continue until all are out or 15 minutes
+elapse and input admission drains. Final score, not elimination order, determines
+places; equal scores share places. Connected/alive reward time freezes while out
+or disconnected.
 See [the current gameplay contract](../docs/MULTIPLAYER_V2_REBUILD.md).
 
 ## PHP integration configuration
@@ -174,7 +184,8 @@ The iOS client requests a single-use ticket from
 `POST /api/mobile/v2/multiplayer/tickets` under its PHP cookie/CSRF session.
 Redemption sends ticket, protocolVersion and ruleset; the authenticated response
 contains playerID, name, nullable petID, sessionBinding, expiresAt (Unix seconds),
-protocolVersion and ruleset. Exact capability checks reject incompatible peers.
+protocolVersion, ruleset and nullable economyGeneration. The service captures the
+generation at actual match start. Exact capability checks reject incompatible peers.
 Session validation runs every 15 seconds and immediately before every resume,
 with a five-second request timeout,
 including PHP's logout/deletion revocation. Fresh ticket authentication precedes
@@ -187,14 +198,18 @@ failure does not prove primary account logout. The app rechecks its PHP session
 before requiring sign-in. Transient validation remains fail-closed and may trigger
 a brief reconnect, rather than retaining stale authenticated authority.
 
-Final results contain immutable match ID, protocol/ruleset, duration, explicit
-`rankingEligible:false`, and stable-seat UUID/score/lives/hit/miss/dodge/reaction
-fields. The server queues these off the input path. A private serial filesystem
+Final results contain immutable match ID, protocol/ruleset, duration, ranking
+eligibility and stable-seat UUID/score/lives/hit/miss/dodge/reaction fields.
+Revision-3 completed results add resultRevision 2, `multiplayer-alive-minute-v1`,
+match kind, completion reason, eligible alive time, survival, peak multiplier and
+start economy generation. Production competitive results may be ranked; development
+fixtures and legacy results remain unranked. PHP derives credits; no client amount
+is trusted. The server queues these off the input path. A private serial filesystem
 queue writes one sorted JSON file per match using atomic replacement; same-data
 retries are idempotent. No names, pets, tickets or session bindings are journaled.
 Restart retries pending files every five seconds when `MP2_RESULTS_URL` is set.
-The outbox archives a file only after PHP acknowledges the same match ID as
-`stored_unranked` with ranking disabled. HTTP failures and conflicting results
+The outbox archives a file only after PHP acknowledges the same match ID and exact
+expected eligibility: `stored_ranked` or `stored_unranked`. HTTP failures and conflicting results
 retain evidence for operator recovery.
 
 Heart-restored lives make cumulative misses greater than three legitimate.
@@ -202,6 +217,9 @@ Preserve the actual count; do not clamp it to remaining/initial lives. Deploy an
 verify the separate additive PHP migration 024 and matching validator before
 revision-2 service rollout. This extends result storage without changing protocol
 2 tickets, existing results, the three-life cap or unrelated account/economy data.
+Revision 3 additionally requires additive PHP migration 025 and its compatible
+reward/leaderboard runtime before activation. Missing/stale generation can never
+mint coins; no historical reward backfill is performed.
 
 Pending evidence is capped at 1,000 files and is never evicted to admit new
 results. A full/unwritable outbox retains completed room state and blocks cleanup
@@ -230,16 +248,18 @@ no credential is built into the image. `/health` exposes protocol, ruleset,
 ranking flag and room/connection counts. Do not publish the private port without
 the authenticated TLS reverse proxy and operational review.
 
-The real local WebSocket harness covers both gameplay revisions with 2/3/4 clients,
+The real local WebSocket harness covers retained revisions 1/2 with 2/3/4 clients,
 no-tap matches, Ready, duplicate Start, reconnect, fresh creation after finish and
 malformed/unauthenticated socket isolation. Unit tests cover directory push,
 quick leave/recreate, replaced abandoned lobbies, version isolation, stale Ready,
 personal disconnect grace, differentiated authentication failures, coalescing
-and restart/idempotent outbox, including cumulative misses above three.
+and restart/idempotent outbox, including cumulative misses above three. Revision-3
+four-client coverage adds privacy changes, continued last-survivor scoring, final
+drain, spectator-time exclusion and new ranked-result acknowledgement boundaries.
 Run `Scripts/check.sh` in the integrated iOS checkout separately; this package
 does not establish app visual, physical device, 60/120 Hz, WSS, production PHP,
-loss/jitter, load, or latency acceptance. Ranking remains disabled until those
-gates and the input-admission/prediction invariants in the v2 brief are proven.
+loss/jitter, load, or latency acceptance. Ranking eligibility is versioned and
+service-reported; enabling it is not independent PHP replay or human verification.
 
 API references: [Vapor WebSockets](https://docs.vapor.codes/advanced/websockets/),
 [Vapor Docker deployment](https://docs.vapor.codes/deploy/docker/), and the

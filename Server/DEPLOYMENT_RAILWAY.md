@@ -1,9 +1,8 @@
 # Railway EU beta deployment
 
-The owner-authorized EU service and PHP verifier were updated on 2026-09-11 for
-TestFlight build 28. Hosted release and boundary checks passed; Apple approved
-build 28 for the existing Internal QA and External QA groups. Real-player match
-acceptance remains a separate gate.
+The owner-authorized EU service and PHP reward runtime were updated on 2026-09-11
+for build 29. Hosted release and boundary checks passed. Exact Apple/group state
+is in `docs/RELEASE.md`; positive real-account match/reward acceptance remains open.
 
 ## Provisioned target
 
@@ -11,7 +10,7 @@ acceptance remains a separate gate.
 | --- | --- |
 | Workspace | bloodyvlad's Projects |
 | Project | PimPoPom (`e7516d98-16d5-4db9-822c-480caa0625ba`) |
-| Environment | production (`5c9fb522-0a21-48fd-bff9-4046f6ad3ae8`); unranked beta workload |
+| Environment | production (`5c9fb522-0a21-48fd-bff9-4046f6ad3ae8`); revision-3 ranked beta workload |
 | Service | multiplayer-eu (`dacfc84e-bebe-429d-9ead-0387427b2cda`) |
 | Region | Amsterdam, `europe-west4-drams3a`; Railway currently has no Spain region |
 | Authority | Exactly one instance; do not add regional or horizontal replicas |
@@ -55,6 +54,8 @@ release records and logs. Pass it through stdin/private configuration only.
 PHP migration 023 is required for v2. Additive migration 024 must also be applied
 before gameplay revision 2 serves heart-enabled matches: cumulative misses can
 exceed three when hearts restore lives. Live lives remain capped at three.
+Gameplay revision 3 requires additive migration 025 and compatible PHP rewards/
+leaderboard processing; deploy and verify that runtime before service activation.
 
 ## Deployment and operation
 
@@ -64,8 +65,9 @@ exceed three when hearts restore lives. Live lives remain capped at three.
   not implemented live-match migration or guaranteed completion draining.
 - The volume survives restarts; live rooms do not. Redeploy only when no match
   is running, or explicitly communicate the infrastructure interruption.
-- The result outbox survives and retries acknowledgements. It is unranked and
-  cannot award coins, achievements or Game Center scores.
+- The result outbox survives and retries exact ranked/unranked acknowledgements.
+  PHP derives revision-3 eligible coin credits from service evidence. Older lanes
+  remain unranked/unrewarded; no Multiplayer achievements or Game Center publication.
 - Railway's deployment healthcheck is not continuous uptime monitoring.
 - Trial expiry, account networking restrictions, memory use, CPU cost and
   remaining credit must be checked before sustained QA. No auto-upgrade is assumed.
@@ -90,15 +92,42 @@ the processed build to both existing QA groups and submit external Beta App
 Review when required. Report assignment and approval separately; do not create
 or change a public testing link.
 
-The prior Railway deployment `920bd2bf-217e-44b3-ac4c-d3a0f964b812` is the
-runtime rollback reference. It retains revision 2 but lacks room discovery/private
-support; the new app capability gate prevents silent public creation. A rollback
-restores an earlier image, not live room memory. Coordinate client compatibility
-and PHP admission before rolling back. Retain the volume,
-PHP backups and additive 023/024 schema. Old PHP's three-miss validation must not
-receive revision-2 heart results. Never drop v2 tables as routine rollback.
+The prior deployment `3041f2bb-70f4-4a71-8318-039fb8e6aedb` (`e866409`) is the
+build-29 rollback reference. It serves revisions 1/2 only; new clients must show
+capability mismatch, not silently downgrade. Keep PHP 025 and compatible runtime,
+all credited value, receipts and the volume. Old outbox code cannot archive new
+`stored_ranked` ACKs: preserve pending idempotent journals until revision-3 handling
+returns. Rollback restores an image, not live rooms, and never reverses coins.
+No live rollback or destructive schema/account restoration was performed.
 
-## Current build 28 deployment evidence
+## Current build 29 deployment evidence
+
+Verified 2026-09-11 around 18:58 UTC. PHP `bf0ef1b` and migration 025 were verified
+first. Railway upload/build then started; the owner authorized iOS upload in
+parallel with the build and runtime checks afterward. See the separate iOS record.
+
+| Evidence | Value |
+| --- | --- |
+| Clean source | `9b28b210e44919cb6d1719ffb97054ab35764de1` |
+| Deployment | `9ec61784-391e-4be0-bdbe-deb227487f69`, SUCCESS; one Amsterdam replica |
+| Source tar SHA-256 | `ae33526cd46d0431f70ec10bf9f25129f8addc2fc3f5bfe3fc87fadc323ae2bd` |
+| Image/index digest | `sha256:80bc92f2b05030cc533598d895ea036b02264e06b9bea03a898459d00bcf62b7` |
+| Runtime binary SHA-256 | `dc1597e42dc8bc7e8ff1e41944385145e5c1882c66e8cbbd4a0d162868da7feb` |
+| Health contract | protocol 2, ranking enabled for gameplay revision 3 / result revision 2 |
+
+Native x86_64 build and fresh runtime checks passed: PID 1 UID/GID 10001,
+NoNewPrivs 1, 0700 outbox/delivered on the writable volume, startup durable readiness.
+All 13 planned negative WSS/auth boundaries passed; zero rooms/connections before
+and after. Full configuration/variable fingerprints, plan, region and volume were
+unchanged; temporary pinned SSH registration/material was removed.
+
+Prior exact-source macOS/Linux ARM64 gates passed 95 core/47 service tests and
+local sockets. No additional gameplay suite was run during activation per the
+owner's no-recheck request. Native AMD64 build/runtime is not AMD64 unit-test proof;
+negative hosted checks are not positive sign-in, match settlement or device latency.
+Full record: `/Users/vlad/Documents/PimPoPom-mp29-core/build/releases/build29-20260911/railway-release.MXmDAK/VERIFICATION.md`.
+
+## Historical build 28 deployment evidence
 
 Verified 2026-09-11, before the iOS upload. No hosting settings, secrets, regions,
 plans, volume, schema or account data changed.

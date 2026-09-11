@@ -1,9 +1,9 @@
 # Current gameplay specification
 
-The local unreleased candidate retains Arcade v5 and adds Multiplayer revision 3.
-Released build 28 uses revision 2. Power-ups
+Build 29 retains Arcade v5 and adds Multiplayer revision 3.
+Build 28 uses revision 2. Power-ups
 require the actual 4×4 board in both modes. Build 27's v4 remains supported by the
-compatible PHP candidate. Power-up rules are in [ARCADE_POWERUPS](ARCADE_POWERUPS.md)
+deployed PHP verifier. Power-up rules are in [ARCADE_POWERUPS](ARCADE_POWERUPS.md)
 and the [build-28 delta](BUILD28.md); Zen and Multiplayer timing are unchanged.
 Release and deployment evidence remain separate in CURRENT_VERSION.md.
 
@@ -32,7 +32,7 @@ Release and deployment evidence remain separate in CURRENT_VERSION.md.
 - **End run** freezes an ephemeral local Results view. Restart/menu/app termination
   discards it.
 
-### Multiplayer v2 — gameplay revision 3 local candidate
+### Multiplayer v2 — build-29 gameplay revision 3
 
 - Exactly 2–4 players; `multiplayer-shared-arcade-v2`, protocol 2, negotiated
   gameplay revision 3. Primary sign-in and confirmed nickname; no Game Center

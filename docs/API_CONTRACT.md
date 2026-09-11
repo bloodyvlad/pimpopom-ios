@@ -1,17 +1,17 @@
 # Current native API contract
 
 Arcade, identity and economy retain the existing PHP compatibility surface.
-Multiplayer v2 is isolated from historical v1. Released builds 26–28 use gameplay
-revision 2; build 25 retains revision 1 and build 24 uses the historical v1 backend.
+Multiplayer v2 is isolated from historical v1. Build 29 uses gameplay revision 3;
+builds 26–28 use revision 2, build 25 retains revision 1 and build 24 uses historical v1.
 Exact dated deployment and Apple evidence is in CURRENT_VERSION.md.
 PHP implementation/deployment remain owned by the separate PHP repository.
 
-## Unreleased revision-3 extension
+## Build-29 revision-3 extension
 
-The local candidate requires gameplay revision 3 and uses a fresh v2 leaderboard,
-not the historical v1 read below. PHP candidate `1860c61ae9722cb9526fa599699ac5b52536b384`
-and additive migration 025 must be deployed and verified before the matching Swift
-service and client. Nothing in this section is deployment evidence.
+Build 29 requires gameplay revision 3 and uses a fresh v2 leaderboard, not the
+historical v1 read below. PHP `bf0ef1b030772872775ab64eaedcbaa1b256e0cf` and additive
+migration 025 were verified on 2026-09-11. Matching service/client deployment and
+Apple state are recorded separately in CURRENT_VERSION.md.
 
 - Protocol/ruleset and ticket authentication stay unchanged. Service identity adds
   nullable `economyGeneration`, captured immutably at actual match start.
@@ -33,7 +33,7 @@ service and client. Nothing in this section is deployment evidence.
   disconnected time, spectating, tutorial and stale/missing generations earn none.
   Session/profile adds `ranks.multiplayerV2`, preserving the old v1 rank key.
 
-The full [candidate contract](MP29_GAMEPLAY_TUTORIALS.md) and separate PHP
+The full [build-29 contract](MP29_GAMEPLAY_TUTORIALS.md) and separate PHP
 `docs/MULTIPLAYER_V2_REWARDS.md` specify receipt bounds, idempotence and rollback.
 The retained aggregate/history sections below describe released revisions 1/2.
 
@@ -77,7 +77,7 @@ The retained aggregate/history sections below describe released revisions 1/2.
 | `PATCH /api/pets/selection` | Hide/show selected pet |
 | `POST /api/mobile/v1/storekit/transactions` | Verify and reconcile signed StoreKit transaction |
 
-The local v2 ticket route and retained historical v1 leaderboard read are specified
+The v2 ticket route and retained historical v1 leaderboard read are specified
 below. New v2 room membership, Ready and Start use the authenticated socket.
 
 ## Identity and profile
@@ -111,10 +111,10 @@ local identity only after `deleted: true` and `authenticated: false`.
 
 ## Arcade ranking
 
-Build 28's candidate uses compatibility build `20260729-1` and explicitly requests
-`reaction-proof-v5`, proof 3 for 4×4-only Arcade power-ups. Deploy and verify the
-compatible PHP verifier before upload; retain build 27's v4/proof 3 and older
-v3/proof 2 unchanged. No schema change is needed.
+Builds 28/29 use compatibility build `20260729-1` and explicitly request
+`reaction-proof-v5`, proof 3 for 4×4-only Arcade power-ups. The deployed PHP verifier
+retains build 27's v4/proof 3 and older v3/proof 2 unchanged. Migration 025 adds
+Multiplayer rewards, not a new Arcade proof contract.
 A higher build ID does not select new semantics. See
 [ARCADE_POWERUPS](ARCADE_POWERUPS.md).
 

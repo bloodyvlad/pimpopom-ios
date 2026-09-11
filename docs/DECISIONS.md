@@ -33,7 +33,7 @@ touch path.
 
 ## D-04 — Preserve the current three mode contracts
 
-Status: Arcade/Zen retained; revision 2 released; revision 3 implemented locally, unreleased.
+Status: Arcade/Zen retained; revision 3 is the build-29 contract. Deployment/Apple state is in CURRENT_VERSION.md.
 
 Arcade is endless until zero lives and remains the only achievement-eligible
 mode. Zen is endless local practice with no deadlines, decoys, durable result, or
@@ -52,8 +52,8 @@ and temporary 70%-rate clocks. The compatible PHP verifier was deployed first;
 legacy v3 defaults remain supported and Multiplayer has no clocks. See
 `docs/ARCADE_POWERUPS.md`. No season/economy reset is included.
 The owner-directed build-28 beta gates all pickups on the actual 4×4 board.
-Arcade selects v5/proof 3 so v3/v4 replay remains unchanged. Multiplayer retains
-revision 2: its authority can delay hearts without changing the client contract.
+Arcade selects v5/proof 3 so v3/v4 replay remains unchanged. Build 28 retained
+Multiplayer revision 2; build 29 uses revision 3 while preserving that older lane.
 
 ## D-05 — Keep identity provider-separated
 
@@ -126,7 +126,7 @@ handle lifecycle/interruption without blocking play.
 
 ## D-12 — Replace live Multiplayer v1 with an isolated v2 authority
 
-Status: revisions 1/2 retained; revision 3 is local and requires coordinated deployment.
+Status: revisions 1/2 retained; revision 3 requires coordinated PHP/service/client deployment.
 
 Native `URLSessionWebSocketTask` connects to one persistent Vapor 4 room service.
 The shared pure Swift engine owns targets, input admission, scores and lives;
@@ -145,7 +145,7 @@ generation-bound coins. No historical backfill, achievement or Game Center publi
 Historical clean v1 results remain `peer_consistent_v1`; do not relabel them.
 
 Negotiate gameplay revision separately in socket Hello/Welcome: an omitted
-revision means legacy `1`; builds 26–28 require `2`; this candidate requires `3`. Partition browsing,
+revision means legacy `1`; builds 26–28 require `2`; build 29 requires `3`. Partition browsing,
 joining and resuming by that revision. Never feed new pickup gameplay to build-25
 clients, or silently downgrade a new client when the service is not ready.
 Revision 2's cumulative misses require the separate additive PHP migration 024
@@ -153,7 +153,7 @@ and compatible validator before server rollout; no authentication protocol chang
 
 ## D-13 — Share one board with Arcade tempo and safe color ownership
 
-Status: owner-directed revision 2 released to TestFlight; physical-device acceptance pending.
+Status: shared revision-2/3 contract; physical-device acceptance remains pending.
 
 Every seat sees the same board. Waiting for an own-color target is accepted,
 including on 1×1. There is no fixed turn order: random arbitration permits repeats,
@@ -187,7 +187,7 @@ players still need an open compatible waiting room. No password is required.
 
 ## D-15 — Teach safely and delay the outcome until final scores
 
-Status: implemented locally, unreleased.
+Status: implemented in build 29; final tutorial/stamp UI retesting remains open.
 
 Arcade and Multiplayer have separate interactive tutorials and opt-outs, replayable
 from Settings. Practice constructs no live game coordinator, socket membership,

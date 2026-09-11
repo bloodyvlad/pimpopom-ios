@@ -5,6 +5,80 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 ## Current beta and rollback
 
+Build **1.02 (29)** is VALID / `APP_STORE_ELIGIBLE`. Direct Apple verification at
+**2026-09-11 19:02:18 UTC** confirmed beta review **APPROVED** and both existing
+Internal QA / External QA groups **IN_BETA_TESTING**, with automatic notification
+enabled. Existing public link and all standing contact/demo/URL fields were
+preserved; en-US What to Test, beta description and review notes were updated.
+
+| Item | Verified value |
+| --- | --- |
+| Binary source / branch | `199bf48f6dccbc0b1a3b234dc12aca3977c16a50` / `codex/build29-gameplay-release` |
+| Apple build | `f8c2710e-c0c6-42be-a570-a18145271a59` |
+| Apple upload / expiration | 2026-09-11 18:59:59 UTC / 2026-12-10 18:59:59 UTC |
+| Configuration | Optimized Staging without DEBUG, iOS 17+, unchanged owner-split test ads |
+| Archive TGZ SHA-256 | `6422500dc9e5d2eb361094ab2ae2b41af833c692a010d9c9a3f9c4b07c5c3462` |
+| 115-file manifest SHA-256 | `c026f770e9b4719dda55fe9b3e4f9dd767874146cd1ca04cc8c91aed6eed2d9f` |
+| Matching app/dSYM UUID | `1831F4E0-9BA8-365C-AA2A-0B6785D9FE41` |
+| App binary SHA-256 | `075f08ec208984e194b7130f978d051e4309f6e0c1eb3fb4eb738aa8ee04aba3` |
+| Railway source / deployment | `9b28b210e44919cb6d1719ffb97054ab35764de1` / `9ec61784-391e-4be0-bdbe-deb227487f69`, SUCCESS |
+| PHP source | `bf0ef1b030772872775ab64eaedcbaa1b256e0cf` |
+| PHP artifact SHA-256 | `2646c77801a5ac8005f916a05666874a11d0426e05fd257720390aeb420079b1` |
+| PHP schema / target | Additive 025 applied; only `speedytapper.otcsoft.com`; season and purchased value preserved |
+
+Actual order: PHP was deployed and verified first (73 source hashes, schema
+001–025, unchanged private configuration/workers, 45 HTTPS boundaries). Railway
+upload/build started next. The owner explicitly authorized iOS upload while
+Railway was compiling; the upload command started around 18:57 UTC, followed by
+successful fresh Railway runtime verification around 18:58. iOS export/upload
+succeeded at 18:59:11; Apple's resource records upload at 18:59:59. Do not imply
+the Railway runtime gate had completed before the iOS upload command began.
+
+Railway native x86_64 build/runtime and 13 negative WSS/auth boundaries passed:
+UID/GID 10001, NoNewPrivs, private 0700 writable outbox, unchanged Amsterdam instance,
+volume, configuration and variable fingerprints. Temporary pinned SSH access was
+removed. Health advertises ranking for gameplay revision 3 / result revision 2.
+These checks made no real player/result/reward writes and do not prove a positive
+hosted match or reward settlement. [Detailed service evidence](../Server/DEPLOYMENT_RAILWAY.md).
+
+**UI QA exception:** the initial native gate ran 265 tests: **259 passed, six UI
+failures, zero skipped**; native unit tests passed. A focused three-test run passed
+badge layout and privacy, but failed clock-stamp feedback on the pre-ZStack build.
+Tutorial accessibility (`b3b1473`) and stable stamp-host (`199bf48`) corrections
+were not Simulator-retested, per the owner's explicit no-recheck request. Final
+compact/all-theme tutorial and pickup acceptance is incomplete. This is **not a
+fully green final-source UI gate**; archive success is not substitute UI evidence.
+
+Exact shared source separately passed 95 core/47 service tests on macOS and Linux
+ARM64 and real local socket scenarios. PHP Composer, 94 reward/ranking and 154
+retained Arcade MariaDB assertions passed. No local AMD64 unit-test or physical
+device/60–120 Hz/real-account reward acceptance is claimed.
+
+The clean archive signature, matching app-owned symbols, 12 privacy manifests,
+non-exempt encryption false and zero private/test files were verified. The archive
+was development-signed with `get-task-allow`; Xcode's distribution export/upload
+succeeded and Apple accepted it. Final exported entitlements were not separately
+inspected, so no direct exported `get-task-allow:false` claim is made. Apple accepted
+the existing GoogleMobileAds/UMP vendor-dSYM warnings.
+
+Evidence: `build/releases/build29-20260911/`, particularly `qa-status.md`, initial/
+focused xcresults, `archive-inspection.json`, upload records and `apple-final-state.json`.
+PHP record: `/Users/vlad/Documents/SpeedyTapper-release-artifacts/20260911-mp29.MWy2eo/RELEASE.md`.
+Later documentation commits are not new binaries. Outstanding TestFlight QA includes
+tutorial controls, pickup stamps, real-account rewards and hosted 2/3/4-device play.
+Physical/accessibility/load/legal gates remain open; no App Store production
+submission, live-ad activation, new region or paid-plan upgrade occurred.
+
+Rollback references are build 28 and Railway `3041f2bb`/`e866409`; old service code
+does not support revision-3 clients or archive ranked acknowledgements. Retain
+PHP 025, compatible rewards runtime, all immutable credits/receipts and pending
+outbox journals. The retained PHP rollback artifact is build28's `2157ced3…` below,
+but old PHP cannot preserve new Multiplayer reward reconciliation: coordinate a
+forward correction rather than discard value/evidence or restore an old wallet.
+No destructive reset or live rollback was performed.
+
+## Build 28 — retained baseline and rollback evidence
+
 Build **1.02 (28)** is VALID and `APP_STORE_ELIGIBLE`. Direct Apple verification
 at **2026-09-11 13:58:51 UTC** confirmed beta review **APPROVED** and both existing
 Internal QA / External QA groups **IN_BETA_TESTING**. Automatic notification stays

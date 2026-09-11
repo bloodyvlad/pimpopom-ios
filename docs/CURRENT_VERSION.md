@@ -3,37 +3,32 @@
 Verified 2026-09-11. Source, hosted deployment and Apple distribution are separate
 evidence; later documentation commits do not change the uploaded binary.
 
-## Unreleased local update
+## Build 29 release state
 
-The `codex/mp29-gameplay-tutorials` branch implements gameplay revision 3, final-score
-outcomes, a fresh v2 leaderboard, two coins per connected/alive minute, mutable
-waiting-room privacy, shared pickup feedback and isolated interactive tutorials.
-This is **not deployed or uploaded**. The separate PHP candidate adds migration 025;
-it must be deployed/verified before the matching Railway service and a future iOS
-release. The prior beta and production facts below remain unchanged.
-Scope, verification and remaining gates: [MP29_GAMEPLAY_TUTORIALS](MP29_GAMEPLAY_TUTORIALS.md).
-
-## Released beta
+Build 29 implements final-score Multiplayer outcomes, a fresh v2 leaderboard,
+two coins per eligible connected/alive minute, waiting-room privacy editing,
+shared pickup feedback and isolated interactive tutorials. PHP/Railway are
+verified and Apple approved build 29 for both existing QA groups.
 
 | Item | Current truth |
 | --- | --- |
 | Product | PimPoPom, iPhone/iOS 17+, Swift 6 strict concurrency |
-| TestFlight | `1.02 (28)`, VALID, external-eligible |
-| Uploaded iOS source | `3922867341c43c732e894805f829559140f5b5e4`, clean Staging archive/export |
-| Apple build ID | `707cd113-dc9c-4410-8547-d13afce6dd1a` |
-| QA groups | Internal QA and External QA both `IN_BETA_TESTING`; review `APPROVED`; verified at 13:58:51 UTC |
-| Notifications | Automatic notification enabled; existing public link unchanged |
-| Railway source | `e866409c6571dd08069db76fabcd07d79016a487`; Server/Core identical in the iOS source |
-| Railway deployment | `3041f2bb-70f4-4a71-8318-039fb8e6aedb`, SUCCESS, one Amsterdam replica |
-| PHP source | `f84dc9218b58bb937326be931f2ee969abed4282`; deployed only to `speedytapper.otcsoft.com`, before iOS upload |
-| PHP schema | Ledger 001–024 unchanged; no migration, account or season reset |
-| Previous beta | Build 27 remains the rollback reference; v3/v4 PHP replay retained |
+| TestFlight | `1.02 (29)`, VALID / APP_STORE_ELIGIBLE |
+| Uploaded iOS source | `199bf48f6dccbc0b1a3b234dc12aca3977c16a50`, clean optimized Staging |
+| Apple build ID | `f8c2710e-c0c6-42be-a570-a18145271a59` |
+| QA groups | Internal QA and External QA IN_BETA_TESTING; review APPROVED; verified 2026-09-11 19:02:18 UTC |
+| Notifications / public link | Automatic notification enabled; existing external link preserved |
+| Railway source | `9b28b210e44919cb6d1719ffb97054ab35764de1` |
+| Railway deployment | `9ec61784-391e-4be0-bdbe-deb227487f69`, SUCCESS, one Amsterdam replica |
+| PHP source | `bf0ef1b030772872775ab64eaedcbaa1b256e0cf`; only `speedytapper.otcsoft.com` |
+| PHP schema | Ledger 001–025; only additive 025 newly applied; season/account/purchased-value data preserved |
+| Previous beta | Build 28 is the rollback/reference beta; Arcade v3/v4/v5 retained |
 | Production App Store | Not submitted or released by this task |
 
 Exact artifacts, checksums and rollback boundaries: [RELEASE](RELEASE.md) and
-[Railway record](../Server/DEPLOYMENT_RAILWAY.md). Feature detail: [BUILD28](BUILD28.md).
+[Railway record](../Server/DEPLOYMENT_RAILWAY.md). Feature detail: [MP29](MP29_GAMEPLAY_TUTORIALS.md).
 
-## Released build-28 gameplay and network contracts
+## Build-29 gameplay and network contracts
 
 - Arcade: `normal`, compatibility build `20260729-1`, explicit
   `reaction-proof-v5`, proof 3. Legacy omitted ruleset selects v3/proof 2;
@@ -43,8 +38,8 @@ Exact artifacts, checksums and rollback boundaries: [RELEASE](RELEASE.md) and
   an overdue pickup may appear soon after 4×4 becomes available.
 - Arcade alone has clocks, with a theme-matched rewind arrow; hearts match HUD
   artwork in all themes. Zen is local, ephemeral, unranked and unrewarded.
-- Multiplayer: `multiplayer-shared-arcade-v2`, protocol 2, gameplay revision 2,
-  2–4 seats, at most 900,000 ms. Legacy revision-1 clients use separate rooms.
+- Multiplayer: `multiplayer-shared-arcade-v2`, protocol 2, gameplay revision 3,
+  2–4 seats, at most 900,000 ms. Revision-1/2 clients use separate original-rule rooms.
   One persistent Vapor authority, native WSS and the shared Arcade SpriteKit board.
 - One identical board: 1×1, 2×2 after four total correct hits, 4×4 at 40 seconds.
   Owners are random, may repeat, and may overlap on free cells. Waiting for an
@@ -54,12 +49,19 @@ Exact artifacts, checksums and rollback boundaries: [RELEASE](RELEASE.md) and
   colors stay unique; persistent decoys exclude every player's color and have no
   exclamation marker. Neutral hearts restore one life up to three for the first
   server-admitted claim; losing claims are not mistakes and eliminated seats stay
-  spectators. Multiplayer never has clocks, coins, achievements or v2 ranking.
+  spectators. The last living player keeps scoring until all are out or time expires,
+  after input admission drains. Highest final score wins; equal scores share places.
+  No premature loss while spectating. Multiplayer has no clocks or achievements.
 - A valid PHP primary session and confirmed public name suffice; no Game Center
   prerequisite. Session refresh, ordered Leave, connection-generation fencing and
   pushed connected/non-full waiting lists remain. No peer FAST/tap transcript path.
-- Results are service-reported, unranked aggregates, not independent PHP replay
-  or human verification. The persistent outbox survives restarts; live rooms do not.
+- Completed competitive revision-3 results enter a fresh global v2 leaderboard
+  and earn two coins per cumulative connected/alive minute with separate carry.
+  Countdown, disconnection, spectating, tutorial and stale/missing economy generations
+  do not mint coins. PHP derives immutable idempotent credits; the client submits no
+  amount. Trust is `server_reported_v2`, not independent replay or human verification.
+  No old-result backfill or Game Center publication. Outbox survives restarts;
+  live rooms do not. Final scores/Menu never wait for receipt/wallet refresh.
 
 ## Rooms and UI
 
@@ -68,31 +70,35 @@ Copy/Share is available in the waiting room. Public rooms support creator-name
 substring search; exact case-insensitive code/full UUID can find public or private
 joinable rooms. Private rooms never appear in browsing, nickname or partial-code
 search. Anyone signed in with the full code may join; no password is required.
-The app requires advertised `roomDiscoveryRevision:1` before private creation.
+Build 29 requires advertised `roomDiscoveryRevision:2`; the host can change privacy
+beside the waiting-room code without resetting Ready. Older clients retain discovery 1.
 Debounced query/request fencing prevents stale responses from restoring old lists.
 On compact phones the roster scrolls while code, Leave, Ready and Start remain
-reachable. Logo/Menu, competitive strip and YOU LOSE/SPECTATING are retained.
+reachable. Logo/Menu and competitive badges remain; elimination shows Spectating,
+while Win/Lose/Draw follows final scores. Arcade/Multiplayer have separate safe,
+untimed tutorials and remembered opt-outs, replayable from Settings; Zen is unchanged.
 
 ## Verification and remaining gates
 
-- Final source: 241 app/UI tests, zero failures/skips, plus 89 core and 40 service
-  tests. Separate compact iPhone SE all-theme room-control test passed; initial
-  cold Simulator clipboard/assertion failures and the passing warm run are retained.
-- Four local socket clients completed 92 seconds, 5,480 shared snapshots and
-  11,208 decoy-exclusion checks: no color collisions or pre-4×4 hearts, exactly
-  one four-way heart winner, and three successful private-code joins.
-- Linux ARM64: 40 service/89 core plus startup/readiness checks passed. Local
-  AMD64 emulation failed in the Swift compiler; Railway's native AMD64 release
-  build and direct x86_64 runtime checks passed. No local AMD64 unit-pass claim.
-- PHP: Composer, v5/legacy SQLite and disposable MariaDB checks passed. All 69
-  hosted source hashes, unchanged schema/private configuration and 35 HTTPS checks
-  verified. Railway: ten WSS boundaries, UID/GID 10001, protected writable outbox,
-  unchanged settings/secrets; temporary audit/SSH access removed.
-- Archive/export/upload, matching app symbols, 12 privacy manifests and no private
-  or test files verified. Vendor Google Ads/UMP dSYM warnings remain accepted.
+- Initial native gate: 265 tests, 259 passed, six UI failures, zero skipped.
+  Focused badge/privacy checks passed; clock-stamp feedback failed before the final
+  correction. Tutorial accessibility and stable stamp-host changes were not
+  Simulator-retested, per the owner's explicit no-recheck request. Final UI QA is
+  **incomplete**, not green; see [TESTING](TESTING.md) and `qa-status.md`.
+- Exact shared source: 95 core/47 service tests pass on macOS and Linux ARM64;
+  real local sockets cover last-survivor scoring, final drain and privacy. These
+  are not real-account internet matches or physical latency measurements.
+- PHP: 73 source hashes, schema 025, unchanged private configuration/workers and
+  45 HTTPS checks verified. Railway: 13 WSS/auth boundaries, native x86_64,
+  UID/GID 10001, NoNewPrivs and private writable outbox verified; settings unchanged.
+- Clean Staging archive, matching app symbols, 12 privacy manifests and absence of
+  private/test files verified. Apple upload/export and processing succeeded;
+  distribution eligibility/review/group states were checked directly.
 
-Evidence: `build/releases/build28-20260911/`. Still validate genuine signed-in
+Evidence: `build/releases/build29-20260911/`; historical build-28 green results
+remain explicitly historical in RELEASE.md. Still validate genuine signed-in
 2/3/4-iPhone Wi-Fi/cellular matches, reconnect/logout, heart races, result delivery,
 accessibility and 60/120 Hz latency on named hardware. Multi-region failover,
 sustained load/draining and production/legal/storefront gates remain open.
-No live ads, paid-plan upgrade, new region or account/economy change was performed.
+No live-ad activation, paid-plan upgrade, new region, account/season reset or
+purchased-value change was performed. New eligible Multiplayer rewards are intentional.
