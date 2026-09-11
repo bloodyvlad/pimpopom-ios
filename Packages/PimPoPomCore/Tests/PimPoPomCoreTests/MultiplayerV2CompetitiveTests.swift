@@ -3,12 +3,12 @@ import Testing
 
 @testable import PimPoPomCore
 
-private func competitiveEngine(_ count: Int = 2, revision: Int = 3) throws -> MP2Engine {
+private func competitiveEngine(_ count: Int = 2, revision: Int = 3, seed: UInt64 = 7) throws -> MP2Engine {
     try MP2Engine(
         matchID: "match",
         players: (0..<count).map {
             MP2Player(id: "p\($0)", seat: $0, colorIndex: $0, name: "P\($0)")
-        }, seed: 7, gameplayRevision: revision)
+        }, seed: seed, gameplayRevision: revision)
 }
 
 private func playCompetitive(_ engine: inout MP2Engine, to end: Int) {
@@ -159,9 +159,32 @@ func competitiveTerminalContactReconnect() throws {
 
 @Test("Time limit freezes authoritative alive time after the admission horizon")
 func competitiveTimeLimit() throws {
-    var engine = try competitiveEngine()
-    playCompetitive(&engine, to: 900_000)
+    var engine = try competitiveEngine(seed: 29)
+    playCompetitive(&engine, to: 899_000)
+    var held: MP2Target?
+    while engine.elapsedMs < 900_000 {
+        engine.advance(to: min(900_000, engine.elapsedMs + 20))
+        for target in engine.snapshot.targets {
+            if held == nil, target.expiresAtMs > 900_000, target.activateAtMs + 1 < 900_000 { held = target }
+            guard target.id != held?.id, target.activateAtMs + 100 <= engine.elapsedMs else { continue }
+            #expect(
+                engine.submit(
+                    MP2Input(
+                        id: target.id, seat: target.ownerSeat, targetID: target.id,
+                        cell: target.cell, presentedAtMs: target.activateAtMs, contactAtMs: target.activateAtMs + 100),
+                    receivedAt: engine.elapsedMs
+                ).accepted)
+        }
+    }
     #expect(engine.snapshot.phase == .finishing && engine.snapshot.finalReason == .timeLimit)
+    let target = try #require(held)
+    let previous = engine.snapshot.players[target.ownerSeat].score
+    let delayed = MP2Input(
+        id: target.id, seat: target.ownerSeat, targetID: target.id, cell: target.cell,
+        presentedAtMs: target.activateAtMs, contactAtMs: target.activateAtMs + 1)
+    #expect(engine.submit(delayed, receivedAt: 900_100).accepted)
+    #expect(engine.snapshot.players[target.ownerSeat].score > previous)
+    #expect(engine.snapshot.phase == .finishing && engine.snapshot.elapsedMs == 900_000)
     engine.advance(to: 903_000)
     #expect(engine.snapshot.phase == .finished && engine.snapshot.elapsedMs == 900_000)
     #expect(engine.snapshot.players.allSatisfy { !$0.isOut && $0.eligibleAliveMs == 900_000 })

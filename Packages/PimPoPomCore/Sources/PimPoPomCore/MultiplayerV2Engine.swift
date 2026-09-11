@@ -458,7 +458,18 @@ public struct MP2Engine: Sendable {
         if elapsedMs >= MP2Protocol.maximumDurationMs, !durationEnded {
             durationEnded = true
             for seat in seats.keys.sorted() {
-                voidOpenTargets(seat: seat)
+                if gameplayRevision >= 3 {
+                    for id in targets.keys.sorted() where targets[id]!.target.ownerSeat == seat {
+                        if case .open = targets[id]!.resolution {
+                            // Stop presentation/expiry, but keep already visible
+                            // pre-limit contacts admissible through the drain.
+                            targets[id]!.resolution = .disconnected
+                            targets[id]!.disconnectCutoffMs = MP2Protocol.maximumDurationMs
+                        }
+                    }
+                } else {
+                    voidOpenTargets(seat: seat)
+                }
                 clearDecoys(seat: seat)
             }
             if gameplayRevision >= 3 {

@@ -94,7 +94,9 @@ public actor RoomService {
         send(
             .welcome(
                 playerID: player.playerID, connectionID: id, serverTimeMs: now, gameplayRevision: gameplayRevision,
-                roomDiscoveryRevision: MP2Protocol.roomDiscoveryRevision),
+                // Build28 compares this value exactly. Its revision2 rooms keep
+                // the discovery1 contract; revision3 explicitly adds host edits.
+                roomDiscoveryRevision: gameplayRevision >= 3 ? MP2Protocol.roomDiscoveryRevision : 1),
             to: id)
         sendDirectory(to: id)
     }

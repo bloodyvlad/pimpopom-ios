@@ -94,7 +94,7 @@ struct RoomSearchTests {
                 welcome
                     == .welcome(
                         playerID: "player-\(revision)", connectionID: "player-\(revision)", serverTimeMs: 0,
-                        gameplayRevision: revision, roomDiscoveryRevision: 2))
+                        gameplayRevision: revision, roomDiscoveryRevision: revision >= 3 ? 2 : 1))
             #expect(all.allSatisfy { if case .searchResults = $0 { false } else { true } })
         }
     }

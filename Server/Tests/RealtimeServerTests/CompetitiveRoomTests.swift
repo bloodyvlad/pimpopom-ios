@@ -205,12 +205,12 @@ struct CompetitiveRoomTests {
     }
 
     @Test func identityGenerationIsOptionalButNeverNegative() throws {
-        for generation: Int? in [nil, 0, 8, -1] {
+        for generation: Int? in [nil, 0, 8, -1, 4_294_967_295, 4_294_967_296] {
             let identity = AuthenticatedPlayer(
                 playerID: UUID().uuidString, name: "P", sessionBinding: "binding",
                 expiresAt: Int(Date().timeIntervalSince1970) + 60, economyGeneration: generation)
             let data = try JSONEncoder().encode(identity)
-            if generation == -1 {
+            if generation == -1 || generation == 4_294_967_296 {
                 #expect(throws: AuthenticationFailure.invalidCapability) {
                     try TicketAuthenticator.decodeResponse(data, statusCode: 200)
                 }

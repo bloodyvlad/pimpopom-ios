@@ -146,7 +146,7 @@ public struct TicketAuthenticator: TicketAuthenticating {
         guard UUID(uuidString: player.playerID) != nil, !player.name.isEmpty, player.name.count <= 20,
             !player.sessionBinding.isEmpty, player.expiresAt > Int(Date().timeIntervalSince1970),
             player.protocolVersion == MP2Protocol.version, player.ruleset == MP2Protocol.ruleset,
-            player.economyGeneration.map({ $0 >= 0 && $0 <= 2_147_483_647 }) ?? true
+            player.economyGeneration.map({ $0 >= 0 && $0 <= 4_294_967_295 }) ?? true
         else {
             throw AuthenticationFailure.invalidCapability
         }
