@@ -5,6 +5,20 @@ import Testing
 @testable import RealtimeServer
 
 struct CompetitiveRoomTests {
+    @Test func healthScopesRankingToExplicitRevisionAndNeverEnablesDevelopmentRewards() throws {
+        var configuration = try ServerConfiguration(environment: ["MP2_DEV_AUTH": "1"])
+        for development in [true, false] {
+            configuration.developmentAuthentication = development
+            let health = RealtimeApplication.health(configuration: configuration, connections: 4, rooms: 1)
+            #expect(health.rankingEnabled == !development)
+            #expect(health.rankingGameplayRevision == 3 && health.resultRevision == 2)
+            #expect(health.protocolVersion == 2 && health.connections == 4 && health.rooms == 1)
+            let body = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(health)) as? [String: Any])
+            #expect(body["rankingEnabled"] as? Bool == !development)
+            #expect(body["rankingGameplayRevision"] as? Int == 3)
+        }
+    }
+
     @Test func realEngineCompetitiveAggregateCrossLanguageFixture() throws {
         let ids = ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"]
         var engine = try MP2Engine(

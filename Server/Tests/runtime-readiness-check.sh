@@ -44,5 +44,7 @@ done
 grep -q '^HTTP/1.1 200' "$test_root/health.json"
 grep -q '"protocolVersion":2' "$test_root/health.json"
 grep -q '"rankingEnabled":false' "$test_root/health.json"
+grep -q '"rankingGameplayRevision":3' "$test_root/health.json"
+grep -q '"resultRevision":2' "$test_root/health.json"
 [ "$(find "$test_root/outbox" -name '.mp2-readiness-*' | wc -l)" -eq 0 ]
 printf '%s\n' 'Unprivileged runtime readiness checks passed.'

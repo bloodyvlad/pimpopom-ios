@@ -87,9 +87,7 @@ public enum RealtimeApplication {
     public static func configure(app: Application, service: RoomService, authenticator: any TicketAuthenticating) {
         app.get("health") { _ async -> Health in
             let counts = await service.counts()
-            return Health(
-                status: "ok", protocolVersion: MP2Protocol.version, ruleset: MP2Protocol.ruleset,
-                rankingEnabled: false, connections: counts.connections, rooms: counts.rooms)
+            return health(configuration: service.configuration, connections: counts.connections, rooms: counts.rooms)
         }
         app.webSocket("multiplayer", "v2", maxFrameSize: 16_384) { _, socket in
             // Callbacks only enqueue bounded messages. One task owns decoding and
@@ -201,11 +199,20 @@ public enum RealtimeApplication {
         }
     }
 
+    static func health(configuration: ServerConfiguration, connections: Int, rooms: Int) -> Health {
+        Health(
+            status: "ok", protocolVersion: MP2Protocol.version, ruleset: MP2Protocol.ruleset,
+            rankingEnabled: !configuration.developmentAuthentication, rankingGameplayRevision: 3, resultRevision: 2,
+            connections: connections, rooms: rooms)
+    }
+
     struct Health: Content {
         let status: String
         let protocolVersion: Int
         let ruleset: String
         let rankingEnabled: Bool
+        let rankingGameplayRevision: Int
+        let resultRevision: Int
         let connections: Int
         let rooms: Int
     }
