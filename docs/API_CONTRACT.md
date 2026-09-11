@@ -1,10 +1,41 @@
 # Current native API contract
 
 Arcade, identity and economy retain the existing PHP compatibility surface.
-Multiplayer v2 is isolated from historical v1. Build 26 uses gameplay revision 2;
-build 25 retains revision 1 and build 24 uses the historical v1 backend.
+Multiplayer v2 is isolated from historical v1. Released builds 26–28 use gameplay
+revision 2; build 25 retains revision 1 and build 24 uses the historical v1 backend.
 Exact dated deployment and Apple evidence is in CURRENT_VERSION.md.
 PHP implementation/deployment remain owned by the separate PHP repository.
+
+## Unreleased revision-3 extension
+
+The local candidate requires gameplay revision 3 and uses a fresh v2 leaderboard,
+not the historical v1 read below. PHP candidate `1860c61ae9722cb9526fa599699ac5b52536b384`
+and additive migration 025 must be deployed and verified before the matching Swift
+service and client. Nothing in this section is deployment evidence.
+
+- Protocol/ruleset and ticket authentication stay unchanged. Service identity adds
+  nullable `economyGeneration`, captured immutably at actual match start.
+- Room discovery revision 2 adds host-only, waiting-phase `setPrivacy` with exact
+  room identity/revision. Public/private changes preserve Ready; old clients keep
+  discovery 1 and revision-isolated rooms.
+- Trusted result revision 2 adds gameplay revision 3, reward policy
+  `multiplayer-alive-minute-v1`, competitive/tutorial kind and completed/aborted
+  reason. Per-player fields include connected/alive time, survival, peak multiplier
+  and start generation. PHP derives credits, never accepts device coin claims.
+- `GET /api/mobile/v2/multiplayer/leaderboard` exposes score-only ranks, distinct
+  row positions and `verification:server_reported_v2`; unavailable speed-rating
+  counts are omitted. Historical v1 rows are neither imported nor deleted.
+- Participant-authenticated `GET /api/mobile/v2/multiplayer/results/{matchID}`
+  returns that player's immutable saved reward only. Unknown/nonparticipant IDs
+  return 404. The client retries briefly and refreshes `/api/session`; it never
+  blocks live play or optimistically credits a wallet.
+- Two coins accrue per complete eligible minute with independent carry; countdown,
+  disconnected time, spectating, tutorial and stale/missing generations earn none.
+  Session/profile adds `ranks.multiplayerV2`, preserving the old v1 rank key.
+
+The full [candidate contract](MP29_GAMEPLAY_TUTORIALS.md) and separate PHP
+`docs/MULTIPLAYER_V2_REWARDS.md` specify receipt bounds, idempotence and rollback.
+The retained aggregate/history sections below describe released revisions 1/2.
 
 ## Transport and session
 
@@ -153,12 +184,12 @@ The build-25 PHP bridge was deployed from commit
 `78b51ee6768d6f049d44b3b8c2d2073e0aac34e0`, migration
 `023_multiplayer_v2_auth.sql`. It defaults to 503 until valid private
 `SPEEDYTAPPER_REALTIME_URL` and `SPEEDYTAPPER_MULTIPLAYER_SERVICE_SECRET`
-configuration exists. The current PHP runtime is `0a94f5cfe2a36ae89f0d26db1c72bf7cfe4d683c`;
-build 27's Arcade update leaves this bridge and schema 024 unchanged. Deployment
+configuration exists. The released PHP runtime is `f84dc9218b58bb937326be931f2ee969abed4282`;
+build 28's Arcade update leaves this bridge and schema 024 unchanged. Deployment
 evidence is recorded in CURRENT_VERSION.md and RELEASE.md; historical Railway
 bridge/migration evidence remains in Server/DEPLOYMENT_RAILWAY.md.
 
-Builds 26/27 retain this authentication tuple and negotiate `gameplayRevision:2`
+Builds 26–28 retain this authentication tuple and negotiate `gameplayRevision:2`
 in the socket hello/welcome. Omission means revision 1 (build 25). Rooms, browse,
 join and resume are revision-isolated. Revised snapshots add neutral hearts;
 inputs optionally identify `heartID`, mutually exclusive with `targetID`.
@@ -227,7 +258,7 @@ life totals. The pure Swift room engine derives state. Local prediction is
 presentation only and reconciles against receipts/snapshots. No v1 peer
 transcripts, seals, roster handshakes or unanimous submissions are sent.
 
-### Unranked aggregate intake
+### Released revision-1/2 unranked aggregate intake
 
 The service journals immutable match ID, capabilities, duration,
 `rankingEligible:false`, and 2–4 distinct player UUID/stable-seat aggregates:
@@ -256,7 +287,7 @@ The uploaded build 24 uses `multiplayer-own-color-v1`, protocol/proof 1,
 build `20260729-1`, GameKit live traffic and PHP peer settlement. Those backend
 routes/data are not deleted by this client rewrite.
 
-The new client retains only `GET /api/mobile/v1/multiplayer/leaderboard` for
+The released build-28 client retains only `GET /api/mobile/v1/multiplayer/leaderboard` for
 historical top/context reads. Accepted entries require
 `verification:"peer_consistent_v1"`; they are never relabeled v2 or merged with
 unranked alpha aggregates. Historical Game Center best-score publication remains

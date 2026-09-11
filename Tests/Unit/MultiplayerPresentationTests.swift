@@ -31,7 +31,9 @@ final class MultiplayerPresentationTests: XCTestCase {
 
     func testQuickCreateLeaveWaitsForAcknowledgmentBeforeNewCreate() {
         let controller = makeController()
-        controller.receive(.welcome(playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.createMatch(capacity: 2)
         controller.leaveMatch()
         controller.createMatch(capacity: 2)
@@ -54,13 +56,13 @@ final class MultiplayerPresentationTests: XCTestCase {
             .list([
                 .init(
                     id: "open", hostName: "Pim", capacity: 2, playerCount: 1, revision: 1, phase: .waiting,
-                    gameplayRevision: 2),
+                    gameplayRevision: MP2Protocol.gameplayRevision),
                 .init(
                     id: "full", hostName: "Pom", capacity: 2, playerCount: 2, revision: 1, phase: .waiting,
-                    gameplayRevision: 2),
+                    gameplayRevision: MP2Protocol.gameplayRevision),
                 .init(
                     id: "done", hostName: "Pom", capacity: 2, playerCount: 1, revision: 1, phase: .finished,
-                    gameplayRevision: 2),
+                    gameplayRevision: MP2Protocol.gameplayRevision),
                 .init(id: "old", hostName: "Pim", capacity: 2, playerCount: 1, revision: 1, phase: .waiting),
             ]))
         XCTAssertEqual(controller.hubState.lobbies.map(\.id), ["open"])
@@ -71,10 +73,16 @@ final class MultiplayerPresentationTests: XCTestCase {
     func testReconnectReleasesLostCreateAndLeaveAcknowledgments() {
         for leaveBeforeDisconnect in [false, true] {
             let controller = makeController()
-            controller.receive(.welcome(playerID: "p0", connectionID: "first", serverTimeMs: now, gameplayRevision: 2))
+            controller.receive(
+                .welcome(
+                    playerID: "p0", connectionID: "first", serverTimeMs: now,
+                    gameplayRevision: MP2Protocol.gameplayRevision))
             controller.createMatch(capacity: 2)
             if leaveBeforeDisconnect { controller.leaveMatch() }
-            controller.receive(.welcome(playerID: "p0", connectionID: "new", serverTimeMs: now, gameplayRevision: 2))
+            controller.receive(
+                .welcome(
+                    playerID: "p0", connectionID: "new", serverTimeMs: now,
+                    gameplayRevision: MP2Protocol.gameplayRevision))
             XCTAssertFalse(controller.hubState.isCreating)
             controller.createMatch(capacity: 2)
             XCTAssertTrue(controller.hubState.isCreating)
@@ -86,14 +94,18 @@ final class MultiplayerPresentationTests: XCTestCase {
 
     func testReplacedLobbyDoesNotResumeOnTheOldSocket() {
         let controller = makeController()
-        controller.receive(.welcome(playerID: "p0", connectionID: "old", serverTimeMs: now, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "old", serverTimeMs: now, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.joinMatch("r")
         controller.receive(.room(room()))
         controller.receive(.resumeCredential(roomID: "r", credential: "old-token", generation: 1))
         controller.receive(.error(code: "room_replaced", message: "Opened on another connection."))
         XCTAssertEqual(controller.phase, .hub)
         XCTAssertNil(controller.waitingState)
-        controller.receive(.welcome(playerID: "p0", connectionID: "new", serverTimeMs: now, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "new", serverTimeMs: now, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.createMatch(capacity: 2)
         XCTAssertTrue(controller.hubState.isCreating)
         controller.leaveMatch()
@@ -102,7 +114,9 @@ final class MultiplayerPresentationTests: XCTestCase {
     func testHeartTapGivesImmediateFeedbackWithoutPredictingLifeOrMistake() {
         let controller = makeController()
         let time = now
-        controller.receive(.welcome(playerID: "p0", connectionID: "c", serverTimeMs: time, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "c", serverTimeMs: time, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.joinMatch("r")
         var playing = room()
         playing.phase = .playing
@@ -115,7 +129,8 @@ final class MultiplayerPresentationTests: XCTestCase {
                 .init(
                     matchID: "m", revision: 2, elapsedMs: 0, phase: .playing, gridDimension: 2,
                     players: playing.players, targets: [], decoys: [],
-                    hearts: [.init(id: 1, cell: 2, activateAtMs: 0, expiresAtMs: 3_000)], gameplayRevision: 2)))
+                    hearts: [.init(id: 1, cell: 2, activateAtMs: 0, expiresAtMs: 3_000)],
+                    gameplayRevision: MP2Protocol.gameplayRevision)))
         controller.gameScene(controller.scene, didAdvanceTo: Double(time + 120))
         XCTAssertTrue(controller.liveState?.cells[2].isHeart == true)
         controller.handleTap(cell: 2, localMonotonicMilliseconds: time + 210, normalizedLocation: .zero)
@@ -124,12 +139,59 @@ final class MultiplayerPresentationTests: XCTestCase {
         XCTAssertEqual(controller.liveState?.isRecovering, false)
         controller.handleTap(cell: 2, localMonotonicMilliseconds: time + 211, normalizedLocation: .zero)
         XCTAssertEqual(controller.liveState?.isRecovering, false)
+        XCTAssertNil(controller.liveState?.stampEvent)
+        controller.receive(.receipt(.init(id: 1, accepted: true, reason: "heart", revision: 3, lifeAwarded: true)))
+        XCTAssertEqual(controller.liveState?.stampEvent?.kind, .extraLife)
+        let event = controller.liveState?.stampEvent
+        controller.receive(.receipt(.init(id: 1, accepted: true, reason: "heart", revision: 3, lifeAwarded: true)))
+        XCTAssertEqual(controller.liveState?.stampEvent, event, "A retry must not show a second award")
         controller.leaveMatch()
+    }
+
+    func testHeartContactBeforeProvisionalDeathStillReachesServerAndDoesNotReviveLocally() {
+        let controller = makeController()
+        defer { controller.leaveMatch() }
+        let time = now
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "c", serverTimeMs: time,
+                gameplayRevision: MP2Protocol.gameplayRevision))
+        controller.joinMatch("r")
+        var playing = room()
+        playing.phase = .playing
+        playing.matchID = "m"
+        playing.startsAtServerMs = time
+        playing.players[0].lives = 1
+        controller.receive(.room(playing))
+        controller.receive(
+            .snapshot(
+                .init(
+                    matchID: "m", revision: 1, elapsedMs: 100, phase: .playing,
+                    gridDimension: 4, players: playing.players, targets: [], decoys: [],
+                    hearts: [.init(id: 1, cell: 2, activateAtMs: 0, expiresAtMs: 3_000)])))
+        controller.gameScene(controller.scene, didAdvanceTo: Double(time + 100))
+        playing.players[0].lives = 0
+        playing.players[0].outAtMs = 200
+        playing.players[0].recoveryUntilMs = 1_700
+        controller.receive(
+            .snapshot(
+                .init(
+                    matchID: "m", revision: 2, elapsedMs: 200, phase: .playing,
+                    gridDimension: 4, players: playing.players, targets: [], decoys: [])))
+        controller.gameScene(controller.scene, didAdvanceTo: Double(time + 210))
+        controller.handleTap(cell: 2, localMonotonicMilliseconds: time + 190, normalizedLocation: .zero)
+        XCTAssertEqual(controller.liveState?.localPlayer?.lives, 0)
+        controller.receive(.receipt(.init(id: 1, accepted: true, reason: "heart", revision: 3, lifeAwarded: true)))
+        XCTAssertEqual(
+            controller.liveState?.stampEvent?.kind, .extraLife,
+            "Accepted original contact must remain queued through a provisional elimination")
     }
 
     func testReadyIsImmediateAndAuthoritativeConfirmationClearsPending() {
         let controller = makeController()
-        controller.receive(.welcome(playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.joinMatch("r")
         controller.receive(.room(room()))
         controller.toggleReady(true)
@@ -148,7 +210,9 @@ final class MultiplayerPresentationTests: XCTestCase {
 
     func testStaleRoomSnapshotCannotUndoReady() {
         let controller = makeController()
-        controller.receive(.welcome(playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.joinMatch("r")
         var confirmed = room()
         confirmed.revision = 10
@@ -162,7 +226,9 @@ final class MultiplayerPresentationTests: XCTestCase {
     func testOwnTapUpdatesScoreWithoutAnyReceiptOrOpponentMessage() {
         let controller = makeController()
         let time = now
-        controller.receive(.welcome(playerID: "p0", connectionID: "c", serverTimeMs: time, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "c", serverTimeMs: time, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.joinMatch("r")
         var playing = room()
         playing.phase = .playing
@@ -201,7 +267,9 @@ final class MultiplayerPresentationTests: XCTestCase {
 
     func testLeaveIgnoresInFlightRoomSnapshotAndResumeCredential() {
         let controller = makeController()
-        controller.receive(.welcome(playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "c", serverTimeMs: now, gameplayRevision: MP2Protocol.gameplayRevision))
         controller.joinMatch("r")
         var playing = room()
         playing.phase = .playing

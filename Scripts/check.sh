@@ -125,6 +125,7 @@ xcodebuild -quiet "$@" \
   -scheme PimPoPom \
   -destination 'platform=iOS Simulator,name=PimPoPom iPhone 17' \
   -only-testing:PimPoPomTests \
+  -only-testing:PimPoPomUITests/HowToPlayUITests \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testArcadeHeartAndClockUseTheLiveBoardContactPath \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testFourPlayerMultiplayerLiveLayoutAcrossThemes \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerCatchUpUsesHUDStatusAndKeepsBoardEnabled \

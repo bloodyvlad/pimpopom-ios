@@ -1,6 +1,19 @@
 import Foundation
 
 extension BackendClient {
+    func loadMultiplayerResult(matchID: String) async throws -> MultiplayerStoredResult {
+        guard UUID(uuidString: matchID) != nil else {
+            throw BackendError(status: 0, message: "Invalid match identifier.", code: "invalid-multiplayer-response")
+        }
+        let response: MultiplayerStoredResult = try await performMultiplayerRequest(
+            path: "\(MultiplayerAPIContract.basePath)/results/\(matchID)",
+            requiresAuthentication: true, requiresCSRF: false)
+        guard response.isValid(for: matchID) else {
+            throw BackendError(status: 0, message: "Invalid result receipt.", code: "invalid-multiplayer-response")
+        }
+        return response
+    }
+
     func loadMultiplayerLeaderboard() async throws -> MultiplayerLeaderboardResponse {
         #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--uitesting") {
@@ -13,6 +26,7 @@ extension BackendClient {
                     entries: exposesFixture
                         ? [
                             MultiplayerLeaderboardEntry(
+                                position: 1,
                                 rank: 1,
                                 name: "TeamAurora",
                                 petId: "foka",
@@ -26,15 +40,10 @@ extension BackendClient {
                                 misses: 2,
                                 dodges: 14,
                                 maxMultiplier: 4,
-                                speedRatings: SpeedRatingCounts(
-                                    godlike: 18,
-                                    perfect: 34,
-                                    great: 27,
-                                    good: 15
-                                ),
+                                speedRatings: nil,
                                 createdAt: "2026-07-29T18:00:00Z",
                                 isCurrentPlayer: true,
-                                verification: "peer_consistent_v1"
+                                verification: "server_reported_v2"
                             )
                         ] : [],
                     totalEntries: exposesFixture ? 1 : 0,
@@ -48,19 +57,9 @@ extension BackendClient {
             requiresAuthentication: false,
             requiresCSRF: false
         )
-        guard response.mode == "multiplayer",
-            response.totalEntries >= 0,
-            response.entries.allSatisfy({
-                $0.rank > 0
-                    && $0.score >= 0
-                    && $0.place > 0
-                    && $0.playerCount >= MultiplayerAPIContract.minimumPlayers
-                    && $0.playerCount <= MultiplayerAPIContract.maximumPlayers
-                    && $0.verification == "peer_consistent_v1"
-            })
-        else {
+        guard response.isValidServerLeaderboard else {
             throw BackendError(
-                status: 0, message: "Invalid historical leaderboard response.", code: "invalid-multiplayer-response")
+                status: 0, message: "Invalid multiplayer leaderboard response.", code: "invalid-multiplayer-response")
         }
         return response
     }

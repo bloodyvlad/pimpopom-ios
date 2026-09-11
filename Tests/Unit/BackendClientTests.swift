@@ -32,6 +32,48 @@ final class BackendClientTests: XCTestCase {
         XCTAssertFalse(backend.isAuthenticated)
     }
 
+    func testMultiplayerLeaderboardUsesFreshV2LaneWithoutHistoricalFallback() async throws {
+        let recorder = RequestRecorder()
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(
+                data: Data(
+                    """
+                    {"season":{"id":"mp2-1","name":"New multiplayer"},"mode":"multiplayer",\
+                    "entries":[],"totalEntries":0,"playerRank":null,"topPercent":null}
+                    """.utf8))
+        }
+        let response = try await makeBackend().loadMultiplayerLeaderboard()
+        XCTAssertTrue(response.entries.isEmpty)
+        XCTAssertEqual(recorder.requests(forPath: "/api/mobile/v2/multiplayer/leaderboard").count, 1)
+        XCTAssertTrue(recorder.requests(forPath: "/api/mobile/v1/multiplayer/leaderboard").isEmpty)
+    }
+
+    func testMultiplayerStoredResultIsParticipantAuthenticatedAndDoesNotMintLocally() async throws {
+        let match = "10000000-0000-4000-8000-000000000099"
+        let recorder = RequestRecorder()
+        let session = try JSONEncoder().encode(multiplayerSession())
+        let receipt = Data(
+            """
+            {"matchID":"\(match)","state":"stored_ranked","rankingEligible":true,"resultRevision":2,\
+            "rewardPolicy":"multiplayer-alive-minute-v1","reward":{"creditedAliveMs":60000,"coinsEarned":2,\
+            "remainderMs":0,"totalAliveMs":60000,"coinStatus":"eligible"}}
+            """.utf8)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(data: request.url?.path == "/api/session" ? session : receipt)
+        }
+        let backend = makeBackend()
+        let result = try await backend.loadMultiplayerResult(matchID: match)
+        XCTAssertEqual(result.reward.coinsEarned, 2)
+        XCTAssertEqual(
+            backend.profile?.coins, multiplayerSession().profile?.coins,
+            "Only a subsequent authoritative session refresh changes the wallet")
+        XCTAssertEqual(recorder.requests(forPath: "/api/session").count, 1)
+        let request = try XCTUnwrap(recorder.requests(forPath: "/api/mobile/v2/multiplayer/results/\(match)").first)
+        XCTAssertEqual(request.method, "GET")
+    }
+
     func testMultiplayerTicketRefreshesCachedSessionAndUsesCurrentCSRF() async throws {
         let recorder = RequestRecorder()
         let sessions = LockedCounter()

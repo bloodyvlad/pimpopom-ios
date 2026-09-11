@@ -1246,10 +1246,13 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         requiresCSRF: Bool
     ) async throws -> Response {
         let routePath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+        let resultPrefix = "\(MultiplayerAPIContract.basePath)/results/"
+        let isResultRead =
+            routePath.hasPrefix(resultPrefix)
+            && UUID(uuidString: String(routePath.dropFirst(resultPrefix.count))) != nil
         guard
             routePath == "\(MultiplayerAPIContract.basePath)/leaderboard"
-                || routePath == "\(MultiplayerAPIContract.basePath)/lobbies"
-                || routePath.hasPrefix("\(MultiplayerAPIContract.basePath)/matches")
+                || (method == "GET" && isResultRead)
         else {
             throw BackendError(
                 status: 0,

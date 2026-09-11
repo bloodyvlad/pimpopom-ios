@@ -27,7 +27,9 @@ final class MultiplayerFlowLifecycleTests: XCTestCase {
         // Start in a real waiting room so the view's hub-only task never opens a
         // network connection. Unlike screenshot fixtures, close() remains active.
         multiplayer.receive(
-            .welcome(playerID: "p0", connectionID: "lifecycle", serverTimeMs: now, gameplayRevision: 2))
+            .welcome(
+                playerID: "p0", connectionID: "lifecycle", serverTimeMs: now,
+                gameplayRevision: MP2Protocol.gameplayRevision))
         multiplayer.joinMatch(room.id)
         multiplayer.receive(.room(room))
 
@@ -60,7 +62,8 @@ final class MultiplayerFlowLifecycleTests: XCTestCase {
         multiplayer.receive(.room(room))
         let snapshot = MP2Snapshot(
             matchID: "lifecycle-match", revision: 2, elapsedMs: 0, phase: .playing,
-            gridDimension: 1, players: room.players, targets: [], decoys: [], gameplayRevision: 2)
+            gridDimension: 1, players: room.players, targets: [], decoys: [],
+            gameplayRevision: MP2Protocol.gameplayRevision)
         multiplayer.receive(.snapshot(snapshot))
         try await render(host)
         XCTAssertEqual(multiplayer.phase, .live, "Replacing the waiting child must not leave the room")
@@ -71,7 +74,8 @@ final class MultiplayerFlowLifecycleTests: XCTestCase {
             .snapshot(
                 .init(
                     matchID: snapshot.matchID, revision: snapshot.revision + 1, elapsedMs: 1_000, phase: .finished,
-                    gridDimension: 1, players: room.players, targets: [], decoys: [], gameplayRevision: 2)))
+                    gridDimension: 1, players: room.players, targets: [], decoys: [],
+                    gameplayRevision: MP2Protocol.gameplayRevision)))
         try await render(host)
         XCTAssertEqual(multiplayer.phase, .results, "Replacing the live child must not leave the room")
         XCTAssertEqual(multiplayer.resultsState.results.count, 2)

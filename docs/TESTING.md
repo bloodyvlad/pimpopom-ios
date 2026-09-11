@@ -1,8 +1,21 @@
 # Testing and quality gates
 
 PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranked
-Arcade and an unranked Multiplayer v2 beta. Automated checks are necessary;
+Arcade and Multiplayer v2. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
+
+## Unreleased revision-3 candidate
+
+Local macOS and Linux ARM64 checks pass: 95 pure-core and 47 service tests. Real
+four-client sockets cover final scoring after earlier elimination, last-survivor
+continuation, spectator-time exclusion and lobby privacy; retained revision-1/2
+socket cases also pass. PHP candidate `1860c61` passes Composer and the new
+94-assertion disposable MariaDB reward/ranking suite plus retained regressions.
+
+The updated app and native test targets compile; XCTest/UI execution and visual
+inspection remain **pending**, not passed. Both configured simulators were shut
+down. The full `Scripts/check.sh` gate has not run for this candidate. See
+[exact evidence and remaining gates](MP29_GAMEPLAY_TUTORIALS.md).
 
 ## Build 28 verification
 

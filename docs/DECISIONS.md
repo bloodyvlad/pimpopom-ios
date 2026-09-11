@@ -33,14 +33,18 @@ touch path.
 
 ## D-04 — Preserve the current three mode contracts
 
-Status: Arcade/Zen retained; Multiplayer v2 revision 2 released in the build-26 beta.
+Status: Arcade/Zen retained; revision 2 released; revision 3 implemented locally, unreleased.
 
-Arcade is endless until zero lives and is the only coin/achievement-eligible
+Arcade is endless until zero lives and remains the only achievement-eligible
 mode. Zen is endless local practice with no deadlines, decoys, durable result, or
 rewards. Multiplayer v2 is 2–4-player own-color play on one identical shared board,
 with individual three-life state. Shared hearts can restore one life up to three;
 eliminated seats remain spectators. It ends when all are out or the 15-minute
-bound is reached, after the input admission horizon. No Multiplayer coins/achievements.
+bound is reached, after the input admission horizon. The last living player keeps
+playing and scoring. Highest final score wins regardless of elimination order;
+equal scores share placement and show Draw. Revision 3 adds two coins per cumulative
+connected/alive minute, excluding countdown, disconnection and spectating. No
+Multiplayer achievements. Arcade coin progress remains independent.
 Arcade/Zen rules remain in `docs/GAMEPLAY_SPEC.md`; v2 rules and deliberate shared
 board adaptations are in `docs/MULTIPLAYER_V2_REBUILD.md`.
 The owner-directed Arcade v4 extension, released in build 27, adds heart restoration
@@ -79,7 +83,8 @@ and owns achievements, coins, debts, catalog prices, purchases, ownership, and
 selection. The client may render fallbacks but never invents authoritative score,
 balance, price, ownership, or eligibility. Replayed Arcade and clean historical
 v1 results are called protocol-verified, never human-verified or bot-proof.
-V2 alpha aggregates are service-reported and unranked, as scoped in D-12.
+V2 revision-3 aggregates are explicitly service-reported, not PHP replay or proof
+of human play. PHP owns durable ranking and earned credits; old aggregates remain unranked.
 
 ## D-08 — Use signed StoreKit state plus a source-aware server ledger
 
@@ -121,24 +126,26 @@ handle lifecycle/interruption without blocking play.
 
 ## D-12 — Replace live Multiplayer v1 with an isolated v2 authority
 
-Status: v2 revision 1 retained for build 25; revision 2 released in the build-26 beta.
+Status: revisions 1/2 retained; revision 3 is local and requires coordinated deployment.
 
 Native `URLSessionWebSocketTask` connects to one persistent Vapor 4 room service.
 The shared pure Swift engine owns targets, input admission, scores and lives;
 the room service owns membership, revisioned Ready and atomic Start. Remove the
 old GameKit peer coordinator, FAST seals/frontiers, unanimous transcripts and v1
-client mutations. Preserve the hub/waiting-room identity, historical v1 leaderboard
-reads and unrelated Game Center account/publication behavior. Primary sign-in and
+client mutations. Preserve the hub/waiting-room identity, historical v1 evidence
+and unrelated Game Center account/publication behavior. The current client reads
+only the fresh v2 leaderboard. Primary sign-in and
 confirmed nickname are required; Game Center is not a v2 entry requirement.
 
 V2 is exactly `multiplayer-shared-arcade-v2`, protocol `2`. PHP tickets and service
-introspection/result endpoints are additive and isolated. PHP stores service-reported
-unranked aggregates; it does not independently replay v2 inputs. No public v2
-ranking, ranked season, reward, achievement or Game Center publication is enabled.
+introspection/result endpoints are additive and isolated. PHP does not independently
+replay v2 inputs. Explicit result revision 2 / gameplay revision 3 competitive
+completed matches enter a new empty leaderboard (`server_reported_v2`) and award
+generation-bound coins. No historical backfill, achievement or Game Center publication.
 Historical clean v1 results remain `peer_consistent_v1`; do not relabel them.
 
 Negotiate gameplay revision separately in socket Hello/Welcome: an omitted
-revision means legacy `1`; build 26 explicitly requires `2`. Partition browsing,
+revision means legacy `1`; builds 26–28 require `2`; this candidate requires `3`. Partition browsing,
 joining and resuming by that revision. Never feed new pickup gameplay to build-25
 clients, or silently downgrade a new client when the service is not ready.
 Revision 2's cumulative misses require the separate additive PHP migration 024
@@ -171,10 +178,24 @@ continue. No peer ACK barrier is permitted. Latency and 60/120 Hz targets remain
 acceptance goals, not measurements. Detailed behavior and gaps live in the v2 brief.
 
 Build 28 adds stable eight-character room codes and an explicit room-discovery
-capability. Public games can be searched by creator nickname or exact code/UUID;
+capability. Revision 3 advertises discovery 2 for host-only privacy changes on the
+waiting/code screen; revision 1/2 clients keep discovery 1 compatibility. Public
+games can be searched by creator nickname or exact code/UUID;
 private games are absent from public/name results and found only by exact code or
 UUID. Codes grant discoverability, not account authentication. Valid signed-in
 players still need an open compatible waiting room. No password is required.
+
+## D-15 — Teach safely and delay the outcome until final scores
+
+Status: implemented locally, unreleased.
+
+Arcade and Multiplayer have separate interactive tutorials and opt-outs, replayable
+from Settings. Practice constructs no live game coordinator, socket membership,
+ranked attempt, timer or reward. Zen is unchanged. Elimination displays Spectating,
+never You lose before final results. Live crowns follow highest points (ties share
+the lead); Missed, +1UP and Slowing down are short noninteractive presentation events.
+Only an authoritative awarded life triggers Multiplayer +1UP; late valid original
+contacts may correct a provisional death, but actual spectator taps cannot revive.
 
 ## D-14 — Keep release evidence exact
 

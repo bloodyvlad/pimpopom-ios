@@ -805,13 +805,13 @@ final class PimPoPomUITests: XCTestCase {
 
             let firstPlayer = app.descendants(matching: .any)["multiplayer-player-0"]
             XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
-            XCTAssertLessThanOrEqual(firstPlayer.frame.height, 52)
+            XCTAssertLessThanOrEqual(firstPlayer.frame.height, 64)
             XCTAssertEqual(firstPlayer.value as? String, "Pet half right")
             for seat in 1..<4 {
                 let player = app.descendants(matching: .any)["multiplayer-player-\(seat)"]
                 XCTAssertTrue(player.exists)
                 XCTAssertEqual(player.frame.midY, firstPlayer.frame.midY, accuracy: 3)
-                XCTAssertLessThanOrEqual(player.frame.height, 52)
+                XCTAssertLessThanOrEqual(player.frame.height, 64)
                 XCTAssertGreaterThan(player.frame.minX, firstPlayer.frame.minX)
                 XCTAssertEqual(player.value as? String, "Pet half right")
             }
@@ -841,6 +841,7 @@ final class PimPoPomUITests: XCTestCase {
             attachScreenshot(of: app, name: "Arcade \(theme) \(kind) before collection")
             pickup.tap()
             if kind == "clock" {
+                XCTAssertTrue(app.descendants(matching: .any)["game-pickup-stamp"].exists)
                 let pace = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'PACE '")).firstMatch
                 XCTAssertTrue(pace.waitForExistence(timeout: 3))
                 attachScreenshot(of: app, name: "Arcade Pixel clock slowed pace")
@@ -862,9 +863,7 @@ final class PimPoPomUITests: XCTestCase {
             XCTAssertTrue(search.waitForExistence(timeout: 6))
             XCTAssertTrue(search.isHittable)
             let privacy = app.switches["multiplayer-private-toggle"]
-            XCTAssertTrue(privacy.isHittable)
-            privacy.tap()
-            XCTAssertEqual(privacy.value as? String, "1")
+            XCTAssertFalse(privacy.exists, "Privacy belongs next to the created room code")
             XCTAssertTrue(app.buttons["create-multiplayer-game"].isHittable)
             attachScreenshot(of: app, name: "\(theme) room search and private creation")
             app.terminate()
@@ -878,6 +877,11 @@ final class PimPoPomUITests: XCTestCase {
             XCTAssertTrue(code.waitForExistence(timeout: 6))
             XCTAssertEqual(code.label, "BCDF2345")
             XCTAssertTrue(app.staticTexts["PRIVATE GAME CODE"].exists)
+            XCTAssertTrue(privacy.isHittable)
+            privacy.tap()
+            XCTAssertTrue(app.staticTexts["GAME CODE"].waitForExistence(timeout: 3))
+            privacy.tap()
+            XCTAssertTrue(app.staticTexts["PRIVATE GAME CODE"].waitForExistence(timeout: 3))
             let copy = app.buttons["multiplayer-copy-code"]
             XCTAssertTrue(copy.isHittable)
             copy.tap()
@@ -897,8 +901,9 @@ final class PimPoPomUITests: XCTestCase {
             "--ui-test-multiplayer-spectating-fixture",
         ]
         app.launch()
-        XCTAssertTrue(app.staticTexts["multiplayer-you-lose"].waitForExistence(timeout: 6))
-        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-spectating"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-spectating"].waitForExistence(timeout: 6))
+        XCTAssertFalse(app.staticTexts["multiplayer-you-lose"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-player-0"].label.contains("Spectating"))
         XCTAssertTrue(app.descendants(matching: .any)["multiplayer-board"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["multiplayer-player-strip"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["multiplayer-cell-6"].isEnabled)

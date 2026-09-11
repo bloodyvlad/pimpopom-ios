@@ -124,6 +124,7 @@ final class GameplayLifecycleTests: XCTestCase {
             coordinator.scene, didTapCell: heart.cellIndex, normalizedLocation: .zero,
             inputAt: opportunity + 50, handledAt: opportunity + 150)
         XCTAssertEqual(engine.lives, 3)
+        XCTAssertEqual(coordinator.pickupFeedbackEvent?.kind, .extraLife)
         XCTAssertEqual(engine.targetIndex, target)
         XCTAssertEqual(engine.hits, hits)
         XCTAssertEqual(coordinator.proofEvents().last?.first, 8)
@@ -149,10 +150,12 @@ final class GameplayLifecycleTests: XCTestCase {
             inputAt: opportunity + 150, handledAt: opportunity + 150)
         XCTAssertEqual(engine.roundDifficulty?.responseWindowMilliseconds, window)
         XCTAssertEqual(coordinator.snapshot.speedRate, 0.7, accuracy: 0.0001)
+        XCTAssertEqual(coordinator.pickupFeedbackEvent?.kind, .slowingDown)
         XCTAssertEqual(engine.speedRate(now: opportunity + 5_150), 0.85, accuracy: 0.0001)
         XCTAssertEqual(engine.speedRate(now: opportunity + 10_150), 1, accuracy: 0.0001)
         coordinator.startNewRun()
         XCTAssertEqual(coordinator.snapshot.speedRate, 1)
+        XCTAssertNil(coordinator.pickupFeedbackEvent)
         XCTAssertTrue(coordinator.snapshot.activePickups.isEmpty)
     }
 

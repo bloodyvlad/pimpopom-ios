@@ -23,6 +23,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     private var sendTask: Task<Void, Never>?
     private var sessionCheckTask: Task<Void, Never>?
     private var searchTask: Task<Void, Never>?
+    private var settlementTask: Task<Void, Never>?
     private var searchRequestID = 0
     private var sessionCheckGeneration = 0
     private var connectionEpoch = 0
@@ -44,6 +45,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     private var resumeCredential: (roomID: String, credential: String, generation: Int)?
     private var readyIntentID = 0
     private var pendingReady: (value: Bool, id: Int)?
+    private var pendingPrivacy: (value: Bool, revision: Int)?
+    private var supportsPrivacyUpdates = false
     private var inputID = 0
     private var serverOffsetMs = 0
     private var bestRTT = Int.max
@@ -54,6 +57,10 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     private var pendingInputs: [Int: PendingInput] = [:]
     private var feedback: GameplayHitFeedbackEvent?
     private var feedbackUntilMs = 0
+    private var stampEvent: GameplayStampEvent?
+    private var stampSequence = 0
+    private var announcedMissCount = 0
+    private var acknowledgedHeartInputs: Set<Int> = []
     private var localRecoveryUntilMs = 0
     private var maximumMultipliers: [String: Int] = [:]
     private var fixtureEnabled = false
@@ -94,6 +101,26 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         if backend.sessionState == nil, developmentIdentity == nil { checkSession() }
         if availability.isAvailable, connectionTask == nil { connect() }
         if connected { requestDirectory() }
+    }
+
+    func togglePrivacy(_ isPrivate: Bool) {
+        guard let room, room.hostPlayerID == identityID, room.phase == .waiting,
+            supportsPrivacyUpdates, connected, pendingPrivacy == nil, pendingReady == nil, room.isPrivate != isPrivate
+        else { return }
+        if fixtureEnabled {
+            self.room?.isPrivate = isPrivate
+            self.room?.revision += 1
+            projectWaitingRoom()
+            return
+        }
+        pendingPrivacy = (isPrivate, room.revision)
+        projectWaitingRoom()
+        send(.setPrivacy(isPrivate: isPrivate, roomID: room.id, roomRevision: room.revision))
+    }
+
+    private func showStamp(_ kind: GameplayStampKind) {
+        stampSequence += 1
+        stampEvent = .init(id: stampSequence, kind: kind)
     }
 
     func close() {
@@ -248,7 +275,52 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         if connected { requestDirectory() }
     }
     func retryConnection() { connect() }
-    func refreshSettlement() { if connected { send(.list) } }
+    func refreshSettlement() {
+        guard !fixtureEnabled, developmentIdentity == nil, let matchID = snapshot?.matchID,
+            phase == .results, let playerID = backend.profile?.id
+        else { return }
+        settlementTask?.cancel()
+        resultsState.isRefreshing = true
+        settlementTask = Task { [weak self] in
+            guard let self else { return }
+            // Retry a delayed durable outbox, not a live tap. Leaving the screen
+            // may still refresh this account's wallet, but never another match's UI.
+            for delay in [0, 1, 2, 4, 8] {
+                do {
+                    if delay > 0 { try await Task.sleep(for: .seconds(delay)) }
+                    guard !Task.isCancelled, self.backend.profile?.id == playerID else { return }
+                    let receipt = try await self.backend.loadMultiplayerResult(matchID: matchID)
+                    guard !Task.isCancelled, self.backend.profile?.id == playerID else { return }
+                    if self.phase == .results, self.snapshot?.matchID == matchID {
+                        self.resultsState.settlement = .settled(leaderboardEligible: receipt.rankingEligible)
+                        self.resultsState.isPersistenceConfirmed = true
+                        self.resultsState.message =
+                            receipt.reward.coinStatus == "eligible"
+                            ? "Result saved · \(receipt.reward.coinsEarned) coins earned · \(receipt.reward.remainderMs / 1_000)s toward your next pair"
+                            : "Result saved. This match did not earn coins."
+                    }
+                    _ = try await self.backend.loadSession()
+                    guard !Task.isCancelled, self.backend.profile?.id == playerID else { return }
+                    if self.phase == .results, self.snapshot?.matchID == matchID {
+                        self.resultsState.isBalanceCurrent = true
+                        self.resultsState.isRefreshing = false
+                    }
+                    return
+                } catch is CancellationError {
+                    return
+                } catch {
+                    // An unknown receipt can simply mean the durable writer is still retrying.
+                }
+            }
+            if !Task.isCancelled, self.phase == .results, self.snapshot?.matchID == matchID {
+                self.resultsState.isRefreshing = false
+                self.resultsState.message =
+                    self.resultsState.isPersistenceConfirmed
+                    ? "Result saved. Your balance has not refreshed yet; check again to retry."
+                    : "Scores are final. Leaderboard and coins are still syncing; you can return to the menu."
+            }
+        }
+    }
     func returnToMenuFromResults() { leaveMatch() }
 
     private func connect() {
@@ -350,7 +422,9 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 return
             }
             connected = true
-            hubState.supportsRoomCodes = roomDiscoveryRevision == MP2Protocol.roomDiscoveryRevision
+            hubState.supportsRoomCodes = (roomDiscoveryRevision ?? 0) >= 1
+            supportsPrivacyUpdates = (roomDiscoveryRevision ?? 0) >= 2
+            pendingPrivacy = nil
             if !hubState.supportsRoomCodes {
                 searchTask?.cancel()
                 searchRequestID += 1
@@ -402,8 +476,14 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 pendingInputs.removeAll()
                 inputID = 0
                 localRecoveryUntilMs = 0
+                stampEvent = nil
+                announcedMissCount = 0
+                acknowledgedHeartInputs.removeAll()
             }
             room = updated
+            if let pendingPrivacy, updated.revision > pendingPrivacy.revision {
+                self.pendingPrivacy = nil
+            }
             roomAdmission = nil
             roomSynchronized = true
             hubState.isCreating = false
@@ -428,6 +508,16 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             guard room?.matchID == updated.matchID,
                 snapshot == nil || updated.revision >= snapshot!.revision
             else { return }
+            // Finished snapshots keep arriving while the result is retained.
+            // Finality is immutable: do not restart receipt polling or erase its confirmation.
+            guard snapshot?.phase != .finished else { return }
+            if let local = updated.players.first(where: { $0.id == identityID }) {
+                if let previous = snapshot?.players.first(where: { $0.id == identityID }) {
+                    if local.misses < previous.misses { announcedMissCount = local.misses }
+                    if local.misses > announcedMissCount { showStamp(.missed) }
+                }
+                announcedMissCount = max(announcedMissCount, local.misses)
+            }
             snapshot = updated
             reconcileInputs()
             for player in updated.players {
@@ -440,12 +530,19 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 projectLive(at: Self.now, force: true)
             }
         case .receipt(let receipt):
+            if pendingInputs[receipt.id]?.input.heartID != nil,
+                receipt.accepted, receipt.reason == "heart", receipt.lifeAwarded == true,
+                acknowledgedHeartInputs.insert(receipt.id).inserted
+            {
+                showStamp(.extraLife)
+            }
             pendingInputs[receipt.id]?.receipt = receipt
             reconcileInputs()
             projectLive(at: Self.now, force: true)
         case .error(let code, let message):
             roomAdmission = nil
             pendingReady = nil
+            pendingPrivacy = nil
             hubState.isCreating = false
             hubState.joiningLobbyID = nil
             hubState.isRefreshing = false
@@ -539,6 +636,10 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             isMutationPending: room.phase != .waiting,
             message: room.phase == .countdown ? "Get ready…" : nil, pendingReadyIntent: pendingReady?.value,
             roomCode: room.roomCode, isPrivate: room.isPrivate == true)
+        waitingState?.canTogglePrivacy =
+            supportsPrivacyUpdates && connected
+            && room.hostPlayerID == identityID && room.phase == .waiting && pendingPrivacy == nil && pendingReady == nil
+        waitingState?.pendingPrivacyIntent = pendingPrivacy?.value
     }
 
     private func projectLive(at now: Int, force: Bool = false, renderFrame: Bool = false) {
@@ -584,12 +685,13 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         guard force || now - lastHUDUptimeMs >= 100 else { return }
         lastHUDUptimeMs = now
         let points = pendingInputs.values.reduce(0) { $0 + $1.points }
-        let leadingScore = snapshot.players.map(\.score).max() ?? 0
+        let leadingScore = snapshot.players.map { $0.score + ($0.id == identityID ? points : 0) }.max() ?? 0
         let players = snapshot.players.sorted { $0.seat < $1.seat }.map { player in
             MultiplayerPresentation.LivePlayer(
                 id: player.id, seat: player.seat, colorIndex: player.colorIndex,
                 name: player.name, petID: player.petID, points: player.score + (player.id == identityID ? points : 0),
-                multiplier: player.multiplier, lives: player.lives, isLeader: player.score == leadingScore,
+                multiplier: player.multiplier, lives: player.lives,
+                isLeader: player.score + (player.id == identityID ? points : 0) == leadingScore && leadingScore > 0,
                 isCurrentPlayer: player.id == identityID, isConnected: player.connected)
         }
         liveState = .init(
@@ -604,7 +706,9 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             isRecovering: elapsed < max(local.recoveryUntilMs, localRecoveryUntilMs),
             networkStatus: connected ? (snapshot.phase == .finishing ? .finalizing : nil) : .reconnecting,
             announcement: nil, hitFeedbackEvent: now < feedbackUntilMs ? feedback : nil,
-            inputMode: local.isOut ? .spectating : .interactive, gridDimension: snapshot.gridDimension,
+            stampEvent: stampEvent,
+            inputMode: snapshot.phase == .finishing ? .finalizing : (local.isOut ? .spectating : .interactive),
+            gridDimension: snapshot.gridDimension,
             roomCode: room?.roomCode)
     }
 
@@ -623,7 +727,11 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 && contact < min($0.heart.expiresAtMs, $0.hiddenAtMs ?? Int.max)
         }
         if let heart, claimedHeartIDs.contains(heart.heart.id) { return }
-        guard ownTarget != nil || (!local.isOut && contact >= max(local.recoveryUntilMs, localRecoveryUntilMs)) else {
+        let heartPredatesFinalMiss = heart != nil && local.outAtMs.map { contact < $0 } == true
+        guard
+            ownTarget != nil || heartPredatesFinalMiss
+                || (!local.isOut && contact >= max(local.recoveryUntilMs, localRecoveryUntilMs))
+        else {
             return
         }
         inputID += 1
@@ -648,6 +756,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             audio.playTap(hitNumber: local.hits + 1)
         } else {
             localRecoveryUntilMs = contact + 1_500
+            announcedMissCount = max(announcedMissCount, local.misses) + 1
+            showStamp(.missed)
             audio.playLifeLoss()
         }
         let input = MP2Input(
@@ -666,19 +776,23 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         let ordered = snapshot.players.sorted { $0.score == $1.score ? $0.seat < $1.seat : $0.score > $1.score }
         resultsState = .init(
             settlement: .settled(leaderboardEligible: false),
-            results: ordered.enumerated().map { offset, player in
+            results: ordered.map { player in
                 .init(
-                    id: player.id, place: offset + 1, playerCount: ordered.count, name: player.name,
+                    id: player.id, place: 1 + ordered.filter { $0.score > player.score }.count,
+                    playerCount: ordered.count, name: player.name,
                     petID: player.petID,
                     score: player.score, survivalMilliseconds: player.outAtMs ?? snapshot.elapsedMs, hits: player.hits,
                     misses: player.misses, dodges: player.dodges, fastestReactionMilliseconds: player.fastestReactionMs,
                     averageReactionMilliseconds: player.averageReactionMs,
-                    maxMultiplier: maximumMultipliers[player.id] ?? player.multiplier,
+                    maxMultiplier: player.maxMultiplier ?? maximumMultipliers[player.id] ?? player.multiplier,
                     isCurrentPlayer: player.id == identityID)
-            }, isRefreshing: false, localSubmissionAccepted: true,
-            message: "Multiplayer v2 playtest · unranked · no coins or achievements.", roomCode: room?.roomCode)
+            }, isRefreshing: false, localSubmissionAccepted: !fixtureEnabled && developmentIdentity == nil,
+            message:
+                "Final scores decide the winner. Leaderboard and earned coins sync after the server saves the result.",
+            roomCode: room?.roomCode)
         phase = .results
         audio.setMusicContext(.silent)
+        refreshSettlement()
     }
     private func showConnectionMessage(_ message: String) {
         hubState.message = message
@@ -697,6 +811,10 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         snapshot = nil
         resumeCredential = nil
         pendingReady = nil
+        pendingPrivacy = nil
+        stampEvent = nil
+        announcedMissCount = 0
+        acknowledgedHeartInputs.removeAll()
         pendingInputs.removeAll()
         presentedHearts.removeAll()
         claimedHeartIDs.removeAll()
@@ -756,6 +874,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             else { return }
             fixtureEnabled = true
             connected = true
+            supportsPrivacyUpdates = true
             hubState.supportsRoomCodes = true
             identityID = "fixture-player-0"
             let names = ["pimpovlad", "alenka", "PixelPilot", "TapMaster"]
@@ -787,6 +906,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     players[0].lives = 0
                     players[0].outAtMs = 45_000
                 }
+                players[0].score = 12_400
+                players[1].score = 10_800
                 matchStartUptimeMs = Self.now - 46_000
                 snapshot = .init(
                     matchID: "fixture-match", revision: 1, elapsedMs: 46_000, phase: .playing,
@@ -806,6 +927,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     id: 9, rating: .godlike, milliseconds: 200, pointsAwarded: 541,
                     normalizedLocation: CGPoint(x: 0.625, y: 0.375))
                 feedbackUntilMs = Self.now + 60_000
+                if arguments.contains("--ui-test-multiplayer-missed-fixture") { showStamp(.missed) }
+                if arguments.contains("--ui-test-multiplayer-heart-fixture") { showStamp(.extraLife) }
                 if arguments.contains("--ui-test-multiplayer-catch-up-fixture") { connected = false }
                 projectLive(at: Self.now, force: true, renderFrame: true)
             }

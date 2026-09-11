@@ -22,7 +22,7 @@ enum MultiplayerPresentation {
         var menuMessage: String {
             switch self {
             case .available:
-                "2–4 PLAYERS · NO COINS"
+                "2–4 PLAYERS · 2 COINS / MIN"
             case .checkingSession:
                 "CHECKING SIGN-IN…"
             case .signInRequired:
@@ -42,7 +42,6 @@ enum MultiplayerPresentation {
         let expiresAt: Date?
         let roomCode: String?
         let isPrivate: Bool
-
         init(
             id: String,
             capacity: Int,
@@ -217,6 +216,10 @@ enum MultiplayerPresentation {
         var pendingReadyIntent: Bool?
         let roomCode: String?
         let isPrivate: Bool
+        var canTogglePrivacy: Bool = false
+        var pendingPrivacyIntent: Bool? = nil
+
+        var displayedPrivate: Bool { pendingPrivacyIntent ?? isPrivate }
 
         init(
             matchID: String,
@@ -280,6 +283,7 @@ enum MultiplayerPresentation {
         var canStart: Bool {
             isCreator
                 && pendingReadyIntent == nil
+                && pendingPrivacyIntent == nil
                 && startMatchControlState == .ready
                 && !isMutationPending
         }
@@ -366,6 +370,7 @@ enum MultiplayerPresentation {
         let networkStatus: LiveNetworkStatus?
         let announcement: String?
         let hitFeedbackEvent: GameplayHitFeedbackEvent?
+        let stampEvent: GameplayStampEvent?
         let inputMode: LiveInputMode
         let gridDimension: Int
         let roomCode: String?
@@ -381,6 +386,7 @@ enum MultiplayerPresentation {
             networkStatus: LiveNetworkStatus? = nil,
             announcement: String?,
             hitFeedbackEvent: GameplayHitFeedbackEvent? = nil,
+            stampEvent: GameplayStampEvent? = nil,
             inputMode: LiveInputMode = .interactive,
             gridDimension: Int = 4,
             roomCode: String? = nil
@@ -395,6 +401,7 @@ enum MultiplayerPresentation {
             self.networkStatus = networkStatus
             self.announcement = announcement
             self.hitFeedbackEvent = hitFeedbackEvent
+            self.stampEvent = stampEvent
             self.inputMode = inputMode
             self.gridDimension = gridDimension
             self.roomCode = roomCode
@@ -405,7 +412,7 @@ enum MultiplayerPresentation {
         }
 
         var isSpectating: Bool {
-            inputMode == .spectating || localPlayer?.lives == 0
+            inputMode != .finalizing && (inputMode == .spectating || localPlayer?.lives == 0)
         }
 
         var orderedCells: [Cell] {
@@ -463,14 +470,25 @@ enum MultiplayerPresentation {
     }
 
     struct ResultsState: Equatable, Sendable {
-        let settlement: SettlementState
+        var settlement: SettlementState
         let results: [Result]
-        let isRefreshing: Bool
+        var isRefreshing: Bool
         let localSubmissionAccepted: Bool
-        let message: String?
+        var message: String?
         var roomCode: String? = nil
+        var isPersistenceConfirmed = false
+        var isBalanceCurrent = false
 
         var canReturnToMenu: Bool { settlement.isTerminal }
+
+        var outcomeTitle: String {
+            guard case .settled = settlement,
+                let local = results.first(where: \.isCurrentPlayer),
+                let topScore = results.map(\.score).max()
+            else { return settlement.title }
+            guard local.score == topScore else { return "You lose" }
+            return results.filter { $0.score == topScore }.count > 1 ? "Draw" : "You win"
+        }
     }
 
 }

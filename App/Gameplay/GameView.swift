@@ -273,6 +273,7 @@ struct GameView: View {
                         identifier: "game-lives",
                         valueColor: Color(hex: GameHUDMetrics.livesColorHex)
                     )
+                    .modifier(GameplayLivesHighlight(event: coordinator.pickupFeedbackEvent, theme: palette))
                 }
                 .frame(width: sideWidth)
             }
@@ -518,6 +519,10 @@ struct GameView: View {
             )
             .allowsHitTesting(false)
             .zIndex(GameplayOverlayLayer.tapFeedback)
+
+            GameplayStampFeedback(event: coordinator.pickupFeedbackEvent, theme: palette)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .zIndex(GameplayOverlayLayer.tapFeedback + 1)
 
             if let announcement {
                 GameplayCenterAnnouncementView(

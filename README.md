@@ -2,8 +2,13 @@
 
 PimPoPom is an iPhone-only color-reaction game built with SwiftUI, SpriteKit,
 StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen are
-retained; the new 2–4-player Multiplayer v2 is an online, unranked playtest.
-Game Center remains a separate account/publication integration.
+retained alongside 2–4-player online Multiplayer v2. Game Center remains a
+separate account/publication integration.
+
+The **unreleased local candidate** adds score-ranked multiplayer, two coins per
+eligible minute, guided practice, lobby privacy editing and themed gameplay
+feedback. See [candidate rules and verification](docs/MP29_GAMEPLAY_TUTORIALS.md).
+The released build-28 behavior and deployment evidence below are unchanged.
 
 Build 28 is available to both TestFlight QA groups: power-ups start only on 4×4, Arcade's
 clock has a theme-matched rewind arrow, and Multiplayer adds room codes, creator
@@ -39,7 +44,7 @@ personal target spacing. The owner has now authorized Railway EU deployment,
 the separate PHP v2 bridge, and TestFlight QA distribution. No paid-plan upgrade
 or App Store production submission is authorized. See [current status](docs/CURRENT_VERSION.md).
 
-## Implemented product
+## Released build-28 product
 
 - **Arcade:** endless three-life play with progressive boards, decoys, reaction
   ratings, streak multipliers, heart/clock pickups, protocol-verified ranking,

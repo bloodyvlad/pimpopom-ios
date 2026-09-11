@@ -55,6 +55,7 @@ final class GameCoordinator: ObservableObject {
     @Published private(set) var wasAbandoned = false
     @Published private(set) var isRoundPresentationExpired = false
     @Published private(set) var hitFeedbackEvent: GameplayHitFeedbackEvent?
+    @Published private(set) var pickupFeedbackEvent: GameplayStampEvent?
     @Published private(set) var gameplaySessionID = UUID()
     var onSoundEvent: ((GameplaySoundEvent) -> Void)?
     var onLifecycleEvent: ((GameplayLifecycleEvent) -> Void)?
@@ -72,6 +73,7 @@ final class GameCoordinator: ObservableObject {
     private var started = false
     private var isRunning = false
     private var hitFeedbackSequence = 0
+    private var pickupFeedbackSequence = 0
     private let screenshotAutoplayEnabled: Bool
     private var screenshotAutoplayRandom: ScreenshotAutoplayRandom
 
@@ -141,6 +143,7 @@ final class GameCoordinator: ObservableObject {
         lastDeadlineResolutionAt = nil
         feedback = "Get ready"
         hitFeedbackEvent = nil
+        pickupFeedbackEvent = nil
         let now = monotonicMilliseconds()
         snapshot = engine.start(now: now, mode: mode)
         scene.resetBoardPresentationHistory()
@@ -212,6 +215,7 @@ final class GameCoordinator: ObservableObject {
     }
 
     private func handle(_ transition: GameTransition) {
+        let previousLives = snapshot.lives
         if transition.kind == .hit {
             onSoundEvent?(.correctTap(hitNumber: transition.snapshot.hits))
         } else if transition.kind == .miss, transition.lifeLost == true {
@@ -243,7 +247,14 @@ final class GameCoordinator: ObservableObject {
             setRoundPresentationExpired(false)
             feedback = "Zen complete"
         case .pickupCollected:
-            feedback = transition.pickup?.kind == .clock ? "Pace slowed to 70%" : "Heart collected"
+            let kind: GameplayStampKind? =
+                transition.pickup?.kind == .clock
+                ? .slowingDown : (snapshot.lives > previousLives ? .extraLife : nil)
+            if let kind {
+                pickupFeedbackSequence += 1
+                pickupFeedbackEvent = .init(id: pickupFeedbackSequence, kind: kind)
+            }
+            feedback = ""
         case .ignored, .decoyActive, .pickupActive, .pickupsExpired:
             break
         }

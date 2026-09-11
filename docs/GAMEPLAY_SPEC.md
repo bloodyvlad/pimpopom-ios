@@ -1,6 +1,7 @@
 # Current gameplay specification
 
-Build 28's candidate uses Arcade v5 power-ups and Multiplayer revision 2. Power-ups
+The local unreleased candidate retains Arcade v5 and adds Multiplayer revision 3.
+Released build 28 uses revision 2. Power-ups
 require the actual 4×4 board in both modes. Build 27's v4 remains supported by the
 compatible PHP candidate. Power-up rules are in [ARCADE_POWERUPS](ARCADE_POWERUPS.md)
 and the [build-28 delta](BUILD28.md); Zen and Multiplayer timing are unchanged.
@@ -31,11 +32,11 @@ Release and deployment evidence remain separate in CURRENT_VERSION.md.
 - **End run** freezes an ephemeral local Results view. Restart/menu/app termination
   discards it.
 
-### Multiplayer v2 — gameplay revision 2 beta
+### Multiplayer v2 — gameplay revision 3 local candidate
 
 - Exactly 2–4 players; `multiplayer-shared-arcade-v2`, protocol 2, negotiated
-  gameplay revision 2. Primary sign-in and confirmed nickname; no Game Center
-  requirement. Revision-1 clients use separate rooms and their original rules.
+  gameplay revision 3. Primary sign-in and confirmed nickname; no Game Center
+  requirement. Revision-1/2 clients use separate rooms and their original rules.
 - The owner confirmed **one identical shared board**, accepting waits for an
   own-color opportunity on 1×1. Random owner arbitration permits repeats; targets
   overlap only when different cells are available. There is no fixed turn order.
@@ -47,9 +48,12 @@ Release and deployment evidence remain separate in CURRENT_VERSION.md.
 - Only an owner can hit a target. Wrong-color, empty/gap or trap taps cost only
   the tapping seat's life and cannot consume another seat's target.
 - Each seat starts with three lives, score, streak, multiplier, reactions and
-  1.5-second recovery. Eliminated seats see **YOU LOSE / SPECTATING** over the
-  shared board and cannot claim hearts. Disconnect has 15 seconds to return while
-  other seats continue. All-out or 15 minutes ends play after admission drains.
+  1.5-second recovery. Eliminated seats see **SPECTATING** over the shared board
+  and in their badge, never a premature loss. The last living seat remains playable.
+  Disconnect has 15 seconds to return while other seats continue. All-out or 15
+  minutes ends play after admission drains. Final score decides winner/loser,
+  not survival time; tied top scores show Draw and equal placement. Crowns follow
+  highest live points, including an eliminated player still leading on score.
 - Before 10 seconds assigned colors stay fixed. A valid hit thereafter selects
   a different color excluding every player's current color and every live decoy
   color; keep the current color if no alternative is free. A delayed correction
@@ -68,9 +72,15 @@ Release and deployment evidence remain separate in CURRENT_VERSION.md.
   exceed three; final-result storage must support this before revision 2 deploys.
 - The persistent Swift service, not peers, derives scores/lives using the same
   pure rules. The app projects local feedback and reconciles receipts/snapshots.
-  PHP stores isolated service-reported unranked aggregates, not replayed v2 proof.
-- No coins, achievements, v2 ranked season/leaderboard or Game Center publication.
-  Historical v1 leaderboard rows remain separate and read-only in the new client.
+  PHP stores isolated service-reported aggregates, not replayed v2 proof.
+- Explicit revised competitive completed results enter a fresh v2 leaderboard and
+  earn two coins per cumulative minute connected and alive. Countdown, disconnected,
+  spectator and tutorial time do not count. Sub-minute carry is separate from Arcade;
+  credits are idempotent and bound to the economy generation captured at match start.
+  No historical reward/ranking backfill, achievements or Game Center publication.
+- Missed uses a centered stamp. Awarded hearts highlight Lives and show +1UP in both
+  modes; consuming a heart at full lives does not claim an extra life. Arcade clock
+  pickup shows Slowing down. Stamp overlays never intercept touches.
 
 The complete shared-board adaptations, input admission boundaries and remaining
 acceptance work are in [MULTIPLAYER_V2_REBUILD](MULTIPLAYER_V2_REBUILD.md).

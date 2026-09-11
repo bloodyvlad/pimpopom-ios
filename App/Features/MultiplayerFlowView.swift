@@ -23,7 +23,8 @@ struct MultiplayerFlowView: View {
                         onToggleReady: multiplayer.toggleReady,
                         onStart: multiplayer.startMatch,
                         onLeave: multiplayer.leaveMatch,
-                        onRetryConnection: multiplayer.retryConnection
+                        onRetryConnection: multiplayer.retryConnection,
+                        onTogglePrivacy: multiplayer.togglePrivacy
                     )
                 } else {
                     ProgressView("Opening waiting room…")

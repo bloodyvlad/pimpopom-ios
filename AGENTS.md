@@ -77,13 +77,16 @@ the reaction path.
   changing colors, non-player-color persistent decoys, and first-claim hearts.
   Shared contention/delivery can extend personal spacing; no network wait belongs
   on the local feedback path. Revision-1 clients use separate compatible rooms.
-- V2 is `multiplayer-shared-arcade-v2`, protocol `2`, unranked and unrewarded.
+- V2 is `multiplayer-shared-arcade-v2`, protocol `2`. Owner-approved local revision 3
+  enables a fresh server-reported leaderboard and two earned coins per cumulative
+  connected/alive minute; older revisions remain unranked/unrewarded.
   No live GameKit, FAST seals, peer transcript or v1 client mutation path. Preserve
-  historical v1 leaderboard reads and unrelated Game Center account/publication.
+  historical v1 evidence and unrelated Game Center account/publication.
   Primary session and confirmed name suffice; Game Center is not a v2 prerequisite.
 - PHP stores isolated service-reported v2 aggregates, not independent replay proof.
-  No v2 rank, coins, achievements or Game Center publication. Keep bridge default
-  disabled until an explicitly authorized deployment; never reinterpret v1.
+  PHP alone derives idempotent, generation-bound coin credits from service evidence.
+  No Multiplayer achievements or Game Center publication. Keep deployment evidence
+  separate from local implementation; never reinterpret v1 or backfill old results.
 - Uploaded build 24 is the historical v1 beta, not today's v2 source. Follow
   `docs/CURRENT_VERSION.md`; configuration/build number alone never proves release.
 - The server owns identity, names, ranked attempts, proof replay, score, coins,

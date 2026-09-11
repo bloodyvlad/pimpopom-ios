@@ -3,6 +3,16 @@
 Verified 2026-09-11. Source, hosted deployment and Apple distribution are separate
 evidence; later documentation commits do not change the uploaded binary.
 
+## Unreleased local update
+
+The `codex/mp29-gameplay-tutorials` branch implements gameplay revision 3, final-score
+outcomes, a fresh v2 leaderboard, two coins per connected/alive minute, mutable
+waiting-room privacy, shared pickup feedback and isolated interactive tutorials.
+This is **not deployed or uploaded**. The separate PHP candidate adds migration 025;
+it must be deployed/verified before the matching Railway service and a future iOS
+release. The prior beta and production facts below remain unchanged.
+Scope, verification and remaining gates: [MP29_GAMEPLAY_TUTORIALS](MP29_GAMEPLAY_TUTORIALS.md).
+
 ## Released beta
 
 | Item | Current truth |
@@ -23,7 +33,7 @@ evidence; later documentation commits do not change the uploaded binary.
 Exact artifacts, checksums and rollback boundaries: [RELEASE](RELEASE.md) and
 [Railway record](../Server/DEPLOYMENT_RAILWAY.md). Feature detail: [BUILD28](BUILD28.md).
 
-## Effective gameplay and network contracts
+## Released build-28 gameplay and network contracts
 
 - Arcade: `normal`, compatibility build `20260729-1`, explicit
   `reaction-proof-v5`, proof 3. Legacy omitted ruleset selects v3/proof 2;

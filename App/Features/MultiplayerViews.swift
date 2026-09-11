@@ -153,7 +153,6 @@ struct MultiplayerHubView: View {
     var onSearch: (String) -> Void = { _ in }
 
     @State private var capacity = 2
-    @State private var isPrivate = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -391,24 +390,8 @@ struct MultiplayerHubView: View {
                 }
             }
 
-            Toggle(isOn: $isPrivate) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Private game")
-                        .font(palette.appFont(size: 13, weight: .bold, relativeTo: .subheadline))
-                    Text("Hidden from the list. Anyone with the code can join.")
-                        .font(
-                            palette.appFont(
-                                size: palette.legibleSmallCopySize(9), weight: .medium, relativeTo: .caption)
-                        )
-                        .foregroundStyle(Color(hex: palette.muted))
-                }
-            }
-            .tint(Color(hex: palette.chromeAccent))
-            .disabled(!state.supportsRoomCodes && !isPrivate)
-            .accessibilityIdentifier("multiplayer-private-toggle")
-
             Button {
-                onCreate(capacity, isPrivate)
+                onCreate(capacity, false)
             } label: {
                 Label(
                     state.isCreating ? "Creating…" : "Create \(capacity)-player game",
@@ -423,7 +406,6 @@ struct MultiplayerHubView: View {
             )
             .disabled(
                 !state.availability.isAvailable
-                    || (isPrivate && !state.supportsRoomCodes)
                     || state.isCreating
                     || state.joiningLobbyID != nil
             )
@@ -545,6 +527,7 @@ struct MultiplayerWaitingRoomView: View {
     let onStart: () -> Void
     let onLeave: () -> Void
     let onRetryConnection: () -> Void
+    var onTogglePrivacy: (Bool) -> Void = { _ in }
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -559,7 +542,26 @@ struct MultiplayerWaitingRoomView: View {
                 VStack(spacing: compact ? 6 : 12) {
                     header(compact: compact)
                     if let code = state.roomCode {
-                        MultiplayerRoomCodeView(code: code, isPrivate: state.isPrivate, theme: palette)
+                        MultiplayerRoomCodeView(code: code, isPrivate: state.displayedPrivate, theme: palette)
+                        if state.isCreator {
+                            Toggle(isOn: Binding(get: { state.displayedPrivate }, set: { onTogglePrivacy($0) })) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Private game")
+                                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .subheadline))
+                                    Text("Hidden from the list. Join with the code.")
+                                        .font(
+                                            palette.appFont(
+                                                size: palette.legibleSmallCopySize(9), weight: .medium,
+                                                relativeTo: .caption)
+                                        )
+                                        .foregroundStyle(Color(hex: palette.muted))
+                                }
+                            }
+                            .frame(minHeight: 44)
+                            .tint(Color(hex: palette.chromeAccent))
+                            .disabled(!state.canTogglePrivacy)
+                            .accessibilityIdentifier("multiplayer-private-toggle")
+                        }
                     }
                     if let message = state.message {
                         Text(message)
@@ -901,11 +903,11 @@ enum MultiplayerLiveLayoutMetrics {
     static let utilityHeaderHeight: CGFloat = 44
     static let utilityToHUDSpacing: CGFloat = 8
     static let hudHeight: CGFloat = 64
-    static let badgeHeight: CGFloat = 44
+    static let badgeHeight: CGFloat = 60
     static let badgeSpacing: CGFloat = 4
     static let boardToSpeedBarSpacing: CGFloat = 14
     static let speedBarHeight: CGFloat = 50
-    static let speedBarToBadgesSpacing: CGFloat = 8
+    static let speedBarToBadgesSpacing: CGFloat = 14
     static let verticalPadding: CGFloat = 8
     static let minimumBoardSide: CGFloat = 220
 
@@ -1186,6 +1188,7 @@ struct MultiplayerLiveView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("multiplayer-lives")
+        .modifier(GameplayLivesHighlight(event: state.stampEvent, theme: palette))
     }
 
     private func localColorName(_ colorIndex: Int?) -> String {
@@ -1215,6 +1218,8 @@ struct MultiplayerLiveView: View {
                 retainsFeedback: retainsFixtureHitFeedback
             )
             .allowsHitTesting(false)
+
+            GameplayStampFeedback(event: state.stampEvent, theme: palette, identifier: "multiplayer-game-stamp")
 
             if state.isSpectating {
                 MultiplayerSpectatorOverlay(theme: palette)
@@ -1279,67 +1284,83 @@ struct MultiplayerLiveView: View {
         let tone = palette.color(at: player.colorIndex)
         let shape = RoundedRectangle(cornerRadius: palette.isPixel ? 0 : 9)
 
-        return HStack(spacing: dense ? 2 : 4) {
-            Group {
-                if let petID = player.petID {
-                    PetCompanionView(
-                        petID: petID,
-                        size: petSide,
-                        placement: .gameplay,
-                        facing: .halfRight
-                    )
-                    .accessibilityIdentifier("multiplayer-player-pet-\(player.seat)")
-                } else {
-                    Image(systemName: "person.crop.circle.fill")
-                        .font(.system(size: dense ? 21 : 25))
+        return VStack(spacing: 2) {
+            HStack(spacing: dense ? 2 : 4) {
+                Group {
+                    if let petID = player.petID {
+                        PetCompanionView(
+                            petID: petID,
+                            size: petSide,
+                            placement: .gameplay,
+                            facing: .halfRight
+                        )
+                        .accessibilityIdentifier("multiplayer-player-pet-\(player.seat)")
+                    } else {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: dense ? 21 : 25))
+                            .foregroundStyle(Color(hex: palette.muted))
+                    }
+                }
+                .frame(width: petSide + 2)
+                .frame(maxHeight: .infinity, alignment: .center)
+
+                VStack(spacing: 0) {
+                    Text(player.points.formatted())
+                        .font(
+                            palette.appFont(
+                                size: dense ? 10 : 13,
+                                weight: .black,
+                                relativeTo: .headline
+                            )
+                        )
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.60)
+                    Text(player.name)
+                        .font(
+                            palette.appFont(
+                                size: dense ? 7 : 8,
+                                weight: .bold,
+                                relativeTo: .caption2
+                            )
+                        )
                         .foregroundStyle(Color(hex: palette.muted))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.52)
+                        .allowsTightening(true)
+                }
+                .frame(maxWidth: .infinity)
+
+                Text("\(player.multiplier)×")
+                    .font(
+                        palette.appFont(
+                            size: dense ? 15 : 21,
+                            weight: .black,
+                            relativeTo: .title3
+                        )
+                    )
+                    .foregroundStyle(tone)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.55)
+                    .allowsTightening(true)
+                    .frame(width: dense ? 28 : 31)
+            }
+            .padding(.horizontal, dense ? 3 : 6)
+            .frame(height: MultiplayerLiveLayoutMetrics.badgeHeight - 17)
+            Group {
+                if player.lives == 0, state.inputMode != .finalizing {
+                    GlowStampView(
+                        text: "SPECTATING", tone: Color(hex: palette.muted), theme: palette,
+                        tilt: 0, size: dense ? 6 : 7, horizontalPadding: 3, verticalPadding: 1
+                    )
+                } else {
+                    Text(player.isCurrentPlayer ? "YOU" : " ")
+                        .font(palette.appFont(size: 7, weight: .black, relativeTo: .caption2))
+                        .foregroundStyle(tone)
                 }
             }
-            .frame(width: petSide + 2)
-            .frame(maxHeight: .infinity, alignment: .center)
-
-            VStack(spacing: 0) {
-                Text(player.points.formatted())
-                    .font(
-                        palette.appFont(
-                            size: dense ? 10 : 13,
-                            weight: .black,
-                            relativeTo: .headline
-                        )
-                    )
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.60)
-                Text(player.name)
-                    .font(
-                        palette.appFont(
-                            size: dense ? 7 : 8,
-                            weight: .bold,
-                            relativeTo: .caption2
-                        )
-                    )
-                    .foregroundStyle(Color(hex: palette.muted))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.52)
-                    .allowsTightening(true)
-            }
-            .frame(maxWidth: .infinity)
-
-            Text("\(player.multiplier)×")
-                .font(
-                    palette.appFont(
-                        size: dense ? 15 : 21,
-                        weight: .black,
-                        relativeTo: .title3
-                    )
-                )
-                .foregroundStyle(tone)
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
-                .allowsTightening(true)
-                .frame(width: dense ? 28 : 31)
+            .frame(height: 13)
         }
-        .padding(.horizontal, dense ? 3 : 6)
         .frame(height: MultiplayerLiveLayoutMetrics.badgeHeight)
         .frame(maxWidth: .infinity)
         .background(
@@ -1363,12 +1384,12 @@ struct MultiplayerLiveView: View {
                     radius: palette.isPixel ? 0 : 10
                 )
         }
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .top) {
             if player.isLeader {
                 Image(systemName: "crown.fill")
-                    .font(.system(size: 10, weight: .black))
+                    .font(.system(size: 13, weight: .black))
                     .foregroundStyle(Color(hex: "#ffd84d"))
-                    .offset(x: 3, y: -5)
+                    .offset(y: -9)
                     .shadow(color: Color(hex: "#ffd84d"), radius: palette.isPixel ? 0 : 4)
                     .accessibilityHidden(true)
             }
@@ -1377,6 +1398,8 @@ struct MultiplayerLiveView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             "\(player.name), \(player.points) points, multiplier \(player.multiplier), \(player.lives) lives"
+                + (player.lives == 0 && state.inputMode != .finalizing ? ", Spectating" : "")
+                + (player.isLeader ? ", Score leader" : "")
         )
         .accessibilityValue(player.petID == nil ? "Default avatar" : "Pet half right")
         .accessibilityIdentifier("multiplayer-player-\(player.seat)")
@@ -1438,10 +1461,6 @@ private struct MultiplayerSpectatorOverlay: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("YOU LOSE")
-                .font(theme.appFont(size: 28, weight: .black, relativeTo: .title))
-                .foregroundStyle(Color(hex: GameHUDMetrics.livesColorHex))
-                .accessibilityIdentifier("multiplayer-you-lose")
             GlowStampView(
                 text: "SPECTATING", tone: Color(hex: theme.chromeAccent),
                 theme: theme, tilt: -4, size: 19
@@ -1482,6 +1501,12 @@ struct MultiplayerResultsView: View {
                         .foregroundStyle(Color(hex: palette.muted))
                         .multilineTextAlignment(.center)
                 }
+                if state.localSubmissionAccepted && !(state.isPersistenceConfirmed && state.isBalanceCurrent) {
+                    Button(state.isRefreshing ? "Syncing result…" : "Check saved result", action: onRefresh)
+                        .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+                        .disabled(state.isRefreshing)
+                        .accessibilityIdentifier("multiplayer-retry-result-save")
+                }
                 actionRow
             }
             .foregroundStyle(Color(hex: palette.foreground))
@@ -1501,8 +1526,9 @@ struct MultiplayerResultsView: View {
                 .font(.system(size: 30, weight: .black))
                 .foregroundStyle(settlementColor)
                 .shadow(color: settlementColor.opacity(0.45), radius: palette.isPixel ? 0 : 9)
-            Text(state.settlement.title)
+            Text(state.outcomeTitle)
                 .font(palette.appFont(size: 25, weight: .black, relativeTo: .title))
+                .accessibilityIdentifier("multiplayer-result-outcome")
             Text(settlementSubtitle)
                 .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
                 .foregroundStyle(Color(hex: palette.muted))
@@ -1544,8 +1570,8 @@ struct MultiplayerResultsView: View {
             "\(submitted) of \(total) matching transcripts received"
         case .settled(let eligible):
             eligible
-                ? "Protocol-verified, peer-consistent result"
-                : "Complete, but not leaderboard eligible"
+                ? "Final scores confirmed by the game server"
+                : "Final scores · highest score wins"
         case .review(let reason):
             reason ?? "This result is not ranked while review is pending."
         case .cancelled(let reason):
@@ -1634,7 +1660,7 @@ struct MultiplayerResultsView: View {
             padding: 10
         )
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("multiplayer-result-\(result.place)")
+        .accessibilityIdentifier("multiplayer-result-\(result.id)")
     }
 
     private var actionRow: some View {

@@ -30,13 +30,15 @@ final class MultiplayerRoomSearchTests: XCTestCase {
         let controller = makeController()
         defer { controller.close() }
         controller.receive(
-            .welcome(playerID: "p0", connectionID: "c0", serverTimeMs: 0, gameplayRevision: 2, roomDiscoveryRevision: 1)
+            .welcome(
+                playerID: "p0", connectionID: "c0", serverTimeMs: 0, gameplayRevision: MP2Protocol.gameplayRevision,
+                roomDiscoveryRevision: 1)
         )
         controller.createMatch(capacity: 4, isPrivate: true)
         var value = MP2Room(
             id: "room", revision: 1, rosterRevision: 1, hostPlayerID: "p0", capacity: 4,
             phase: .waiting, players: [.init(id: "p0", seat: 0, colorIndex: 0, name: "Alice")],
-            gameplayRevision: 2, roomCode: "BCDF2345", isPrivate: true)
+            gameplayRevision: MP2Protocol.gameplayRevision, roomCode: "BCDF2345", isPrivate: true)
         controller.receive(.room(value))
         XCTAssertEqual(controller.waitingState?.roomCode, "BCDF2345")
         XCTAssertEqual(controller.waitingState?.isPrivate, true)
@@ -65,7 +67,9 @@ final class MultiplayerRoomSearchTests: XCTestCase {
     func testOldServerCannotSilentlyCreateAPublicGameForAPrivateRequest() {
         let controller = makeController()
         defer { controller.close() }
-        controller.receive(.welcome(playerID: "p0", connectionID: "old", serverTimeMs: 0, gameplayRevision: 2))
+        controller.receive(
+            .welcome(
+                playerID: "p0", connectionID: "old", serverTimeMs: 0, gameplayRevision: MP2Protocol.gameplayRevision))
         XCTAssertFalse(controller.hubState.supportsRoomCodes)
         controller.createMatch(capacity: 2, isPrivate: true)
         XCTAssertFalse(controller.hubState.isCreating)
@@ -76,7 +80,8 @@ final class MultiplayerRoomSearchTests: XCTestCase {
                 .init(
                     id: "public", revision: 1, rosterRevision: 1,
                     hostPlayerID: "p0", capacity: 2, phase: .waiting,
-                    players: [.init(id: "p0", seat: 0, colorIndex: 0, name: "Alice")], gameplayRevision: 2)))
+                    players: [.init(id: "p0", seat: 0, colorIndex: 0, name: "Alice")],
+                    gameplayRevision: MP2Protocol.gameplayRevision)))
         XCTAssertNil(controller.waitingState)
         controller.createMatch(capacity: 2)
         XCTAssertTrue(controller.hubState.isCreating, "Public legacy rooms remain compatible")
@@ -98,7 +103,9 @@ final class MultiplayerRoomSearchTests: XCTestCase {
         let controller = MultiplayerController(
             backend: BackendClient(isUITestOffline: true), gameCenter: GameCenterService(), audio: AudioController())
         controller.receive(
-            .welcome(playerID: "p0", connectionID: "c0", serverTimeMs: 0, gameplayRevision: 2, roomDiscoveryRevision: 1)
+            .welcome(
+                playerID: "p0", connectionID: "c0", serverTimeMs: 0, gameplayRevision: MP2Protocol.gameplayRevision,
+                roomDiscoveryRevision: 1)
         )
         return controller
     }
@@ -106,6 +113,6 @@ final class MultiplayerRoomSearchTests: XCTestCase {
     private func room(_ id: String, isPrivate: Bool = false) -> MP2RoomSummary {
         .init(
             id: id, hostName: "Alice", capacity: 4, playerCount: 1, revision: 1, phase: .waiting,
-            gameplayRevision: 2, roomCode: "BCDF2345", isPrivate: isPrivate)
+            gameplayRevision: MP2Protocol.gameplayRevision, roomCode: "BCDF2345", isPrivate: isPrivate)
     }
 }
