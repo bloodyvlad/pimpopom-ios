@@ -99,6 +99,23 @@ struct RoomSearchTests {
         }
     }
 
+    @Test func legacyCreateWithoutPrivacyFieldCreatesPublicRoomWithCode() async throws {
+        let service = try service(code: { "ABCD2345" })
+        let host = try await connect(service, "legacy", revision: 1)
+        let observer = try await connect(service, "observer", revision: 1)
+        let create = try JSONDecoder().decode(MP2ClientMessage.self, from: Data(#"{"create":{"capacity":3}}"#.utf8))
+        await service.receive(create, from: "legacy", now: 1)
+        let roomID = try #require(await service.connections["legacy"]?.roomID)
+        let room = try #require(await service.rooms[roomID]?.value)
+        #expect(room.roomCode == "ABCD2345" && room.isPrivate == false)
+        #expect(room.gameplayRevision == 1)
+        let summary = try #require(await service.directory(gameplayRevision: 1).first)
+        #expect(summary.id == roomID && summary.roomCode == "ABCD2345" && summary.isPrivate == false)
+        for output in [host, observer] {
+            #expect(await messages(output).allSatisfy { if case .searchResults = $0 { false } else { true } })
+        }
+    }
+
     @Test func codeAlphabetIsUnambiguousAndGenerationHasFixedShape() {
         #expect(RoomCode.alphabet.count == 32)
         #expect(Set(RoomCode.alphabet).count == 32)
