@@ -5,6 +5,14 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 ## Current candidate, beta, and rollback
 
+Build 28 is implemented locally; PHP `f84dc921` was deployed first on 2026-09-11
+to **speedytapper.otcsoft.com** only. All 69 source hashes and 35 HTTPS checks pass;
+v3/v4/v5 admission works, schema 024/private config/original workers are unchanged.
+Exact artifact/rollback evidence is retained in
+`/Users/vlad/Documents/SpeedyTapper-release-artifacts/20260911-arcade-v5.mTFG0j/RELEASE.md`.
+Railway and TestFlight remain pending until the new release record replaces this
+candidate note. Existing Apple state below is the verified build-27 baseline.
+
 | Item | Current truth |
 | --- | --- |
 | Current beta | `1.02 (27)`, uploaded 2026-09-10; VALID |

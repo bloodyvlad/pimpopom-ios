@@ -14,7 +14,7 @@ struct BackendError: LocalizedError {
 final class BackendClient: ObservableObject, StoreKitCreditServing {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
     static let deployedBuildID = "20260729-1"
-    static let rankedRuleset = "reaction-proof-v4"
+    static let rankedRuleset = "reaction-proof-v5"
     static let rankedProofVersion = 3
     static let accountDeletionConfirmation = "DELETE MY ACCOUNT"
     static let accountDeletionAccountMismatchCode = "account-reauthentication-mismatch"

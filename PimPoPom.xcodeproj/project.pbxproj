@@ -65,6 +65,7 @@
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
 		8EEE97F8C4112AC5BF00051D /* GameCenterAutoLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */; };
+		8F6FB25A3E2EDC1D492D553F /* MultiplayerRoomSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */; };
 		90D6A66A2314920DACE7DF01 /* ScreenshotFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */; };
 		9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */; };
 		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
@@ -99,6 +100,7 @@
 		D67810BA07DC1F0D8729A51C /* muse-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = BE684D0E61B8053630D1E5B0 /* muse-sprite.png */; };
 		D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */ = {isa = PBXBuildFile; fileRef = EB365660F1E96C034ECE4A85 /* tauta-bed.png */; };
 		DFBB0EAB96AFD9C8BC9AA6F9 /* LocalStoreKitCreditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */; };
+		E1A12574C8680DB37138EEA1 /* MultiplayerRoomControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E604C3ADEDCC5FC4D908C9 /* MultiplayerRoomControls.swift */; };
 		E359484EDDD010BB1C4A60B7 /* StoreKitConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */; };
 		E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */ = {isa = PBXBuildFile; fileRef = 86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */; };
 		E7A3D10CE00DB4CB609FE3B2 /* MultiplayerFlowLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */; };
@@ -198,8 +200,10 @@
 		905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeQuickActionController.swift; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixture.swift; sourceTree = "<group>"; };
+		9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerRoomSearchTests.swift; sourceTree = "<group>"; };
 		950E607413974581EF2478D4 /* MultiplayerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerModels.swift; sourceTree = "<group>"; };
 		9648B3C4989B1B1FF9557057 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		99E604C3ADEDCC5FC4D908C9 /* MultiplayerRoomControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerRoomControls.swift; sourceTree = "<group>"; };
 		A094CABC4F0AA44F4126624B /* kesha-perch.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-perch.png"; sourceTree = "<group>"; };
 		A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-ice-floe.png"; sourceTree = "<group>"; };
 		A3E2A0743676367B419D7078 /* PurchaseController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseController.swift; sourceTree = "<group>"; };
@@ -382,6 +386,7 @@
 				8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */,
 				4E56F771992EE742330A38AF /* MultiplayerFlowView.swift */,
 				D5B043C470341B214C7C2E10 /* MultiplayerPresentation.swift */,
+				99E604C3ADEDCC5FC4D908C9 /* MultiplayerRoomControls.swift */,
 				0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */,
 				A54435E3370FE5F0E7640F4F /* PetShopView.swift */,
 				E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */,
@@ -425,6 +430,7 @@
 				3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */,
 				834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */,
 				DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */,
+				9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */,
 				618A210FFBCD32F320B96ECB /* MultiplayerSocketTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
 				6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */,
@@ -707,6 +713,7 @@
 				823E49E0F7882DF1E38717F4 /* LeaderboardPresentationTests.swift in Sources */,
 				E7A3D10CE00DB4CB609FE3B2 /* MultiplayerFlowLifecycleTests.swift in Sources */,
 				48A60FBB88983658EEC67DD5 /* MultiplayerPresentationTests.swift in Sources */,
+				8F6FB25A3E2EDC1D492D553F /* MultiplayerRoomSearchTests.swift in Sources */,
 				A015A44A16D51992A791F3DB /* MultiplayerSocketTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
 				2BC9C266D38E20EC72551C54 /* PurchaseControllerTests.swift in Sources */,
@@ -753,6 +760,7 @@
 				22289F60746CA9C63CD2DD49 /* MultiplayerFlowView.swift in Sources */,
 				B4F2844849CAE58E84BFA13F /* MultiplayerModels.swift in Sources */,
 				EE2F6AB65E8581D5D3182B82 /* MultiplayerPresentation.swift in Sources */,
+				E1A12574C8680DB37138EEA1 /* MultiplayerRoomControls.swift in Sources */,
 				C528DC121C2F2E97DA521941 /* MultiplayerSocket.swift in Sources */,
 				54E03409B77042AD52C524AF /* MultiplayerSpriteBoard.swift in Sources */,
 				E8F87EE04771FEC4028EF921 /* MultiplayerViews.swift in Sources */,

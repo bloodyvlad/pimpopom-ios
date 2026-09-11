@@ -835,7 +835,8 @@ final class PimPoPomUITests: XCTestCase {
             app.launch()
             let label = kind == "heart" ? "Heart, restores" : "Clock, slows"
             let pickup = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
-            XCTAssertTrue(pickup.waitForExistence(timeout: 30), "Missing \(theme) \(kind) pickup")
+            XCTAssertTrue(pickup.waitForExistence(timeout: 65), "Missing \(theme) \(kind) pickup")
+            XCTAssertTrue(app.buttons["arcade-cell-15"].exists, "Power-ups require the 4×4 board")
             XCTAssertTrue(pickup.isHittable)
             attachScreenshot(of: app, name: "Arcade \(theme) \(kind) before collection")
             pickup.tap()
@@ -845,6 +846,46 @@ final class PimPoPomUITests: XCTestCase {
                 attachScreenshot(of: app, name: "Arcade Pixel clock slowed pace")
             }
             XCTAssertFalse(pickup.exists)
+            app.terminate()
+        }
+    }
+
+    func testMultiplayerRoomControlsAcrossThemes() {
+        let app = XCUIApplication()
+        for theme in ["classic", "disco", "light", "pixel"] {
+            app.launchArguments = [
+                "--uitesting", "--deterministic-game", "--ui-test-theme=\(theme)",
+                "--ui-test-multiplayer-hub-fixture",
+            ]
+            app.launch()
+            let search = app.textFields["multiplayer-room-search"]
+            XCTAssertTrue(search.waitForExistence(timeout: 6))
+            XCTAssertTrue(search.isHittable)
+            let privacy = app.switches["multiplayer-private-toggle"]
+            XCTAssertTrue(privacy.isHittable)
+            privacy.tap()
+            XCTAssertEqual(privacy.value as? String, "1")
+            XCTAssertTrue(app.buttons["create-multiplayer-game"].isHittable)
+            attachScreenshot(of: app, name: "\(theme) room search and private creation")
+            app.terminate()
+
+            app.launchArguments = [
+                "--uitesting", "--deterministic-game", "--ui-test-theme=\(theme)",
+                "--ui-test-multiplayer-waiting-fixture",
+            ]
+            app.launch()
+            let code = app.staticTexts["multiplayer-room-code"]
+            XCTAssertTrue(code.waitForExistence(timeout: 6))
+            XCTAssertEqual(code.label, "BCDF2345")
+            XCTAssertTrue(app.staticTexts["PRIVATE GAME CODE"].exists)
+            let copy = app.buttons["multiplayer-copy-code"]
+            XCTAssertTrue(copy.isHittable)
+            copy.tap()
+            XCTAssertEqual(copy.label, "Game code copied")
+            XCTAssertTrue(app.buttons["multiplayer-ready"].isHittable)
+            XCTAssertTrue(app.buttons["start-multiplayer-match"].isHittable)
+            XCTAssertTrue(app.buttons["leave-multiplayer"].isHittable)
+            attachScreenshot(of: app, name: "\(theme) private waiting room and code")
             app.terminate()
         }
     }

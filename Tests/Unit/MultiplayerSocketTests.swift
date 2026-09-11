@@ -18,11 +18,11 @@ final class MultiplayerSocketTests: XCTestCase {
 
         do {
             let welcomedHost: String = try await Self.nextValue(from: hostEvents) {
-                if case .welcome(let playerID, _, _, let revision) = $0, revision == 2 { return playerID }
+                if case .welcome(let playerID, _, _, let revision, _) = $0, revision == 2 { return playerID }
                 return nil
             }
             let welcomedGuest: String = try await Self.nextValue(from: guestEvents) {
-                if case .welcome(let playerID, _, _, let revision) = $0, revision == 2 { return playerID }
+                if case .welcome(let playerID, _, _, let revision, _) = $0, revision == 2 { return playerID }
                 return nil
             }
             XCTAssertEqual(welcomedHost, hostID)

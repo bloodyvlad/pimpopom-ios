@@ -47,6 +47,9 @@ The owner-directed Arcade v4 extension, released in build 27, adds heart restora
 and temporary 70%-rate clocks. The compatible PHP verifier was deployed first;
 legacy v3 defaults remain supported and Multiplayer has no clocks. See
 `docs/ARCADE_POWERUPS.md`. No season/economy reset is included.
+The owner-directed build-28 candidate gates all pickups on the actual 4×4 board.
+Arcade selects v5/proof 3 so v3/v4 replay remains unchanged. Multiplayer retains
+revision 2: its authority can delay hearts without changing the client contract.
 
 ## D-05 — Keep identity provider-separated
 
@@ -166,6 +169,12 @@ feedback without waiting for a network round trip. Server receipts/snapshots rec
 that presentation. A disconnected seat has a 15-second return grace while others
 continue. No peer ACK barrier is permitted. Latency and 60/120 Hz targets remain
 acceptance goals, not measurements. Detailed behavior and gaps live in the v2 brief.
+
+Build 28 adds stable eight-character room codes and an explicit room-discovery
+capability. Public games can be searched by creator nickname or exact code/UUID;
+private games are absent from public/name results and found only by exact code or
+UUID. Codes grant discoverability, not account authentication. Valid signed-in
+players still need an open compatible waiting room. No password is required.
 
 ## D-14 — Keep release evidence exact
 

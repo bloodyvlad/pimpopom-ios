@@ -87,18 +87,18 @@ final class GameCoordinator: ObservableObject {
             let engine =
                 arguments.contains("--deterministic-game")
                 ? GameEngine(
-                    configuration: configuration, ruleset: .v4,
+                    configuration: configuration, ruleset: .v5,
                     random: {
                         arguments.contains("--uitesting") && arguments.contains("--ui-test-pickup-kind=clock")
                             ? 0.99 : 0
                     })
-                : GameEngine(configuration: configuration, ruleset: .v4)
+                : GameEngine(configuration: configuration, ruleset: .v5)
             screenshotAutoplayEnabled = screenshotFixture?.autoplayEnabled == true
             screenshotAutoplayRandom = ScreenshotAutoplayRandom(
                 seed: screenshotFixture?.autoplaySeed ?? 0
             )
         #else
-            let engine = GameEngine(ruleset: .v4)
+            let engine = GameEngine(ruleset: .v5)
             screenshotAutoplayEnabled = false
             screenshotAutoplayRandom = ScreenshotAutoplayRandom(seed: 0)
         #endif

@@ -1,5 +1,9 @@
 # Arcade power-ups — build 27
 
+Build 28 changes only the minimum pickup grid to actual 4×4 via explicit v5/proof
+3 and replaces clock artwork with a themed rewind clock. The retained v4 contract
+below still governs build 27; see [BUILD28](BUILD28.md) for the current delta.
+
 Owner-requested and released 2026-09-10. Build 27 is VALID and approved for Internal
 QA and External QA; the compatible PHP verifier was deployed first. Zen and
 Multiplayer timing are unchanged. Exact release evidence is in [RELEASE](RELEASE.md).

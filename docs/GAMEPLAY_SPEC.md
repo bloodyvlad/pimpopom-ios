@@ -1,8 +1,9 @@
 # Current gameplay specification
 
-Build 27 uses Arcade v4 power-ups and Multiplayer revision 2. The compatible PHP
-verifier is deployed and legacy v3 clients remain supported. Power-up rules are in
-[ARCADE_POWERUPS](ARCADE_POWERUPS.md); Zen and Multiplayer timing are unchanged.
+Build 28's candidate uses Arcade v5 power-ups and Multiplayer revision 2. Power-ups
+require the actual 4×4 board in both modes. Build 27's v4 remains supported by the
+compatible PHP candidate. Power-up rules are in [ARCADE_POWERUPS](ARCADE_POWERUPS.md)
+and the [build-28 delta](BUILD28.md); Zen and Multiplayer timing are unchanged.
 Release and deployment evidence remain separate in CURRENT_VERSION.md.
 
 ## Modes
@@ -10,7 +11,7 @@ Release and deployment evidence remain separate in CURRENT_VERSION.md.
 ### Arcade
 
 - Wire identifier `normal`; player-facing name **Arcade**.
-- Legacy v3 ends after three mistakes. Current v4 ends at zero lives;
+- Legacy v3 ends after three mistakes. V4/v5 end at zero lives;
   randomly collected hearts restore one life, capped at three.
 - Wrong color, decoy, inactive/empty space, and expired correct target are mistakes.
 - Mistakes reset the multiplier and cost one life. Nonterminal mistakes start
@@ -58,7 +59,7 @@ Release and deployment evidence remain separate in CURRENT_VERSION.md.
   after correct taps. Natural expiry grants one beneficiary the unmultiplied
   550-point dodge. Use one global Arcade cap, bounded by `cellCount - 1`, even
   with four players. Personal mistakes clear that seat's decoys without credit.
-- Neutral heart pickups begin on 2×2 or larger: a random 12–20-second opportunity,
+- Neutral heart pickups begin only on 4×4: a random 12–20-second opportunity,
   one live heart at most, three seconds visible, only when at least two cells are
   free so one remains available for targets. A failed placement retries after
   250 ms. The first server-admitted claimant restores one life, capped at three;
@@ -152,7 +153,7 @@ are neutral and never multiplied. Input exactly at the deadline is late.
 
 ## Arcade proof and ranking
 
-Current Arcade uses compatibility build `20260729-1`, `reaction-proof-v4`, proof 3.
+Current candidate Arcade uses compatibility build `20260729-1`, `reaction-proof-v5`, proof 3.
 Legacy v3/proof 2 remains accepted under its issued contract. V4 retains these
 tuple shapes and adds pickup events 7–10 as specified in
 [ARCADE_POWERUPS](ARCADE_POWERUPS.md). Shared integer tuples:

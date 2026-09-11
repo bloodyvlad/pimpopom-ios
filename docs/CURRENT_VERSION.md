@@ -1,6 +1,17 @@
 # Current version slice
 
-Verified 2026-09-10. Source, deployment and Apple state are separate evidence.
+Release baseline verified 2026-09-10; build-28 candidate updated 2026-09-11.
+Source, deployment and Apple state are separate evidence.
+
+## Build 28 candidate (not yet uploaded)
+
+Only actual 4×4 boards allow power-ups; Arcade explicitly requests v5/proof 3,
+with retained v3/v4 PHP compatibility. Clock artwork includes a counterclockwise
+arrow in every theme. Multiplayer adds stable eight-character codes, public
+creator-name search and code-only private discovery. The app requires advertised
+room-discovery support before private creation. See [BUILD28](BUILD28.md).
+PHP verification/deployment must precede the TestFlight upload; the table below
+continues to identify the last verified release until the new release is checked.
 
 ## Build 27 update
 

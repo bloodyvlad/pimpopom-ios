@@ -215,6 +215,19 @@ final class GameplayLifecycleTests: XCTestCase {
                 === GameplayPickupTextureFactory.texture(symbol: .heart, theme: .resolve("pixel")))
     }
 
+    func testRewindClockArtworkRendersInEveryTheme() throws {
+        XCTAssertNotNil(UIImage(systemName: "clock.arrow.circlepath"))
+        for theme in ThemePalette.all {
+            let texture = GameplayPickupTextureFactory.texture(symbol: .clock, theme: theme)
+            let image = UIImage(cgImage: texture.cgImage())
+            XCTAssertGreaterThan(image.size.width, 0)
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "\(theme.id) counterclockwise clock"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     func testLifecycleMusicRoutingSilencesEveryTerminalPathBeforeMenuReturns() {
         XCTAssertEqual(GameplayMusicRouting.context(for: .started), .gameplay)
         XCTAssertEqual(GameplayMusicRouting.context(for: .finished), .silent)

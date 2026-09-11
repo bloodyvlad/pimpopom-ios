@@ -148,10 +148,12 @@ struct MultiplayerHubView: View {
 
     let state: MultiplayerPresentation.HubState
     let onRefresh: () -> Void
-    let onCreate: (Int) -> Void
+    let onCreate: (Int, Bool) -> Void
     let onJoin: (String) -> Void
+    var onSearch: (String) -> Void = { _ in }
 
     @State private var capacity = 2
+    @State private var isPrivate = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -159,12 +161,29 @@ struct MultiplayerHubView: View {
         ZStack {
             AppThemeBackground(theme: palette)
 
-            VStack(spacing: 12) {
-                header
-                availabilityCard
-                createCard
-                lobbyList
+            ScrollView {
+                VStack(spacing: 12) {
+                    header
+                    availabilityCard
+                    createCard
+                    if let message = state.message {
+                        Text(message)
+                            .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.petsAccent))
+                            .multilineTextAlignment(.center)
+                            .accessibilityIdentifier("multiplayer-hub-message")
+                    }
+                    MultiplayerRoomSearchView(
+                        query: state.searchQuery, isSearching: state.isRefreshing,
+                        theme: palette, onSearch: onSearch
+                    )
+                    .disabled(!state.supportsRoomCodes)
+                    lobbyList
+                }
+                .frame(maxWidth: .infinity)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .refreshable { onRefresh() }
             .foregroundStyle(Color(hex: palette.foreground))
             .padding(14)
             .frame(maxWidth: 620, maxHeight: .infinity)
@@ -372,8 +391,24 @@ struct MultiplayerHubView: View {
                 }
             }
 
+            Toggle(isOn: $isPrivate) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Private game")
+                        .font(palette.appFont(size: 13, weight: .bold, relativeTo: .subheadline))
+                    Text("Hidden from the list. Anyone with the code can join.")
+                        .font(
+                            palette.appFont(
+                                size: palette.legibleSmallCopySize(9), weight: .medium, relativeTo: .caption)
+                        )
+                        .foregroundStyle(Color(hex: palette.muted))
+                }
+            }
+            .tint(Color(hex: palette.chromeAccent))
+            .disabled(!state.supportsRoomCodes && !isPrivate)
+            .accessibilityIdentifier("multiplayer-private-toggle")
+
             Button {
-                onCreate(capacity)
+                onCreate(capacity, isPrivate)
             } label: {
                 Label(
                     state.isCreating ? "Creating…" : "Create \(capacity)-player game",
@@ -388,6 +423,7 @@ struct MultiplayerHubView: View {
             )
             .disabled(
                 !state.availability.isAvailable
+                    || (isPrivate && !state.supportsRoomCodes)
                     || state.isCreating
                     || state.joiningLobbyID != nil
             )
@@ -404,27 +440,28 @@ struct MultiplayerHubView: View {
                 Image(systemName: "person.3.sequence.fill")
                     .font(.system(size: 34, weight: .bold))
                     .foregroundStyle(Color(hex: palette.chromeAccent))
-                Text(state.message ?? "No open games yet")
+                Text(state.searchQuery.isEmpty ? "No open games yet" : "No matching games")
                     .font(palette.appFont(size: 15, weight: .bold, relativeTo: .body))
                     .foregroundStyle(Color(hex: palette.muted))
                     .multilineTextAlignment(.center)
-                Text("Create one, or pull to refresh.")
-                    .font(palette.appFont(size: 11, weight: .medium, relativeTo: .caption))
-                    .foregroundStyle(Color(hex: palette.muted).opacity(0.82))
+                Text(
+                    state.searchQuery.isEmpty
+                        ? "Create one, or pull to refresh."
+                        : "Private games need the complete code. Only open games appear."
+                )
+                .font(palette.appFont(size: 11, weight: .medium, relativeTo: .caption))
+                .foregroundStyle(Color(hex: palette.muted).opacity(0.82))
                 Spacer()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 140)
             .accessibilityIdentifier("multiplayer-lobbies-empty")
         } else {
-            ScrollView {
-                LazyVStack(spacing: 8) {
-                    ForEach(state.lobbies) { lobby in
-                        lobbyRow(lobby)
-                    }
+            LazyVStack(spacing: 8) {
+                ForEach(state.lobbies) { lobby in
+                    lobbyRow(lobby)
                 }
-                .padding(.vertical, 2)
             }
-            .refreshable { onRefresh() }
+            .padding(.vertical, 2)
             .accessibilityIdentifier("multiplayer-lobbies")
         }
     }
@@ -451,6 +488,15 @@ struct MultiplayerHubView: View {
                 )
                 .font(palette.appFont(size: 10, weight: .bold, relativeTo: .caption))
                 .foregroundStyle(Color(hex: palette.muted))
+                if let code = lobby.roomCode {
+                    Text(lobby.isPrivate ? "PRIVATE · \(code)" : "CODE · \(code)")
+                        .font(
+                            palette.appFont(size: palette.legibleSmallCopySize(9), weight: .bold, relativeTo: .caption)
+                        )
+                        .foregroundStyle(Color(hex: palette.chromeAccent))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
             Spacer(minLength: 8)
             Button {
@@ -512,6 +558,9 @@ struct MultiplayerWaitingRoomView: View {
 
                 VStack(spacing: compact ? 6 : 12) {
                     header(compact: compact)
+                    if let code = state.roomCode {
+                        MultiplayerRoomCodeView(code: code, isPrivate: state.isPrivate, theme: palette)
+                    }
                     if let message = state.message {
                         Text(message)
                             .font(
@@ -525,12 +574,18 @@ struct MultiplayerWaitingRoomView: View {
                             .multilineTextAlignment(.center)
                             .accessibilityIdentifier("multiplayer-waiting-message")
                     }
-                    Color.clear
-                        .frame(height: MultiplayerWaitingRoomLayoutMetrics.participantTopOffset)
-                        .accessibilityHidden(true)
-                    participantGrid
-                    Spacer(minLength: compact ? 0 : 4)
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            Color.clear
+                                .frame(height: MultiplayerWaitingRoomLayoutMetrics.participantTopOffset)
+                                .accessibilityHidden(true)
+                            participantGrid
+                        }
+                    }
+                    .frame(maxHeight: .infinity)
+                    .accessibilityIdentifier("multiplayer-waiting-roster-scroll")
                     actionRow
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .foregroundStyle(Color(hex: palette.foreground))
                 .padding(compact ? 10 : 14)
@@ -916,7 +971,7 @@ struct MultiplayerLiveView: View {
                     playerCount: state.players.count
                 )
                 VStack(spacing: 0) {
-                    MultiplayerGameUtilityHeader(theme: palette, onMenu: onMenu)
+                    MultiplayerGameUtilityHeader(theme: palette, roomCode: state.roomCode, onMenu: onMenu)
                         .frame(height: MultiplayerLiveLayoutMetrics.utilityHeaderHeight)
                     Color.clear
                         .frame(height: MultiplayerLiveLayoutMetrics.utilityToHUDSpacing)
@@ -1351,12 +1406,21 @@ struct MultiplayerLiveView: View {
 
 private struct MultiplayerGameUtilityHeader: View {
     let theme: ThemePalette
+    let roomCode: String?
     let onMenu: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            PimPoPomWordmark(theme: theme, size: 18, identifier: "multiplayer-game-logo")
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                PimPoPomWordmark(theme: theme, size: 18, identifier: "multiplayer-game-logo")
+                if let roomCode {
+                    Text("GAME · \(roomCode)")
+                        .font(theme.appFont(size: theme.legibleSmallCopySize(8), weight: .bold, relativeTo: .caption2))
+                        .foregroundStyle(Color(hex: theme.muted))
+                        .accessibilityIdentifier("multiplayer-live-code")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onMenu) {
                 Label("Menu", systemImage: "house.fill")
                     .font(theme.appFont(size: 12, weight: .bold, relativeTo: .caption))
@@ -1405,6 +1469,12 @@ struct MultiplayerResultsView: View {
 
             VStack(spacing: 12) {
                 settlementHeader
+                if let code = state.roomCode {
+                    Text("GAME · \(code)")
+                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                        .foregroundStyle(Color(hex: palette.muted))
+                        .accessibilityIdentifier("multiplayer-results-code")
+                }
                 resultRows
                 if let message = state.message {
                     Text(message)

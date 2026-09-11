@@ -40,6 +40,8 @@ enum MultiplayerPresentation {
         let hostName: String
         let hostPetID: String?
         let expiresAt: Date?
+        let roomCode: String?
+        let isPrivate: Bool
 
         init(
             id: String,
@@ -47,7 +49,9 @@ enum MultiplayerPresentation {
             playerCount: Int,
             hostName: String,
             hostPetID: String?,
-            expiresAt: Date? = nil
+            expiresAt: Date? = nil,
+            roomCode: String? = nil,
+            isPrivate: Bool = false
         ) {
             self.id = id
             self.capacity = capacity
@@ -55,6 +59,8 @@ enum MultiplayerPresentation {
             self.hostName = hostName
             self.hostPetID = hostPetID
             self.expiresAt = expiresAt
+            self.roomCode = roomCode
+            self.isPrivate = isPrivate
         }
 
         var openSeatCount: Int { max(0, capacity - playerCount) }
@@ -67,6 +73,8 @@ enum MultiplayerPresentation {
         var isCreating: Bool
         var joiningLobbyID: String?
         var message: String? = nil
+        var searchQuery = ""
+        var supportsRoomCodes = false
 
         init(
             availability: Availability,
@@ -207,6 +215,8 @@ enum MultiplayerPresentation {
         var message: String?
         var expiresAt: Date?
         var pendingReadyIntent: Bool?
+        let roomCode: String?
+        let isPrivate: Bool
 
         init(
             matchID: String,
@@ -217,7 +227,9 @@ enum MultiplayerPresentation {
             isMutationPending: Bool,
             message: String? = nil,
             expiresAt: Date? = nil,
-            pendingReadyIntent: Bool? = nil
+            pendingReadyIntent: Bool? = nil,
+            roomCode: String? = nil,
+            isPrivate: Bool = false
         ) {
             self.matchID = matchID
             self.capacity = capacity
@@ -228,6 +240,8 @@ enum MultiplayerPresentation {
             self.message = message
             self.expiresAt = expiresAt
             self.pendingReadyIntent = pendingReadyIntent
+            self.roomCode = roomCode
+            self.isPrivate = isPrivate
         }
 
         var currentPlayer: Participant? {
@@ -354,6 +368,7 @@ enum MultiplayerPresentation {
         let hitFeedbackEvent: GameplayHitFeedbackEvent?
         let inputMode: LiveInputMode
         let gridDimension: Int
+        let roomCode: String?
 
         init(
             matchID: String,
@@ -367,7 +382,8 @@ enum MultiplayerPresentation {
             announcement: String?,
             hitFeedbackEvent: GameplayHitFeedbackEvent? = nil,
             inputMode: LiveInputMode = .interactive,
-            gridDimension: Int = 4
+            gridDimension: Int = 4,
+            roomCode: String? = nil
         ) {
             self.matchID = matchID
             self.elapsedMilliseconds = elapsedMilliseconds
@@ -381,6 +397,7 @@ enum MultiplayerPresentation {
             self.hitFeedbackEvent = hitFeedbackEvent
             self.inputMode = inputMode
             self.gridDimension = gridDimension
+            self.roomCode = roomCode
         }
 
         var localPlayer: LivePlayer? {
@@ -451,6 +468,7 @@ enum MultiplayerPresentation {
         let isRefreshing: Bool
         let localSubmissionAccepted: Bool
         let message: String?
+        var roomCode: String? = nil
 
         var canReturnToMenu: Bool { settlement.isTerminal }
     }

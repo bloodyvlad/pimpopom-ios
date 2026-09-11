@@ -22,6 +22,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     private var heartbeatTask: Task<Void, Never>?
     private var sendTask: Task<Void, Never>?
     private var sessionCheckTask: Task<Void, Never>?
+    private var searchTask: Task<Void, Never>?
+    private var searchRequestID = 0
     private var sessionCheckGeneration = 0
     private var connectionEpoch = 0
     private var connected = false
@@ -91,6 +93,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         refreshAvailability()
         if backend.sessionState == nil, developmentIdentity == nil { checkSession() }
         if availability.isAvailable, connectionTask == nil { connect() }
+        if connected { requestDirectory() }
     }
 
     func close() {
@@ -99,6 +102,11 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         sessionCheckGeneration += 1
         sessionCheckTask?.cancel()
         sessionCheckTask = nil
+        searchTask?.cancel()
+        searchTask = nil
+        searchRequestID += 1
+        hubState.searchQuery = ""
+        hubState.lobbies = []
         if room != nil || roomAdmission != nil { leaveMatch() }
         // Reuse the authenticated socket on a quick return to the hub. Backgrounding
         // closes it; reopening the screen alone must not consume another PHP ticket.
@@ -157,17 +165,62 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     func refreshLobbies() {
         guard !fixtureEnabled else { return }
         hubState.isRefreshing = true
-        if connected { send(.list) } else if backend.sessionState == nil { checkSession() } else { open() }
+        if connected { requestDirectory() } else if backend.sessionState == nil { checkSession() } else { open() }
     }
-    func createMatch(capacity: Int) {
+    func searchLobbies(_ query: String) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != hubState.searchQuery else { return }
+        searchTask?.cancel()
+        searchRequestID += 1
+        hubState.searchQuery = trimmed
+        hubState.lobbies = []
+        hubState.message = nil
+        hubState.isRefreshing = true
+        guard hubState.supportsRoomCodes else {
+            hubState.isRefreshing = false
+            hubState.message = "Room search is unavailable while the multiplayer service updates."
+            return
+        }
+        guard trimmed.utf8.count <= 128 else {
+            hubState.isRefreshing = false
+            hubState.message = "Enter a game code or a shorter creator nickname."
+            return
+        }
+        let requestID = searchRequestID
+        searchTask = Task { [weak self] in
+            guard let self, self.searchRequestID == requestID else { return }
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            guard !Task.isCancelled, self.searchRequestID == requestID else { return }
+            self.refreshLobbies()
+        }
+    }
+    private func requestDirectory() {
+        if hubState.searchQuery.isEmpty {
+            send(.list)
+        } else {
+            guard hubState.supportsRoomCodes, hubState.searchQuery.utf8.count <= 128 else {
+                hubState.isRefreshing = false
+                return
+            }
+            searchRequestID += 1
+            send(.search(query: hubState.searchQuery, requestID: searchRequestID))
+        }
+    }
+    func createMatch(capacity: Int, isPrivate: Bool = false) {
         guard connected, room == nil, roomAdmission == nil, (2...4).contains(capacity) else { return }
+        guard !isPrivate || hubState.supportsRoomCodes else {
+            hubState.message = "Private games are unavailable while the multiplayer service updates."
+            return
+        }
+        searchTask?.cancel()
         roomAdmission = .create
         hubState.isCreating = true
         hubState.message = nil
-        send(.create(capacity: capacity))
+        send(.create(capacity: capacity, isPrivate: isPrivate))
     }
     func joinMatch(_ matchID: String) {
         guard connected, room == nil, roomAdmission == nil else { return }
+        searchTask?.cancel()
         roomAdmission = .join(matchID)
         hubState.joiningLobbyID = matchID
         hubState.message = nil
@@ -192,7 +245,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         // Wait for the ordered Leave acknowledgement before allowing another create.
         // This also fences a create response whose room ID wasn't known when leaving.
         if connected { roomAdmission = .leaving }
-        if connected { send(.list) }
+        if connected { requestDirectory() }
     }
     func retryConnection() { connect() }
     func refreshSettlement() { if connected { send(.list) } }
@@ -290,17 +343,26 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
     func receive(_ message: MP2ServerMessage) {
         lastMessageUptimeMs = Self.now
         switch message {
-        case .welcome(let playerID, _, let serverTimeMs, let gameplayRevision):
+        case .welcome(let playerID, _, let serverTimeMs, let gameplayRevision, let roomDiscoveryRevision):
             guard gameplayRevision == MP2Protocol.gameplayRevision else {
                 closeConnection()
                 showConnectionMessage("The multiplayer service is updating. Please try again shortly.")
                 return
             }
             connected = true
+            hubState.supportsRoomCodes = roomDiscoveryRevision == MP2Protocol.roomDiscoveryRevision
+            if !hubState.supportsRoomCodes {
+                searchTask?.cancel()
+                searchRequestID += 1
+                hubState.searchQuery = ""
+            }
             identityID = playerID
             serverOffsetMs = serverTimeMs - Self.now
             bestRTT = Int.max
             hubState.message = nil
+            if !hubState.supportsRoomCodes {
+                hubState.message = "Room codes and private games will be available when the service update finishes."
+            }
             if let resumeCredential {
                 needsInputReplay = true
                 send(
@@ -313,7 +375,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                 roomAdmission = nil
                 hubState.isCreating = false
                 hubState.joiningLobbyID = nil
-                send(.list)
+                requestDirectory()
             }
         case .resumeCredential(let roomID, let credential, let generation):
             guard acceptsRoom(roomID) else { return }
@@ -321,15 +383,14 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         case .left:
             if case .leaving = roomAdmission { roomAdmission = nil }
         case .list(let rooms):
+            guard hubState.searchQuery.isEmpty else { return }
             hubState.isRefreshing = false
-            hubState.lobbies = rooms.filter {
-                $0.phase == .waiting && $0.playerCount < $0.capacity
-                    && $0.gameplayRevision == MP2Protocol.gameplayRevision
-            }.map {
-                .init(
-                    id: $0.id, capacity: $0.capacity, playerCount: $0.playerCount, hostName: $0.hostName, hostPetID: nil
-                )
-            }
+            hubState.lobbies = projectLobbies(rooms.filter { $0.isPrivate != true })
+        case .searchResults(let query, let requestID, let rooms):
+            guard requestID == searchRequestID, query == hubState.searchQuery, !query.isEmpty else { return }
+            hubState.isRefreshing = false
+            hubState.message = nil
+            hubState.lobbies = projectLobbies(rooms)
         case .room(let updated):
             guard acceptsRoom(updated.id), updated.players.contains(where: { $0.id == identityID }) else { return }
             guard room?.id != updated.id || updated.revision >= (room?.revision ?? -1) else { return }
@@ -405,7 +466,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             if code.contains("resume") || code == "room-not-found" {
                 clearMatch()
                 phase = .hub
-                send(.list)
+                requestDirectory()
             }
         case .pong(_, let sentAt, let serverTimeMs):
             let rtt = max(0, Self.now - sentAt)
@@ -426,6 +487,17 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
         case .join(let requested): return id == requested
         case .leaving: return false
         case nil: return false
+        }
+    }
+
+    private func projectLobbies(_ rooms: [MP2RoomSummary]) -> [MultiplayerPresentation.Lobby] {
+        rooms.filter {
+            $0.phase == .waiting && $0.playerCount < $0.capacity
+                && $0.gameplayRevision == MP2Protocol.gameplayRevision
+        }.map {
+            .init(
+                id: $0.id, capacity: $0.capacity, playerCount: $0.playerCount, hostName: $0.hostName,
+                hostPetID: nil, roomCode: $0.roomCode, isPrivate: $0.isPrivate == true)
         }
     }
 
@@ -465,7 +537,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     isCreator: $0.id == room.hostPlayerID, isConnected: $0.connected)
             }, connection: connected ? .ready : .connectionFailed("Reconnecting…"),
             isMutationPending: room.phase != .waiting,
-            message: room.phase == .countdown ? "Get ready…" : nil, pendingReadyIntent: pendingReady?.value)
+            message: room.phase == .countdown ? "Get ready…" : nil, pendingReadyIntent: pendingReady?.value,
+            roomCode: room.roomCode, isPrivate: room.isPrivate == true)
     }
 
     private func projectLive(at now: Int, force: Bool = false, renderFrame: Bool = false) {
@@ -531,7 +604,8 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             isRecovering: elapsed < max(local.recoveryUntilMs, localRecoveryUntilMs),
             networkStatus: connected ? (snapshot.phase == .finishing ? .finalizing : nil) : .reconnecting,
             announcement: nil, hitFeedbackEvent: now < feedbackUntilMs ? feedback : nil,
-            inputMode: local.isOut ? .spectating : .interactive, gridDimension: snapshot.gridDimension)
+            inputMode: local.isOut ? .spectating : .interactive, gridDimension: snapshot.gridDimension,
+            roomCode: room?.roomCode)
     }
 
     func handleTap(cell: Int, localMonotonicMilliseconds: Int, normalizedLocation: CGPoint) {
@@ -602,7 +676,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     maxMultiplier: maximumMultipliers[player.id] ?? player.multiplier,
                     isCurrentPlayer: player.id == identityID)
             }, isRefreshing: false, localSubmissionAccepted: true,
-            message: "Multiplayer v2 playtest · unranked · no coins or achievements.")
+            message: "Multiplayer v2 playtest · unranked · no coins or achievements.", roomCode: room?.roomCode)
         phase = .results
         audio.setMusicContext(.silent)
     }
@@ -682,6 +756,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             else { return }
             fixtureEnabled = true
             connected = true
+            hubState.supportsRoomCodes = true
             identityID = "fixture-player-0"
             let names = ["pimpovlad", "alenka", "PixelPilot", "TapMaster"]
             let pets = ["foka", "kesha", "misha", "pancake"]
@@ -692,15 +767,17 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             }
             room = .init(
                 id: "fixture-match", revision: 1, rosterRevision: 1, hostPlayerID: identityID!, capacity: 4,
-                phase: .waiting, players: players, matchID: "fixture-match")
+                phase: .waiting, players: players, matchID: "fixture-match",
+                roomCode: "BCDF2345", isPrivate: true)
             if arguments.contains("--ui-test-multiplayer-hub-fixture") {
                 hubState = .init(
                     availability: .available,
                     lobbies: [
                         .init(
                             id: "fixture-lobby", capacity: 4,
-                            playerCount: 2, hostName: "PixelPilot", hostPetID: "foka")
+                            playerCount: 2, hostName: "PixelPilot", hostPetID: "foka", roomCode: "GHJK6789")
                     ])
+                hubState.supportsRoomCodes = true
             } else if arguments.contains("--ui-test-multiplayer-waiting-fixture") {
                 phase = .waiting
                 projectWaitingRoom()

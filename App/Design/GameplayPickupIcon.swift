@@ -27,9 +27,10 @@ struct GameplayPickupIcon: View {
                         .font(.system(size: side, weight: .black, design: .rounded))
                         .foregroundStyle(color)
                 } else {
-                    Image(systemName: "clock.fill")
+                    Image(systemName: "clock.arrow.circlepath")
                         .resizable()
                         .scaledToFit()
+                        .fontWeight(.bold)
                         .foregroundStyle(color)
                 }
             }
@@ -64,14 +65,26 @@ private struct PixelClockIcon: View {
     let color: Color
 
     private static let pattern = [
-        "0011100", "0100010", "1001001", "1001101",
-        "1000001", "0100010", "0011100",
+        "0000000000000",
+        "0000011110000",
+        "0001100001100",
+        "0010000000010",
+        "0110001000010",
+        "1111101000001",
+        "0110001000001",
+        "0010001110001",
+        "0000000000001",
+        "0010000000010",
+        "0001100001100",
+        "0000011110000",
+        "0000000000000",
     ]
 
     var body: some View {
         Canvas { context, size in
-            let pixel = min(size.width, size.height) / 7
-            let origin = CGPoint(x: (size.width - pixel * 7) / 2, y: (size.height - pixel * 7) / 2)
+            let dimension = CGFloat(Self.pattern.count)
+            let pixel = min(size.width, size.height) / dimension
+            let origin = CGPoint(x: (size.width - pixel * dimension) / 2, y: (size.height - pixel * dimension) / 2)
             for (row, pattern) in Self.pattern.enumerated() {
                 for (column, value) in pattern.enumerated() where value == "1" {
                     context.fill(

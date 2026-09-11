@@ -1749,7 +1749,7 @@ final class BackendClientTests: XCTestCase {
 
     func testRankedRunStartAndFinishPreserveTicketProofContract() async throws {
         XCTAssertEqual(BackendClient.deployedBuildID, "20260729-1")
-        XCTAssertEqual(BackendClient.rankedRuleset, "reaction-proof-v4")
+        XCTAssertEqual(BackendClient.rankedRuleset, "reaction-proof-v5")
         XCTAssertEqual(BackendClient.rankedProofVersion, 3)
         let recorder = RequestRecorder()
         let sessionData = try JSONEncoder().encode(Self.signedInSession)
@@ -1786,7 +1786,7 @@ final class BackendClientTests: XCTestCase {
         let backend = makeBackend()
         _ = try await backend.loadSession()
         let issued = try await backend.startRun()
-        let engine = GameEngine(ruleset: .v4, random: { 0 })
+        let engine = GameEngine(ruleset: .v5, random: { 0 })
         _ = engine.start(now: 0, mode: .arcade)
         _ = engine.tap(cellIndex: 0, now: 100, resolvedAt: 100)
         _ = engine.tap(cellIndex: 0, now: 1_600, resolvedAt: 1_600)

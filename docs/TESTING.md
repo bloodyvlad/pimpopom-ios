@@ -4,7 +4,21 @@ PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranke
 Arcade and an unranked Multiplayer v2 beta. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
-## Build 27 power-up verification
+## Build 28 candidate verification
+
+The candidate adds five pure-core regressions (89 total), 14 room-service tests
+(40 total), request-fenced native search/private-capability tests, themed rewind
+clock render attachments, and all-theme room controls. The first full iOS gate
+passed 241 app/UI tests with no failures/skips. A final small-screen layout change
+pins Ready/Start while scrolling the four-player roster; final checks are recorded
+with the release. No measured physical touch/network latency is claimed.
+
+The 92-second four-socket run found/joined a private four-player room, checked
+5,480 shared snapshots, 11,208 decoy exclusions, no pre-4×4 hearts, and exactly one
+four-way heart claimant. PHP v5 passed Composer, 154 disposable MariaDB v5 and
+112 retained v4 assertions. Deployment is separately verified in RELEASE.md.
+
+## Build 27 power-up verification (retained baseline)
 
 The pure-core suite has 84 tests, including Arcade v4/proof-3 complete heart/clock
 traces independently replayed by the compatible PHP implementation.

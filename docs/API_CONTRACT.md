@@ -80,9 +80,10 @@ local identity only after `deleted: true` and `authenticated: false`.
 
 ## Arcade ranking
 
-Build 27 uses compatibility build `20260729-1` and explicitly requests
-`reaction-proof-v4`, proof 3 for Arcade power-ups. The compatible PHP verifier
-was deployed before release and retains v3/proof 2 for build 26 and older clients.
+Build 28's candidate uses compatibility build `20260729-1` and explicitly requests
+`reaction-proof-v5`, proof 3 for 4×4-only Arcade power-ups. Deploy and verify the
+compatible PHP verifier before upload; retain build 27's v4/proof 3 and older
+v3/proof 2 unchanged. No schema change is needed.
 A higher build ID does not select new semantics. See
 [ARCADE_POWERUPS](ARCADE_POWERUPS.md).
 

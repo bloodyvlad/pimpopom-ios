@@ -5,10 +5,11 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained; the new 2–4-player Multiplayer v2 is an online, unranked playtest.
 Game Center remains a separate account/publication integration.
 
-Build 27 adds theme-matched hearts and Arcade heart/clock power-ups. The compatible
-PHP v4 verifier was deployed first; Apple approved the build for both QA groups.
-[Power-up contract and QA](docs/ARCADE_POWERUPS.md). Multiplayer remains revision 2
-with hearts only; the Railway runtime is unchanged from build 26.
+Build 28 is the local release candidate: power-ups start only on 4×4, Arcade's
+clock has a theme-matched rewind arrow, and Multiplayer adds room codes, creator
+search and code-only private games. [Current feature contract](docs/BUILD28.md).
+Build 27 remains the last verified uploaded beta until release verification below
+is updated. Multiplayer remains revision 2 with hearts only.
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
@@ -19,7 +20,7 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (27)` |
+| App configuration | iOS 17+, iPhone, Swift 6; candidate `1.02 (28)` |
 | TestFlight state | Build 27 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-10) |
 | Exact uploaded iOS source | `753787005b2773e93d02e319ad3713847cf4db0d` |
 | Hosting | Railway Amsterdam revision 2 unchanged; PHP v4 verifier `0a94f5c` deployed with existing schema 024 |

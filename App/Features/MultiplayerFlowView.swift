@@ -13,7 +13,8 @@ struct MultiplayerFlowView: View {
                     state: multiplayer.hubState,
                     onRefresh: multiplayer.refreshLobbies,
                     onCreate: multiplayer.createMatch,
-                    onJoin: multiplayer.joinMatch
+                    onJoin: multiplayer.joinMatch,
+                    onSearch: multiplayer.searchLobbies
                 )
             case .waiting:
                 if let state = multiplayer.waitingState {
