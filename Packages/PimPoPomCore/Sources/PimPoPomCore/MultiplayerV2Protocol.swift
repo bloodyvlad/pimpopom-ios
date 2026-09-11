@@ -233,10 +233,12 @@ public struct MP2RoomSummary: Codable, Equatable, Sendable, Identifiable {
     public var revision: Int
     public var phase: MP2RoomPhase
     public var gameplayRevision: Int?
+    public var roomCode: String?
+    public var isPrivate: Bool?
 
     public init(
         id: String, hostName: String, capacity: Int, playerCount: Int, revision: Int, phase: MP2RoomPhase,
-        gameplayRevision: Int? = nil
+        gameplayRevision: Int? = nil, roomCode: String? = nil, isPrivate: Bool? = nil
     ) {
         self.id = id
         self.hostName = hostName
@@ -245,6 +247,8 @@ public struct MP2RoomSummary: Codable, Equatable, Sendable, Identifiable {
         self.revision = revision
         self.phase = phase
         self.gameplayRevision = gameplayRevision
+        self.roomCode = roomCode
+        self.isPrivate = isPrivate
     }
 }
 
@@ -260,11 +264,13 @@ public struct MP2Room: Codable, Equatable, Sendable, Identifiable {
     public var matchID: String?
     public var startsAtServerMs: Int?
     public var gameplayRevision: Int?
+    public var roomCode: String?
+    public var isPrivate: Bool?
 
     public init(
         id: String, revision: Int, rosterRevision: Int, hostPlayerID: String, capacity: Int,
         phase: MP2RoomPhase, players: [MP2Player], matchID: String? = nil, startsAtServerMs: Int? = nil,
-        epoch: String = "", gameplayRevision: Int? = nil
+        epoch: String = "", gameplayRevision: Int? = nil, roomCode: String? = nil, isPrivate: Bool? = nil
     ) {
         self.id = id
         self.epoch = epoch
@@ -277,6 +283,8 @@ public struct MP2Room: Codable, Equatable, Sendable, Identifiable {
         self.matchID = matchID
         self.startsAtServerMs = startsAtServerMs
         self.gameplayRevision = gameplayRevision
+        self.roomCode = roomCode
+        self.isPrivate = isPrivate
     }
 }
 
@@ -285,7 +293,9 @@ public struct MP2Room: Codable, Equatable, Sendable, Identifiable {
 public enum MP2ClientMessage: Codable, Equatable, Sendable {
     case hello(ticket: String, protocolVersion: Int, gameplayRevision: Int? = nil)
     case list
-    case create(capacity: Int)
+    case create(capacity: Int, isPrivate: Bool? = nil)
+    /// Exact code/UUID lookup also finds private rooms; nickname matching is public-only.
+    case search(query: String, requestID: Int)
     case join(roomID: String)
     case resume(roomID: String, credential: String, generation: Int)
     case leave
@@ -301,6 +311,8 @@ public enum MP2ServerMessage: Codable, Equatable, Sendable {
     /// Revision 2 only: ordered acknowledgement that pending or joined room membership was left.
     case left
     case list([MP2RoomSummary])
+    /// Sent only after an explicit search, including changed results for that request.
+    case searchResults(query: String, requestID: Int, rooms: [MP2RoomSummary])
     case room(MP2Room)
     case snapshot(MP2Snapshot)
     case receipt(MP2InputReceipt)
