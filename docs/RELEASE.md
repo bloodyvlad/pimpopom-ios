@@ -3,29 +3,85 @@
 Production submission, live-ad activation, and paid-product activation require
 explicit owner authorization. A TestFlight approval is not an App Store release.
 
-## Current candidate, beta, and rollback
+## Current beta and rollback
 
-Build 28 is implemented locally; PHP `f84dc921` was deployed first on 2026-09-11
-to **speedytapper.otcsoft.com** only. All 69 source hashes and 35 HTTPS checks pass;
-v3/v4/v5 admission works, schema 024/private config/original workers are unchanged.
-Exact artifact/rollback evidence is retained in
-`/Users/vlad/Documents/SpeedyTapper-release-artifacts/20260911-arcade-v5.mTFG0j/RELEASE.md`.
-Railway and TestFlight remain pending until the new release record replaces this
-candidate note. Existing Apple state below is the verified build-27 baseline.
+Build **1.02 (28)** is VALID and `APP_STORE_ELIGIBLE`. Direct Apple verification
+at **2026-09-11 13:58:51 UTC** confirmed beta review **APPROVED** and both existing
+Internal QA / External QA groups **IN_BETA_TESTING**. Automatic notification stays
+enabled. The existing external public link, contacts and demo-account settings
+were preserved; only this build's en-US What to Test was updated.
 
-| Item | Current truth |
+| Item | Verified value |
 | --- | --- |
-| Current beta | `1.02 (27)`, uploaded 2026-09-10; VALID |
-| App Store Connect build | `9e0b4ce6-ea42-4d75-b7f6-b5201932665d`; external-eligible, non-exempt encryption false |
-| Groups / external state | Internal QA and External QA both `IN_BETA_TESTING`; beta review `APPROVED` |
-| Uploaded source | `753787005b2773e93d02e319ad3713847cf4db0d`, clean Staging archive/export |
-| Hosted backend | Railway Amsterdam revision 2 unchanged; PHP v4 verifier `0a94f5c` deployed, schema 024 unchanged; boundary checks passed |
-| Prior beta / rollback reference | Build 26, source `6a94d64312b113c8013782aca0a3ea8c8718eaf9`, still VALID and assigned to both QA groups when checked |
-| Authorized work | Multiplayer fixes, Railway/PHP alignment and TestFlight Internal QA/External QA; no paid-plan upgrade or App Store production submission |
-| Production App Store | No production release established by this task |
+| Branch / binary source | `codex/build28-private-rooms` / `3922867341c43c732e894805f829559140f5b5e4` |
+| Apple build | `707cd113-dc9c-4410-8547-d13afce6dd1a` |
+| Apple upload / expiration | 2026-09-11 13:57:21 UTC / 2026-12-10 13:57:21 UTC |
+| Toolchain | Xcode 26.6 (17F113), Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.6.2 |
+| Configuration | Staging, iOS 17+, `-O`, whole-module, `STAGING` without `DEBUG`, unchanged owner-split test ads |
+| Archive TGZ SHA-256 | `1466af089e7e6d52ca51f25660363595ca8c1bbf51f87f6b8909484328f4642c` |
+| 115-file manifest SHA-256 | `0a133114758a2e58813dcf79b827ccb6147e66045d992eb138ed1da15eb63201` |
+| App/dSYM UUID | `100EEBB6-E417-3A5A-8BA7-0D03AA201631` |
+| App binary SHA-256 | `c28f6001d038feb23080f9fa122e8e13b9078a078ecc92e0a4d56587cb1ac700` |
+| App dSYM SHA-256 | `0197c7eb70612736e9e7c6ac15aa68d698ab8cddd73a6caf88307c0e52f7492e` |
+| Railway source / deployment | `e866409c6571dd08069db76fabcd07d79016a487` / `3041f2bb-70f4-4a71-8318-039fb8e6aedb`, SUCCESS |
+| PHP source | `f84dc9218b58bb937326be931f2ee969abed4282` |
+| PHP artifact SHA-256 | `2157ced30057d0b376270378f03ddd8a9d1a4a698cc639993a4dbdb642f3f980` |
+| PHP target | `speedytapper.otcsoft.com` / `/home/u966828068/domains/speedytapper.otcsoft.com/public_html` |
+| PHP schema / season | Ledger 001–024 and existing season unchanged; no migration or data reset |
 
-Real signed-in 2/3/4-device matches, 60/120 Hz acceptance and public legal URLs
-remain open. Build 24 remains the historical GameKit/v1 binary.
+PHP was deployed through the owner-confirmed Hostinger prebuilt archive workflow
+and verified first. **www.otcsoft.com was not a deployment target and was not
+modified.** All 69 PHP source hashes, unchanged private configuration/original
+workers and 35 HTTPS boundary checks passed. Live v3/v4/v5 admission is supported.
+The source came from an isolated clean PHP worktree; the original PHP checkout
+was untouched.
+
+Railway was deployed next, to the existing single Amsterdam instance and volume.
+The final app commit contains byte-identical Server/Core source. Native Linux
+ARM64 verification passed **40 service and 89 core tests**, plus entrypoint and
+readiness checks. Local AMD64 QEMU compilation crashed before its unit gate;
+Railway's native AMD64 release build and direct x86_64 runtime checks passed.
+PID 1 has UID/GID 10001 and NoNewPrivs; private outbox directories are mode 0700
+on the writable persistent volume. Ten live WSS/auth boundaries passed.
+Settings, variable fingerprints, regions, billing plan and volume were unchanged;
+temporary SSH registration and key files were removed.
+
+The exact final iOS source passed **241 app/UI tests, zero failures/skips, and
+89 core tests**. A separate compact SE all-theme room-control test passed, as did
+33 focused tests. All eight compact hub/waiting captures were inspected.
+Cold compact attempts had an OS UIPasteboard XPC stall and an immediate switch
+assertion failure; unchanged test/source passed on the warmed base Simulator.
+Those failed attempts and samples remain alongside the passing results.
+
+Four real local socket clients completed 92 seconds: 5,480 snapshots, three
+private-code joins, unique rotating colors, safe decoys, no pre-4×4 hearts and one
+four-way heart winner. PHP Composer, 56 new v5/111 retained v4 SQLite assertions,
+154 v5/112 retained v4 disposable MariaDB assertions passed. These checks are not
+physical-device latency or a positive signed-in internet match.
+
+Archive/export/upload succeeded from the clean source. Signature, matching app
+symbols, 12 privacy manifests, no private/test files and export task allowance
+disabled were verified; non-exempt encryption is false. Apple accepted the existing
+GoogleMobileAds/UMP missing-vendor-dSYM warnings; app-owned symbols are retained.
+
+Evidence: `build/releases/build28-20260911/`, including final xcresult,
+`apple-final-state.json`, archive/inspection/upload records, `compact-qa.md`,
+and `linux-verify.gJC9GU/VERIFICATION.md`.
+PHP evidence: `/Users/vlad/Documents/SpeedyTapper-release-artifacts/20260911-arcade-v5.mTFG0j/`.
+Later documentation commits are not new binaries.
+
+Rollback references: build 27; Railway `920bd2bf-217e-44b3-ac4c-d3a0f964b812`;
+PHP `0a94f5cfe2a36ae89f0d26db1c72bf7cfe4d683c` archive SHA-256
+`3e9ad75ff087388038374be64846fe2b3f77ad2ac503379c13f651344cee6d9a`.
+The retained PHP rollback is byte-identical to the preceding deployed archive.
+A PHP rollback cannot complete v5 attempts; coordinate beta availability first.
+A Railway rollback removes code/private discovery; capability gating prevents
+silent public creation, but those new features would be unavailable. Retain
+schema 024, account data and volume; no rollback was performed.
+
+Real signed-in 2/3/4-device matches, accessibility, 60/120 Hz acceptance, sustained
+load/reconnect and public legal/storefront gates remain open. No production App
+Store submission, live ads, paid-product activation or paid-plan upgrade occurred.
 
 ## Build 27 evidence
 

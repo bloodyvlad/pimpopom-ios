@@ -4,19 +4,23 @@ PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranke
 Arcade and an unranked Multiplayer v2 beta. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
-## Build 28 candidate verification
+## Build 28 verification
 
-The candidate adds five pure-core regressions (89 total), 14 room-service tests
+The release adds five pure-core regressions (89 total), 14 room-service tests
 (40 total), request-fenced native search/private-capability tests, themed rewind
-clock render attachments, and all-theme room controls. The first full iOS gate
-passed 241 app/UI tests with no failures/skips. A final small-screen layout change
-pins Ready/Start while scrolling the four-player roster; final checks are recorded
-with the release. No measured physical touch/network latency is claimed.
+clock render attachments, and all-theme room controls. The exact final source
+passed 241 app/UI tests with no failures/skips, plus 89 core tests. The compact SE
+all-theme test passed with Ready/Start pinned below a scrolling four-player roster;
+all eight captures were inspected. Initial cold clipboard/assertion failures and
+the unchanged-source passing warm run are retained in compact-qa.md. No measured
+physical touch/network latency is claimed.
 
 The 92-second four-socket run found/joined a private four-player room, checked
 5,480 shared snapshots, 11,208 decoy exclusions, no pre-4×4 hearts, and exactly one
 four-way heart claimant. PHP v5 passed Composer, 154 disposable MariaDB v5 and
-112 retained v4 assertions. Deployment is separately verified in RELEASE.md.
+112 retained v4 assertions. Linux ARM64 passed 40 service/89 core and runtime gates;
+local AMD64 emulation failed in the compiler, while Railway native AMD64 build and
+runtime checks passed. Deployment is separately verified in RELEASE.md.
 
 ## Build 27 power-up verification (retained baseline)
 
@@ -40,13 +44,15 @@ legacy defaults and retries. Initial failed and corrected UI evidence are retain
 
 ## Current release evidence
 
-- Build 27 is VALID, approved and available to both existing QA groups. Exact
-  uploaded source passed 234 app/UI and 84 core tests. PHP v4 was deployed first:
+- Build 28 is VALID, approved and available to both existing QA groups. PHP v5
+  and Railway room discovery were deployed/verified before upload. The exact final
+  source gate, compact UI, Linux, 35 PHP HTTPS and ten WSS checks passed as above.
+- Prior build 27 passed 234 app/UI and 84 core tests. PHP v4 was deployed first:
   all 69 source hashes, unchanged schema 024 and 35 live HTTP checks verified.
   Ten WSS boundary checks passed against the unchanged Railway revision-2 service.
 - Historical build 26 passed 225 app/UI, 72 core and 26 service tests plus
-  Linux/runtime checks before its release. Its service deployment is unchanged;
-  those Linux checks do not independently verify the new Arcade-only code.
+  Linux/runtime checks before its release. Build 28 has its own fresh runtime
+  evidence; historical checks alone do not establish current deployment state.
 - Revision-2 regressions cover post-hit Arcade quiet windows, color uniqueness,
   persistent non-player-color decoys, first-admitted heart claims, delayed input,
   spectating, session-ticket recovery and pushed joinable room lists. Both legacy

@@ -47,7 +47,7 @@ The owner-directed Arcade v4 extension, released in build 27, adds heart restora
 and temporary 70%-rate clocks. The compatible PHP verifier was deployed first;
 legacy v3 defaults remain supported and Multiplayer has no clocks. See
 `docs/ARCADE_POWERUPS.md`. No season/economy reset is included.
-The owner-directed build-28 candidate gates all pickups on the actual 4×4 board.
+The owner-directed build-28 beta gates all pickups on the actual 4×4 board.
 Arcade selects v5/proof 3 so v3/v4 replay remains unchanged. Multiplayer retains
 revision 2: its authority can delay hearts without changing the client contract.
 

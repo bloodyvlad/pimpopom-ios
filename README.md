@@ -5,11 +5,10 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained; the new 2–4-player Multiplayer v2 is an online, unranked playtest.
 Game Center remains a separate account/publication integration.
 
-Build 28 is the local release candidate: power-ups start only on 4×4, Arcade's
+Build 28 is available to both TestFlight QA groups: power-ups start only on 4×4, Arcade's
 clock has a theme-matched rewind arrow, and Multiplayer adds room codes, creator
 search and code-only private games. [Current feature contract](docs/BUILD28.md).
-Build 27 remains the last verified uploaded beta until release verification below
-is updated. Multiplayer remains revision 2 with hearts only.
+Apple approved beta review on 2026-09-11. Multiplayer remains revision 2 with hearts only.
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
@@ -20,11 +19,11 @@ work.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; candidate `1.02 (28)` |
-| TestFlight state | Build 27 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-10) |
-| Exact uploaded iOS source | `753787005b2773e93d02e319ad3713847cf4db0d` |
-| Hosting | Railway Amsterdam revision 2 unchanged; PHP v4 verifier `0a94f5c` deployed with existing schema 024 |
-| Previous supported beta | Build 26 / gameplay revision 2; build 25 uses separate revision-1 rooms |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (28)` |
+| TestFlight state | Build 28 VALID; Internal QA and External QA `IN_BETA_TESTING`; beta review `APPROVED` (2026-09-11) |
+| Exact uploaded iOS source | `3922867341c43c732e894805f829559140f5b5e4` |
+| Hosting | Railway Amsterdam `3041f2bb`, room discovery revision 1; PHP v5 verifier `f84dc921` deployed, schema 024 unchanged |
+| Previous supported beta | Build 27 / gameplay revision 2; build 25 uses separate revision-1 rooms |
 | Open QA gates | Real-account hosted matches, physical 2/3/4-device/network/latency acceptance; public legal URLs and reviewer access |
 | Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |

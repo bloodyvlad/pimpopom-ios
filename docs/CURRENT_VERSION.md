@@ -1,116 +1,88 @@
 # Current version slice
 
-Release baseline verified 2026-09-10; build-28 candidate updated 2026-09-11.
-Source, deployment and Apple state are separate evidence.
-
-## Build 28 candidate (not yet uploaded)
-
-Only actual 4×4 boards allow power-ups; Arcade explicitly requests v5/proof 3,
-with retained v3/v4 PHP compatibility. Clock artwork includes a counterclockwise
-arrow in every theme. Multiplayer adds stable eight-character codes, public
-creator-name search and code-only private discovery. The app requires advertised
-room-discovery support before private creation. See [BUILD28](BUILD28.md).
-PHP verification/deployment must precede the TestFlight upload; the table below
-continues to identify the last verified release until the new release is checked.
-
-## Build 27 update
-
-Theme-matched pickup/HUD hearts and Arcade heart/clock power-ups use
-`reaction-proof-v4`, proof 3. The compatible PHP verifier was deployed and verified
-before the iOS upload; old v3/proof-2 clients remain supported. Multiplayer keeps
-revision 2 and hearts only. See [ARCADE_POWERUPS](ARCADE_POWERUPS.md) for rules and
-four-player local socket evidence. No migration, account or season reset occurred.
+Verified 2026-09-11. Source, hosted deployment and Apple distribution are separate
+evidence; later documentation commits do not change the uploaded binary.
 
 ## Released beta
 
 | Item | Current truth |
 | --- | --- |
 | Product | PimPoPom, iPhone/iOS 17+, Swift 6 strict concurrency |
-| TestFlight | `1.02 (27)`, VALID and external-eligible |
-| Uploaded iOS source | `753787005b2773e93d02e319ad3713847cf4db0d`, clean before archive/upload |
-| Apple build ID | `9e0b4ce6-ea42-4d75-b7f6-b5201932665d` |
-| QA groups | Internal QA and External QA both `IN_BETA_TESTING`; beta review `APPROVED`, verified 2026-09-10 |
-| Notifications | Existing automatic notification enabled; public-link settings preserved |
-| Deployed service source | `6629fe09f31d34584ec39e49e99b49633bf035ea`; no multiplayer runtime change in build 27 |
-| Railway deployment | `920bd2bf-217e-44b3-ac4c-d3a0f964b812`, SUCCESS, one Amsterdam replica |
-| Deployed PHP source | `0a94f5cfe2a36ae89f0d26db1c72bf7cfe4d683c`; all 69 source hashes and unchanged schema 024 directly verified |
-| Previous supported beta | Build 26 / gameplay revision 2, source `6a94d64312b113c8013782aca0a3ea8c8718eaf9` |
+| TestFlight | `1.02 (28)`, VALID, external-eligible |
+| Uploaded iOS source | `3922867341c43c732e894805f829559140f5b5e4`, clean Staging archive/export |
+| Apple build ID | `707cd113-dc9c-4410-8547-d13afce6dd1a` |
+| QA groups | Internal QA and External QA both `IN_BETA_TESTING`; review `APPROVED`; verified at 13:58:51 UTC |
+| Notifications | Automatic notification enabled; existing public link unchanged |
+| Railway source | `e866409c6571dd08069db76fabcd07d79016a487`; Server/Core identical in the iOS source |
+| Railway deployment | `3041f2bb-70f4-4a71-8318-039fb8e6aedb`, SUCCESS, one Amsterdam replica |
+| PHP source | `f84dc9218b58bb937326be931f2ee969abed4282`; deployed only to `speedytapper.otcsoft.com`, before iOS upload |
+| PHP schema | Ledger 001–024 unchanged; no migration, account or season reset |
+| Previous beta | Build 27 remains the rollback reference; v3/v4 PHP replay retained |
 | Production App Store | Not submitted or released by this task |
 
-Release/rollback details are in [RELEASE](RELEASE.md) and the
-[Railway record](../Server/DEPLOYMENT_RAILWAY.md). Later documentation commits
-are not new binaries. Build 24 is historical GameKit/v1; build 20 is an older
-rollback reference, not a verified currently installable beta.
+Exact artifacts, checksums and rollback boundaries: [RELEASE](RELEASE.md) and
+[Railway record](../Server/DEPLOYMENT_RAILWAY.md). Feature detail: [BUILD28](BUILD28.md).
 
-## Current contracts
+## Effective gameplay and network contracts
 
-| Area | Effective contract |
-| --- | --- |
-| Arcade | `normal`, compatibility build `20260729-1`, explicit `reaction-proof-v4`, proof 3; legacy omission selects v3/proof 2 |
-| Zen, unchanged | Local, ephemeral, unranked and unrewarded |
-| Multiplayer | `multiplayer-shared-arcade-v2`, wire/PHP protocol 2, 2–4 seats, maximum 900,000 ms |
-| Gameplay negotiation | Builds 26/27 explicitly require revision 2; omitted revision means legacy 1; browse/join/resume never mix revisions |
-| Live authority | One persistent Vapor process and the pure Swift engine; native WSS and shared Arcade SpriteKit renderer |
-| Entry | Valid PHP primary session and confirmed public name; no Game Center requirement |
-| Results | Service-reported unranked aggregates; no independent PHP replay/human verification claim |
-| Rewards/publication | No Multiplayer coins, achievements, v2 ranking or Game Center writes; historical v1 leaderboard reads remain |
-| Storage | Persistent result outbox; live rooms remain in memory |
+- Arcade: `normal`, compatibility build `20260729-1`, explicit
+  `reaction-proof-v5`, proof 3. Legacy omitted ruleset selects v3/proof 2;
+  retained v4/proof 3 is unchanged. Ranking, coins and achievements remain PHP-owned.
+- Hearts/clocks appear only on the actual 4×4 board. An active 2×2 target across
+  40 seconds remains ineligible. Opportunity cadence/effects are unchanged;
+  an overdue pickup may appear soon after 4×4 becomes available.
+- Arcade alone has clocks, with a theme-matched rewind arrow; hearts match HUD
+  artwork in all themes. Zen is local, ephemeral, unranked and unrewarded.
+- Multiplayer: `multiplayer-shared-arcade-v2`, protocol 2, gameplay revision 2,
+  2–4 seats, at most 900,000 ms. Legacy revision-1 clients use separate rooms.
+  One persistent Vapor authority, native WSS and the shared Arcade SpriteKit board.
+- One identical board: 1×1, 2×2 after four total correct hits, 4×4 at 40 seconds.
+  Owners are random, may repeat, and may overlap on free cells. Waiting for an
+  own-color opportunity is intentional. Arcade quiet delays and speed progression
+  are shared; cell contention and delivery headroom can extend personal spacing.
+- After ten seconds, successful hits rotate assigned colors when safe. Player
+  colors stay unique; persistent decoys exclude every player's color and have no
+  exclamation marker. Neutral hearts restore one life up to three for the first
+  server-admitted claim; losing claims are not mistakes and eliminated seats stay
+  spectators. Multiplayer never has clocks, coins, achievements or v2 ranking.
+- A valid PHP primary session and confirmed public name suffice; no Game Center
+  prerequisite. Session refresh, ordered Leave, connection-generation fencing and
+  pushed connected/non-full waiting lists remain. No peer FAST/tap transcript path.
+- Results are service-reported, unranked aggregates, not independent PHP replay
+  or human verification. The persistent outbox survives restarts; live rooms do not.
 
-## Multiplayer behavior (builds 26/27)
+## Rooms and UI
 
-- Keep valid primary login while refreshing socket tickets/CSRF. Unknown session
-  state shows checking, not a false sign-in requirement. Distinguish service
-  failures from logout; reuse healthy foreground sockets.
-- PHP retains at most twelve rolling same-session bindings. Valid fresh tickets
-  retire oldest credentials; invalid/replayed tickets cannot evict them.
-- Push only connected, non-full waiting rooms. Ordered Leave acknowledgments and
-  connection generations fence stale responses; finished/abandoned rooms cannot
-  block a new valid create. Screen-phase transitions preserve flow ownership.
-- One shared board: 1×1, 2×2 after four total correct hits, 4×4 at 40 seconds.
-  Owners are random, can repeat, and may overlap on free cells. Waiting is intended.
-- Reuse Arcade difficulty and quiet-delay progression. Every correct hit delays
-  newly issued targets globally; already announced overlaps remain immutable.
-  Contention and transport can extend spacing; exact measured personal cadence
-  or sub-frame physical latency is not claimed.
-- After ten seconds, successful hits rotate assigned colors when safe. Colors
-  remain unique; decoys exclude all player colors and persist across correct taps
-  for their Arcade lifetime. Decoys have no exclamation marker.
-- Neutral hearts restore one life up to three for the first server-admitted
-  claim. Competing claims cause no mistake; eliminated players are not revived.
-  PHP 024 preserves cumulative misses above three without changing existing rows.
-- Logo/Menu above the board; YOU LOSE/SPECTATING over the continuing match.
-  Preserve the existing competitive strip and themes. Build 27 shares theme-aware
-  heart artwork with the HUD; only Arcade receives clock pickups.
-
-Precise rules are in [GAMEPLAY_SPEC](GAMEPLAY_SPEC.md) and
-[MULTIPLAYER_V2_REBUILD](MULTIPLAYER_V2_REBUILD.md).
+Rooms have stable eight-character codes, visible in waiting/live/results screens.
+Copy/Share is available in the waiting room. Public rooms support creator-name
+substring search; exact case-insensitive code/full UUID can find public or private
+joinable rooms. Private rooms never appear in browsing, nickname or partial-code
+search. Anyone signed in with the full code may join; no password is required.
+The app requires advertised `roomDiscoveryRevision:1` before private creation.
+Debounced query/request fencing prevents stale responses from restoring old lists.
+On compact phones the roster scrolls while code, Leave, Ready and Start remain
+reachable. Logo/Menu, competitive strip and YOU LOSE/SPECTATING are retained.
 
 ## Verification and remaining gates
 
-- Final iOS source gate: 234 app/UI tests, zero failures/skips, plus 84 core tests.
-  Focused accessibility identity/Simulator board-contact collection tests also passed.
-  The initial release-gate failure and corrected final result are both retained.
-- Four real local socket clients ran for 92 seconds: 5,488 snapshots, zero color
-  collisions, 59–68 rotations per player and exactly one four-way heart winner.
-  Four Multiplayer theme captures and Arcade heart/clock captures were inspected.
-- The feature gate passed 26 service tests. Prior build-26 Linux/runtime checks
-  remain historical evidence for the unchanged multiplayer service, not a Linux
-  verification of the new Arcade-only code.
-- PHP: Composer passed; 111 v4 SQLite, 112 disposable MariaDB and 72 additional
-  persisted-path assertions, including legacy defaults and reward idempotency.
-  All 69 deployed source hashes, schema 024 and private configuration verified;
-  35 live HTTP checks passed. Original workers preserved; audit jobs removed.
-- Railway: ten WSS boundary checks passed again. Prior build-26 deployment checks
-  established x86_64 PID 1 as UID/GID 10001 with NoNewPrivs and private outbox
-  directories mode 0700; these process/volume checks were not repeated for build 27.
-- Final archive/export/upload, signature, matching app dSYM, twelve privacy
-  manifests and absence of private/test files verified. Apple approved both groups.
+- Final source: 241 app/UI tests, zero failures/skips, plus 89 core and 40 service
+  tests. Separate compact iPhone SE all-theme room-control test passed; initial
+  cold Simulator clipboard/assertion failures and the passing warm run are retained.
+- Four local socket clients completed 92 seconds, 5,480 shared snapshots and
+  11,208 decoy-exclusion checks: no color collisions or pre-4×4 hearts, exactly
+  one four-way heart winner, and three successful private-code joins.
+- Linux ARM64: 40 service/89 core plus startup/readiness checks passed. Local
+  AMD64 emulation failed in the Swift compiler; Railway's native AMD64 release
+  build and direct x86_64 runtime checks passed. No local AMD64 unit-pass claim.
+- PHP: Composer, v5/legacy SQLite and disposable MariaDB checks passed. All 69
+  hosted source hashes, unchanged schema/private configuration and 35 HTTPS checks
+  verified. Railway: ten WSS boundaries, UID/GID 10001, protected writable outbox,
+  unchanged settings/secrets; temporary audit/SSH access removed.
+- Archive/export/upload, matching app symbols, 12 privacy manifests and no private
+  or test files verified. Vendor Google Ads/UMP dSYM warnings remain accepted.
 
-Evidence is retained under `build/releases/build27-20260910/` and
-`build/powerups-20260910/`; historical build-26 evidence remains separately retained.
-Automated/Simulator checks are not physical-device acceptance. Still test genuine
+Evidence: `build/releases/build28-20260911/`. Still validate genuine signed-in
 2/3/4-iPhone Wi-Fi/cellular matches, reconnect/logout, heart races, result delivery,
-accessibility and 60/120 Hz latency on named hardware. A restart loses live rooms;
-multi-region failover, sustained load/draining and production/legal/store gates
-remain open. No account/economy reset, paid-plan upgrade or live-ad activation
-was performed.
+accessibility and 60/120 Hz latency on named hardware. Multi-region failover,
+sustained load/draining and production/legal/storefront gates remain open.
+No live ads, paid-plan upgrade, new region or account/economy change was performed.

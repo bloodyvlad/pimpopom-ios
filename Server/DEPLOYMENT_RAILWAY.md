@@ -1,8 +1,8 @@
 # Railway EU beta deployment
 
-Owner-authorized EU service and PHP bridge were updated on 2026-09-10 for
-TestFlight build 26. Hosted release and boundary checks passed; Apple approved
-build 26 for the existing Internal QA and External QA groups. Real-player match
+The owner-authorized EU service and PHP verifier were updated on 2026-09-11 for
+TestFlight build 28. Hosted release and boundary checks passed; Apple approved
+build 28 for the existing Internal QA and External QA groups. Real-player match
 acceptance remains a separate gate.
 
 ## Provisioned target
@@ -90,14 +90,46 @@ the processed build to both existing QA groups and submit external Beta App
 Review when required. Report assignment and approval separately; do not create
 or change a public testing link.
 
-Build 25's prior Railway deployment `ece352a2-d7e1-4512-9f16-aad11daa6602` is the
-runtime rollback reference. A rollback restores an earlier image, not live room
-memory. Coordinate client revision compatibility and PHP admission before rolling
-back; do not leave build 26 pointing at a revision-1-only service. Retain the volume,
+The prior Railway deployment `920bd2bf-217e-44b3-ac4c-d3a0f964b812` is the
+runtime rollback reference. It retains revision 2 but lacks room discovery/private
+support; the new app capability gate prevents silent public creation. A rollback
+restores an earlier image, not live room memory. Coordinate client compatibility
+and PHP admission before rolling back. Retain the volume,
 PHP backups and additive 023/024 schema. Old PHP's three-miss validation must not
 receive revision-2 heart results. Never drop v2 tables as routine rollback.
 
-## Current build 26 deployment evidence
+## Current build 28 deployment evidence
+
+Verified 2026-09-11, before the iOS upload. No hosting settings, secrets, regions,
+plans, volume, schema or account data changed.
+
+| Evidence | Value |
+| --- | --- |
+| Clean service source | `e866409c6571dd08069db76fabcd07d79016a487`; Server/Core identical in uploaded iOS `3922867` |
+| Deployment | `3041f2bb-70f4-4a71-8318-039fb8e6aedb`, SUCCESS; one Amsterdam replica |
+| Source tar SHA-256 | `0ac45cfa8797b49996601a76f176af3e3049b51a22713afbf89be37b4f6d39ed` |
+| Railway image/index digest | `sha256:959ee011ddd0baeb71642e679b33e8e310b8c47ee379c91d6bdaebcf87784e0b` |
+| Runtime binary SHA-256 | `9a5d3b08a66dfce6d1b2a6feed494c87627f2bdf65178ce51675e6b128bd91c1` |
+| PHP source | `f84dc9218b58bb937326be931f2ee969abed4282`; schema 001–024 unchanged |
+| PHP target | Only `speedytapper.otcsoft.com` / `/home/u966828068/domains/speedytapper.otcsoft.com/public_html` |
+
+Linux ARM64 passed 40 service and 89 core tests plus entrypoint/readiness checks.
+The local AMD64 QEMU compiler crashed before its unit gate; this is not an AMD64
+unit-test pass. Railway's native AMD64 release build succeeded, and direct pinned
+SSH verified x86_64, the exact deployment/replica, PID 1 UID/GID 10001, NoNewPrivs,
+real 0700 outbox directories and the read-write ext4 mount. Startup readiness passed;
+no extra result write, result enumeration or restart was performed.
+
+Ten live WSS/auth boundaries passed with zero rooms/connections before and after.
+Before/after configuration, deployment settings and secret fingerprints matched.
+The exact temporary SSH registration and local key material were removed, with
+a fresh empty workspace-key inventory matching the baseline. Full evidence is
+`build/releases/build28-20260911/linux-verify.gJC9GU/VERIFICATION.md`.
+PHP's 69 source hashes and 35 HTTPS checks passed before upload; see
+`docs/RELEASE.md` for artifact, compatible v3/v4/v5 admission and rollback limits.
+No positive real-account hosted match or physical-device latency is implied.
+
+## Historical build 26 deployment evidence
 
 Verified 2026-09-10; PHP 024 was directly verified before Railway activation.
 

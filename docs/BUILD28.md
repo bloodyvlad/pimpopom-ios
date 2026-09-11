@@ -1,6 +1,6 @@
 # Build 28 — 4×4 pickups and private-room discovery
 
-Implemented candidate, 2026-09-11. Deployment and Apple state are separately
+Released beta, 2026-09-11. Deployment and Apple state are separately
 recorded in CURRENT_VERSION.md / RELEASE.md; this document alone proves neither.
 
 ## Gameplay and artwork
@@ -47,8 +47,14 @@ Three guests found/joined the private room by code. These are local socket tests
 not four physical devices or measured internet latency.
 
 Focused Simulator tests: 33 passed, zero failures/skips; all four themed hub and
-waiting-room captures inspected. Final comprehensive gate and Linux verification
-are recorded with the release once complete.
+waiting-room captures inspected. Final source passed 241 app/UI tests and 89 core
+tests; the compact SE all-theme room controls also passed. Linux passed 40 service
+and 89 core tests on ARM64; Railway's native AMD64 build and runtime were verified.
+Initial cold Simulator failures are retained with the passing warm run.
+
+PHP v5 and Railway room support were deployed and checked before iOS upload.
+Apple build `707cd113-dc9c-4410-8547-d13afce6dd1a` is VALID; beta review is APPROVED
+and both existing QA groups are IN_BETA_TESTING. Exact evidence is in RELEASE.md.
 
 Required order: verify/deploy PHP v5 first, verify/deploy Railway room support,
 then archive/upload build 28 to the existing Internal QA / External QA groups.
