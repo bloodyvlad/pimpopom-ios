@@ -224,7 +224,7 @@ public final class GameEngine {
         var occupied = Set(activeDecoys.map(\.cellIndex)).union(activePickups.map(\.cellIndex))
         if let targetIndex { occupied.insert(targetIndex) }
         let available = (0..<(dimension * dimension)).filter { !occupied.contains($0) }
-        guard dimension >= 2, activePickups.isEmpty, available.count >= 2 else {
+        guard dimension >= ruleset.minimumPickupGridDimension, activePickups.isEmpty, available.count >= 2 else {
             nextPickupOpportunityAt = now + Double(ArcadePowerupRules.retryMilliseconds)
             recordProofEvent([10, proofElapsed(now: now)])
             return GameTransition(
@@ -867,7 +867,7 @@ public final class GameEngine {
         GameTransition(kind: .ignored, reason: reason, snapshot: snapshot(now: now))
     }
 
-    private var pickupsEnabled: Bool { ruleset == .v4 && mode == .arcade }
+    private var pickupsEnabled: Bool { ruleset != .v3 && mode == .arcade }
 
     private func currentRateUnits(now: Double) -> Int {
         guard pickupsEnabled else { return ArcadePowerupRules.normalRateUnits }

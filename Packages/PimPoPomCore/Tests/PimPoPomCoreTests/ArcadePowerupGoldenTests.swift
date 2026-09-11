@@ -32,9 +32,9 @@ private enum GoldenEvent {
 
 /// Complete, naturally scheduled traces rather than direct mutation of engine
 /// state. PHP consumes the identical checked-in event arrays and expected totals.
-private func generateGolden(hearts: Bool) -> ArcadePowerupGolden {
+private func generateGolden(hearts: Bool, ruleset: ArcadeRuleset = .v4) -> ArcadePowerupGolden {
     let random = GoldenRandom()
-    let engine = GameEngine(ruleset: .v4, random: { random.value })
+    let engine = GameEngine(ruleset: ruleset, random: { random.value })
     engine.start(now: 0)
     var targetSpawnAt: Double? = engine.nextDelayMilliseconds(now: 0)
     var targetContactAt: Double?
@@ -61,8 +61,9 @@ private func generateGolden(hearts: Bool) -> ArcadePowerupGolden {
         switch event.kind {
         case .targetContact:
             targetContactAt = nil
+            let finishAfter = ruleset == .v5 ? (hearts ? 125_000.0 : 110_000) : (hearts ? 75_000 : 65_000)
             let shouldMiss =
-                now >= (hearts ? 75_000 : 65_000)
+                now >= finishAfter
                 || (hearts && ((!missedOnce && engine.hits >= 4) || missAfterHeart))
             let missedCell = engine.snapshot(now: now).cells.indices.first { index in
                 index != engine.targetIndex && !engine.activePickups.contains(where: { $0.cellIndex == index })
@@ -115,6 +116,34 @@ private func generateGolden(hearts: Bool) -> ArcadePowerupGolden {
             misses: final.misses, dodges: final.dodges, reactionTotalMs: engine.reactionTotalMilliseconds,
             fastestReactionMs: final.fastestReactionMilliseconds, lives: final.lives,
             maximumMultiplierUsed: final.maximumMultiplierUsed))
+}
+
+@Test("Complete Arcade v5 traces defer pickups to 4×4 and preserve restored-life and clock semantics")
+func arcadeFourByFourPowerupGoldenTraces() throws {
+    let goldens = [generateGolden(hearts: true, ruleset: .v5), generateGolden(hearts: false, ruleset: .v5)]
+    for trace in goldens {
+        #expect(trace.ruleset == "reaction-proof-v5")
+        #expect(trace.proofVersion == 3)
+        #expect(trace.expected.lives == 0)
+        #expect(trace.events.last?.first == 5)
+        #expect(trace.events.count < 10_000)
+        #expect(trace.events.contains { $0.first == 10 && $0[1] < 40_000 })
+        #expect(trace.events.filter { $0.first == 7 }.allSatisfy { $0[1] >= 40_000 })
+        #expect(trace.events.contains { $0.first == 8 })
+    }
+    #expect(goldens[0].expected.misses >= 8)
+    #expect(goldens[1].events.contains { $0.first == 9 })
+    #expect(goldens[1].events.filter { $0.first == 8 }.count >= 2)
+    if ProcessInfo.processInfo.environment["PIMPOPOM_EXPORT_V5_POWERUP_FIXTURES"] == "1" {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        print("ARCADE_V5_POWERUP_GOLDENS:" + String(decoding: try encoder.encode(goldens), as: UTF8.self))
+        return
+    }
+    let fixtureURL = try #require(
+        Bundle.module.url(forResource: "arcade-v5-powerups", withExtension: "json", subdirectory: "Fixtures"))
+    let stored = try JSONDecoder().decode([ArcadePowerupGolden].self, from: Data(contentsOf: fixtureURL))
+    #expect(goldens == stored)
 }
 
 @Test("Complete Swift Arcade v4 proof goldens terminate, cover hearts above three misses and clock expiry")

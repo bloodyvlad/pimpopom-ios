@@ -30,7 +30,8 @@ private func playArcade(_ engine: inout MP2Engine, to end: Int, excludingSeats: 
 }
 
 private func firstHeart(_ engine: inout MP2Engine, excludingSeats: Set<Int> = []) throws -> MP2Heart {
-    while engine.snapshot.hearts.isEmpty, engine.elapsedMs < 60_000, engine.snapshot.phase == .playing {
+    let limit = max(60_000, engine.elapsedMs + 25_000)
+    while engine.snapshot.hearts.isEmpty, engine.elapsedMs < limit, engine.snapshot.phase == .playing {
         playArcade(&engine, to: engine.elapsedMs + 20, excludingSeats: excludingSeats)
     }
     let heart = try #require(engine.snapshot.hearts.first)
@@ -188,7 +189,8 @@ func arcadeHeartClaims() throws {
             ).accepted)
     }
     let heart = try firstHeart(&engine)
-    #expect(heart.activateAtMs >= 12_000)
+    #expect(heart.activateAtMs >= 40_000)
+    #expect(engine.snapshot.gridDimension == 4)
     #expect(heart.expiresAtMs - heart.activateAtMs == 3_000)
     let before = engine.snapshot.players
     #expect(before.allSatisfy { $0.lives == 2 })
@@ -205,6 +207,33 @@ func arcadeHeartClaims() throws {
     #expect(!lostReceipt.accepted && lostReceipt.reason == "heart-claimed")
     #expect(engine.snapshot.players[0].lives == 2)
     #expect(engine.snapshot.players[0].misses == 1)
+}
+
+@Test("MP2 revision 2 never announces a heart before the actual shared 4×4 board")
+func arcadeMultiplayerHeartFourByFourGate() throws {
+    for count in 2...4 {
+        for seed: UInt64 in 1...5 {
+            var engine = try MP2Engine(
+                matchID: "m", players: arcadePlayers(count), seed: seed, scheduleLeadMs: 250, gameplayRevision: 2)
+            #expect(engine.snapshot.gridDimension == 1)
+            #expect(engine.snapshot.hearts.isEmpty)
+            var sawTwoByTwo = false
+            while engine.elapsedMs < 39_999 {
+                playArcade(&engine, to: min(39_999, engine.elapsedMs + 20))
+                sawTwoByTwo = sawTwoByTwo || engine.snapshot.gridDimension == 2
+                #expect(engine.snapshot.gridDimension < 4)
+                #expect(engine.snapshot.hearts.isEmpty)
+            }
+            #expect(sawTwoByTwo)
+            playArcade(&engine, to: 40_000)
+            #expect(engine.snapshot.gridDimension == 4)
+            let heart = try firstHeart(&engine)
+            #expect(heart.activateAtMs >= 40_250)
+            #expect(heart.activateAtMs <= 40_500)
+            #expect(heart.expiresAtMs - heart.activateAtMs == 3_000)
+            #expect(engine.snapshot.gameplayRevision == 2)
+        }
+    }
 }
 
 @Test("MP2 hearts are bounded, expire harmlessly, reject spectators and never exceed the life cap")
@@ -259,7 +288,7 @@ func arcadeDelayedHeartAdmission() throws {
     #expect(!engine.submit(ambiguous, receivedAt: engine.elapsedMs).accepted)
     #expect(engine.snapshot.hearts.contains(heart))
     let wrongCell = MP2Input(
-        id: 900_001, seat: 0, targetID: nil, cell: (heart.cell + 1) % 4,
+        id: 900_001, seat: 0, targetID: nil, cell: (heart.cell + 1) % 16,
         presentedAtMs: heart.activateAtMs, contactAtMs: engine.elapsedMs, heartID: heart.id)
     #expect(!engine.submit(wrongCell, receivedAt: engine.elapsedMs).accepted)
     let beforePresentation = MP2Input(
@@ -304,5 +333,14 @@ func arcadeDelayedTargetColorInvariants() throws {
         }
     }
     #expect(corrections > 20)
+    // The cutoff can land after a provisional expiry but before its artificial
+    // delayed delivery. Resolve contacts that already happened without advancing
+    // into another generation of targets before asserting final life accounting.
+    for target in pending.values.filter({ $0.activateAtMs + 500 <= engine.elapsedMs }).sorted(by: { $0.id < $1.id }) {
+        let input = MP2Input(
+            id: target.id, seat: target.ownerSeat, targetID: target.id, cell: target.cell,
+            presentedAtMs: target.activateAtMs + 400, contactAtMs: target.activateAtMs + 500)
+        #expect(engine.submit(input, receivedAt: engine.elapsedMs).accepted)
+    }
     #expect(engine.snapshot.players.allSatisfy { $0.lives == 3 })
 }

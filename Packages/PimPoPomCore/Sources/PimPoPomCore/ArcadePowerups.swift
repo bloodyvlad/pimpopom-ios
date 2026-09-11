@@ -4,8 +4,12 @@ import Foundation
 public enum ArcadeRuleset: String, Codable, Sendable {
     case v3 = "reaction-proof-v3"
     case v4 = "reaction-proof-v4"
+    case v5 = "reaction-proof-v5"
 
-    public var proofVersion: Int { self == .v4 ? 3 : 2 }
+    public var proofVersion: Int { self == .v3 ? 2 : 3 }
+
+    /// V4 is retained for archived/build-27 proofs; v5 waits for the actual 4×4 field.
+    public var minimumPickupGridDimension: Int { self == .v5 ? 4 : 2 }
 }
 
 public enum ArcadePickupKind: Int, Codable, CaseIterable, Sendable {

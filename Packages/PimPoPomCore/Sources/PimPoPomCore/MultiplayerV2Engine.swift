@@ -485,7 +485,7 @@ public struct MP2Engine: Sendable {
         guard elapsedMs >= nextHeartAt else { return }
         let occupied = occupiedCells
         let free = (0..<(gridDimension * gridDimension)).filter { !occupied.contains($0) }
-        guard gridDimension >= 2, free.count >= 2,
+        guard gridDimension >= 4, free.count >= 2,
             !hearts.values.contains(where: { !$0.claimed && !$0.expired })
         else {
             nextHeartAt = elapsedMs + 250
