@@ -31,6 +31,8 @@ struct HowToPlayView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("How to play · \(practice.mode.title)")
                             .font(theme.appFont(size: 18, weight: .black, relativeTo: .headline))
+                            // Keep the screen marker on a leaf; a root identifier can replace child control IDs.
+                            .accessibilityIdentifier("tutorial-\(practice.mode.rawValue)")
                         Text("PRACTICE ONLY · No timers or rewards")
                             .font(theme.appFont(size: 10, weight: .bold, relativeTo: .caption))
                             .foregroundStyle(Color(hex: theme.muted))
@@ -117,7 +119,6 @@ struct HowToPlayView: View {
         }
         .navigationTitle("How to play")
         .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("tutorial-\(practice.mode.rawValue)")
     }
 }
 
@@ -220,6 +221,7 @@ private struct HowToPlayBoard: View {
         .padding(8)
         .frame(maxWidth: practice.gridDimension == 1 ? 150 : 280)
         .webCardStyle(theme: theme, selectedAccent: Color(hex: theme.chromeAccent), padding: 4)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("tutorial-board")
     }
 }
@@ -271,7 +273,7 @@ private struct HowToPlayCell: View {
         }
         .buttonStyle(.plain)
         .disabled(tile == .empty)
-        .accessibilityElement(children: .ignore)
+        // Button owns its action and traits; an extra accessibility element would wrap it in an inert group.
         .accessibilityLabel(label)
         .accessibilityIdentifier("tutorial-cell-\(cell)")
     }
@@ -350,6 +352,7 @@ private struct HowToPlayCompetitors: View {
             }
         }
         .webCardStyle(theme: theme, selectedAccent: highlighted ? Color(hex: theme.chromeAccent) : nil, padding: 6)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("tutorial-competitors")
     }
 }

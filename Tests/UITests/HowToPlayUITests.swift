@@ -10,10 +10,9 @@ final class HowToPlayUITests: XCTestCase {
                     "--ui-test-tutorial=\(mode)",
                 ]
                 app.launch()
+                assertFirstStepControls(in: app, mode: mode)
+                capture("\(theme) \(mode) tutorial accessible first step", in: app)
                 let next = app.buttons["tutorial-next"]
-                XCTAssertTrue(next.waitForExistence(timeout: 6))
-                XCTAssertFalse(next.isEnabled)
-                XCTAssertTrue(app.buttons["tutorial-skip"].isHittable)
                 XCTAssertFalse(app.descendants(matching: .any)["multiplayer-hub"].exists)
                 XCTAssertFalse(app.buttons["arcade-cell-0"].exists)
                 tapTarget(app)
@@ -35,16 +34,14 @@ final class HowToPlayUITests: XCTestCase {
                     waitForLabel("NORMAL PACE · 100%", identifier: "tutorial-clock-rate", in: app)
                     XCTAssertFalse(app.buttons["tutorial-clock-preview"].isEnabled)
                 }
-                let attachment = XCTAttachment(screenshot: app.screenshot())
-                attachment.name = "\(theme) \(mode) tutorial 4x4 pickups"
-                attachment.lifetime = .keepAlways
-                add(attachment)
+                capture("\(theme) \(mode) tutorial 4x4 pickups", in: app)
                 advance(next)
                 if mode == "multiplayer" { tapTarget(app) }
                 advance(next)
                 XCTAssertEqual(next.label, "Done")
                 XCTAssertTrue(next.isHittable)
                 next.tap()
+                XCTAssertTrue(app.staticTexts["tutorial-\(mode)"].waitForNonExistence(timeout: 3))
                 XCTAssertTrue(app.buttons["mode-normal"].waitForExistence(timeout: 3))
                 app.terminate()
             }
@@ -55,9 +52,11 @@ final class HowToPlayUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["--uitesting", "--ui-test-tutorial=multiplayer"]
         app.launch()
+        assertFirstStepControls(in: app, mode: "multiplayer")
         let skip = app.buttons["tutorial-skip"]
         XCTAssertTrue(skip.waitForExistence(timeout: 6))
         skip.tap()
+        XCTAssertTrue(app.staticTexts["tutorial-multiplayer"].waitForNonExistence(timeout: 3))
         XCTAssertTrue(app.buttons["mode-normal"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.descendants(matching: .any)["multiplayer-hub"].exists)
         XCTAssertFalse(app.buttons["arcade-cell-0"].exists)
@@ -75,13 +74,42 @@ final class HowToPlayUITests: XCTestCase {
             XCTAssertTrue(replay.waitForExistence(timeout: 3))
             reveal(replay, in: app)
             replay.tap()
+            assertFirstStepControls(in: app, mode: mode)
+            capture("Settings replay \(mode) tutorial first step", in: app)
             let skip = app.buttons["tutorial-skip"]
             XCTAssertTrue(skip.waitForExistence(timeout: 3))
             skip.tap()
+            XCTAssertTrue(app.staticTexts["tutorial-\(mode)"].waitForNonExistence(timeout: 3))
             XCTAssertTrue(replay.waitForExistence(timeout: 3))
             XCTAssertFalse(app.buttons["arcade-cell-0"].exists)
             XCTAssertFalse(app.descendants(matching: .any)["multiplayer-hub"].exists)
         }
+    }
+
+    private func assertFirstStepControls(in app: XCUIApplication, mode: String) {
+        let title = app.staticTexts["tutorial-\(mode)"]
+        XCTAssertTrue(title.waitForExistence(timeout: 6))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "tutorial-\(mode)").count, 1)
+        let next = app.buttons["tutorial-next"]
+        XCTAssertTrue(next.waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons.matching(identifier: "tutorial-next").count, 1)
+        XCTAssertFalse(next.isEnabled)
+        let skip = app.buttons["tutorial-skip"]
+        XCTAssertEqual(app.buttons.matching(identifier: "tutorial-skip").count, 1)
+        XCTAssertTrue(skip.isHittable)
+        XCTAssertTrue(app.switches["tutorial-remember"].exists)
+        let target = app.buttons["tutorial-cell-0"]
+        XCTAssertTrue(target.exists, "Practice targets must retain Button semantics, not inert accessibility groups")
+        XCTAssertEqual(target.label, "Your color target, Cyan")
+        XCTAssertTrue(target.isEnabled)
+        reveal(target, in: app)
+    }
+
+    private func capture(_ name: String, in app: XCUIApplication) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func advance(_ next: XCUIElement) {
