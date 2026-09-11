@@ -39,6 +39,7 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
     public var outAtMs: Int?
     /// Authority-derived connected, alive gameplay time; absent in legacy revisions.
     public var eligibleAliveMs: Int?
+    public var maxMultiplier: Int?
     public var isOut: Bool { lives == 0 }
     public var averageReactionMs: Int? { hits == 0 ? nil : Int((Double(reactionTotalMs) / Double(hits)).rounded()) }
 
@@ -48,7 +49,7 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
         lives: Int = 3, score: Int = 0, hits: Int = 0, misses: Int = 0, dodges: Int = 0,
         multiplier: Int = 1, streakProgress: Int = 0, recoveryUntilMs: Int = 0,
         reactionTotalMs: Int = 0, fastestReactionMs: Int? = nil, challengeBaselineHits: Int? = nil,
-        outAtMs: Int? = nil, eligibleAliveMs: Int? = nil
+        outAtMs: Int? = nil, eligibleAliveMs: Int? = nil, maxMultiplier: Int? = nil
     ) {
         self.id = id
         self.seat = seat
@@ -71,6 +72,7 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
         self.challengeBaselineHits = challengeBaselineHits
         self.outAtMs = outAtMs
         self.eligibleAliveMs = eligibleAliveMs
+        self.maxMultiplier = maxMultiplier
     }
 }
 
@@ -227,12 +229,14 @@ public struct MP2InputReceipt: Codable, Equatable, Sendable {
     public let accepted: Bool
     public let reason: String
     public let revision: Int
+    public let lifeAwarded: Bool?
 
-    public init(id: Int, accepted: Bool, reason: String, revision: Int = 0) {
+    public init(id: Int, accepted: Bool, reason: String, revision: Int = 0, lifeAwarded: Bool? = nil) {
         self.id = id
         self.accepted = accepted
         self.reason = reason
         self.revision = revision
+        self.lifeAwarded = lifeAwarded
     }
 }
 
