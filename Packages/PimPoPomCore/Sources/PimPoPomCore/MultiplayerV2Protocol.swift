@@ -6,6 +6,8 @@ public enum MP2Protocol {
     /// Gameplay capabilities are negotiated separately from the PHP authentication protocol.
     public static let legacyGameplayRevision = 1
     public static let gameplayRevision = 2
+    /// Room metadata/search capability; independent of gameplay and PHP tickets.
+    public static let roomDiscoveryRevision = 1
     public static let ruleset = "multiplayer-shared-arcade-v2"
     public static let lateInputGraceMs = 2_000
     public static let maximumDurationMs = 900_000
@@ -306,7 +308,9 @@ public enum MP2ClientMessage: Codable, Equatable, Sendable {
 }
 
 public enum MP2ServerMessage: Codable, Equatable, Sendable {
-    case welcome(playerID: String, connectionID: String, serverTimeMs: Int, gameplayRevision: Int? = nil)
+    case welcome(
+        playerID: String, connectionID: String, serverTimeMs: Int, gameplayRevision: Int? = nil,
+        roomDiscoveryRevision: Int? = nil)
     case resumeCredential(roomID: String, credential: String, generation: Int)
     /// Revision 2 only: ordered acknowledgement that pending or joined room membership was left.
     case left
