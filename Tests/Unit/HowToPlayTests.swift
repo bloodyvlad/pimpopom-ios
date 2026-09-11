@@ -1,3 +1,4 @@
+import PimPoPomCore
 import SwiftUI
 import XCTest
 
@@ -20,23 +21,35 @@ final class HowToPlayTests: XCTestCase {
         XCTAssertEqual(practice.interactions, 0)
         practice.tap(cell: practice.targetCell)
         XCTAssertTrue(practice.advance())
+        XCTAssertEqual(practice.streakSteps, 0)
         for count in 1...3 {
             practice.tap(cell: practice.targetCell)
             XCTAssertEqual(practice.interactions, count)
             XCTAssertEqual(practice.canAdvance, count == 3)
+            XCTAssertEqual(practice.streakSteps, [2, 4, 1][count - 1])
+            XCTAssertEqual(practice.multiplier, count == 3 ? 2 : 1)
         }
-        XCTAssertEqual(practice.speedProgress, 1)
+        XCTAssertEqual(practice.speedProgress, 0.2)
         XCTAssertEqual(practice.multiplier, 2)
         XCTAssertTrue(practice.advance())
         XCTAssertEqual(practice.gridDimension, 4)
+        XCTAssertEqual(practice.lives, 2)
+        XCTAssertTrue(practice.highlightsLives)
+        XCTAssertFalse(practice.highlightsColor)
+        let pointsBeforePickups = practice.exampleScore
         XCTAssertEqual(practice.tile(at: 5), .heart)
         XCTAssertEqual(practice.tile(at: 10), .empty)
         practice.tap(cell: 5)
+        XCTAssertEqual(practice.lives, 3)
+        XCTAssertEqual(practice.exampleScore, pointsBeforePickups)
         XCTAssertFalse(practice.canAdvance)
         XCTAssertEqual(practice.tile(at: 10), .clock)
         practice.tap(cell: 5)
         XCTAssertEqual(practice.interactions, 1)
         practice.tap(cell: 10)
+        XCTAssertEqual(practice.exampleScore, pointsBeforePickups)
+        XCTAssertEqual(practice.multiplier, 2)
+        XCTAssertEqual(practice.streakSteps, 1)
         XCTAssertTrue(practice.advance())
         XCTAssertEqual(practice.step, .competition)
         XCTAssertTrue(practice.advance())
@@ -51,8 +64,13 @@ final class HowToPlayTests: XCTestCase {
             XCTAssertTrue(practice.advance())
         }
         XCTAssertEqual(practice.requiredInteractions, 1)
+        XCTAssertEqual(practice.lives, 2)
         XCTAssertFalse((0..<16).map { practice.tile(at: $0) }.contains(.clock))
         practice.tap(cell: 5)
+        XCTAssertEqual(practice.lives, 3)
+        XCTAssertFalse(practice.clockCollected)
+        practice.previewClockRecovery()
+        XCTAssertEqual(practice.clockRatePercent, 100)
         XCTAssertTrue(practice.advance())
         XCTAssertTrue(practice.instruction.contains("highest final score wins"))
         XCTAssertTrue(practice.instruction.contains("last player is out"))
@@ -63,6 +81,56 @@ final class HowToPlayTests: XCTestCase {
         XCTAssertTrue(practice.rewardsInstruction.contains("2 coins"))
         XCTAssertTrue(practice.rewardsInstruction.contains("Spectating time does not count"))
         XCTAssertTrue(practice.rewardsInstruction.contains("leaderboard"))
+    }
+
+    func testClockRecoveryIsAnExplicitUntimedPreviewAndUsesCoreRules() {
+        var practice = HowToPlayPractice(mode: .arcade)
+        XCTAssertTrue(practice.highlightsColor)
+        XCTAssertFalse(practice.highlightsLives)
+        practice.previewClockRecovery()
+        XCTAssertEqual(practice.clockPreviewMilliseconds, 0)
+        while practice.step != .pickups {
+            while !practice.canAdvance { practice.tap(cell: practice.targetCell) }
+            XCTAssertTrue(practice.advance())
+        }
+        XCTAssertTrue(practice.instruction.contains("30% slower"))
+        XCTAssertTrue(practice.instruction.contains("ten seconds"))
+        practice.tap(cell: 5)
+        practice.tap(cell: 10)
+        XCTAssertEqual(practice.clockRatePercent, 70)
+        XCTAssertEqual(practice.clockRecoveryProgress, 0)
+        let score = practice.exampleScore
+        practice.previewClockRecovery()
+        XCTAssertEqual(practice.clockRatePercent, 85)
+        XCTAssertEqual(practice.clockRecoveryProgress, 0.5)
+        practice.previewClockRecovery()
+        XCTAssertEqual(practice.clockRatePercent, 100)
+        XCTAssertEqual(practice.clockRecoveryProgress, 1)
+        practice.previewClockRecovery()
+        XCTAssertEqual(practice.clockPreviewMilliseconds, ArcadePowerupRules.clockRecoveryMilliseconds)
+        XCTAssertEqual(practice.exampleScore, score)
+        XCTAssertEqual(practice.streakSteps, 1)
+        XCTAssertEqual(practice.multiplier, 2)
+        XCTAssertTrue(practice.advance())
+        XCTAssertEqual(practice.clockPreviewMilliseconds, 0)
+        XCTAssertFalse(practice.highlightsLives)
+    }
+
+    func testSimulatedSpeedCopyMatchesSharedFiveStepRules() {
+        let rules = GameConfiguration.standard.streak
+        XCTAssertEqual(rules.stepsPerMultiplier, 5)
+        XCTAssertEqual(rules.ratingSteps[SpeedRating.classify(reactionMilliseconds: 200).rating], 2)
+        XCTAssertEqual(rules.ratingSteps[SpeedRating.classify(reactionMilliseconds: 300).rating], 1)
+        var practice = HowToPlayPractice(mode: .arcade)
+        while practice.step != .speedBar {
+            practice.tap(cell: practice.targetCell)
+            XCTAssertTrue(practice.advance())
+        }
+        XCTAssertTrue(practice.instruction.contains("Perfect taps add one"))
+        for _ in 0..<3 { practice.tap(cell: practice.targetCell) }
+        XCTAssertEqual(
+            practice.exampleScore,
+            3 * ReactionScoring.points(reactionMilliseconds: 200, responseWindowMilliseconds: 1_000))
     }
 
     func testRewardCopyCanFollowDisabledCapabilitiesWithoutMakingPromises() {

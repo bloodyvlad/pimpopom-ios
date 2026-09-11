@@ -58,6 +58,11 @@ struct HowToPlayView: View {
                                     HowToPlayCompetitors(theme: theme, highlighted: true)
                                 }
                             }
+                            if practice.clockCollected {
+                                HowToPlayClockRecovery(practice: practice, theme: theme) {
+                                    practice.previewClockRecovery()
+                                }
+                            }
                             HowToPlaySpeedBar(practice: practice, theme: theme)
                             if let feedback = practice.feedback {
                                 Text(feedback)
@@ -148,7 +153,23 @@ private struct HowToPlayHUD: View {
                     .font(theme.appFont(size: 9, weight: .bold, relativeTo: .caption))
                 Text("\(practice.exampleScore)")
                     .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
-                GameplayLivesView(remaining: 3, theme: theme)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("LIVES")
+                        .font(theme.appFont(size: 9, weight: .bold, relativeTo: .caption))
+                    GameplayLivesView(remaining: practice.lives, theme: theme)
+                }
+                .padding(6)
+                .background(Color(hex: GameHUDMetrics.livesColorHex).opacity(practice.highlightsLives ? 0.15 : 0))
+                .overlay {
+                    RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 8)
+                        .stroke(
+                            Color(hex: GameHUDMetrics.livesColorHex).opacity(practice.highlightsLives ? 1 : 0),
+                            lineWidth: 3)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Lives, \(practice.lives) of 3")
+                .accessibilityValue(practice.highlightsLives ? "Highlighted" : "")
+                .accessibilityIdentifier("tutorial-lives")
             }
             Spacer(minLength: 0)
             VStack(spacing: 4) {
@@ -166,10 +187,12 @@ private struct HowToPlayHUD: View {
                 }
             }
             .padding(8)
-            .background(theme.color(at: practice.colorIndex).opacity(0.15))
+            .background(theme.color(at: practice.colorIndex).opacity(practice.highlightsColor ? 0.15 : 0.05))
             .overlay {
                 RoundedRectangle(cornerRadius: theme.isPixel ? 0 : 10)
-                    .stroke(theme.color(at: practice.colorIndex), lineWidth: 3)
+                    .stroke(
+                        theme.color(at: practice.colorIndex).opacity(practice.highlightsColor ? 1 : 0.25),
+                        lineWidth: practice.highlightsColor ? 3 : 1)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Your color: \(gameColors[practice.colorIndex].name)")
@@ -261,7 +284,7 @@ private struct HowToPlaySpeedBar: View {
     var body: some View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("SPEED BAR")
+                Text("SPEED BAR · \(practice.streakSteps)/\(practice.streakTarget)")
                     .font(theme.appFont(size: 11, weight: .black, relativeTo: .caption))
                 ProgressView(value: practice.speedProgress)
                     .tint(Color(hex: theme.chromeAccent))
@@ -273,8 +296,37 @@ private struct HowToPlaySpeedBar: View {
             theme: theme, selectedAccent: practice.step == .speedBar ? Color(hex: theme.chromeAccent) : nil, padding: 10
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Speed Bar, example multiplier \(practice.multiplier)")
+        .accessibilityLabel(
+            "Speed Bar, \(practice.streakSteps) of \(practice.streakTarget) steps, example multiplier \(practice.multiplier)"
+        )
         .accessibilityIdentifier("tutorial-speed-bar")
+    }
+}
+
+private struct HowToPlayClockRecovery: View {
+    let practice: HowToPlayPractice
+    let theme: ThemePalette
+    let onPreview: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(practice.clockRatePercent < 100 ? "PACE \(practice.clockRatePercent)%" : "NORMAL PACE · 100%")
+                .font(theme.appFont(size: 14, weight: .black, relativeTo: .headline))
+                .accessibilityIdentifier("tutorial-clock-rate")
+            ProgressView(value: practice.clockRecoveryProgress)
+                .tint(Color(hex: theme.chromeAccent))
+                .accessibilityLabel("Recovery to normal pace")
+            Text(
+                "Untimed preview. In play, pace returns smoothly to normal over ten seconds; your score and streak stay intact."
+            )
+            .font(theme.appFont(size: 12, weight: .medium, relativeTo: .caption))
+            .fixedSize(horizontal: false, vertical: true)
+            Button("Preview +5 seconds", action: onPreview)
+                .buttonStyle(WebSecondaryButtonStyle(theme: theme, minimumHeight: 44))
+                .disabled(practice.clockRatePercent == 100)
+                .accessibilityIdentifier("tutorial-clock-preview")
+        }
+        .webCardStyle(theme: theme, selectedAccent: Color(hex: theme.chromeAccent), padding: 10)
     }
 }
 

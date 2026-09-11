@@ -1,4 +1,5 @@
 import Foundation
+import PimPoPomCore
 
 enum HowToPlayMode: String, CaseIterable, Identifiable, Sendable {
     case arcade
@@ -33,6 +34,7 @@ struct HowToPlayPractice: Equatable, Sendable {
     private(set) var step = HowToPlayStep.yourColor
     private(set) var interactions = 0
     private(set) var feedback: String?
+    private(set) var clockPreviewMilliseconds = 0
 
     init(mode: HowToPlayMode, capabilities: HowToPlayCapabilities = .current) {
         self.mode = mode
@@ -66,11 +68,31 @@ struct HowToPlayPractice: Equatable, Sendable {
     }
     var canAdvance: Bool { interactions >= requiredInteractions }
     var isLastStep: Bool { step == .rewards }
-    var speedProgress: Double {
-        step == .speedBar ? Double(interactions) / 3 : (step.rawValue > 2 ? 1 : 0.2)
+    private var completedSpeedTaps: Int { step == .speedBar ? interactions : (step.rawValue > 2 ? 3 : 0) }
+    private var earnedSpeedSteps: Int {
+        completedSpeedTaps * (GameConfiguration.standard.streak.ratingSteps[.godlike] ?? 0)
     }
-    var multiplier: Int { speedProgress >= 1 ? 2 : 1 }
-    var exampleScore: Int { 1_000 * interactions }
+    var streakTarget: Int { GameConfiguration.standard.streak.stepsPerMultiplier }
+    var streakSteps: Int { earnedSpeedSteps % streakTarget }
+    var speedProgress: Double { Double(streakSteps) / Double(streakTarget) }
+    var multiplier: Int { 1 + earnedSpeedSteps / streakTarget }
+    var exampleScore: Int {
+        // Simulated 200 ms hits, not measured practice reactions. Pickups award no points.
+        let hits = step.rawValue < HowToPlayStep.speedBar.rawValue ? interactions : completedSpeedTaps
+        return hits * ReactionScoring.points(reactionMilliseconds: 200, responseWindowMilliseconds: 1_000)
+    }
+    var lives: Int { step == .pickups && interactions == 0 ? 2 : GameConfiguration.standard.startingLives }
+    var highlightsColor: Bool { step == .yourColor || step == .changingColor }
+    var highlightsLives: Bool { step == .pickups }
+    var clockCollected: Bool { mode == .arcade && step == .pickups && interactions >= 2 }
+    var clockRatePercent: Int {
+        ArcadePowerupRules.rateUnits(
+            atMilliseconds: clockPreviewMilliseconds, clockClaimHandledAtMilliseconds: clockCollected ? 0 : nil
+        ) / 1_000
+    }
+    var clockRecoveryProgress: Double {
+        Double(clockPreviewMilliseconds) / Double(ArcadePowerupRules.clockRecoveryMilliseconds)
+    }
 
     var title: String {
         switch step {
@@ -89,10 +111,10 @@ struct HowToPlayPractice: Equatable, Sendable {
         case .changingColor:
             "Check the HUD again: your color has changed. Tap the new matching color and leave other colors alone."
         case .speedBar:
-            "The fastest taps fill the Speed Bar and increase your score multiplier. Tap three matching squares to try it. This practice has no timer."
+            "Godlike taps add two steps; Perfect taps add one. Five steps unlock the next multiplier, up to 5×. Try three simulated Godlike taps: 2 + 2 + 2 gives 2× with one step carried over. This practice has no timer."
         case .pickups:
             mode == .arcade
-                ? "Power-ups appear only on 4×4. Tap the heart for a life, then the rewind clock to slow the pace temporarily. Lives stop at three."
+                ? "Power-ups appear only on 4×4. Tap the heart to restore a life, up to three. The rewind clock makes the pace 30% slower, then returns it to normal over ten seconds. Pickups award no points."
                 : "Hearts appear only on 4×4. Any living player can claim one; the first accepted tap gets the life, up to three. There are no clocks in Multiplayer."
         case .competition:
             mode == .arcade
@@ -137,17 +159,32 @@ struct HowToPlayPractice: Equatable, Sendable {
         switch tile(at: cell) {
         case .target:
             interactions += 1
-            feedback = canAdvance ? "Nice! You can continue." : "Good hit! Follow the next matching square."
+            if step == .speedBar {
+                feedback =
+                    "Example Godlike · 200ms · +2 steps. \(streakSteps)/\(streakTarget) toward the next multiplier at \(multiplier)×."
+            } else {
+                feedback = canAdvance ? "Nice! You can continue." : "Good hit! Follow the next matching square."
+            }
         case .heart:
             interactions += 1
             feedback = mode == .arcade ? "Life restored. Now try the rewind clock." : "You claimed the life!"
         case .clock:
             interactions += 1
-            feedback = "The clock gives you more time."
+            feedback = "Pace is 70%: 30% slower. Preview its return to normal below, or continue."
         case .empty, .otherColor:
             feedback =
                 step == .pickups ? "Tap the highlighted power-up." : "Look at YOUR COLOR, then tap its matching square."
         }
+    }
+
+    mutating func previewClockRecovery() {
+        guard clockCollected else { return }
+        clockPreviewMilliseconds = min(
+            ArcadePowerupRules.clockRecoveryMilliseconds, clockPreviewMilliseconds + 5_000)
+        feedback =
+            clockRatePercent == 100
+            ? "Normal pace restored. Your score and streak are unchanged."
+            : "Pace is now \(clockRatePercent)%. It is gradually returning to normal."
     }
 
     @discardableResult
@@ -155,6 +192,7 @@ struct HowToPlayPractice: Equatable, Sendable {
         guard canAdvance, let next = HowToPlayStep(rawValue: step.rawValue + 1) else { return false }
         step = next
         interactions = 0
+        clockPreviewMilliseconds = 0
         feedback = nil
         return true
     }

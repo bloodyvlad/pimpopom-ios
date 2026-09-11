@@ -21,9 +21,20 @@ final class HowToPlayUITests: XCTestCase {
                 tapTarget(app)
                 advance(next)
                 for _ in 0..<3 { tapTarget(app) }
+                waitForLabel("Speed Bar, 1 of 5 steps, example multiplier 2", identifier: "tutorial-speed-bar", in: app)
                 advance(next)
+                waitForLabel("Lives, 2 of 3", identifier: "tutorial-lives", in: app)
                 tap("tutorial-cell-5", in: app)
-                if mode == "arcade" { tap("tutorial-cell-10", in: app) }
+                waitForLabel("Lives, 3 of 3", identifier: "tutorial-lives", in: app)
+                if mode == "arcade" {
+                    tap("tutorial-cell-10", in: app)
+                    waitForLabel("PACE 70%", identifier: "tutorial-clock-rate", in: app)
+                    tap("tutorial-clock-preview", in: app)
+                    waitForLabel("PACE 85%", identifier: "tutorial-clock-rate", in: app)
+                    tap("tutorial-clock-preview", in: app)
+                    waitForLabel("NORMAL PACE · 100%", identifier: "tutorial-clock-rate", in: app)
+                    XCTAssertFalse(app.buttons["tutorial-clock-preview"].isEnabled)
+                }
                 let attachment = XCTAttachment(screenshot: app.screenshot())
                 attachment.name = "\(theme) \(mode) tutorial 4x4 pickups"
                 attachment.lifetime = .keepAlways
@@ -77,6 +88,13 @@ final class HowToPlayUITests: XCTestCase {
         let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: next)
         XCTAssertEqual(XCTWaiter.wait(for: [enabled], timeout: 3), .completed)
         next.tap()
+    }
+
+    private func waitForLabel(_ label: String, identifier: String, in app: XCUIApplication) {
+        let element = app.descendants(matching: .any)[identifier]
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@", label), object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation], timeout: 3), .completed)
     }
 
     private func tapTarget(_ app: XCUIApplication) {
