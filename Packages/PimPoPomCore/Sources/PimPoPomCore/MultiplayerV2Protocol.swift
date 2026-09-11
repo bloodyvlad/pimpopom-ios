@@ -5,9 +5,11 @@ public enum MP2Protocol {
     public static let version = 2
     /// Gameplay capabilities are negotiated separately from the PHP authentication protocol.
     public static let legacyGameplayRevision = 1
-    public static let gameplayRevision = 2
+    public static let arcadeGameplayRevision = 2
+    public static let gameplayRevision = 3
+    public static let supportedGameplayRevisions = [legacyGameplayRevision, arcadeGameplayRevision, gameplayRevision]
     /// Room metadata/search capability; independent of gameplay and PHP tickets.
-    public static let roomDiscoveryRevision = 1
+    public static let roomDiscoveryRevision = 2
     public static let ruleset = "multiplayer-shared-arcade-v2"
     public static let lateInputGraceMs = 2_000
     public static let maximumDurationMs = 900_000
@@ -35,6 +37,8 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
     public var fastestReactionMs: Int?
     public var challengeBaselineHits: Int?
     public var outAtMs: Int?
+    /// Authority-derived connected, alive gameplay time; absent in legacy revisions.
+    public var eligibleAliveMs: Int?
     public var isOut: Bool { lives == 0 }
     public var averageReactionMs: Int? { hits == 0 ? nil : Int((Double(reactionTotalMs) / Double(hits)).rounded()) }
 
@@ -44,7 +48,7 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
         lives: Int = 3, score: Int = 0, hits: Int = 0, misses: Int = 0, dodges: Int = 0,
         multiplier: Int = 1, streakProgress: Int = 0, recoveryUntilMs: Int = 0,
         reactionTotalMs: Int = 0, fastestReactionMs: Int? = nil, challengeBaselineHits: Int? = nil,
-        outAtMs: Int? = nil
+        outAtMs: Int? = nil, eligibleAliveMs: Int? = nil
     ) {
         self.id = id
         self.seat = seat
@@ -66,6 +70,7 @@ public struct MP2Player: Codable, Equatable, Sendable, Identifiable {
         self.fastestReactionMs = fastestReactionMs
         self.challengeBaselineHits = challengeBaselineHits
         self.outAtMs = outAtMs
+        self.eligibleAliveMs = eligibleAliveMs
     }
 }
 
@@ -126,6 +131,10 @@ public enum MP2MatchPhase: String, Codable, Sendable {
     case playing, finishing, finished
 }
 
+public enum MP2FinalReason: String, Codable, Sendable {
+    case allOut, timeLimit
+}
+
 public struct MP2Snapshot: Codable, Equatable, Sendable {
     public let matchID: String
     public let revision: Int
@@ -137,11 +146,13 @@ public struct MP2Snapshot: Codable, Equatable, Sendable {
     public let decoys: [MP2Decoy]
     public let hearts: [MP2Heart]
     public let gameplayRevision: Int
+    public let finalReason: MP2FinalReason?
 
     public init(
         matchID: String, revision: Int, elapsedMs: Int, phase: MP2MatchPhase,
         gridDimension: Int, players: [MP2Player], targets: [MP2Target], decoys: [MP2Decoy],
-        hearts: [MP2Heart] = [], gameplayRevision: Int = MP2Protocol.legacyGameplayRevision
+        hearts: [MP2Heart] = [], gameplayRevision: Int = MP2Protocol.legacyGameplayRevision,
+        finalReason: MP2FinalReason? = nil
     ) {
         self.matchID = matchID
         self.revision = revision
@@ -153,10 +164,11 @@ public struct MP2Snapshot: Codable, Equatable, Sendable {
         self.decoys = decoys
         self.hearts = hearts
         self.gameplayRevision = gameplayRevision
+        self.finalReason = finalReason
     }
 
     private enum CodingKeys: String, CodingKey {
-        case matchID, revision, elapsedMs, phase, gridDimension, players, targets, decoys, hearts, gameplayRevision
+        case matchID, revision, elapsedMs, phase, gridDimension, players, targets, decoys, hearts, gameplayRevision, finalReason
     }
 
     public init(from decoder: Decoder) throws {
@@ -173,6 +185,7 @@ public struct MP2Snapshot: Codable, Equatable, Sendable {
         gameplayRevision =
             try values.decodeIfPresent(Int.self, forKey: .gameplayRevision)
             ?? MP2Protocol.legacyGameplayRevision
+        finalReason = try values.decodeIfPresent(MP2FinalReason.self, forKey: .finalReason)
     }
 }
 
@@ -303,6 +316,7 @@ public enum MP2ClientMessage: Codable, Equatable, Sendable {
     case leave
     case ready(value: Bool, intentID: Int, rosterRevision: Int)
     case start
+    case setPrivacy(isPrivate: Bool, roomID: String, roomRevision: Int)
     case ping(id: Int, clientTimeMs: Int)
     case input(MP2Input)
 }
