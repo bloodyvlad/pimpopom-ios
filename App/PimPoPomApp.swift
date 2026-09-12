@@ -107,7 +107,7 @@ struct PimPoPomApp: App {
             usesAppleAge = !ProcessInfo.processInfo.arguments.contains("--uitesting")
             if let mode = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--ui-test-apple-age=") }) {
                 usesAppleAge = true
-                ageService = UITestAppleAgeService(under13: mode.hasSuffix("under13"))
+                ageService = UITestAppleAgeService(mode: String(mode.dropFirst("--ui-test-apple-age=".count)))
                 ageLock = UITestAppleAgeLockStore()
             }
         #endif
@@ -139,13 +139,7 @@ struct PimPoPomApp: App {
                     .accessibilityHidden(!ads.allowsApp)
                 }
                 if !ads.allowsApp {
-                    if appleAge.state == .manual {
-                        AgeGroupView(currentBand: ads.ageBand) { band in
-                            await ads.setAgeBand(band)
-                        }
-                    } else {
-                        AppleAgeGateView(controller: appleAge)
-                    }
+                    AppleAgeGateView(controller: appleAge)
                 }
             }
             .environmentObject(backend)
@@ -160,7 +154,9 @@ struct PimPoPomApp: App {
             .environmentObject(multiplayer)
             .environmentObject(purchases)
             .environmentObject(ads)
-            .task { await appleAge.refresh() }
+            .task(id: scenePhase) {
+                if scenePhase == .active { appleAge.startIfNeeded() }
+            }
             .onChange(of: scenePhase) { _, phase in
                 // System permission sheets briefly make the scene inactive.
                 // Only a real background/foreground cycle invalidates the result.

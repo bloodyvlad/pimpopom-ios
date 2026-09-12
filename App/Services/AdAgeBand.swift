@@ -2,7 +2,7 @@ import Foundation
 
 /// Product policy: use under-consent ad protections below 16 worldwide.
 /// This is not a statement of the legal age of consent in each country.
-enum AdAgeBand: String, CaseIterable, Sendable {
+enum AdAgeBand: String, CaseIterable, Codable, Sendable {
     case under13 = "under-13"
     case youngTeen = "13-15"
     case olderTeen = "16-17"

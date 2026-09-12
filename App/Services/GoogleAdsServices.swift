@@ -23,14 +23,15 @@ final class GoogleConsentService: ConsentServing {
         )
     }
 
-    static func requestParameters(for ageBand: AdAgeBand) -> RequestParameters {
+    // Unknown age uses default SDK treatment; it is not an adult-age assertion.
+    static func requestParameters(for ageBand: AdAgeBand?) -> RequestParameters {
         let parameters = RequestParameters()
-        parameters.isTaggedForUnderAgeOfConsent = ageBand.isUnderAdConsentAge
+        parameters.isTaggedForUnderAgeOfConsent = ageBand == .youngTeen || ageBand == .under13
         return parameters
     }
 
-    func requestConsent(for ageBand: AdAgeBand) async throws -> ConsentSnapshot {
-        guard ageBand.allowsApp else { throw CancellationError() }
+    func requestConsent(for ageBand: AdAgeBand?) async throws -> ConsentSnapshot {
+        guard ageBand != .under13 else { throw CancellationError() }
         return try await operations.run { [self] generation in
             let parameters = Self.requestParameters(for: ageBand)
             #if DEBUG
@@ -146,9 +147,9 @@ final class GoogleAdsService: NSObject, AdsServing {
         category: "Ads"
     )
 
-    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand) {
+    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand?) {
         destroyAll()
-        guard ageBand.allowsApp else { return }
+        guard ageBand != .under13 else { return }
         self.configuration = configuration
         bannerRoute = AdUnitRoute(
             primaryUnitID: configuration.bannerUnitID,
@@ -174,11 +175,11 @@ final class GoogleAdsService: NSObject, AdsServing {
         consoleDiagnostic("route=\(configuration.routeDescription)")
     }
 
-    static func ageRestrictedTreatment(for ageBand: AdAgeBand) -> AgeRestrictedTreatment {
+    static func ageRestrictedTreatment(for ageBand: AdAgeBand?) -> AgeRestrictedTreatment {
         switch ageBand {
-        case .under13, .youngTeen: .child
-        case .olderTeen: .teen
-        case .adult: .unspecified
+        case .some(.under13), .some(.youngTeen): .child
+        case .some(.olderTeen): .teen
+        case .none, .some(.adult): .unspecified
         }
     }
 
@@ -512,7 +513,7 @@ final class FakeConsentService: ConsentServing {
     var privacyOptionsError: Error?
     var requestDelay: Duration?
     var privacyOptionsDelay: Duration?
-    private(set) var requestedAgeBands: [AdAgeBand] = []
+    private(set) var requestedAgeBands: [AdAgeBand?] = []
     private(set) var invalidateCount = 0
     private(set) var requestCount = 0
     private(set) var privacyOptionsPresentationCount = 0
@@ -530,7 +531,7 @@ final class FakeConsentService: ConsentServing {
 
     func invalidate() { invalidateCount += 1 }
 
-    func requestConsent(for ageBand: AdAgeBand) async throws -> ConsentSnapshot {
+    func requestConsent(for ageBand: AdAgeBand?) async throws -> ConsentSnapshot {
         requestCount += 1
         requestedAgeBands.append(ageBand)
         let result = snapshot
@@ -557,7 +558,7 @@ final class FakeAdsService: AdsServing {
     var interstitialAvailable = true
     var beginsPresentation = true
     var startDelay: Duration?
-    private(set) var configuredAgeBands: [AdAgeBand] = []
+    private(set) var configuredAgeBands: [AdAgeBand?] = []
     private var inventoryGeneration = 0
     private(set) var configureCount = 0
     private(set) var startCount = 0
@@ -580,7 +581,7 @@ final class FakeAdsService: AdsServing {
         label.accessibilityIdentifier = "fake-ad-banner"
     }
 
-    func configure(_: AdsConfiguration, ageBand: AdAgeBand) {
+    func configure(_: AdsConfiguration, ageBand: AdAgeBand?) {
         configuredAgeBands.append(ageBand)
         configureCount += 1
         configured = true

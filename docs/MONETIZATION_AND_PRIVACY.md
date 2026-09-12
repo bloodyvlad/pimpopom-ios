@@ -66,10 +66,9 @@ keeps it due.
 ### Consent and configurations
 
 1. Eligible launches refresh UMP before any ad request. Same-profile session
-   refreshes reuse the current policy result. A resolved different/anonymous
-   account or runtime identity loss requires age reconfirmation and a fresh
-   age-policy consent flow; an initial unresolved offline lookup retains the local
-   age choice while advertising stays blocked by account uncertainty.
+   refreshes reuse the current policy result. Account changes refresh advertising
+   eligibility without a manual age prompt; unknown account eligibility still
+   blocks inventory until resolved.
 2. Start GMA only when UMP says ads may be requested and PHP has resolved the
    session as not ad-free. Unknown/ad-free state starts no inventory.
 3. Expose Privacy Options when required, including eligible ad-free and unresolved
@@ -87,7 +86,28 @@ keeps it due.
 
 No production-unit creative may be touched unless it visibly says **Test mode**.
 
-## Candidate32 Apple age handling
+## Candidate33 prompt-free optional-region onboarding
+
+There is no manual age selector, birthday entry, or optional Apple age-sharing
+prompt at launch or purchase. Once the regional check confirms optional/legacy
+handling, a new user can enter with no age value. The advertising adapters treat
+that absence using unspecified age treatment and regular UMP consent handling; it is not a
+claim that the user has a particular age. UMP and authoritative account/ad-free
+eligibility still govern ads. Declining optional consent does not block play or
+purchases. Ad cadence and production IDs are unchanged.
+
+Required regional Apple checks and previously supplied Apple restrictions remain.
+A failed applicability query is not proof that checking is optional. Returned
+ranges remain read-only; known under-13 restrictions are preserved. The system
+sharing sheet waits for an active, attached presenter. Only required-check UI has
+the PimPoPom wordmark; it contains no Settings or legal links. Main-menu Settings
+retains legal documents and required privacy choices. StoreKit owns purchase and
+parental approval UI; no extra purchase-time age-sharing step is added.
+
+The [correction record](ONBOARDING_AGE_FIX.md) describes the owner-withdrawn build32
+failure and current focused validation/delivery boundary.
+
+## Historical candidate32 Apple age handling
 
 Apple Declared Age Range supplies inclusive bounds when shared. The app requests
 13/16/18 thresholds but accepts Apple region-specific ranges and uses the youngest

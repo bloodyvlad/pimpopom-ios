@@ -39,18 +39,23 @@ final class AdsController: ObservableObject {
     @Published private(set) var ageConfirmationGeneration = 0
     @Published private var hasCompletedPolicyConsentFlow = false
 
+    @Published private(set) var allowsUnspecifiedAge = false
     @Published private(set) var systemAgeRequired = false
     @Published private(set) var systemAgeAuthorized = false
     @Published private(set) var appleAgeDescription: String?
     @Published private(set) var appleParentalControls = false
+    private var hasAppleAgeLock = false
     var onAgeConfirmationRequired: (@MainActor () -> Void)?
     var onAppleAgeRefresh: (@MainActor () -> Void)?
 
     var allowsApp: Bool {
-        ageBand?.allowsApp == true && (!systemAgeRequired || systemAgeAuthorized)
+        if systemAgeRequired {
+            return systemAgeAuthorized && ageBand?.allowsApp == true
+        }
+        return ageBand?.allowsApp ?? allowsUnspecifiedAge
     }
 
-    var canManuallyChangeAge: Bool { !systemAgeRequired }
+    var canManuallyChangeAge: Bool { !systemAgeRequired && !hasAppleAgeLock }
     var ageProfileBinding: String? { currentProfileID ?? ageStore.confirmedProfileID }
 
     let configuration: AdsConfiguration
@@ -155,6 +160,7 @@ final class AdsController: ObservableObject {
         await runEligibilityFlow()
     }
 
+    // Confirms current account access policy; unknown-age access is not an age assertion.
     func isAgeConfirmed(for session: SessionResponse?) -> Bool {
         guard allowsApp, let key = Self.profileBinding(for: session) else { return false }
         return ageStore.confirmedProfileID == key
@@ -187,6 +193,7 @@ final class AdsController: ObservableObject {
 
     /// Close all SDK eligibility synchronously before presenting Apple UI.
     func beginSystemAgeRefresh() {
+        allowsUnspecifiedAge = false
         systemAgeRequired = true
         systemAgeAuthorized = false
         invalidatePolicy()
@@ -196,6 +203,9 @@ final class AdsController: ObservableObject {
     func waitForConsentPresentation() async { await consentService.waitUntilIdle() }
 
     func applySystemAge(_ range: AppleSharedAgeRange) {
+        hasAppleAgeLock = true
+        systemAgeRequired = true
+        invalidatePolicy()
         ageStore.ageBand = range.adBand
         ageStore.confirmedProfileID = currentProfileID ?? ageStore.confirmedProfileID
         ageBand = range.adBand
@@ -206,15 +216,23 @@ final class AdsController: ObservableObject {
         // Root restores the current account before starting fresh UMP.
     }
 
-    func allowManualAgeFallback() {
-        appleAgeDescription = nil
-        appleParentalControls = false
+    func allowUnspecifiedAgeAccess(protection: AppleAgeProtection? = nil, appleLocked: Bool = false) {
+        let needsRefresh = systemAgeRequired || !allowsUnspecifiedAge
+        if let protection {
+            ageStore.ageBand = protection.band
+            ageBand = protection.band
+        }
+        hasAppleAgeLock = appleLocked
+        appleAgeDescription = protection?.range?.displayTitle ?? (appleLocked ? "Previously shared" : nil)
+        appleParentalControls = protection?.range?.hasParentalControls ?? false
+        allowsUnspecifiedAge = true
         systemAgeRequired = false
         systemAgeAuthorized = false
-        ageConfirmationGeneration += 1
+        if needsRefresh { ageConfirmationGeneration += 1 }
     }
 
     private func requireAgeConfirmation() {
+        allowsUnspecifiedAge = false
         invalidatePolicy()
         ageStore.ageBand = nil
         ageStore.confirmedProfileID = nil
@@ -366,7 +384,7 @@ final class AdsController: ObservableObject {
     }
 
     private func runEligibilityFlow() async {
-        guard allowsApp, let ageBand else { return }
+        guard allowsApp else { return }
         guard configuration.isEnabled, configurationProblems.isEmpty else {
             hasCompletedPolicyConsentFlow = true
             return
@@ -417,7 +435,7 @@ final class AdsController: ObservableObject {
     }
 
     private func configureAdsIfNeeded() {
-        guard !hasConfiguredAds, let ageBand, ageBand.allowsApp else { return }
+        guard !hasConfiguredAds, allowsApp else { return }
         adsService.configure(configuration, ageBand: ageBand)
         hasConfiguredAds = true
     }

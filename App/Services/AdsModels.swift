@@ -357,7 +357,7 @@ enum BannerAdState: Equatable, Sendable {
 protocol ConsentServing: AnyObject {
     func waitUntilIdle() async
     var currentSnapshot: ConsentSnapshot { get }
-    func requestConsent(for ageBand: AdAgeBand) async throws -> ConsentSnapshot
+    func requestConsent(for ageBand: AdAgeBand?) async throws -> ConsentSnapshot
     func invalidate()
     func presentPrivacyOptions() async throws -> ConsentSnapshot
 }
@@ -373,7 +373,7 @@ protocol AdsServing: AnyObject {
     var onInterstitialPresentationBegan: (() -> Void)? { get set }
     var onInterstitialPresentationEnded: (() -> Void)? { get set }
 
-    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand)
+    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand?)
     func start() async
     func attachBanner(to container: UIView, availableWidth: CGFloat)
     func detachBanner(from container: UIView)

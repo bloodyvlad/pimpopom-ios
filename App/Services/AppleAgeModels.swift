@@ -1,6 +1,6 @@
 import Foundation
 
-struct AppleSharedAgeRange: Equatable, Sendable {
+struct AppleSharedAgeRange: Codable, Equatable, Sendable {
     let lowerBound: Int?
     let upperBound: Int?
     let hasParentalControls: Bool
@@ -30,20 +30,41 @@ struct AppleSharedAgeRange: Equatable, Sendable {
     }
 }
 
+/// Actual Apple range when available; older installs retain their known protective band.
+struct AppleAgeProtection: Codable, Equatable, Sendable {
+    let band: AdAgeBand
+    let range: AppleSharedAgeRange?
+}
+
 enum AppleAgeResponse: Equatable, Sendable {
     case shared(AppleSharedAgeRange)
-    case declined(isRequired: Bool)
+    case declined
     case unsupported
+}
+
+enum AppleAgeRequirement: Equatable, Sendable {
+    case required
+    case optional
+    // Older systems do not expose a regional query; no age is assumed.
+    case legacy
+}
+
+struct AppleAgeDiagnostic: Equatable, Sendable {
+    let stage: String
+    let domain: String
+    let code: Int
 }
 
 @MainActor
 protocol AppleAgeServing: AnyObject {
+    func regulatoryRequirement() async throws -> AppleAgeRequirement
     func requestAgeRange() async throws -> AppleAgeResponse
 }
 
 @MainActor
 protocol AppleAgeLockStoring: AnyObject {
     var hasSharedAppleRange: Bool { get set }
+    var lastKnownProtection: AppleAgeProtection? { get set }
 }
 
 @MainActor
@@ -52,6 +73,16 @@ final class UserDefaultsAppleAgeLockStore: AppleAgeLockStoring {
     private let key = "privacy.apple-age.shared.v1"
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+
+    var lastKnownProtection: AppleAgeProtection? {
+        get {
+            guard let data = defaults.data(forKey: "privacy.apple-age.protection.v1") else { return nil }
+            return try? JSONDecoder().decode(AppleAgeProtection.self, from: data)
+        }
+        set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: "privacy.apple-age.protection.v1")
+        }
+    }
 
     var hasSharedAppleRange: Bool {
         get { defaults.bool(forKey: key) }

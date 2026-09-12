@@ -11,6 +11,8 @@ struct AppleAgeGateView: View {
             AppThemeBackground(theme: theme)
             ScrollView {
                 VStack(spacing: 16) {
+                    PimPoPomWordmark(theme: theme, size: 32, identifier: "age-wordmark")
+                        .padding(.vertical, 16)
                     VStack(alignment: .leading, spacing: 16) {
                         Text(title)
                             .font(.title2.bold())
@@ -33,19 +35,9 @@ struct AppleAgeGateView: View {
                                 .buttonStyle(WebSecondaryButtonStyle(theme: theme, minimumHeight: 48))
                                 .accessibilityIdentifier("apple-age-retry")
                         }
-                        Text(
-                            "PimPoPom does not receive your birthday. Eligible players receive age-related advertising protections."
-                        )
-                        .font(.footnote)
-                        .foregroundStyle(Color(hex: theme.muted))
-                    }
-                    .webCardStyle(theme: theme, padding: 16)
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Support & Legal").font(.headline)
-                        legalLink("Privacy Policy", page: "privacy")
-                        legalLink("Terms of Use", page: "terms")
-                        legalLink("Refunds", page: "refunds")
-                        legalLink("Support", page: "support")
+                        Text("Your birthday and passcodes are never shared with PimPoPom.")
+                            .font(.footnote)
+                            .foregroundStyle(Color(hex: theme.muted))
                     }
                     .webCardStyle(theme: theme, padding: 16)
                 }
@@ -62,27 +54,21 @@ struct AppleAgeGateView: View {
         case .under13: "Ages 13 and over"
         case .sharingRequired: "Apple age range needed"
         case .failed: "Apple age check unavailable"
-        default: "Checking your Apple age range"
+        default: "Checking age requirements"
         }
     }
 
     private var message: String {
         switch controller.state {
         case .under13:
-            "Apple's shared range does not establish that you are 13 or older. PimPoPom is for players aged 13 and over. To correct the range, review your Apple Account settings with your parent or guardian."
+            "PimPoPom is for players aged 13 and over. The age information available for this account is below that range."
         case .sharingRequired:
-            "We need a current Apple age range to continue. Sharing may be required in your region, or Apple previously supplied your age range. You can review sharing in your Apple Account settings."
+            "An Apple age range is needed for your account. Review Age Range for Apps in your Apple Account settings, then try again."
         case .failed:
-            "We could not complete Apple's age check. Please try again when connected. We will not guess your age or replace an Apple-supplied range with a manual choice."
+            "Apple could not complete this check. Try again, or review Age Range for Apps in your Apple Account settings."
         default:
-            "Apple may ask you or your parent or guardian to share an age range. We use it to apply PimPoPom's 13+ access rule and advertising privacy protections."
+            "Checking whether your Apple Account requires age confirmation."
         }
     }
 
-    private func legalLink(_ title: String, page: String) -> some View {
-        Link(title, destination: URL(string: "https://www.otcsoft.com/pimpopom-legal/\(page).html")!)
-            .font(.body.weight(.semibold))
-            .buttonStyle(WebSecondaryButtonStyle(theme: theme, minimumHeight: 48))
-            .accessibilityIdentifier("age-legal-\(page)")
-    }
 }

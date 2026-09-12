@@ -98,22 +98,27 @@ is Apple-restorable and Family-Shareable.
 
 ## D-09 — Gate advertising through consent and authoritative entitlement
 
-Status: implemented; build32's TestFlight upload and public-review submission are
-owner-authorized. Distribution state is recorded independently from source.
+Status: implemented; build32 was uploaded, then withdrawn from public review by
+the owner. Build33 corrects onboarding for TestFlight validation; public review
+remains withdrawn. Distribution state is recorded independently from source.
 
-UMP refreshes before eligible ad requests; unknown or ad-free accounts start no
+UMP refreshes before eligible ad requests; unresolved or ad-free accounts start no
 GMA inventory. The third eligible Arcade/Zen completion makes an interstitial due.
 Checked-in Release stays disabled; an ignored private override supplies verified
 production IDs with no test-device/owner QA fields for authorized archives.
-Apple-shared ages are read-only and refreshed before account/consent startup,
-after account changes and after backgrounding. A returned lower bound determines
-13+ access and conservative ad treatment:13–15 UMP under-age/GMA child;16–17 GMA
-teen;18+ unspecified, with General content, personalization/first-party ID disabled
-and explicit npa=1. Older-system/optional-sharing manual fallback is documented in
-`PRODUCTION_CANDIDATE_32.md`; it never overrides a remembered Apple range.
-The existing product threshold16 is distinct from regional law. First public32
-adds no significant-update permission flow; future significant changes need review.
-Only age/consent tests are authorized now; physical/manual QA follows submission.
+Build33 removes compulsory manual age selection and optional Apple sharing
+prompts, including the proposed purchase-time prompt. Required regional Apple
+checks and known Apple restrictions remain enforced; shared ranges stay read-only.
+A confirmed optional/legacy result permits a new user to enter with no age value.
+Unknown age receives unspecified SDK treatment and regular UMP consent handling, General content,
+personalization/first-party ID disabled and explicit npa=1; no age is invented or
+sent to the game backend. Known bands keep the existing conservative treatment:
+13–15 under-consent/child,16–17 teen,18+ unspecified. UMP permission and authoritative
+account eligibility still control ad requests. Account changes no longer ask for
+manual age confirmation. Purchases use ordinary StoreKit with no extra age hook.
+A content rating is not proof of the player's age, and this implementation is not
+a certification of worldwide compliance. Only age/consent tests are authorized
+now. See ONBOARDING_AGE_FIX.md for validation and delivery scope.
 
 ## D-10 — Keep presentation configurable but rules invariant
 
