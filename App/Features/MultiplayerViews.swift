@@ -44,9 +44,13 @@ struct MultiplayerMenuLink<Destination: View>: View {
     }
 
     private var label: some View {
-        Text("Multiplayer")
-            .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
-            .foregroundStyle(Color(hex: "#f8f5ff"))
+        HStack(spacing: 7) {
+            Image(systemName: "person.3.fill")
+                .font(.system(size: 15, weight: .black))
+            Text("Multiplayer")
+                .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
+        }
+        .foregroundStyle(Color(hex: "#f8f5ff"))
     }
 }
 
