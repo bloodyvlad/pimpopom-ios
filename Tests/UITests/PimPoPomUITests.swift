@@ -412,6 +412,20 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(privacyChoices.waitForExistence(timeout: 2))
     }
 
+    func testSettingsLegalLinksAreAccessibleWithoutAdvertising() throws {
+        let app = launch()
+        openMenuControl("open-settings", in: app)
+
+        for page in ["privacy", "terms", "refunds", "support"] {
+            let link = app.descendants(matching: .any)["settings-legal-\(page)"]
+            XCTAssertTrue(scrollToElement(link, in: app))
+            XCTAssertTrue(link.isEnabled)
+            XCTAssertGreaterThanOrEqual(link.frame.height, 44)
+        }
+        XCTAssertFalse(app.buttons["privacy-choices"].exists)
+        attachScreenshot(of: app, name: "Settings support and legal links")
+    }
+
     func testChangeIconDeepLinkOpensIconSettings() throws {
         let app = launch()
         app.terminate()

@@ -155,6 +155,13 @@ struct SettingsView: View {
                         }
                     }
 
+                    settingCard(title: "Support & Legal", systemImage: "doc.text.fill") {
+                        legalLink("Privacy Policy", page: "privacy")
+                        legalLink("Terms of Use", page: "terms")
+                        legalLink("Refunds", page: "refunds")
+                        legalLink("Support", page: "support")
+                    }
+
                     if let status = audio.statusMessage {
                         Text(status)
                             .font(palette.appFont(size: 13, weight: .bold, relativeTo: .footnote))
@@ -181,6 +188,21 @@ struct SettingsView: View {
                     .foregroundStyle(Color(hex: palette.foreground))
             }
         }
+    }
+
+    private func legalLink(_ title: String, page: String) -> some View {
+        Link(destination: URL(string: "https://www.otcsoft.com/pimpopom-legal/\(page).html")!) {
+            HStack(spacing: 12) {
+                Text(title)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16)
+        }
+        .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+        .accessibilityHint("Opens \(title) on otcsoft.com")
+        .accessibilityIdentifier("settings-legal-\(page)")
     }
 
     private func iconChoiceButton(_ choice: AppIconChoice) -> some View {
