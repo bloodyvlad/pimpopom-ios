@@ -1,4 +1,5 @@
 import GoogleMobileAds
+import UIKit
 import XCTest
 
 @testable import PimPoPom
@@ -57,20 +58,24 @@ final class AppleAgeControllerTests: XCTestCase {
         XCTAssertEqual(fixture.inventory.startCount, 0)
     }
 
-    func testOlderOSAndOptionalDeclinePreserveManualGateWithoutAdultDefault() async {
-        for response in [AppleAgeResponse.unsupported, .declined(isRequired: false)] {
-            let fixture = Fixture(response, storedAge: nil)
+    func testOptionalAndLegacyStartupOpensWithoutRequestOrStoredAge() async {
+        for requirement in [AppleAgeRequirement.optional, .legacy] {
+            let fixture = Fixture(.declined, storedAge: nil)
+            fixture.service.requirement = requirement
             await fixture.age.refresh()
-            XCTAssertEqual(fixture.age.state, .manual)
-            XCTAssertFalse(fixture.ads.allowsApp)
-            XCTAssertTrue(fixture.ads.canManuallyChangeAge)
-            await fixture.ads.setAgeBand(.youngTeen)
+            XCTAssertEqual(fixture.age.state, .ready)
             XCTAssertTrue(fixture.ads.allowsApp)
+            XCTAssertNil(fixture.ads.ageBand)
+            XCTAssertNil(fixture.ageStore.ageBand)
+            XCTAssertEqual(fixture.service.calls, 0)
+            do { try await fixture.age.waitForAuthorization() } catch {
+                XCTFail("Optional app access must authorize identity")
+            }
         }
     }
 
     func testRequiredDeclineAndTransientErrorDoNotUseStoredAdult() async {
-        let fixture = Fixture(.declined(isRequired: true))
+        let fixture = Fixture(.declined)
         await fixture.age.refresh()
         XCTAssertEqual(fixture.age.state, .sharingRequired)
         XCTAssertFalse(fixture.ads.allowsApp)
@@ -86,7 +91,7 @@ final class AppleAgeControllerTests: XCTestCase {
         let first = Fixture(.shared(Self.range(18, nil)), lock: lock)
         await first.age.refresh()
         XCTAssertTrue(lock.hasSharedAppleRange)
-        for response in [AppleAgeResponse.declined(isRequired: false), .unsupported] {
+        for response in [AppleAgeResponse.declined, .unsupported] {
             let next = Fixture(response, lock: lock)
             await next.age.refresh()
             XCTAssertEqual(next.age.state, .sharingRequired)
@@ -151,7 +156,7 @@ final class AppleAgeControllerTests: XCTestCase {
         fixture.age.setInBackground(true)
         fixture.service.release()
         await fixture.age.waitUntilIdle()
-        fixture.service.response = .declined(isRequired: false)
+        fixture.service.response = .declined
         fixture.age.setInBackground(false)
         await fixture.age.waitUntilIdle()
         XCTAssertEqual(fixture.age.state, .sharingRequired)
@@ -230,6 +235,201 @@ final class AppleAgeControllerTests: XCTestCase {
         }
     }
 
+    func testUnknownAgeCompletesConsentAdsAndAccountStartupWithoutInventingBand() async {
+        let fixture = Fixture(.declined, storedAge: nil)
+        fixture.service.requirement = .optional
+        await fixture.age.refresh()
+        await fixture.ads.bootstrap(session: Self.anonymous)
+        XCTAssertEqual(fixture.consent.requestedAgeBands, [nil])
+        XCTAssertEqual(fixture.inventory.configuredAgeBands, [nil])
+        XCTAssertTrue(fixture.ads.canAttachBanner)
+        XCTAssertNotNil(fixture.ads.confirmedAccountStartupID(for: Self.anonymous))
+        XCTAssertEqual(fixture.ageStore.confirmedProfileID, "anonymous")
+        XCTAssertNil(fixture.ageStore.ageBand)
+        XCTAssertEqual(fixture.service.calls, 0)
+    }
+
+    func testUnknownAgeConsentFailurePreservesPlayButDoesNotStartAds() async {
+        let fixture = Fixture(.declined, storedAge: nil)
+        fixture.service.requirement = .optional
+        fixture.consent.requestError = TestFailure.unavailable
+        await fixture.age.refresh()
+        await fixture.ads.bootstrap(session: Self.anonymous)
+        XCTAssertTrue(fixture.ads.allowsApp)
+        XCTAssertFalse(fixture.ads.canAttachBanner)
+        XCTAssertEqual(fixture.inventory.startCount, 0)
+        XCTAssertNotNil(fixture.ads.confirmedAccountStartupID(for: Self.anonymous))
+    }
+
+    func testUnknownAgeSDKParametersUseUnspecifiedTreatmentAndRegularConsent() {
+        XCTAssertFalse(GoogleConsentService.requestParameters(for: nil).isTaggedForUnderAgeOfConsent)
+        XCTAssertEqual(GoogleAdsService.ageRestrictedTreatment(for: nil), .unspecified)
+    }
+
+    func testOptionalAccountChangeDoesNotInheritStoredAdultOrRequestAppleSharing() async {
+        let fixture = Fixture(.declined, binding: "previous-profile")
+        fixture.service.requirement = .optional
+        await fixture.age.refresh()
+        await fixture.ads.bootstrap(session: Self.anonymous)
+        await fixture.age.waitUntilIdle()
+        await fixture.ads.bootstrap(session: Self.anonymous)
+        XCTAssertTrue(fixture.ads.allowsApp)
+        XCTAssertNil(fixture.ads.ageBand)
+        XCTAssertEqual(fixture.consent.requestedAgeBands, [nil])
+        XCTAssertEqual(fixture.service.calls, 0)
+        XCTAssertNotNil(fixture.ads.confirmedAccountStartupID(for: Self.anonymous))
+    }
+
+    func testOptionalStartupPreservesPreviouslyKnownUnder13Restriction() async {
+        let fixture = Fixture(.declined, storedAge: .under13)
+        fixture.service.requirement = .optional
+        await fixture.age.refresh()
+        await fixture.ads.bootstrap(session: Self.anonymous)
+        XCTAssertEqual(fixture.age.state, .under13)
+        XCTAssertFalse(fixture.ads.allowsApp)
+        XCTAssertEqual(fixture.ads.ageBand, .under13)
+        XCTAssertEqual(fixture.service.calls, 0)
+        XCTAssertEqual(fixture.consent.requestCount, 0)
+        XCTAssertEqual(fixture.inventory.startCount, 0)
+    }
+
+    func testOptionalForegroundNeverRequestsSharingOrHidesUnknownAgePlay() async {
+        let fixture = Fixture(.declined, storedAge: nil)
+        fixture.service.requirement = .optional
+        await fixture.age.refresh()
+        let ageGeneration = fixture.ads.ageConfirmationGeneration
+        fixture.age.setInBackground(true)
+        XCTAssertTrue(fixture.ads.allowsApp)
+        fixture.age.setInBackground(false)
+        XCTAssertTrue(fixture.ads.allowsApp)
+        await fixture.age.waitUntilIdle()
+        XCTAssertEqual(fixture.service.calls, 0)
+        XCTAssertEqual(fixture.service.requirementCalls, 2)
+        XCTAssertEqual(fixture.ads.ageConfirmationGeneration, ageGeneration)
+    }
+
+    func testUnknownRegionalRequirementCannotAuthorizeUnknownAge() async {
+        let fixture = Fixture(.declined, storedAge: nil)
+        fixture.service.requirementError = NSError(domain: "RegionalService", code: 4)
+        await fixture.age.refresh()
+        XCTAssertFalse(fixture.ads.allowsApp)
+        XCTAssertEqual(fixture.age.state, .failed)
+        XCTAssertEqual(fixture.service.calls, 0)
+        XCTAssertEqual(
+            fixture.age.diagnostic,
+            AppleAgeDiagnostic(stage: "regional-requirement", domain: "RegionalService", code: 4))
+    }
+
+    func testOptionalRegionNeverRequestsSharingForHistoricalAppleLock() async {
+        let lock = MemoryAppleLock()
+        lock.hasSharedAppleRange = true
+        let fixture = Fixture(.declined, storedAge: nil, lock: lock)
+        fixture.service.requirement = .optional
+        await fixture.age.refresh()
+        XCTAssertEqual(fixture.service.calls, 0)
+        XCTAssertEqual(fixture.age.state, .ready)
+        XCTAssertTrue(fixture.ads.allowsApp)
+        XCTAssertNil(fixture.ads.ageBand)
+        XCTAssertFalse(fixture.ads.canManuallyChangeAge)
+    }
+
+    func testFalseEligibilityPreservesSharedParentRangeWithoutAnotherRequest() async {
+        let fixture = Fixture(.shared(Self.range(13, 15, parental: true)))
+        await fixture.age.refresh()
+        fixture.service.requirement = .optional
+        fixture.age.setInBackground(true)
+        fixture.age.setInBackground(false)
+        await fixture.age.waitUntilIdle()
+        XCTAssertEqual(fixture.service.calls, 1)
+        XCTAssertTrue(fixture.ads.allowsApp)
+        XCTAssertEqual(fixture.ads.ageBand, .youngTeen)
+        XCTAssertEqual(fixture.ads.appleAgeDescription, "13–15")
+        XCTAssertTrue(fixture.ads.appleParentalControls)
+        XCTAssertFalse(fixture.ads.canManuallyChangeAge)
+    }
+
+    func testFalseEligibilityKeepsLateSharedChildRestriction() async {
+        let fixture = Fixture(.shared(Self.range(nil, 12, parental: true)))
+        fixture.service.holdNextRequest = true
+        fixture.age.scheduleRefresh()
+        await waitForCalls(1, service: fixture.service)
+        fixture.age.setInBackground(true)
+        fixture.service.requirement = .optional
+        fixture.service.release()
+        await fixture.age.waitUntilIdle()
+        fixture.age.setInBackground(false)
+        await fixture.age.waitUntilIdle()
+        XCTAssertEqual(fixture.service.calls, 1)
+        XCTAssertEqual(fixture.age.state, .under13)
+        XCTAssertEqual(fixture.ads.ageBand, .under13)
+        XCTAssertFalse(fixture.ads.allowsApp)
+        XCTAssertTrue(fixture.ads.appleParentalControls)
+    }
+
+    func testFalseEligibilityAccountChangeRestoresKnownAppleChildProtection() async {
+        let lock = MemoryAppleLock()
+        lock.hasSharedAppleRange = true
+        let fixture = Fixture(.declined, storedAge: .youngTeen, binding: "previous-profile", lock: lock)
+        fixture.service.requirement = .optional
+        await fixture.age.refresh()
+        await fixture.ads.bootstrap(session: Self.anonymous)
+        await fixture.age.waitUntilIdle()
+        await fixture.ads.bootstrap(session: Self.anonymous)
+        XCTAssertEqual(fixture.service.calls, 0)
+        XCTAssertEqual(fixture.ads.ageBand, .youngTeen)
+        XCTAssertEqual(fixture.consent.requestedAgeBands, [.youngTeen])
+        XCTAssertFalse(fixture.ads.canManuallyChangeAge)
+        XCTAssertNotNil(fixture.ads.confirmedAccountStartupID(for: Self.anonymous))
+    }
+
+    func testActualAppleProtectionPersistsAcrossControllerRelaunch() async {
+        let lock = MemoryAppleLock()
+        let first = Fixture(.shared(Self.range(16, 17, parental: true)), lock: lock)
+        await first.age.refresh()
+        let next = Fixture(.declined, storedAge: nil, lock: lock)
+        next.service.requirement = .optional
+        await next.age.refresh()
+        XCTAssertEqual(next.service.calls, 0)
+        XCTAssertEqual(next.ads.ageBand, .olderTeen)
+        XCTAssertEqual(next.ads.appleAgeDescription, "16–17")
+        XCTAssertTrue(next.ads.appleParentalControls)
+        XCTAssertFalse(next.ads.canManuallyChangeAge)
+    }
+
+    func testLateAdultResponseDoesNotBecomeCurrentAgeAfterFalseEligibility() async {
+        let fixture = Fixture(.shared(Self.range(18, nil)), storedAge: nil)
+        fixture.service.holdNextRequest = true
+        fixture.age.scheduleRefresh()
+        await waitForCalls(1, service: fixture.service)
+        fixture.age.setInBackground(true)
+        fixture.service.requirement = .optional
+        fixture.service.release()
+        await fixture.age.waitUntilIdle()
+        fixture.age.setInBackground(false)
+        await fixture.age.waitUntilIdle()
+        XCTAssertEqual(fixture.service.calls, 1)
+        XCTAssertTrue(fixture.ads.allowsApp)
+        XCTAssertNil(fixture.ads.ageBand)
+        XCTAssertNil(fixture.age.sharedRange)
+    }
+
+    func testPresenterReadinessAutomaticallyRetriesThenUsesAttachedWindow() async throws {
+        var attempts = 0
+        var delays = 0
+        let presenter = UIViewController()
+        let service = AppleAgeService(
+            findPresenter: {
+                attempts += 1
+                return attempts == 3 ? presenter : nil
+            },
+            readinessAttempts: 4,
+            readinessDelay: { delays += 1 }
+        )
+        let result = try await service.waitForPresenter()
+        XCTAssertTrue(result === presenter)
+        XCTAssertEqual(delays, 2)
+    }
+
     private func waitForCalls(_ count: Int, service: TestAppleAgeService) async {
         for _ in 0..<1000 where service.calls < count { await Task.yield() }
         XCTAssertEqual(service.calls, count)
@@ -252,16 +452,18 @@ private final class Fixture {
     let service: TestAppleAgeService
     let consent = FakeConsentService()
     let inventory = FakeAdsService()
+    let ageStore: MemoryAdAgeBandStore
 
     init(
         _ response: AppleAgeResponse, storedAge: AdAgeBand? = .adult,
         binding: String? = nil, lock: MemoryAppleLock? = nil
     ) {
         service = TestAppleAgeService(response)
+        ageStore = MemoryAdAgeBandStore(storedAge, confirmedProfileID: binding)
         ads = AdsController(
             configuration: .uiTesting(adsEnabled: true), consentService: consent,
             adsService: inventory, progressStore: MemoryInterstitialProgressStore(),
-            ageStore: MemoryAdAgeBandStore(storedAge, confirmedProfileID: binding)
+            ageStore: ageStore
         )
         age = AppleAgeController(ads: ads, service: service, store: lock ?? MemoryAppleLock())
     }
@@ -270,17 +472,27 @@ private final class Fixture {
 @MainActor
 private final class MemoryAppleLock: AppleAgeLockStoring {
     var hasSharedAppleRange = false
+    var lastKnownProtection: AppleAgeProtection?
 }
 
 @MainActor
 private final class TestAppleAgeService: AppleAgeServing {
     var response: AppleAgeResponse
     var error: Error?
+    var requirement = AppleAgeRequirement.required
+    var requirementError: Error?
+    var requirementCalls = 0
     var calls = 0
     var holdNextRequest = false
     private var continuation: CheckedContinuation<Void, Never>?
 
     init(_ response: AppleAgeResponse) { self.response = response }
+
+    func regulatoryRequirement() async throws -> AppleAgeRequirement {
+        requirementCalls += 1
+        if let requirementError { throw requirementError }
+        return requirement
+    }
 
     func requestAgeRange() async throws -> AppleAgeResponse {
         calls += 1

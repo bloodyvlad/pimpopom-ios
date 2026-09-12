@@ -669,7 +669,7 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertEqual(second.controller.progress.completedSessions, 1)
     }
 
-    func testUnknownAndUnder13NeverBootstrapConsentOrAds() async {
+    func testUnresolvedUnknownAndUnder13NeverBootstrapConsentOrAds() async {
         for age: AdAgeBand? in [nil, .under13] {
             let fixture = Self.makeFixture(ageBand: age)
             await fixture.controller.bootstrap(session: Self.anonymousSession)
@@ -682,6 +682,31 @@ final class AdsControllerTests: XCTestCase {
             XCTAssertEqual(fixture.ads.startCount, 0)
             XCTAssertFalse(fixture.controller.canAttachBanner)
         }
+    }
+
+    func testRegionallyAllowedUnknownAgeCompletesDefaultAdsAndAccountStartup() async {
+        let fixture = Self.makeFixture(ageBand: nil)
+        fixture.controller.allowUnspecifiedAgeAccess()
+        await fixture.controller.bootstrap(session: Self.anonymousSession)
+        XCTAssertTrue(fixture.controller.allowsApp)
+        XCTAssertNil(fixture.controller.ageBand)
+        XCTAssertEqual(fixture.consent.requestedAgeBands, [nil])
+        XCTAssertEqual(fixture.ads.configuredAgeBands, [nil])
+        XCTAssertEqual(fixture.ads.startCount, 1)
+        XCTAssertNotNil(fixture.controller.confirmedAccountStartupID(for: Self.anonymousSession))
+    }
+
+    func testRequiredAppleRefreshClosesPreviouslyAllowedUnknownAgeAndInventory() async {
+        let fixture = Self.makeFixture(ageBand: nil)
+        fixture.controller.allowUnspecifiedAgeAccess()
+        await fixture.controller.bootstrap(session: Self.anonymousSession)
+        fixture.controller.beginSystemAgeRefresh()
+        XCTAssertFalse(fixture.controller.allowsApp)
+        XCTAssertFalse(fixture.controller.canAttachBanner)
+        XCTAssertNil(fixture.controller.confirmedAccountStartupID(for: Self.anonymousSession))
+        await fixture.controller.bootstrap(session: Self.anonymousSession)
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+        XCTAssertEqual(fixture.ads.startCount, 1)
     }
 
     func testAgePolicySignalsAreExplicitBeforeAdsStart() async {

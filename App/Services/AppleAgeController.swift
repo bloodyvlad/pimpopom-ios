@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 @MainActor
 final class AppleAgeController: ObservableObject {
@@ -14,6 +15,7 @@ final class AppleAgeController: ObservableObject {
     @Published private(set) var state = State.checking
     @Published private(set) var isWorking = false
     @Published private(set) var sharedRange: AppleSharedAgeRange?
+    @Published private(set) var diagnostic: AppleAgeDiagnostic?
     private let service: any AppleAgeServing
     private let store: any AppleAgeLockStoring
     private let ads: AdsController
@@ -21,7 +23,10 @@ final class AppleAgeController: ObservableObject {
     private var generation = 0
     private var work: Task<Void, Never>?
     private var isInBackground = false
+    private var hasStarted = false
+    private var requirement: AppleAgeRequirement?
     private var authorizationWaiters: [UUID: CheckedContinuation<Void, Error>] = [:]
+    private let logger = Logger(subsystem: "com.otcsoftware.pimpopom", category: "AppleAge")
 
     init(
         ads: AdsController,
@@ -33,13 +38,25 @@ final class AppleAgeController: ObservableObject {
         self.service = service
         self.store = store
         self.isEnabled = isEnabled
+        if store.hasSharedAppleRange, store.lastKnownProtection == nil, let band = ads.ageBand {
+            // Migration preserves an existing Apple-derived band without inventing exact bounds.
+            store.lastKnownProtection = AppleAgeProtection(band: band, range: nil)
+        }
         if isEnabled {
             ads.beginSystemAgeRefresh()
-            ads.onAgeConfirmationRequired = { [weak self] in self?.scheduleRefresh() }
+            ads.onAgeConfirmationRequired = { [weak self] in
+                self?.scheduleRefresh()
+            }
             ads.onAppleAgeRefresh = { [weak self] in self?.scheduleRefresh() }
         } else {
             state = .manual
         }
+    }
+
+    /// Called only once the scene is active; the service waits for its attached window.
+    func startIfNeeded() {
+        guard !hasStarted else { return }
+        scheduleRefresh()
     }
 
     func setInBackground(_ background: Bool) {
@@ -47,20 +64,23 @@ final class AppleAgeController: ObservableObject {
         isInBackground = background
         if background {
             generation += 1
-            ads.beginSystemAgeRefresh()
-            state = .checking
+            if requirement != .optional && requirement != .legacy {
+                closeAccess()
+            }
         } else {
             scheduleRefresh()
         }
     }
 
     func scheduleRefresh() {
-        guard isEnabled else { return }
-        // This synchronous prefix closes ad and account eligibility before UI changes.
+        guard isEnabled, !isInBackground else { return }
+        hasStarted = true
         generation += 1
         let expected = generation
-        ads.beginSystemAgeRefresh()
-        state = .checking
+        // A known optional region gets a quiet foreground probe without hiding the game.
+        if requirement != .optional && requirement != .legacy {
+            closeAccess()
+        }
         let previous = work
         isWorking = true
         work = Task { @MainActor [weak self] in
@@ -79,8 +99,7 @@ final class AppleAgeController: ObservableObject {
 
     func waitUntilIdle() async { await work?.value }
 
-    /// Identity SDKs may finish directly while the app is returning from background.
-    /// Hold their credentials in memory until age authorization is current again.
+    /// Identity callbacks remain held while required-region age authorization is unresolved.
     func waitForAuthorization() async throws {
         try Task.checkCancellation()
         if ads.allowsApp { return }
@@ -116,51 +135,115 @@ final class AppleAgeController: ObservableObject {
         expected == generation && !isInBackground
     }
 
+    private func closeAccess() {
+        ads.beginSystemAgeRefresh()
+        state = .checking
+    }
+
+    private func readRequirement() async throws -> AppleAgeRequirement {
+        do {
+            return try await service.regulatoryRequirement()
+        } catch {
+            record(error, stage: "regional-requirement")
+            throw error
+        }
+    }
+
     private func performRefresh(_ expected: Int) async {
         defer { if isCurrent(expected) { settleAuthorizationWaiters() } }
-        await ads.waitForConsentPresentation()
-        guard isCurrent(expected) else { return }
         do {
-            let response = try await service.requestAgeRange()
-            // Sharing is a monotonic device lock even when the active result was
-            // superseded; a later decline must not unlock manual age editing.
-            if case .shared(let range) = response, range.isValid {
-                store.hasSharedAppleRange = true
-            }
+            let currentRequirement = try await readRequirement()
             guard isCurrent(expected) else { return }
-            switch response {
-            case .unsupported:
-                if store.hasSharedAppleRange { state = .sharingRequired } else { allowManualFallback() }
-            case .declined(let isRequired):
-                if !isRequired, !store.hasSharedAppleRange {
-                    allowManualFallback()
-                } else {
-                    state = .sharingRequired
-                }
-            case .shared(let range):
-                guard range.isValid else {
-                    state = .failed
-                    return
-                }
-                sharedRange = range
-                store.hasSharedAppleRange = true
-                guard range.adBand.allowsApp else {
-                    state = .under13
-                    return
-                }
-                ads.applySystemAge(range)
-                state = .ready
+            requirement = currentRequirement
+            diagnostic = nil
+            if currentRequirement != .required {
+                allowUnspecifiedAgeAccess()
+                return
             }
+            closeAccess()
+            await ads.waitForConsentPresentation()
+            guard isCurrent(expected) else { return }
+            let response = try await requestSharing()
+            retainSharedLock(response, expected: expected)
+            guard isCurrent(expected) else { return }
+            applyRequiredResponse(response)
         } catch {
             guard isCurrent(expected) else { return }
+            // A failed regulatory query is unknown, never evidence of an optional region.
+            requirement = nil
+            closeAccess()
             state = .failed
         }
     }
 
-    private func allowManualFallback() {
-        sharedRange = nil
-        ads.allowManualAgeFallback()
-        state = .manual
+    private func requestSharing() async throws -> AppleAgeResponse {
+        do { return try await service.requestAgeRange() } catch {
+            record(error, stage: "sharing-request")
+            throw error
+        }
     }
 
+    private func retainSharedLock(_ response: AppleAgeResponse, expected: Int) {
+        guard case .shared(let range) = response, range.isValid else { return }
+        store.hasSharedAppleRange = true
+        let received = AppleAgeProtection(band: range.adBand, range: range)
+        if isCurrent(expected) {
+            store.lastKnownProtection = received
+        } else {
+            // A stale result cannot authorize another player. Keep any stricter evidence
+            // so a later eligibility=false result cannot lose a known child restriction.
+            let existing =
+                store.lastKnownProtection
+                ?? ads.ageBand.flatMap { band in
+                    band == .adult ? nil : AppleAgeProtection(band: band, range: nil)
+                }
+            if let existing, protectionRank(existing.band) <= protectionRank(received.band) {
+                store.lastKnownProtection = existing
+            } else if received.band != .adult {
+                store.lastKnownProtection = received
+            }
+            closeAccess()
+        }
+    }
+
+    private func protectionRank(_ band: AdAgeBand) -> Int {
+        switch band {
+        case .under13: 0
+        case .youngTeen: 1
+        case .olderTeen: 2
+        case .adult: 3
+        }
+    }
+
+    private func applyRequiredResponse(_ response: AppleAgeResponse) {
+        switch response {
+        case .unsupported, .declined:
+            state = .sharingRequired
+        case .shared(let range):
+            guard range.isValid else {
+                state = .failed
+                return
+            }
+            sharedRange = range
+            ads.applySystemAge(range)
+            state = range.adBand.allowsApp ? .ready : .under13
+        }
+    }
+
+    private func allowUnspecifiedAgeAccess() {
+        sharedRange = store.lastKnownProtection?.range
+        ads.allowUnspecifiedAgeAccess(
+            protection: store.lastKnownProtection, appleLocked: store.hasSharedAppleRange
+        )
+        state = ads.ageBand == .under13 ? .under13 : .ready
+    }
+
+    private func record(_ error: Error, stage: String) {
+        guard !(error is CancellationError) else { return }
+        let nsError = error as NSError
+        diagnostic = AppleAgeDiagnostic(stage: stage, domain: nsError.domain, code: nsError.code)
+        logger.error(
+            "Age check failed stage=\(stage, privacy: .public) domain=\(nsError.domain, privacy: .public) code=\(nsError.code, privacy: .public)"
+        )
+    }
 }
