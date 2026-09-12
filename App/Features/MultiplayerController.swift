@@ -292,12 +292,7 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
                     let receipt = try await self.backend.loadMultiplayerResult(matchID: matchID)
                     guard !Task.isCancelled, self.backend.profile?.id == playerID else { return }
                     if self.phase == .results, self.snapshot?.matchID == matchID {
-                        self.resultsState.settlement = .settled(leaderboardEligible: receipt.rankingEligible)
-                        self.resultsState.isPersistenceConfirmed = true
-                        self.resultsState.message =
-                            receipt.reward.coinStatus == "eligible"
-                            ? "Result saved · \(receipt.reward.coinsEarned) coins earned · \(receipt.reward.remainderMs / 1_000)s toward your next pair"
-                            : "Result saved. This match did not earn coins."
+                        self.resultsState.recordStoredResult(receipt)
                     }
                     _ = try await self.backend.loadSession()
                     guard !Task.isCancelled, self.backend.profile?.id == playerID else { return }
@@ -900,6 +895,28 @@ final class MultiplayerController: ObservableObject, GameSceneEventDelegate {
             } else if arguments.contains("--ui-test-multiplayer-waiting-fixture") {
                 phase = .waiting
                 projectWaitingRoom()
+            } else if arguments.contains("--ui-test-multiplayer-results-fixture") {
+                let count = arguments.contains("--ui-test-results-four-players") ? 4 : 2
+                players = Array(players.prefix(count))
+                for index in players.indices {
+                    players[index].score = 72_622 - index * 9_682
+                    players[index].hits = 86 - index * 10
+                    players[index].misses = 5
+                    players[index].dodges = 31 - index * 2
+                }
+                showResults(
+                    .init(
+                        matchID: "fixture-match", revision: 2, elapsedMs: 97_000, phase: .finished,
+                        gridDimension: 4, players: players, targets: [], decoys: [],
+                        gameplayRevision: MP2Protocol.gameplayRevision))
+                resultsState.recordStoredResult(
+                    .init(
+                        matchID: "fixture-match", state: "stored_ranked", rankingEligible: true,
+                        resultRevision: 2, rewardPolicy: "multiplayer-alive-minute-v1",
+                        reward: .init(
+                            creditedAliveMs: 97_000, coinsEarned: 2, remainderMs: 37_000,
+                            totalAliveMs: 97_000, coinStatus: "eligible")))
+                resultsState.isBalanceCurrent = true
             } else {
                 phase = .live
                 if arguments.contains("--ui-test-multiplayer-spectating-fixture") {

@@ -376,8 +376,13 @@ struct RootView: View {
                 LeaderboardView()
             } label: {
                 ZStack {
-                    Image(systemName: "trophy.fill")
-                        .font(.system(size: 16, weight: .bold))
+                    if palette.isPixel {
+                        ThemedMenuFeatureIcon(systemImage: "trophy.fill", theme: palette)
+                            .frame(width: 22, height: 22)
+                    } else {
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 16, weight: .bold))
+                    }
                 }
                 .frame(
                     width: WebMenuMetrics.utilityTarget,
@@ -410,8 +415,15 @@ struct RootView: View {
             Button {
                 showsProfile = true
             } label: {
-                Image(systemName: backend.profile == nil ? "person" : "person.fill")
-                    .font(.system(size: 17, weight: .bold))
+                if palette.isPixel {
+                    ThemedMenuFeatureIcon(
+                        systemImage: backend.profile == nil ? "person" : "person.fill", theme: palette
+                    )
+                    .frame(width: 22, height: 22)
+                } else {
+                    Image(systemName: backend.profile == nil ? "person" : "person.fill")
+                        .font(.system(size: 17, weight: .bold))
+                }
             }
             .buttonStyle(
                 WebSecondaryButtonStyle(
@@ -688,22 +700,9 @@ struct RootView: View {
 
     private func modeLink(_ mode: GameMode) -> some View {
         NavigationLink(value: mode) {
-            VStack(spacing: mode == .zen ? 3 : 0) {
-                Text(mode.displayName)
-                    .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
-                if mode == .zen {
-                    Text("NO COINS AWARDED")
-                        .font(
-                            palette.appFont(
-                                size: palette.legibleSmallCopySize(9),
-                                weight: .bold,
-                                relativeTo: .caption2
-                            )
-                        )
-                        .tracking(0.55)
-                }
-            }
-            .foregroundStyle(mode == .arcade ? Color(hex: "#fff7f8") : Color(hex: "#0b2d17"))
+            Text(mode.displayName)
+                .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
+                .foregroundStyle(mode == .arcade ? Color(hex: "#fff7f8") : Color(hex: "#0b2d17"))
         }
         .buttonStyle(
             WebModeButtonStyle(
@@ -916,6 +915,7 @@ struct RootView: View {
                 || arguments.contains("--ui-test-multiplayer-catch-up-fixture")
                 || arguments.contains("--ui-test-multiplayer-hub-fixture")
                 || arguments.contains("--ui-test-multiplayer-spectating-fixture")
+                || arguments.contains("--ui-test-multiplayer-results-fixture")
             {
                 showsMultiplayerUITestFixture = true
             }

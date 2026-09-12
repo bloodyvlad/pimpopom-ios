@@ -696,6 +696,52 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
+    func testMenuModeTitlesAreCenteredWithoutSubtitles() {
+        let app = XCUIApplication()
+        for theme in ["classic", "pixel"] {
+            app.launchArguments = ["--uitesting", "--ui-test-theme=\(theme)"]
+            app.launch()
+            for (mode, title) in [("normal", "Arcade"), ("zen", "Zen"), ("multiplayer", "Multiplayer")] {
+                let button = app.buttons["mode-\(mode)"]
+                XCTAssertTrue(button.waitForExistence(timeout: 8))
+                XCTAssertEqual(button.label, title)
+                XCTAssertEqual(button.frame.midX, app.frame.midX, accuracy: 1)
+            }
+            XCTAssertFalse(app.staticTexts["NO COINS AWARDED"].exists)
+            XCTAssertFalse(app.staticTexts["2–4 PLAYERS · 2 COINS / MIN"].exists)
+            attachScreenshot(of: app, name: "Build 30 \(theme) centered mode titles and menu icons")
+            app.terminate()
+        }
+    }
+
+    func testMultiplayerRewardsAppearAbovePlayersAcrossThemes() {
+        let app = XCUIApplication()
+        for theme in ["classic", "disco", "light", "pixel"] {
+            for playerCount in [2, 4] {
+                app.launchArguments = [
+                    "--uitesting", "--ui-test-theme=\(theme)", "--ui-test-multiplayer-results-fixture",
+                ]
+                if playerCount == 4 { app.launchArguments.append("--ui-test-results-four-players") }
+                app.launch()
+                let earned = app.staticTexts["multiplayer-coins-earned"]
+                XCTAssertTrue(earned.waitForExistence(timeout: 8))
+                let rows = app.scrollViews["multiplayer-result-rows"]
+                XCTAssertEqual(earned.label, "2 coins earned")
+                XCTAssertTrue(earned.isHittable)
+                let firstPlayer = app.descendants(matching: .any)["multiplayer-result-fixture-player-0"]
+                XCTAssertTrue(firstPlayer.exists)
+                XCTAssertLessThan(earned.frame.maxY, firstPlayer.frame.minY)
+                XCTAssertEqual(earned.frame.midX, rows.frame.midX, accuracy: 1)
+                XCTAssertFalse(
+                    app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'toward your next'")).firstMatch
+                        .exists)
+                XCTAssertTrue(app.buttons["finish-multiplayer"].isHittable)
+                attachScreenshot(of: app, name: "Build 30 \(theme) \(playerCount) player rewards")
+                app.terminate()
+            }
+        }
+    }
+
     func testMultiplayerWaitingRoomUsesHalfRightPetAvatarsAndColorTilesAcrossThemes() {
         let app = XCUIApplication()
 

@@ -44,24 +44,9 @@ struct MultiplayerMenuLink<Destination: View>: View {
     }
 
     private var label: some View {
-        VStack(spacing: 3) {
-            HStack(spacing: 7) {
-                Image(systemName: "person.3.fill")
-                    .font(.system(size: 15, weight: .black))
-                Text("Multiplayer")
-                    .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
-            }
-            Text(availability.menuMessage)
-                .font(
-                    theme.appFont(
-                        size: theme.legibleSmallCopySize(9),
-                        weight: .bold,
-                        relativeTo: .caption2
-                    )
-                )
-                .tracking(0.55)
-        }
-        .foregroundStyle(Color(hex: "#f8f5ff"))
+        Text("Multiplayer")
+            .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
+            .foregroundStyle(Color(hex: "#f8f5ff"))
     }
 }
 
@@ -1490,51 +1475,63 @@ struct MultiplayerResultsView: View {
     private var palette: ThemePalette { cosmetics.theme }
 
     var body: some View {
-        ZStack {
-            AppThemeBackground(theme: palette)
+        GeometryReader { geometry in
+            ZStack {
+                AppThemeBackground(theme: palette)
 
-            VStack(spacing: 12) {
-                settlementHeader
-                if let code = state.roomCode {
-                    Text("GAME · \(code)")
-                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
-                        .foregroundStyle(Color(hex: palette.muted))
-                        .accessibilityIdentifier("multiplayer-results-code")
+                VStack(spacing: 12) {
+                    settlementHeader(compact: geometry.size.height < 700)
+                    if let code = state.roomCode {
+                        Text("GAME · \(code)")
+                            .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                            .accessibilityIdentifier("multiplayer-results-code")
+                    }
+                    if let coinsEarned = state.coinsEarned {
+                        VStack(spacing: 6) {
+                            PixelCoinView(size: 32)
+                                .accessibilityHidden(true)
+                            Text("\(coinsEarned) coins earned")
+                                .font(palette.appFont(size: 26, weight: .black, relativeTo: .title2))
+                                .multilineTextAlignment(.center)
+                                .accessibilityIdentifier("multiplayer-coins-earned")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    resultRows
+                    if let message = state.message {
+                        Text(message)
+                            .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                            .multilineTextAlignment(.center)
+                    }
+                    if state.localSubmissionAccepted && !(state.isPersistenceConfirmed && state.isBalanceCurrent) {
+                        Button(state.isRefreshing ? "Syncing result…" : "Check saved result", action: onRefresh)
+                            .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+                            .disabled(state.isRefreshing)
+                            .accessibilityIdentifier("multiplayer-retry-result-save")
+                    }
+                    actionRow
                 }
-                resultRows
-                if let message = state.message {
-                    Text(message)
-                        .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                        .foregroundStyle(Color(hex: palette.muted))
-                        .multilineTextAlignment(.center)
-                }
-                if state.localSubmissionAccepted && !(state.isPersistenceConfirmed && state.isBalanceCurrent) {
-                    Button(state.isRefreshing ? "Syncing result…" : "Check saved result", action: onRefresh)
-                        .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
-                        .disabled(state.isRefreshing)
-                        .accessibilityIdentifier("multiplayer-retry-result-save")
-                }
-                actionRow
+                .foregroundStyle(Color(hex: palette.foreground))
+                .padding(14)
+                .frame(maxWidth: 620, maxHeight: .infinity)
+                .webCardStyle(theme: palette, padding: 14)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
-            .foregroundStyle(Color(hex: palette.foreground))
-            .padding(14)
-            .frame(maxWidth: 620, maxHeight: .infinity)
-            .webCardStyle(theme: palette, padding: 14)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
         }
         .navigationBarBackButtonHidden(true)
-        .accessibilityIdentifier("multiplayer-results")
     }
 
-    private var settlementHeader: some View {
-        VStack(spacing: 5) {
+    private func settlementHeader(compact: Bool) -> some View {
+        VStack(spacing: compact ? 3 : 5) {
             Image(systemName: settlementIcon)
-                .font(.system(size: 30, weight: .black))
+                .font(.system(size: compact ? 22 : 30, weight: .black))
                 .foregroundStyle(settlementColor)
                 .shadow(color: settlementColor.opacity(0.45), radius: palette.isPixel ? 0 : 9)
             Text(state.outcomeTitle)
-                .font(palette.appFont(size: 25, weight: .black, relativeTo: .title))
+                .font(palette.appFont(size: compact ? 20 : 25, weight: .black, relativeTo: .title))
                 .accessibilityIdentifier("multiplayer-result-outcome")
             Text(settlementSubtitle)
                 .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
@@ -1542,7 +1539,7 @@ struct MultiplayerResultsView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
+        .padding(.vertical, compact ? 2 : 6)
     }
 
     private var settlementIcon: String {
@@ -1592,6 +1589,7 @@ struct MultiplayerResultsView: View {
                 ForEach(state.results.sorted(by: { $0.place < $1.place })) { result in
                     resultRow(result)
                 }
+
             }
             .padding(.vertical, 2)
         }

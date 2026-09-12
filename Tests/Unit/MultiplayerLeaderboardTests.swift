@@ -3,6 +3,44 @@ import XCTest
 @testable import PimPoPom
 
 final class MultiplayerLeaderboardTests: XCTestCase {
+    func testResultsOnlyShowConfirmedCoinAmountsAndKeepThemDuringBalanceRefresh() {
+        var state = MultiplayerPresentation.ResultsState(
+            settlement: .settled(leaderboardEligible: false), results: [], isRefreshing: true,
+            localSubmissionAccepted: true, message: "Syncing")
+        XCTAssertNil(state.coinsEarned)
+        for coins in [0, 2, 6] {
+            let receipt = storedReceipt(coins: coins, status: "eligible")
+            state.recordStoredResult(receipt)
+            state.recordStoredResult(receipt)
+            XCTAssertEqual(state.coinsEarned, coins, "Repeated receipts must not add coins again")
+            XCTAssertEqual(state.message, "Result saved")
+            XCTAssertTrue(state.isPersistenceConfirmed)
+            XCTAssertFalse(state.isBalanceCurrent)
+            state.message = "Your balance has not refreshed yet"
+            XCTAssertEqual(state.coinsEarned, coins)
+        }
+    }
+
+    func testIneligibleReceiptsNeverShowAnEarnedCoinCelebration() {
+        for status in ["ineligible", "missing_generation", "stale_generation"] {
+            var state = MultiplayerPresentation.ResultsState(
+                settlement: .settled(leaderboardEligible: false), results: [], isRefreshing: false,
+                localSubmissionAccepted: true, message: nil)
+            state.recordStoredResult(storedReceipt(coins: 0, status: status))
+            XCTAssertNil(state.coinsEarned)
+            XCTAssertEqual(state.message, "Result saved. This match did not earn coins.")
+        }
+    }
+
+    private func storedReceipt(coins: Int, status: String) -> MultiplayerStoredResult {
+        .init(
+            matchID: "match", state: "stored_ranked", rankingEligible: true, resultRevision: 2,
+            rewardPolicy: "multiplayer-alive-minute-v1",
+            reward: .init(
+                creditedAliveMs: status == "eligible" ? 97_000 : 0, coinsEarned: coins,
+                remainderMs: 37_000, totalAliveMs: 97_000, coinStatus: status))
+    }
+
     func testNewServerBoardAcceptsScoreTiesWithUniquePositionsAndNoInventedRatings() throws {
         let response = try response()
         XCTAssertTrue(response.isValidServerLeaderboard)

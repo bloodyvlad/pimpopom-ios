@@ -478,6 +478,14 @@ enum MultiplayerPresentation {
         var roomCode: String? = nil
         var isPersistenceConfirmed = false
         var isBalanceCurrent = false
+        var coinsEarned: Int? = nil
+
+        mutating func recordStoredResult(_ receipt: MultiplayerStoredResult) {
+            settlement = .settled(leaderboardEligible: receipt.rankingEligible)
+            isPersistenceConfirmed = true
+            coinsEarned = receipt.reward.coinStatus == "eligible" ? receipt.reward.coinsEarned : nil
+            message = coinsEarned != nil ? "Result saved" : "Result saved. This match did not earn coins."
+        }
 
         var canReturnToMenu: Bool { settlement.isTerminal }
 
