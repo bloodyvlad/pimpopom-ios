@@ -196,12 +196,14 @@ final class MultiplayerExperienceTests: XCTestCase {
     }
 
     func testPixelMenuIconsHavePixelArtworkAndOtherSymbolsKeepTheirFallback() {
-        for icon in ["pawprint.fill", "paintpalette.fill"] {
+        for icon in ["pawprint.fill", "paintpalette.fill", "trophy.fill", "person", "person.fill"] {
             let rows = ThemedMenuFeatureIcon.pixelPattern(for: icon)
             XCTAssertEqual(rows?.count, 13)
             XCTAssertTrue(rows?.allSatisfy { $0.count == 13 && $0.allSatisfy { $0 == "0" || $0 == "1" } } == true)
         }
-        XCTAssertNil(ThemedMenuFeatureIcon.pixelPattern(for: "trophy.fill"))
+        XCTAssertNotEqual(
+            ThemedMenuFeatureIcon.pixelPattern(for: "person"), ThemedMenuFeatureIcon.pixelPattern(for: "person.fill"))
+        XCTAssertNil(ThemedMenuFeatureIcon.pixelPattern(for: "gearshape.fill"))
         XCTAssertEqual(GameplayStampKind.extraLife.text, "+1UP")
         XCTAssertEqual(GameplayStampKind.slowingDown.text, "Slowing down")
     }

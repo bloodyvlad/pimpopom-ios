@@ -137,7 +137,23 @@ final class HowToPlayTests: XCTestCase {
         let practice = HowToPlayPractice(mode: .multiplayer, capabilities: .init())
         XCTAssertTrue(practice.rewardsInstruction.contains("no coin rewards"))
         XCTAssertTrue(practice.rewardsInstruction.contains("ranking is not enabled"))
+        XCTAssertFalse(practice.rewardsInstruction.contains("Spend them"))
         XCTAssertTrue(HowToPlayPractice(mode: .arcade).rewardsInstruction.contains("one coin"))
+    }
+
+    func testRewardTutorialsExplainWhereToSpendCoinsImmediatelyAfterTheEarningRate() {
+        let spending = "Spend them in Pet Shop or purchase Themes."
+        let arcade = HowToPlayPractice(mode: .arcade).rewardsInstruction
+        XCTAssertTrue(arcade.hasPrefix("Eligible Arcade survival earns one coin per accumulated minute. \(spending)"))
+        XCTAssertTrue(arcade.contains("Sign in to save eligible scores"))
+        XCTAssertTrue(arcade.hasSuffix("This tutorial earns nothing."))
+
+        let multiplayer = HowToPlayPractice(mode: .multiplayer).rewardsInstruction
+        XCTAssertTrue(
+            multiplayer.hasPrefix(
+                "Eligible Multiplayer survival earns 2 coins per accumulated minute while you are alive. \(spending)"))
+        XCTAssertTrue(multiplayer.contains("Spectating time does not count."))
+        XCTAssertTrue(multiplayer.hasSuffix("This tutorial earns nothing."))
     }
 
     func testTutorialPreferencesDefaultOnAndPersistSeparately() throws {

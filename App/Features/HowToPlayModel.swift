@@ -127,12 +127,12 @@ struct HowToPlayPractice: Equatable, Sendable {
     var rewardsInstruction: String {
         if mode == .arcade {
             return
-                "Eligible Arcade survival earns one coin per accumulated minute. Sign in to save eligible scores, improve your rank and collect rewards. This tutorial earns nothing."
+                "Eligible Arcade survival earns one coin per accumulated minute. Spend them in Pet Shop or purchase Themes. Sign in to save eligible scores, improve your rank and collect rewards. This tutorial earns nothing."
         }
         let coins = capabilities.multiplayerCoinsPerAliveMinute
         let reward =
             coins > 0
-            ? "Eligible Multiplayer survival earns \(coins) coins per accumulated minute while you are alive. Spectating time does not count."
+            ? "Eligible Multiplayer survival earns \(coins) coins per accumulated minute while you are alive. Spend them in Pet Shop or purchase Themes. Spectating time does not count."
             : "Multiplayer is currently a playtest with no coin rewards."
         let ranking =
             capabilities.multiplayerLeaderboardEnabled
