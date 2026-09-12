@@ -69,7 +69,7 @@ staging_build_settings=$(xcodebuild \
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CONFIGURATION = Staging'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.02'
-printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 32'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 33'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910'
@@ -136,11 +136,11 @@ xcodebuild -quiet "$@" \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerHubBackButtonUsesCompleteToolbarFootprintAcrossThemes \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testPixelMultiplayerHubUsesThemedLoweredBackButtonAndLegibleSmallCopy \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerRoomControlsAcrossThemes \
-  -only-testing:PimPoPomUITests/PimPoPomUITests/testAgeGateHasNoDefaultAndBlocksUnder13 \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testFreshLaunchOpensMenuAndAdsWithoutAgeSelection \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testAppleParentRangeIsReadOnlyAndForegroundPreservesSettings \
-  -only-testing:PimPoPomUITests/PimPoPomUITests/testAppleUnder13BlocksWithoutManualOverrideAndKeepsLegalAccess \
-  -only-testing:PimPoPomUITests/PimPoPomUITests/testEligibleAgeBandsStartAppAndPersist \
-  -only-testing:PimPoPomUITests/PimPoPomUITests/testSettingsAgeCorrectionCanCancelAndBlockApp \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testAppleUnder13BlocksWithoutManualOverride \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testRequiredAppleAgeGateShowsLogoWithoutSettingsOrLegalLinks \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testSettingsHasNoManualAgeSelection \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testSettingsLegalLinksAreAccessibleWithoutAdvertising \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testRequiredPrivacyChoicesAreAccessibleThroughSettings \
   test

@@ -7,7 +7,6 @@ struct SettingsView: View {
     @EnvironmentObject private var appIcons: AppIconController
     @EnvironmentObject private var ads: AdsController
     @State private var tutorialMode: HowToPlayMode?
-    @State private var showsAgeGroup = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -156,25 +155,9 @@ struct SettingsView: View {
                         }
                     }
 
-                    settingCard(title: "Age group", systemImage: "person.crop.circle") {
-                        if ads.canManuallyChangeAge {
-                            Button {
-                                showsAgeGroup = true
-                            } label: {
-                                HStack {
-                                    Text(ads.ageBand?.displayTitle ?? "Not selected")
-                                    Spacer()
-                                    Text("Review")
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                            .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
-                            .accessibilityIdentifier("settings-age-group")
-                            Text("Self-declared on this device. This choice must match the person playing.")
-                                .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
-                                .foregroundStyle(Color(hex: palette.muted))
-                        } else {
-                            Text("Apple age range: \(ads.appleAgeDescription ?? "Not shared")")
+                    if let appleAgeDescription = ads.appleAgeDescription {
+                        settingCard(title: "Apple age range", systemImage: "person.crop.circle") {
+                            Text("Apple age range: \(appleAgeDescription)")
                                 .accessibilityIdentifier("settings-apple-age-range")
                             Text(
                                 ads.appleParentalControls
@@ -183,9 +166,6 @@ struct SettingsView: View {
                             )
                             .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
                             .foregroundStyle(Color(hex: palette.muted))
-                            Button("Check Apple age range again") { ads.onAppleAgeRefresh?() }
-                                .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
-                                .accessibilityIdentifier("settings-apple-age-refresh")
                         }
                     }
 
@@ -211,16 +191,6 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showsAgeGroup) {
-            AgeGroupView(
-                currentBand: ads.ageBand,
-                onSave: { band in
-                    await ads.setAgeBand(band)
-                    showsAgeGroup = false
-                },
-                onCancel: { showsAgeGroup = false }
-            )
-        }
         .sheet(item: $tutorialMode) { mode in
             HowToPlayReplayView(mode: mode)
         }

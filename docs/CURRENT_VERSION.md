@@ -1,5 +1,18 @@
 # Current version slice
 
+## Build 33 onboarding correction — 2026-09-12
+
+Source configuration is **1.02 (33)**. The owner withdrew build 32 after physical
+age-onboarding failures on iOS 27 Beta 6; direct ASC readback confirmed
+`DEVELOPER_REJECTED`. The correction removes the manual age selector and optional Apple prompts,
+uses protective advertising treatment when no age is supplied, and preserves
+required regional checks and normal StoreKit purchases. Legal links stay in
+main-menu Settings. The required-check screen has the PimPoPom wordmark, and the
+Multiplayer group icon is restored without its subtitle. Build and distribution
+evidence will be recorded separately; public review remains withdrawn while the
+owner checks the correction. Only focused age/consent checks are in scope.
+See [onboarding correction](ONBOARDING_AGE_FIX.md).
+
 ## Build32 preparation — 2026-09-12
 
 Source configuration is **1.02 (32)**, based on clean local production31 source
