@@ -1006,50 +1006,52 @@ struct RootView: View {
     }
 }
 
-#Preview {
-    let backend = BackendClient()
-    let preferences = AppPreferences()
-    let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
-    let achievements = AchievementsController(backend: backend)
-    let purchases = PurchaseController(creditService: backend, startListeners: false)
-    let gameCenter = GameCenterService(arguments: ["--uitesting"])
-    let audio = AudioController()
-    let gameCenterAutoLink = GameCenterAutoLinkController(
-        backend: backend,
-        gameCenter: gameCenter
-    )
-    let multiplayer = MultiplayerController(
-        backend: backend,
-        gameCenter: gameCenter,
-        audio: audio
-    )
-    let ads = AdsController(
-        configuration: AdsConfiguration(
-            mode: .disabled,
-            appID: AdsConfiguration.realAppID,
-            bannerUnitID: "",
-            interstitialUnitID: "",
-            testDeviceIdentifiers: []
-        ),
-        consentService: FakeConsentService(),
-        adsService: FakeAdsService(),
-        progressStore: MemoryInterstitialProgressStore(),
-        ageStore: MemoryAdAgeBandStore(.adult)
-    )
-    RootView(
-        googleIdentity: GoogleIdentityService(),
-        appleIdentity: AppleIdentityService()
-    )
-    .environmentObject(backend)
-    .environmentObject(preferences)
-    .environmentObject(cosmetics)
-    .environmentObject(achievements)
-    .environmentObject(audio)
-    .environmentObject(AppIconController())
-    .environmentObject(HomeQuickActionController.shared)
-    .environmentObject(gameCenter)
-    .environmentObject(gameCenterAutoLink)
-    .environmentObject(multiplayer)
-    .environmentObject(purchases)
-    .environmentObject(ads)
-}
+#if DEBUG
+    #Preview {
+        let backend = BackendClient()
+        let preferences = AppPreferences()
+        let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
+        let achievements = AchievementsController(backend: backend)
+        let purchases = PurchaseController(creditService: backend, startListeners: false)
+        let gameCenter = GameCenterService(arguments: ["--uitesting"])
+        let audio = AudioController()
+        let gameCenterAutoLink = GameCenterAutoLinkController(
+            backend: backend,
+            gameCenter: gameCenter
+        )
+        let multiplayer = MultiplayerController(
+            backend: backend,
+            gameCenter: gameCenter,
+            audio: audio
+        )
+        let ads = AdsController(
+            configuration: AdsConfiguration(
+                mode: .disabled,
+                appID: AdsConfiguration.realAppID,
+                bannerUnitID: "",
+                interstitialUnitID: "",
+                testDeviceIdentifiers: []
+            ),
+            consentService: FakeConsentService(),
+            adsService: FakeAdsService(),
+            progressStore: MemoryInterstitialProgressStore(),
+            ageStore: MemoryAdAgeBandStore(.adult)
+        )
+        RootView(
+            googleIdentity: GoogleIdentityService(),
+            appleIdentity: AppleIdentityService()
+        )
+        .environmentObject(backend)
+        .environmentObject(preferences)
+        .environmentObject(cosmetics)
+        .environmentObject(achievements)
+        .environmentObject(audio)
+        .environmentObject(AppIconController())
+        .environmentObject(HomeQuickActionController.shared)
+        .environmentObject(gameCenter)
+        .environmentObject(gameCenterAutoLink)
+        .environmentObject(multiplayer)
+        .environmentObject(purchases)
+        .environmentObject(ads)
+    }
+#endif

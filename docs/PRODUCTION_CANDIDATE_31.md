@@ -134,6 +134,12 @@ because its local fixture service was unavailable. Formatting, asset provenance,
 ad-configuration checks, plist lint, generic Simulator Debug build, configuration
 assertions and `git diff --check` also passed. The full Simulator xcresult contains
 298 cases: 297 passed and one skipped, on the owned iPhone 17 / iOS 26.5 Simulator.
+The full gate validated source `86eca2d962e26021f60b82fad7aa4690dc8dacb3`.
+A follow-up wraps RootView's unchanged SwiftUI preview in `#if DEBUG` because
+Release compilation cannot reference its Debug-only in-memory age store. The
+Debug-preprocessed app/test code is unchanged; the follow-up is checked with a
+Debug compile, formatting/diff checks and Release archive compilation. The full
+Debug gate was not repeated after this preview-only exclusion.
 The exact results are retained as `production31-final-gate.xcresult` in the private
 candidate evidence package. Physical-device/network/live-ad claims remain limited
 as described below.
