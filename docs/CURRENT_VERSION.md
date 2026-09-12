@@ -1,34 +1,35 @@
 # Current version slice
 
-Verified 2026-09-11. Source, hosted deployment and Apple distribution are separate
+Updated 2026-09-12. Source, hosted deployment and Apple distribution are separate
 evidence; later documentation commits do not change the uploaded binary.
 
-## Build 29 release state
+## Build 30 release state
 
-Build 29 implements final-score Multiplayer outcomes, a fresh v2 leaderboard,
-two coins per eligible connected/alive minute, waiting-room privacy editing,
-shared pickup feedback and isolated interactive tutorials. PHP/Railway are
-verified and Apple approved build 29 for both existing QA groups.
+Build 30 changes presentation only: a small centered coin and earned amount above
+the Multiplayer roster, a smaller outcome badge/title on compact screens, no
+seconds-carry copy, tutorial guidance on spending coins, Pixel trophy/profile
+icons, and centered mode names without subtitles. Receipt/account guards and the
+build-29 gameplay, reward, identity, StoreKit and advertising contracts are unchanged.
 
 | Item | Current truth |
 | --- | --- |
 | Product | PimPoPom, iPhone/iOS 17+, Swift 6 strict concurrency |
-| TestFlight | `1.02 (29)`, VALID / APP_STORE_ELIGIBLE |
-| Uploaded iOS source | `199bf48f6dccbc0b1a3b234dc12aca3977c16a50`, clean optimized Staging |
-| Apple build ID | `f8c2710e-c0c6-42be-a570-a18145271a59` |
-| QA groups | Internal QA and External QA IN_BETA_TESTING; review APPROVED; verified 2026-09-11 19:02:18 UTC |
-| Notifications / public link | Automatic notification enabled; existing external link preserved |
-| Railway source | `9b28b210e44919cb6d1719ffb97054ab35764de1` |
-| Railway deployment | `9ec61784-391e-4be0-bdbe-deb227487f69`, SUCCESS, one Amsterdam replica |
-| PHP source | `bf0ef1b030772872775ab64eaedcbaa1b256e0cf`; only `speedytapper.otcsoft.com` |
-| PHP schema | Ledger 001–025; only additive 025 newly applied; season/account/purchased-value data preserved |
-| Previous beta | Build 28 is the rollback/reference beta; Arcade v3/v4/v5 retained |
+| TestFlight | `1.02 (30)`, VALID / APP_STORE_ELIGIBLE |
+| Binary source | `79b02abc524954547fc49b5f67ca3d587f121c41`, clean optimized Staging |
+| Apple build ID | `d379664b-d895-4f0a-b84b-072ebff9334c`; uploaded 2026-09-12 10:28:12 UTC |
+| QA groups / review | Internal QA and External QA IN_BETA_TESTING; review APPROVED; verified 2026-09-12 10:31:38 UTC |
+| Notifications / public link | Automatic notification enabled; existing external public link preserved |
+| Retained Railway source | `9b28b210e44919cb6d1719ffb97054ab35764de1` |
+| Retained Railway deployment | `9ec61784-391e-4be0-bdbe-deb227487f69`, one Amsterdam replica; not redeployed for build 30 |
+| Retained PHP source | `bf0ef1b030772872775ab64eaedcbaa1b256e0cf`; only `speedytapper.otcsoft.com`; not redeployed |
+| PHP schema | Existing ledger 001–025 retained; no migration, season reset or account-value change |
+| Previous beta | Build 29 is the compatible reference beta; Arcade v3/v4/v5 retained |
 | Production App Store | Not submitted or released by this task |
 
 Exact artifacts, checksums and rollback boundaries: [RELEASE](RELEASE.md) and
 [Railway record](../Server/DEPLOYMENT_RAILWAY.md). Feature detail: [MP29](MP29_GAMEPLAY_TUTORIALS.md).
 
-## Build-29 gameplay and network contracts
+## Retained gameplay and network contracts
 
 - Arcade: `normal`, compatibility build `20260729-1`, explicit
   `reaction-proof-v5`, proof 3. Legacy omitted ruleset selects v3/proof 2;
@@ -65,6 +66,16 @@ Exact artifacts, checksums and rollback boundaries: [RELEASE](RELEASE.md) and
 
 ## Rooms and UI
 
+Multiplayer rewards appear only after a validated eligible receipt, using its exact
+coin amount, including zero. Repeated receipt refreshes replace presentation rather
+than add value; wallet refresh may finish later. The centered 32-point coin and
+earned amount stay above the scrolling roster. Compact screens reduce the outcome
+badge/title and spacing; Leaderboard/Menu remain outside the roster. Seconds carry
+still belongs to the server economy but is no longer shown here. Arcade and eligible
+Multiplayer tutorial reward steps now say "Spend them in Pet Shop or purchase Themes."
+Pixel trophy/profile icons retain signed-in/out state and accessible button labels.
+Arcade, Zen and Multiplayer menu buttons show centered names without subtitles.
+
 Rooms have stable eight-character codes, visible in waiting/live/results screens.
 Copy/Share is available in the waiting room. Public rooms support creator-name
 substring search; exact case-insensitive code/full UUID can find public or private
@@ -80,25 +91,33 @@ untimed tutorials and remembered opt-outs, replayable from Settings; Zen is unch
 
 ## Verification and remaining gates
 
-- Initial native gate: 265 tests, 259 passed, six UI failures, zero skipped.
-  Focused badge/privacy checks passed; clock-stamp feedback failed before the final
-  correction. Tutorial accessibility and stable stamp-host changes were not
-  Simulator-retested, per the owner's explicit no-recheck request. Final UI QA is
-  **incomplete**, not green; see [TESTING](TESTING.md) and `qa-status.md`.
-- Exact shared source: 95 core/47 service tests pass on macOS and Linux ARM64;
-  real local sockets cover last-survivor scoring, final drain and privacy. These
-  are not real-account internet matches or physical latency measurements.
-- PHP: 73 source hashes, schema 025, unchanged private configuration/workers and
-  45 HTTPS checks verified. Railway: 13 WSS/auth boundaries, native x86_64,
-  UID/GID 10001, NoNewPrivs and private writable outbox verified; settings unchanged.
-- Clean Staging archive, matching app symbols, 12 privacy manifests and absence of
-  private/test files verified. Apple upload/export and processing succeeded;
-  distribution eligibility/review/group states were checked directly.
+- 95 core tests and initial build/static checks passed. Five focused receipt/leaderboard
+  tests and all eight compact results scenarios passed. All eight final 750×1334
+  iPhone SE (3rd generation) / iOS 26.5 captures were reviewed, plus a manual Pixel
+  menu capture. The compact menu query was corrected in tests only.
+- The owner accepted the UI, stopped the final full check and approved both QA groups.
+  The iPhone 17 / iOS 26.5 result is **263 tests: 259 passed, three failed, one skipped**;
+  exit 65. The all-theme tutorial wait timeout is unresolved, distinct from the
+  Arcade test's termination signal and the test-runner invalid-device/Mach-server
+  failure. No fully passing final-source gate or interruption-only explanation is claimed.
+- Archive and inspected local distribution export passed signature, app/dSYM UUID,
+  12 privacy manifests, zero private/test files and encryption-exemption checks.
+  The distribution export has `get-task-allow:false`. Apple accepted the upload;
+  processing is VALID, beta review APPROVED and both existing QA groups are
+  IN_BETA_TESTING, directly verified 2026-09-12 10:31:38 UTC.
+- Read-only PHP health, signed-out session, Arcade leaderboard and Multiplayer v2
+  leaderboard returned HTTP 200 JSON on 2026-09-12 10:06–10:07 UTC. Railway health
+  returned HTTP 200/ok with protocol 2, gameplay revision 3 / result revision 2.
+  Existing deployment references above are retained build-29 evidence; these reads
+  do not independently reverify source hashes, schema or runtime identity.
 
-Evidence: `build/releases/build29-20260911/`; historical build-28 green results
-remain explicitly historical in RELEASE.md. Still validate genuine signed-in
-2/3/4-iPhone Wi-Fi/cellular matches, reconnect/logout, heart races, result delivery,
-accessibility and 60/120 Hz latency on named hardware. Multi-region failover,
-sustained load/draining and production/legal/storefront gates remain open.
-No live-ad activation, paid-plan upgrade, new region, account/season reset or
-purchased-value change was performed. New eligible Multiplayer rewards are intentional.
+Evidence: `build/releases/build30-20260912/` in the binary worktree, including
+`verification-notes.md`, `compact-final.xcresult`, `compact-attachments/`,
+`check-final-summary.json`, archive/export inspections and `apple-final-state.json`.
+Build-29 service/core,
+MariaDB, deployment and incomplete UI evidence remain historical in RELEASE.md.
+No backend, schema, season, account-value, advertising or StoreKit change occurred.
+Still validate real-account 2/3/4-iPhone hosted matches/rewards, Wi-Fi/cellular
+latency, reconnect/logout, pickups, accessibility and physical 60/120 Hz behavior.
+No production App Store submission, live-ad activation, paid-plan upgrade or
+production/legal acceptance is claimed.

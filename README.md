@@ -5,11 +5,12 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained alongside 2–4-player online Multiplayer v2. Game Center remains a
 separate account/publication integration.
 
-Build 29 adds score-ranked Multiplayer, two coins per eligible connected/alive
-minute, guided practice, lobby privacy editing and themed gameplay feedback.
-See [build-29 rules and QA limitations](docs/MP29_GAMEPLAY_TUTORIALS.md).
-PHP migration 025 and Railway deployment are verified. Build 29 is approved and
-available to the existing Internal QA and External QA TestFlight groups.
+Build 30 polishes Multiplayer results, tutorial reward copy and the main menu.
+A small coin sits above the earned amount and player roster; compact screens use
+a smaller outcome heading. Pixel now has pixel trophy/profile icons, and all mode
+buttons use centered names. The gameplay and backend contracts from build 29 are
+unchanged. Build 30 is approved and available to the existing Internal QA and
+External QA TestFlight groups. See [current release evidence](docs/RELEASE.md).
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
@@ -20,12 +21,12 @@ are recorded explicitly.
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (29)` |
-| TestFlight state | Build 29 VALID; review APPROVED; both QA groups IN_BETA_TESTING (2026-09-11 19:02:18 UTC) |
-| Exact uploaded iOS source | `199bf48f6dccbc0b1a3b234dc12aca3977c16a50` |
-| Hosting | Railway Amsterdam `9ec61784`, gameplay revision 3 / discovery 2; PHP `bf0ef1b` verified, schema 025 |
-| Previous supported beta | Build 28 / gameplay revision 2; build 25 uses separate revision-1 rooms |
-| Open QA gates | Final tutorial/stamp UI checks; real-account rewards and hosted matches; physical/network/accessibility acceptance; legal/reviewer readiness |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (30)` |
+| TestFlight state | Build 30 VALID; review APPROVED; both QA groups IN_BETA_TESTING, verified 2026-09-12 10:31:38 UTC |
+| Build 30 binary source | `79b02abc524954547fc49b5f67ca3d587f121c41`; later documentation commits do not change the binary |
+| Hosting | Existing Railway `9ec61784` and PHP `bf0ef1b` deployments retained; public health/read checks repeated on 2026-09-12 |
+| Previous supported beta | Build 29 / gameplay revision 3; no backend rollback or schema change |
+| Open QA gates | Owner-stopped full check: 259 passed, 3 failed, 1 skipped; tutorial timeout unresolved; physical/network/accessibility and real-account acceptance |
 | Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
@@ -40,7 +41,7 @@ personal target spacing. The owner has now authorized Railway EU deployment,
 the separate PHP v2 bridge, and TestFlight QA distribution. No paid-plan upgrade
 or App Store production submission is authorized. See [current status](docs/CURRENT_VERSION.md).
 
-## Build-29 product
+## Current product
 
 - **Arcade:** endless three-life play with progressive boards, decoys, reaction
   ratings, streak multipliers, heart/clock pickups, protocol-verified ranking,

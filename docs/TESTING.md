@@ -4,7 +4,49 @@ PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranke
 Arcade and Multiplayer v2. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
-## Build 29 verification and explicit UI exception
+## Build 30 verification and owner-stopped full gate
+
+Binary source: `79b02abc524954547fc49b5f67ca3d587f121c41` (`1.02 (30)`).
+The final scope is results/menu/tutorial presentation; pure rules, services,
+backend schema, reward amounts and purchase/ad configuration are unchanged.
+
+- The initial check passed formatting/configuration, 95 core tests and generic
+  Simulator compilation. It was superseded and interrupted when the owner moved
+  the reward above the roster and requested a smaller compact outcome heading.
+- `compact-final.xcresult` passed five receipt/leaderboard tests and all eight
+  two/four-player result scenarios across Default, Disco, Light and Pixel on the
+  iPhone SE (3rd generation) profile, iOS 26.5, at 750×1334. All eight captures
+  were independently reviewed. The compact menu assertion failed because it
+  expected a nested staticText for a single-label SwiftUI button. The corrected
+  test uses button labels; a manual Pixel menu screenshot was reviewed.
+- A final `Scripts/check.sh` run started with that test correction. The owner
+  explicitly stopped it, accepted the UI and approved both-group TestFlight
+  distribution. On iPhone 17 / iOS 26.5 it reported **263 tests: 259 passed, three
+  failed, one skipped**, and exited 65. Failures: the all-theme tutorial test timed
+  out in `XCTWaiter`; the Arcade pickup test received a termination signal; and
+  test-runner installation/launch failed with invalid device state / Mach server
+  died. The tutorial timeout is unresolved and is not attributed to interruption
+  without evidence. **No fully passing final-source gate is claimed.** The owner
+  approved proceeding without a rerun.
+- Read-only PHP health/session/Arcade leaderboard/Multiplayer v2 leaderboard probes
+  returned HTTP 200 JSON at 2026-09-12 10:06–10:07 UTC; the session was signed out
+  and health reported season-1. Railway health returned HTTP 200/ok with protocol 2,
+  gameplay revision 3 / result revision 2. No authentication or reward write,
+  deployment, schema inspection or runtime identity verification occurred.
+
+The receipt tests cover exact confirmed values (including zero), repeated reads,
+pending wallet refresh and noneligible statuses. Tutorial tests cover spending copy
+after the earning rate and suppression where rewards are disabled. Pixel artwork
+tests retain separate signed-in/out patterns. UI tests assert rewards above players,
+centering, no seconds-carry copy and reachable Menu, plus centered mode names.
+
+Retained evidence in the binary worktree: `build/releases/build30-20260912/`,
+especially `verification-notes.md`, `compact-final.xcresult`, `compact-attachments/`
+and the stopped final full-check log/result bundle. Archive/Apple evidence is separate
+in [RELEASE](RELEASE.md). Physical 60/120 Hz, real-account hosted matches/rewards,
+StoreKit Sandbox and accessibility/locale matrices remain open.
+
+## Build 29 verification and explicit UI exception — historical
 
 Local macOS and Linux ARM64 checks pass: 95 pure-core and 47 service tests. Real
 four-client sockets cover final scoring after earlier elimination, last-survivor
@@ -66,8 +108,9 @@ legacy defaults and retries. Initial failed and corrected UI evidence are retain
 
 ## Current release evidence
 
-- Build 29's current deployment/Apple state is in RELEASE.md; its incomplete final
-  UI gate is recorded above. Earlier passing suites do not certify the latest fixes.
+- Build 30's release state is in RELEASE.md; its owner-stopped final full gate is
+  recorded above. Build 29's incomplete UI gate is retained as historical evidence.
+  Earlier passing suites do not certify later fixes or stopped runs.
 - Historical build 28 is VALID, approved and available to both existing QA groups. PHP v5
   and Railway room discovery were deployed/verified before upload. The exact final
   source gate, compact UI, Linux, 35 PHP HTTPS and ten WSS checks passed as above.
@@ -98,9 +141,10 @@ git diff --check
 The check regenerates the project, enforces Swift format, validates assets/hashes,
 privacy and ad configuration, builds the generic Simulator target, checks Staging
 version/configuration, runs pure core tests, the native unit suite, and the focused
-four-theme Multiplayer/Pixel back-button and Arcade pickup contact UI regressions.
+four-theme Multiplayer/Pixel back-button and Arcade pickup contact UI regressions,
+reward placement, tutorial flows and centered mode names.
 Behavior changes require focused tests before the full gate.
-Build 29's owner-authorized no-rerun exception is recorded above; it does not
+Build 30's owner-stopped gate and build 29's no-rerun exception are recorded above; neither
 change the normal gate or establish production/device acceptance.
 
 ## Test layers

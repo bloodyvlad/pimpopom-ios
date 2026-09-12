@@ -5,6 +5,81 @@ explicit owner authorization. A TestFlight approval is not an App Store release.
 
 ## Current beta and rollback
 
+Build **1.02 (30)** was archived from the clean reviewed source below. The owner
+accepted the UI, explicitly stopped the final test run and approved distribution
+to both existing Internal QA and External QA groups. Apple accepted the upload;
+the build is VALID / `APP_STORE_ELIGIBLE`. Final direct Apple verification at
+**2026-09-12 10:31:38 UTC** confirmed beta review **APPROVED** and both existing
+Internal QA and External QA groups **IN_BETA_TESTING**.
+
+| Item | Build 30 evidence |
+| --- | --- |
+| Binary source / branch | `79b02abc524954547fc49b5f67ca3d587f121c41` / `codex/rewards-menu-polish` |
+| Version / configuration | `1.02 (30)`, optimized Staging, iOS 17+, unchanged owner-split test ads |
+| Toolchain | Xcode 26.6 (17F113), Swift 6.3.3, iPhoneOS SDK 26.5, macOS 26.6.2 |
+| Package lock SHA-256 | `a55f6425dbd1745e05580243444db3e0ade9f6e83362ae3a9c32f7c33fbf1f35`; unchanged ten-package lock |
+| Apple build | `d379664b-d895-4f0a-b84b-072ebff9334c`, VALID / APP_STORE_ELIGIBLE |
+| Apple upload / review | 2026-09-12 10:28:12 UTC / APPROVED, verified 2026-09-12 10:31:38 UTC |
+| QA groups / notifications | Existing Internal QA and External QA IN_BETA_TESTING; automatic notification enabled; existing external public link preserved |
+| Archive TGZ SHA-256 | `e80239f07479c457897b7d5432e4ecefcb088820654d8ed50df926109bada512` |
+| 115-file manifest SHA-256 | `60115a44aa941f79df3c98681bbc48130c2ec098cec48d41647e3117701e699f` |
+| Matching app/dSYM UUID | `B99EB9CF-B3AE-32D4-93CC-E1D7F0B2E159` |
+| App binary SHA-256 | `ccd999b1dcaa35c3503568916d148436a5df823c6936142ab84366a07b1eb4be` |
+| Inspected local distribution IPA SHA-256 | `08cca6881314108914c7be662aefaffa60c2f822aaccf9b65339ca1905a52383` |
+| Previous compatible beta | `1.02 (29)`, Apple build `f8c2710e-c0c6-42be-a570-a18145271a59` |
+| Backend | Existing build-29 PHP/Railway deployments and schema 025 retained; no deployment or data mutation |
+
+The release changes only result/menu/tutorial presentation, plus version and tests.
+A 32-point centered coin and the receipt's earned amount now sit above the roster;
+compact screens use a smaller outcome badge/title. Seconds-carry text is removed.
+Tutorial reward steps explain Pet Shop/Themes spending. Pixel uses pixel trophy
+and signed-in/out profile artwork, and mode buttons use centered names without
+subtitles. Receipt validation, account/match fencing, reward rates and cumulative
+carry, gameplay/protocol rules, StoreKit and advertising configuration are unchanged.
+
+**Verification exception:** 95 core tests and the initial build/static checks passed.
+Five focused receipt/leaderboard tests and all eight compact reward scenarios passed.
+The compact menu test initially failed on an incorrect nested-staticText query; its
+test-only correction reads the button label, and a manual Pixel menu capture was
+reviewed. The owner stopped the final full check after accepting the UI; it exited
+65 with **263 tests: 259 passed, three failed, one skipped**. Failures were the
+all-theme tutorial wait timeout, the Arcade pickup test terminated by signal, and
+an invalid-device/Mach-server test-runner failure. The tutorial timeout is not
+established as interruption-only. This is **not a passing full gate**; no rerun was
+requested or performed. See [TESTING](TESTING.md).
+
+Archive inspection verified optimized non-DEBUG Staging, signature, matching
+app-owned symbols, 12 privacy manifests, encryption exemption and zero prohibited
+private/test files. The archive used development signing. A separate local
+distribution export was inspected before upload: signature and App Store
+distribution profile are valid, `get-task-allow` is false, and symbols/privacy/
+prohibited-file/encryption checks pass. Its IPA checksum above identifies that
+inspected export, not a separately reconstructed Apple-delivered download.
+Upload succeeded with the existing GoogleMobileAds/UMP vendor-dSYM warnings;
+the matching app-owned dSYM is retained. This build's en-US What to Test was
+updated. Beta App Review briefly reported WAITING_FOR_REVIEW after submission,
+then APPROVED at final verification; both group relationships and testing states
+were checked directly. Standing app metadata, tester cohort and group settings
+were preserved, including the existing [external TestFlight link](https://testflight.apple.com/join/DctX2n8W).
+
+All eight final compact results captures were reviewed: reward/header/buttons fit
+in all four themes for two/four players. Pixel's fourth row requires scrolling;
+existing non-Pixel compact row truncation is unchanged. No physical-device,
+real-account reward, hosted match, Sandbox purchase or full accessibility matrix
+was validated. Public PHP/Railway health and signed-out reads passed on 2026-09-12;
+these do not re-establish exact deployed artifacts or schema state.
+
+Evidence stays under `build/releases/build30-20260912/` in the binary worktree,
+including `verification-notes.md`, `compact-final.xcresult`, `compact-attachments/`,
+the stopped final check, archive/export inspections and `apple-final-state.json`.
+Intermediate below-roster captures are superseded.
+Later documentation commits record this binary; they are not new uploads.
+Build 29 is the compatible reference/rollback beta. Retain its source/archive/symbols
+and the existing rewards backend; no backend rollback, live-ad activation, production
+App Store submission, season reset or paid-value change was performed.
+
+## Build 29 — retained release and verification exception
+
 Build **1.02 (29)** is VALID / `APP_STORE_ELIGIBLE`. Direct Apple verification at
 **2026-09-11 19:02:18 UTC** confirmed beta review **APPROVED** and both existing
 Internal QA / External QA groups **IN_BETA_TESTING**, with automatic notification
