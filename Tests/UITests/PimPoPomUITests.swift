@@ -412,6 +412,89 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(privacyChoices.waitForExistence(timeout: 2))
     }
 
+    func testAgeGateHasNoDefaultAndBlocksUnder13() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--ui-test-age-gate", "--ui-test-age-reset"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["age-gate"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.descendants(matching: .any)["menu-dialog"].exists)
+        XCTAssertFalse(app.buttons["age-continue"].isEnabled)
+        for band in ["under-13", "13-15", "16-17", "18-plus"] {
+            let choice = app.buttons["age-band-\(band)"]
+            XCTAssertTrue(scrollToElement(choice, in: app))
+            XCTAssertGreaterThanOrEqual(choice.frame.height, 44)
+        }
+        app.swipeDown()
+        attachScreenshot(of: app, name: "Neutral age gate four bands")
+        let under13 = app.buttons["age-band-under-13"]
+        XCTAssertTrue(scrollToElement(under13, in: app))
+        under13.tap()
+        let proceed = app.buttons["age-continue"]
+        XCTAssertTrue(scrollToElement(proceed, in: app))
+        proceed.tap()
+        XCTAssertTrue(app.staticTexts["age-blocked"].waitForExistence(timeout: 3))
+        XCTAssertGreaterThanOrEqual(app.staticTexts["age-blocked"].frame.minY, 40)
+        XCTAssertFalse(app.descendants(matching: .any)["menu-dialog"].exists)
+        XCTAssertTrue(app.buttons["age-review"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["age-legal-privacy"].exists)
+        attachScreenshot(of: app, name: "Under13 gate legal access")
+        app.buttons["age-review"].tap()
+        XCTAssertTrue(app.staticTexts["age-gate"].waitForExistence(timeout: 2))
+    }
+
+    func testEligibleAgeBandsStartAppAndPersist() throws {
+        for band in ["13-15", "16-17", "18-plus"] {
+            let app = XCUIApplication()
+            app.launchArguments = ["--uitesting", "--ui-test-age-gate", "--ui-test-age-reset"]
+            app.launch()
+            XCTAssertTrue(app.staticTexts["age-gate"].waitForExistence(timeout: 5))
+            let choice = app.buttons["age-band-\(band)"]
+            XCTAssertTrue(scrollToElement(choice, in: app))
+            choice.tap()
+            let proceed = app.buttons["age-continue"]
+            XCTAssertTrue(scrollToElement(proceed, in: app))
+            proceed.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
+            app.terminate()
+            app.launchArguments = ["--uitesting", "--ui-test-age-gate"]
+            app.launch()
+            XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
+            XCTAssertFalse(app.staticTexts["age-gate"].exists)
+            app.terminate()
+        }
+    }
+
+    func testSettingsAgeCorrectionCanCancelAndBlockApp() throws {
+        let app = launch()
+        openMenuControl("open-settings", in: app)
+        let ageRow = app.buttons["settings-age-group"]
+        XCTAssertTrue(scrollToElement(ageRow, in: app))
+        ageRow.tap()
+        XCTAssertTrue(app.staticTexts["age-gate"].waitForExistence(timeout: 3))
+        app.buttons["age-band-13-15"].tap()
+        let cancel = app.buttons["age-cancel"]
+        XCTAssertTrue(scrollToElement(cancel, in: app))
+        cancel.tap()
+        XCTAssertTrue(ageRow.waitForExistence(timeout: 3))
+        XCTAssertTrue(ageRow.label.contains("18 or older"))
+        ageRow.tap()
+        XCTAssertTrue(app.staticTexts["age-gate"].waitForExistence(timeout: 3))
+        app.buttons["age-band-16-17"].tap()
+        let save = app.buttons["age-save"]
+        XCTAssertTrue(scrollToElement(save, in: app))
+        save.tap()
+        XCTAssertTrue(ageRow.waitForExistence(timeout: 3))
+        XCTAssertTrue(ageRow.label.contains("16–17"))
+        attachScreenshot(of: app, name: "Settings current player age group")
+        ageRow.tap()
+        XCTAssertTrue(app.staticTexts["age-gate"].waitForExistence(timeout: 3))
+        app.buttons["age-band-under-13"].tap()
+        XCTAssertTrue(scrollToElement(save, in: app))
+        save.tap()
+        XCTAssertTrue(app.staticTexts["age-blocked"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["menu-dialog"].exists)
+    }
+
     func testSettingsLegalLinksAreAccessibleWithoutAdvertising() throws {
         let app = launch()
         openMenuControl("open-settings", in: app)

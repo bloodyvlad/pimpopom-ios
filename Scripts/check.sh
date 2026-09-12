@@ -69,7 +69,7 @@ staging_build_settings=$(xcodebuild \
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CONFIGURATION = Staging'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.02'
-printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 30'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 31'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910'
@@ -99,8 +99,8 @@ release_build_settings=$(xcodebuild \
 printf '%s\n' "$release_build_settings" | rg -Fq 'CONFIGURATION = Release'
 printf '%s\n' "$release_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_APP_ID = ca-app-pub-6428992187280935~3622035442'
 printf '%s\n' "$release_build_settings" | rg -Fq 'PIMPOPOM_ADS_MODE = disabled'
-if printf '%s\n' "$release_build_settings" | rg -q 'PIMPOPOM_ADMOB_(BANNER_UNIT_ID|INTERSTITIAL_UNIT_ID|TEST_DEVICE_IDS) ='; then
-  printf '%s\n' 'Checked-in Release must not contain ad units or test-device identifiers.' >&2
+if printf '%s\n' "$release_build_settings" | rg -q 'PIMPOPOM_(ADMOB_(BANNER_UNIT_ID|INTERSTITIAL_UNIT_ID|TEST_DEVICE_IDS|OWNER_BANNER_UNIT_ID|OWNER_INTERSTITIAL_UNIT_ID)|OWNER_DEVICE_IDFV_SHA256S) ='; then
+  printf '%s\n' 'Checked-in Release must not contain ad units, test-device identifiers, or owner QA fields.' >&2
   exit 1
 fi
 
@@ -111,8 +111,9 @@ rg -Fq '"identity" : "swift-package-manager-google-user-messaging-platform"' Pim
 rg -Fq '"version" : "3.1.0"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 rg -Fq '"revision" : "13b248eaa73b7826f0efb1bcf455e251d65ecb1b"' PimPoPom.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
-if ! xcrun simctl list devices available | rg -Fq 'PimPoPom iPhone 17 ('; then
-  printf '%s\n' 'Missing PimPoPom iPhone 17 simulator. Run Scripts/create-alpha-simulators.sh first.' >&2
+check_simulator="${PIMPOPOM_CHECK_SIMULATOR:-PimPoPom iPhone 17}"
+if ! xcrun simctl list devices available | rg -Fq "$check_simulator ("; then
+  printf '%s\n' "Missing $check_simulator simulator. Run Scripts/create-alpha-simulators.sh or select an existing device with PIMPOPOM_CHECK_SIMULATOR." >&2
   exit 1
 fi
 
@@ -123,7 +124,7 @@ fi
 xcodebuild -quiet "$@" \
   -project PimPoPom.xcodeproj \
   -scheme PimPoPom \
-  -destination 'platform=iOS Simulator,name=PimPoPom iPhone 17' \
+  -destination "platform=iOS Simulator,name=$check_simulator" \
   -only-testing:PimPoPomTests \
   -only-testing:PimPoPomUITests/HowToPlayUITests \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerRewardsAppearAbovePlayersAcrossThemes \
@@ -135,5 +136,10 @@ xcodebuild -quiet "$@" \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerHubBackButtonUsesCompleteToolbarFootprintAcrossThemes \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testPixelMultiplayerHubUsesThemedLoweredBackButtonAndLegibleSmallCopy \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerRoomControlsAcrossThemes \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testAgeGateHasNoDefaultAndBlocksUnder13 \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testEligibleAgeBandsStartAppAndPersist \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testSettingsAgeCorrectionCanCancelAndBlockApp \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testSettingsLegalLinksAreAccessibleWithoutAdvertising \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testRequiredPrivacyChoicesAreAccessibleThroughSettings \
   test
 git diff --check

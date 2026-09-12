@@ -98,13 +98,23 @@ is Apple-restorable and Family-Shareable.
 
 ## D-09 — Gate advertising through consent and authoritative entitlement
 
-Status: implemented in test/beta configurations.
+Status: implemented in test/beta configurations; owner-approved production
+candidate 31 is being prepared locally, without upload or public activation.
 
 UMP refreshes before any eligible ad request. Unknown or ad-free account state
 starts no GMA inventory. Eligible banners use a fixed 320×50 host outside the board;
 the third eligible Arcade/Zen completion makes an interstitial due. Debug/nonowner
 beta uses demo inventory; owner production units run only in registered Test mode.
-Checked-in Release is disabled until an explicitly authorized public configuration.
+Checked-in Release remains disabled. The owner authorized a local Release archive
+with verified production units and no test-device/owner QA identifiers, supplied
+through ignored private configuration. Candidate 31 requires neutral local age
+selection before app/account/consent startup: unknown and under 13 are blocked;
+13–15 uses UMP under-age and GMA child treatment; 16–17 uses the regional UMP flow
+and GMA teen treatment; adults use the restrictive existing adult configuration.
+Sixteen is the product's conservative ad-consent handling threshold, not a claim
+about every country's legal age. Account changes require age reconfirmation;
+Settings supports correction. See `PRODUCTION_CANDIDATE_31.md` for evidence and
+remaining physical-device, privacy-label and public-review gates.
 
 ## D-10 — Keep presentation configurable but rules invariant
 

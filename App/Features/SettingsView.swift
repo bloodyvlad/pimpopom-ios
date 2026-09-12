@@ -7,6 +7,7 @@ struct SettingsView: View {
     @EnvironmentObject private var appIcons: AppIconController
     @EnvironmentObject private var ads: AdsController
     @State private var tutorialMode: HowToPlayMode?
+    @State private var showsAgeGroup = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -155,6 +156,24 @@ struct SettingsView: View {
                         }
                     }
 
+                    settingCard(title: "Age group", systemImage: "person.crop.circle") {
+                        Button {
+                            showsAgeGroup = true
+                        } label: {
+                            HStack {
+                                Text(ads.ageBand?.displayTitle ?? "Not selected")
+                                Spacer()
+                                Text("Review")
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                        .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+                        .accessibilityIdentifier("settings-age-group")
+                        Text("This choice must match the person playing. Review it when sharing this device.")
+                            .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                    }
+
                     settingCard(title: "Support & Legal", systemImage: "doc.text.fill") {
                         legalLink("Privacy Policy", page: "privacy")
                         legalLink("Terms of Use", page: "terms")
@@ -177,6 +196,16 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showsAgeGroup) {
+            AgeGroupView(
+                currentBand: ads.ageBand,
+                onSave: { band in
+                    await ads.setAgeBand(band)
+                    showsAgeGroup = false
+                },
+                onCancel: { showsAgeGroup = false }
+            )
+        }
         .sheet(item: $tutorialMode) { mode in
             HowToPlayReplayView(mode: mode)
         }

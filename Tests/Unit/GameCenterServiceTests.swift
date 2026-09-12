@@ -57,6 +57,29 @@ final class GameCenterServiceTests: XCTestCase {
         XCTAssertEqual(service.state, .authenticating)
     }
 
+    func testAgeGateSuspensionRejectsDelayedAuthenticationAndCanResume() {
+        let harness = GameCenterClientHarness()
+        var presentations = 0
+        let service = GameCenterService(
+            client: harness.client, arguments: [], environment: [:],
+            bundleIdentifier: "com.otcsoftware.pimpopom",
+            presentAuthenticationViewController: { _ in
+                presentations += 1
+                return true
+            }
+        )
+        service.authenticateAtLaunch()
+        let oldCallback = harness.authenticationCallback
+        service.suspendAuthentication()
+        oldCallback?(UIViewController(), nil)
+        XCTAssertEqual(presentations, 0)
+        XCTAssertEqual(service.state, .idle)
+        service.authenticateAtLaunch()
+        harness.authenticationCallback?(UIViewController(), nil)
+        XCTAssertEqual(presentations, 1)
+        XCTAssertEqual(harness.installCount, 2)
+    }
+
     func testStatsDashboardRequiresAnAuthenticatedGameCenterPlayer() {
         let harness = GameCenterClientHarness()
         let service = GameCenterService(

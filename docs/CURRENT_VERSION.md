@@ -1,5 +1,21 @@
 # Current version slice
 
+## Build 31 local production candidate — 2026-09-12
+
+Source configuration is `1.02 (31)`, based on build-30 source
+`79b02abc524954547fc49b5f67ca3d587f121c41` and legal-Settings commit
+`698ca24a0f598e386dc2a2e2f04455e33e31e0b3`. The latest directly verified Apple
+build is 30 (`d379664b-d895-4f0a-b84b-072ebff9334c`, VALID / APP_STORE_ELIGIBLE).
+The coordinating storefront task verified build 30 is beta-approved and available
+to the existing internal and external QA groups. Build 31 is a local candidate;
+no upload, group assignment, review submission or public release is included.
+
+[Candidate scope, checks and open gates](PRODUCTION_CANDIDATE_31.md) supersede the
+historical build-29 release summary below for this branch. Archive/export
+provenance is recorded separately against the exact clean source commit.
+
+## Historical build-29 record
+
 Verified 2026-09-11. Source, hosted deployment and Apple distribution are separate
 evidence; later documentation commits do not change the uploaded binary.
 

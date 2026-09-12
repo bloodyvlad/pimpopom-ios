@@ -5,6 +5,16 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained alongside 2–4-player online Multiplayer v2. Game Center remains a
 separate account/publication integration.
 
+This branch prepares the local **1.02 (31) production candidate**, based on build
+30 source `79b02abc524954547fc49b5f67ca3d587f121c41` plus the reviewed Settings
+legal links, production ad safeguards, and owner-approved age-band handling.
+Build 30 is the current TestFlight build; build 31 has not been
+uploaded or submitted. See [candidate scope and release gates](docs/PRODUCTION_CANDIDATE_31.md).
+Checked-in Release ads remain disabled; an ignored override is used only for the
+owner-authorized local production archive.
+
+The following build-29 release record is historical context.
+
 Build 29 adds score-ranked Multiplayer, two coins per eligible connected/alive
 minute, guided practice, lobby privacy editing and themed gameplay feedback.
 See [build-29 rules and QA limitations](docs/MP29_GAMEPLAY_TUTORIALS.md).

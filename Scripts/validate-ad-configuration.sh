@@ -27,6 +27,12 @@ require_production_unit() {
 
 test "$app_id" = "$real_app_id" || fail 'the real PimPoPom AdMob App ID is required'
 
+if test "$configuration" = 'Release'; then
+    test -z "$owner_banner_id" || fail 'Release cannot contain owner QA banner units'
+    test -z "$owner_interstitial_id" || fail 'Release cannot contain owner QA interstitial units'
+    test -z "$owner_idfv_hashes" || fail 'Release cannot contain owner IDFV fingerprints'
+fi
+
 case "$mode" in
     disabled)
         test -z "$banner_id" || fail 'disabled mode must not contain a banner unit'

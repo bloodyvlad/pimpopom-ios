@@ -221,6 +221,15 @@ final class GameCenterService: ObservableObject {
         startAuthentication()
     }
 
+    func suspendAuthentication() {
+        authenticationGeneration += 1
+        client.removeAuthenticationHandler()
+        hasInstalledAuthenticationHandler = false
+        clearRuntimeVerification()
+        isOpeningStats = false
+        state = .idle
+    }
+
     private func startAuthentication() {
         if hasInstalledAuthenticationHandler {
             if client.isAuthenticated() {

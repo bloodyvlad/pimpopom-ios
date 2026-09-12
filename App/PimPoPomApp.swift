@@ -38,13 +38,24 @@ struct PimPoPomApp: App {
                 let fakeAds = FakeAdsService()
                 fakeAds.interstitialAvailable =
                     !arguments.contains("--ui-test-interstitial-unavailable")
+                let ageStore: any AdAgeBandStoring
+                if arguments.contains("--ui-test-age-gate") {
+                    let defaults = UserDefaults(suiteName: "PimPoPomAgeGateUITests")!
+                    if arguments.contains("--ui-test-age-reset") {
+                        defaults.removePersistentDomain(forName: "PimPoPomAgeGateUITests")
+                    }
+                    ageStore = UserDefaultsAdAgeBandStore(defaults: defaults)
+                } else {
+                    ageStore = MemoryAdAgeBandStore(.adult)
+                }
                 adsController = AdsController(
                     configuration: .uiTesting(
                         adsEnabled: arguments.contains("--ui-test-ads-enabled")
                     ),
                     consentService: consent,
                     adsService: fakeAds,
-                    progressStore: MemoryInterstitialProgressStore()
+                    progressStore: MemoryInterstitialProgressStore(),
+                    ageStore: ageStore
                 )
             } else {
                 storeKit = StoreKitService()
@@ -80,17 +91,27 @@ struct PimPoPomApp: App {
             )
         )
         _purchases = StateObject(
-            wrappedValue: PurchaseController(storeKit: storeKit, creditService: backend)
+            wrappedValue: PurchaseController(
+                storeKit: storeKit, creditService: backend, startListeners: false
+            )
         )
         _ads = StateObject(wrappedValue: adsController)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(
-                googleIdentity: googleIdentity,
-                appleIdentity: appleIdentity
-            )
+            Group {
+                if ads.allowsApp {
+                    RootView(
+                        googleIdentity: googleIdentity,
+                        appleIdentity: appleIdentity
+                    )
+                } else {
+                    AgeGroupView(currentBand: ads.ageBand) { band in
+                        await ads.setAgeBand(band)
+                    }
+                }
+            }
             .environmentObject(backend)
             .environmentObject(preferences)
             .environmentObject(cosmetics)
@@ -103,7 +124,17 @@ struct PimPoPomApp: App {
             .environmentObject(multiplayer)
             .environmentObject(purchases)
             .environmentObject(ads)
+            .onChange(of: ads.allowsApp) { _, allowed in
+                if !allowed {
+                    purchases.stopTransactionListeners()
+                    gameCenterAutoLink.reset()
+                    gameCenter.suspendAuthentication()
+                    audio.setApplicationActive(false)
+                    multiplayer.setApplicationActive(false)
+                }
+            }
             .onOpenURL {
+                guard ads.allowsApp else { return }
                 if !quickActions.handle($0) {
                     _ = googleIdentity.handle($0)
                 }

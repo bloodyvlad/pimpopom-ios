@@ -65,11 +65,15 @@ keeps it due.
 
 ### Consent and configurations
 
-1. Eligible launches refresh UMP before any ad request; login changes consume the
-   current launch result and do not present consent again.
+1. Eligible launches refresh UMP before any ad request. Same-profile session
+   refreshes reuse the current policy result. A resolved different/anonymous
+   account or runtime identity loss requires age reconfirmation and a fresh
+   age-policy consent flow; an initial unresolved offline lookup retains the local
+   age choice while advertising stays blocked by account uncertainty.
 2. Start GMA only when UMP says ads may be requested and PHP has resolved the
    session as not ad-free. Unknown/ad-free state starts no inventory.
-3. Expose Privacy Options when required. Core play and purchases do not depend on
+3. Expose Privacy Options when required, including eligible ad-free and unresolved
+   accounts. Core play and purchases do not depend on
    optional tracking consent.
 4. Maximum content rating is General; publisher personalization and first-party ID
    are disabled. The app does not request ATT or access IDFA.
@@ -82,6 +86,19 @@ keeps it due.
 | Checked-in Release | Disabled; live values require ignored private config and explicit authority |
 
 No production-unit creative may be touched unless it visibly says **Test mode**.
+
+## Candidate-31 age handling
+
+The owner approved restricted advertising for ages 13–17 and retained the
+three-game interstitial cadence. The candidate adds neutral local age selection,
+no birthday/country collection, and blocking before Root startup for unknown or
+under-13 players. Ages 13–15 receive UMP under-consent true plus GMA child treatment;
+16–17 receive normal regional UMP flow plus GMA teen treatment; adults retain the
+restrictive existing adult settings. Sixteen is a conservative product threshold,
+not a universal legal age. Account changes require reconfirmation; offline initial
+lookup preserves declared age while GMA stays account-gated. The age band is not
+sent to the game backend; Google receives age-related consent/ad request signals.
+See [implementation, checks and open gates](PRODUCTION_CANDIDATE_31.md).
 
 ## Data inventory
 

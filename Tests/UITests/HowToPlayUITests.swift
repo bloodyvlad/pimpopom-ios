@@ -139,8 +139,28 @@ final class HowToPlayUITests: XCTestCase {
     }
 
     private func reveal(_ control: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<3 where !control.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        let scrollView = app.scrollViews.firstMatch
+        func visibleScrollFrame() -> CGRect {
+            var frame = scrollView.frame.intersection(app.frame)
+            let footer = app.switches["tutorial-remember"]
+            if footer.exists {
+                frame.size.height = max(0, min(frame.maxY, footer.frame.minY) - frame.minY)
+            }
+            return frame
+        }
+        // XCTest can mark the offscreen Pixel clock button hittable under the
+        // sticky footer. Reveal the actual target before checking its behavior.
+        for _ in 0..<3 {
+            let visible = visibleScrollFrame()
+            if control.isHittable, visible.contains(control.frame) { break }
+            if control.frame.minY < visible.minY {
+                scrollView.swipeDown()
+            } else {
+                scrollView.swipeUp()
+            }
+        }
         XCTAssertTrue(control.isHittable)
+        XCTAssertTrue(visibleScrollFrame().contains(control.frame), "Target must be inside the unobscured scroll area")
         XCTAssertGreaterThanOrEqual(control.frame.width, 44)
         XCTAssertGreaterThanOrEqual(control.frame.height, 44)
     }

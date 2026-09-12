@@ -20,6 +20,7 @@ struct RootView: View {
     let appleIdentity: AppleIdentityService
 
     @State private var navigationPath: [GameMode] = []
+    @State private var completedAccountStartup: AdsController.ConfirmedAccountStartupID?
     @State private var showsProfile = false
     @State private var showsAchievements = false
     @State private var opensProfileAfterAchievements = false
@@ -112,7 +113,10 @@ struct RootView: View {
         .sheet(
             isPresented: $showsProfile,
             onDismiss: {
-                Task { await achievements.refresh(showLoading: false) }
+                Task {
+                    guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
+                    await achievements.refresh(showLoading: false)
+                }
             }
         ) {
             ProfileView(
@@ -164,7 +168,9 @@ struct RootView: View {
         .fullScreenCover(item: $tutorialFixtureMode) { mode in
             HowToPlayReplayView(mode: mode)
         }
-        .task {
+        .task(id: ads.ageConfirmationGeneration) {
+            let generation = ads.ageConfirmationGeneration
+            guard isCurrentAge(generation) else { return }
             configureDebugLaunch()
             openPendingQuickAction()
             audio.setApplicationActive(scenePhase == .active)
@@ -173,21 +179,35 @@ struct RootView: View {
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
             audio.playLaunchSting()
-            // UMP belongs to the application launch, not to an identity event.
-            // Refresh/present consent before restoring or changing the player session;
-            // AdsController still waits for authoritative ad-free resolution before GMA starts.
-            await ads.bootstrap(session: nil)
-            // Install GameKit's standard authentication handler automatically
-            // after any required UMP form has left the presentation stack.
+            // Resolve the saved account before UMP, so a different player cannot
+            // inherit the previous player's stored adult advertising treatment.
+            await restoreSession(ageGeneration: generation)
+            guard isCurrentAge(generation) else { return }
+            await ads.bootstrap(session: backend.sessionState)
+        }
+        // A later successful session lookup must resume deferred account services
+        // even when an offline launch kept the same locally declared age.
+        .task(id: ads.confirmedAccountStartupID(for: backend.sessionState)) {
+            guard let startup = ads.confirmedAccountStartupID(for: backend.sessionState) else { return }
+            guard completedAccountStartup != startup else { return }
+            let generation = startup.ageGeneration
+            @MainActor func isCurrentAccount() -> Bool {
+                isCurrentAge(generation)
+                    && ads.confirmedAccountStartupID(for: backend.sessionState) == startup
+            }
+            guard isCurrentAccount() else { return }
             gameCenter.authenticateAtLaunch()
-            await restoreSession()
             gameCenterAutoLink.reconcile()
-            await ads.updateSession(backend.sessionState)
-            await ads.retryEligibilityIfNeeded()
+            purchases.startTransactionListeners()
             await purchases.loadProducts()
+            guard isCurrentAccount() else { return }
             await purchases.reconcileOutstandingTransactions()
+            guard isCurrentAccount() else { return }
             await cosmetics.refresh()
+            guard isCurrentAccount() else { return }
             await achievements.refresh(showLoading: false)
+            guard isCurrentAccount() else { return }
+            completedAccountStartup = startup
         }
         .onChange(of: cosmetics.selectedThemeID) { _, themeID in
             audio.configure(themeID: themeID, preferences: preferences)
@@ -200,49 +220,71 @@ struct RootView: View {
             if pending { openPendingQuickAction() }
         }
         .onChange(of: scenePhase) { _, phase in
+            guard ads.allowsApp else { return }
+            let generation = ads.ageConfirmationGeneration
             audio.setApplicationActive(phase == .active)
             ads.setApplicationActive(phase == .active)
             multiplayer.setApplicationActive(phase == .active)
             if phase == .active, navigationPath.isEmpty {
                 audio.setMusicContext(.menu)
             }
-            if phase == .active {
-                gameCenter.authenticateAtLaunch()
-                gameCenterAutoLink.reconcile()
+            if phase == .active, let startup = ads.confirmedAccountStartupID(for: backend.sessionState) {
                 Task {
+                    guard isCurrentAge(generation) else { return }
                     await ads.retryEligibilityIfNeeded()
+                    guard isCurrentAge(generation),
+                        ads.confirmedAccountStartupID(for: backend.sessionState) == startup
+                    else { return }
+                    gameCenter.authenticateAtLaunch()
+                    gameCenterAutoLink.reconcile()
                     await purchases.reconcileOutstandingTransactions()
                 }
             }
         }
         .onChange(of: backend.sessionState) { _, _ in
-            gameCenterAutoLink.reconcile()
-            multiplayer.refreshAvailability()
+            guard ads.allowsApp else { return }
+            let generation = ads.ageConfirmationGeneration
             Task {
                 await ads.updateSession(backend.sessionState)
+                guard isCurrentAge(generation),
+                    ads.confirmedAccountStartupID(for: backend.sessionState) != nil
+                else { return }
+                gameCenterAutoLink.reconcile()
+                multiplayer.refreshAvailability()
                 await purchases.reconcileOutstandingTransactions()
             }
         }
         .onChange(of: backend.isAuthenticated) { wasAuthenticated, isAuthenticated in
-            guard wasAuthenticated != isAuthenticated else { return }
+            guard wasAuthenticated != isAuthenticated,
+                ads.isAgeConfirmed(for: backend.sessionState)
+            else { return }
             gameCenterAutoLink.reconcile()
         }
         .onChange(of: backend.profile?.id) { oldPlayerID, newPlayerID in
-            guard oldPlayerID != newPlayerID else { return }
+            guard oldPlayerID != newPlayerID,
+                ads.isAgeConfirmed(for: backend.sessionState)
+            else { return }
             gameCenter.clearRuntimeVerification()
             gameCenterAutoLink.reconcile()
         }
         .onChange(of: gameCenter.state) { _, _ in
+            guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
             gameCenterAutoLink.reconcile()
             multiplayer.refreshAvailability()
         }
         .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
             guard isEmpty, !wasEmpty else { return }
-            Task { await achievements.refresh(showLoading: false) }
+            Task {
+                guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
+                await achievements.refresh(showLoading: false)
+            }
         }
         .onChange(of: cosmetics.ownedPetIDs) { oldIDs, newIDs in
             guard newIDs.count > oldIDs.count else { return }
-            Task { await achievements.refresh(showLoading: false) }
+            Task {
+                guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
+                await achievements.refresh(showLoading: false)
+            }
         }
     }
 
@@ -881,14 +923,17 @@ struct RootView: View {
         #endif
     }
 
-    private func restoreSession() async {
+    private func isCurrentAge(_ generation: Int) -> Bool {
+        ads.allowsApp && ads.ageConfirmationGeneration == generation && !Task.isCancelled
+    }
+
+    private func restoreSession(ageGeneration: Int) async {
         do {
+            guard isCurrentAge(ageGeneration) else { return }
             let session = try await backend.loadSession()
-            guard !session.authenticated,
-                let token = try await googleIdentity.restoreIDTokenIfAvailable()
-            else {
-                return
-            }
+            guard isCurrentAge(ageGeneration), !session.authenticated else { return }
+            let token = try await googleIdentity.restoreIDTokenIfAvailable()
+            guard isCurrentAge(ageGeneration), let token else { return }
             _ = try await backend.login(googleIDToken: token)
         } catch {
             // Profile presents actionable sign-in errors; launch restoration stays non-blocking.
@@ -988,7 +1033,8 @@ struct RootView: View {
         ),
         consentService: FakeConsentService(),
         adsService: FakeAdsService(),
-        progressStore: MemoryInterstitialProgressStore()
+        progressStore: MemoryInterstitialProgressStore(),
+        ageStore: MemoryAdAgeBandStore(.adult)
     )
     RootView(
         googleIdentity: GoogleIdentityService(),

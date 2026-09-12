@@ -382,6 +382,61 @@ final class PurchaseControllerTests: XCTestCase {
         XCTAssertEqual(events.filter { if case .finish = $0 { true } else { false } }.count, 1)
     }
 
+    func testAgeGateDefersRecoveryAndResumesUnfinishedValueOnce() async {
+        let recorder = StoreTestRecorder()
+        let gate = ProductLoadGate()
+        let transaction = storeTransaction(id: 462, productID: .coins100)
+        let store = FakeStoreKitService(
+            unfinished: [.verified(transaction)], recorder: recorder,
+            unfinishedReadGate: gate
+        )
+        let controller = PurchaseController(
+            storeKit: store,
+            creditService: FakeStoreKitCreditService(account: account, recorder: recorder),
+            startListeners: false
+        )
+        var events = await recorder.values()
+        XCTAssertTrue(events.isEmpty)
+        controller.startTransactionListeners()
+        controller.startTransactionListeners()
+        for _ in 0..<200 {
+            if await gate.hasStarted { break }
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        let started = await gate.hasStarted
+        XCTAssertTrue(started)
+        controller.stopTransactionListeners()
+        await gate.open()
+        try? await Task.sleep(for: .milliseconds(20))
+        events = await recorder.values()
+        XCTAssertTrue(events.isEmpty, "Closing the gate must not credit or finish the pending transaction")
+
+        controller.startTransactionListeners()
+        controller.startTransactionListeners()
+        let completed = await eventually {
+            if case .success = controller.state { return true }
+            return false
+        }
+        XCTAssertTrue(completed)
+        events = await recorder.values()
+        XCTAssertEqual(events.filter { if case .credit = $0 { true } else { false } }.count, 1)
+        XCTAssertEqual(events.filter { if case .finish = $0 { true } else { false } }.count, 1)
+        controller.stopTransactionListeners()
+    }
+
+    func testIdleTransactionListenerDoesNotRetainItsController() async {
+        let store = FakeStoreKitService()
+        var controller: PurchaseController? = PurchaseController(
+            storeKit: store,
+            creditService: FakeStoreKitCreditService(account: account)
+        )
+        weak var weakController = controller
+        try? await Task.sleep(for: .milliseconds(30))
+        controller = nil
+        let released = await eventually { weakController == nil }
+        XCTAssertTrue(released)
+    }
+
     func testTransactionUpdatesAreObservedAfterListenersStart() async {
         let recorder = StoreTestRecorder()
         let store = FakeStoreKitService(recorder: recorder)
@@ -593,6 +648,7 @@ private actor FakeStoreKitService: StoreKitServing {
     private let currentEntitlements: [StoreTransactionObservation]
     private let recorder: StoreTestRecorder?
     private let productLoadGate: ProductLoadGate?
+    private let unfinishedReadGate: ProductLoadGate?
     private let updates: AsyncStream<StoreTransactionObservation>
     private let updatesContinuation: AsyncStream<StoreTransactionObservation>.Continuation
 
@@ -602,7 +658,8 @@ private actor FakeStoreKitService: StoreKitServing {
         unfinished: [StoreTransactionObservation] = [],
         currentEntitlements: [StoreTransactionObservation] = [],
         recorder: StoreTestRecorder? = nil,
-        productLoadGate: ProductLoadGate? = nil
+        productLoadGate: ProductLoadGate? = nil,
+        unfinishedReadGate: ProductLoadGate? = nil
     ) {
         self.products = products
         self.purchaseResult = purchaseResult
@@ -610,6 +667,7 @@ private actor FakeStoreKitService: StoreKitServing {
         self.currentEntitlements = currentEntitlements
         self.recorder = recorder
         self.productLoadGate = productLoadGate
+        self.unfinishedReadGate = unfinishedReadGate
         let stream = AsyncStream<StoreTransactionObservation>.makeStream()
         updates = stream.stream
         updatesContinuation = stream.continuation
@@ -644,8 +702,9 @@ private actor FakeStoreKitService: StoreKitServing {
         updates
     }
 
-    func unfinishedTransactions() -> [StoreTransactionObservation] {
-        unfinished
+    func unfinishedTransactions() async -> [StoreTransactionObservation] {
+        await unfinishedReadGate?.wait()
+        return unfinished
     }
 
     func currentNonConsumableEntitlements() -> [StoreTransactionObservation] {
