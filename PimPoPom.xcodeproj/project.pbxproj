@@ -11,6 +11,7 @@
 		03528CE7275198A4BEB75E9B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */; };
 		03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D742807F5506EC05BA9FAFE /* GameView.swift */; };
 		04052855CC26052581CF9499 /* audio-light-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */; };
+		0475BF817E31E0A73A0A9A90 /* AppleAgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9151FB3BAE1EF7C30C63680C /* AppleAgeService.swift */; };
 		066C6CBA43656DC6D7BA87F3 /* PurchaseController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E2A0743676367B419D7078 /* PurchaseController.swift */; };
 		069780A643FA0657F2591156 /* audio-classic-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */; };
 		07131DCCAFB181F709F262FB /* AppleIdentityServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */; };
@@ -55,6 +56,7 @@
 		61A47725672C82B20325D83E /* HowToPlayModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819D981867E8F7C4E079789D /* HowToPlayModel.swift */; };
 		65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */; };
 		67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */; };
+		6B52884299F1580DA526BF2D /* AppleAgeControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488455A99C5A85B00CADA2C2 /* AppleAgeControllerTests.swift */; };
 		6E46ABD4087FBC9FAF4D9E0C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 491AE95125B0A41ABB5B5D44 /* Assets.xcassets */; };
 		7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54435E3370FE5F0E7640F4F /* PetShopView.swift */; };
 		754E8CD00718D0D507BB1414 /* audio-oops.wav in Resources */ = {isa = PBXBuildFile; fileRef = DEC51376F984CE9F83F10F80 /* audio-oops.wav */; };
@@ -73,6 +75,7 @@
 		8EEE97F8C4112AC5BF00051D /* GameCenterAutoLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */; };
 		8F6FB25A3E2EDC1D492D553F /* MultiplayerRoomSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */; };
 		90D6A66A2314920DACE7DF01 /* ScreenshotFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */; };
+		928940F0773A7B69D7766DE6 /* AppleAgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48866A67BF140B0104741441 /* AppleAgeModels.swift */; };
 		9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */; };
 		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
 		97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */; };
@@ -89,6 +92,7 @@
 		A91C56E6A1A0BA217E1B3C93 /* AdAgeBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8650ABAFBC21049F43A4FAE6 /* AdAgeBand.swift */; };
 		AA0A5BCFDDA5E793D935C2FA /* HowToPlayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83671DA013899D28E4565759 /* HowToPlayTests.swift */; };
 		AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */; };
+		AEF69CB46D516F9A64C480B8 /* UITestAppleAgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFE52AB1CB5DB19F52807C4E /* UITestAppleAgeService.swift */; };
 		B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */; };
 		B356FCCA35545B44F4D3A1AC /* AdsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */; };
 		B46953E8B2A2F8158BF74A06 /* ScreenshotFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */; };
@@ -103,6 +107,7 @@
 		BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 1FD1D8CB83628904EBD471FB /* tauta-sprite.png */; };
 		C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */; };
 		C132456E3372F15EA38F2091 /* MultiplayerBackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4077B55945CD1DEBC158188 /* MultiplayerBackendClient.swift */; };
+		C2E210EBD2B0EF64363FAADB /* AppleAgeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 923CEA1022BF8808DF825BE3 /* AppleAgeController.swift */; };
 		C528DC121C2F2E97DA521941 /* MultiplayerSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1211EE9DABA1635C2D682EAB /* MultiplayerSocket.swift */; };
 		D2FF783D7B37B3FD555CEF37 /* misha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */; };
 		D42D180C72C2F118F43D918D /* GameplayPickupIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC7DB10D577291DC238A5DF /* GameplayPickupIcon.swift */; };
@@ -128,6 +133,7 @@
 		F4AE009770F8DC89C9519B7B /* foka-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */; };
 		F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */; };
 		FA6B16DA42450C9FAEFAA1D1 /* ThemedMenuFeatureIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC5511538382E640573777B /* ThemedMenuFeatureIcon.swift */; };
+		FAE4D3D99CCAE0B890EF6346 /* AppleAgeGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ADC8624C316CDFABC978C5 /* AppleAgeGateView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -162,6 +168,7 @@
 		12AF44BA9D72AACA0C78C26A /* audio-pixel-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pixel-tones.wav"; sourceTree = "<group>"; };
 		14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsTests.swift; sourceTree = "<group>"; };
 		1785BF50D237132FAB0E6782 /* ArcadeSpriteBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcadeSpriteBoard.swift; sourceTree = "<group>"; };
+		17ADC8624C316CDFABC978C5 /* AppleAgeGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeGateView.swift; sourceTree = "<group>"; };
 		1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterService.swift; sourceTree = "<group>"; };
 		1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStoreKitCreditService.swift; sourceTree = "<group>"; };
 		1EAF0D8DD171854555FDD1CF /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
@@ -183,6 +190,8 @@
 		4234BF10F969BD645083E373 /* OwnerAdsQA.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = OwnerAdsQA.xcconfig; sourceTree = "<group>"; };
 		449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebParityComponents.swift; sourceTree = "<group>"; };
+		488455A99C5A85B00CADA2C2 /* AppleAgeControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeControllerTests.swift; sourceTree = "<group>"; };
+		48866A67BF140B0104741441 /* AppleAgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeModels.swift; sourceTree = "<group>"; };
 		491AE95125B0A41ABB5B5D44 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4E56F771992EE742330A38AF /* MultiplayerFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFlowView.swift; sourceTree = "<group>"; };
 		4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -217,7 +226,9 @@
 		896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixtureTests.swift; sourceTree = "<group>"; };
 		8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayLifecycleTests.swift; sourceTree = "<group>"; };
 		905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeQuickActionController.swift; sourceTree = "<group>"; };
+		9151FB3BAE1EF7C30C63680C /* AppleAgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeService.swift; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		923CEA1022BF8808DF825BE3 /* AppleAgeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeController.swift; sourceTree = "<group>"; };
 		937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixture.swift; sourceTree = "<group>"; };
 		9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerRoomSearchTests.swift; sourceTree = "<group>"; };
 		950E607413974581EF2478D4 /* MultiplayerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerModels.swift; sourceTree = "<group>"; };
@@ -248,6 +259,7 @@
 		CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-sprite.png"; sourceTree = "<group>"; };
 		CAC5511538382E640573777B /* ThemedMenuFeatureIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedMenuFeatureIcon.swift; sourceTree = "<group>"; };
 		CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleIdentityService.swift; sourceTree = "<group>"; };
+		CFE52AB1CB5DB19F52807C4E /* UITestAppleAgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestAppleAgeService.swift; sourceTree = "<group>"; };
 		D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIdentityService.swift; sourceTree = "<group>"; };
 		D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsControllerTests.swift; sourceTree = "<group>"; };
 		D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInButton.swift; sourceTree = "<group>"; };
@@ -406,6 +418,7 @@
 			children = (
 				FF525ACA8A69F39145C25A62 /* AchievementsView.swift */,
 				38B334303FCF5389C4B7AA6A /* AgeGroupView.swift */,
+				17ADC8624C316CDFABC978C5 /* AppleAgeGateView.swift */,
 				D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */,
 				2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */,
 				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
@@ -450,6 +463,7 @@
 			isa = PBXGroup;
 			children = (
 				D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */,
+				488455A99C5A85B00CADA2C2 /* AppleAgeControllerTests.swift */,
 				0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */,
 				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
 				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
@@ -512,6 +526,9 @@
 				0666D60D3D9DC1385FFD0B8C /* AdsController.swift */,
 				6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */,
 				B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */,
+				923CEA1022BF8808DF825BE3 /* AppleAgeController.swift */,
+				48866A67BF140B0104741441 /* AppleAgeModels.swift */,
+				9151FB3BAE1EF7C30C63680C /* AppleAgeService.swift */,
 				D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */,
 				ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */,
 				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
@@ -531,6 +548,7 @@
 				035F4C0D3D8F108F40669F27 /* PlayerNameValidation.swift */,
 				A9CC5EE844D22FB3BF197B67 /* StoreKitModels.swift */,
 				11F37B0D75969458F56254C5 /* StoreKitService.swift */,
+				CFE52AB1CB5DB19F52807C4E /* UITestAppleAgeService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -738,6 +756,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */,
+				6B52884299F1580DA526BF2D /* AppleAgeControllerTests.swift in Sources */,
 				07131DCCAFB181F709F262FB /* AppleIdentityServiceTests.swift in Sources */,
 				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
 				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
@@ -773,6 +792,10 @@
 				24C63A1C1EB6D9D8C9D1B07C /* AgeGroupView.swift in Sources */,
 				6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */,
 				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
+				C2E210EBD2B0EF64363FAADB /* AppleAgeController.swift in Sources */,
+				FAE4D3D99CCAE0B890EF6346 /* AppleAgeGateView.swift in Sources */,
+				928940F0773A7B69D7766DE6 /* AppleAgeModels.swift in Sources */,
+				0475BF817E31E0A73A0A9A90 /* AppleAgeService.swift in Sources */,
 				97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */,
 				60D82B86C5B02B0DE3F426DB /* AppleSignInButton.swift in Sources */,
 				3780B05BB7ABF2CF007C6646 /* ArcadeSpriteBoard.swift in Sources */,
@@ -824,6 +847,7 @@
 				65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */,
 				F0C814B129B6961AD724CF1B /* ThemeShopView.swift in Sources */,
 				FA6B16DA42450C9FAEFAA1D1 /* ThemedMenuFeatureIcon.swift in Sources */,
+				AEF69CB46D516F9A64C480B8 /* UITestAppleAgeService.swift in Sources */,
 				AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

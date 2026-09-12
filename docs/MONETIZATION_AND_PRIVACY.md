@@ -76,7 +76,7 @@ keeps it due.
    accounts. Core play and purchases do not depend on
    optional tracking consent.
 4. Maximum content rating is General; publisher personalization and first-party ID
-   are disabled. The app does not request ATT or access IDFA.
+   are disabled; every banner/interstitial request carries `npa=1`. The app does not request ATT or access IDFA.
 
 | Build lane | Inventory |
 | --- | --- |
@@ -86,6 +86,24 @@ keeps it due.
 | Checked-in Release | Disabled; live values require ignored private config and explicit authority |
 
 No production-unit creative may be touched unless it visibly says **Test mode**.
+
+## Candidate32 Apple age handling
+
+Apple Declared Age Range supplies inclusive bounds when shared. The app requests
+13/16/18 thresholds but accepts Apple region-specific ranges and uses the youngest
+possible age for access and ad protection. Shared values cannot be edited in-app,
+including parentally controlled accounts. No birthday is collected and the age
+range is not sent to the game backend. Google receives the existing age-related
+advertising/consent signal. Fresh Apple resolution precedes UMP and account services;
+account/background transitions invalidate stale responses and inventory.
+
+Older iOS versions retain the neutral manual gate. Optional declined sharing can
+fall back to self-declaration only when the available regional check does not
+require sharing and this installation has never received an Apple range.
+iOS26.0/26.1 have no regional-requirements API; this legacy fallback does not
+establish absence of parental controls. Modern query errors/required declines and
+remembered Apple locks cannot become a manual adult choice. See
+[full current fallback contract](PRODUCTION_CANDIDATE_32.md).
 
 ## Candidate-31 age handling
 

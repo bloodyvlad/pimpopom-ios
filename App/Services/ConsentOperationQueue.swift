@@ -10,6 +10,8 @@ final class ConsentOperationQueue {
 
     func invalidate() { generation += 1 }
 
+    func waitUntilIdle() async { _ = try? await pending?.value }
+
     func check(_ expected: Int) throws {
         guard generation == expected else { throw CancellationError() }
     }

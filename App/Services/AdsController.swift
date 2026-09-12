@@ -39,7 +39,19 @@ final class AdsController: ObservableObject {
     @Published private(set) var ageConfirmationGeneration = 0
     @Published private var hasCompletedPolicyConsentFlow = false
 
-    var allowsApp: Bool { ageBand?.allowsApp == true }
+    @Published private(set) var systemAgeRequired = false
+    @Published private(set) var systemAgeAuthorized = false
+    @Published private(set) var appleAgeDescription: String?
+    @Published private(set) var appleParentalControls = false
+    var onAgeConfirmationRequired: (@MainActor () -> Void)?
+    var onAppleAgeRefresh: (@MainActor () -> Void)?
+
+    var allowsApp: Bool {
+        ageBand?.allowsApp == true && (!systemAgeRequired || systemAgeAuthorized)
+    }
+
+    var canManuallyChangeAge: Bool { !systemAgeRequired }
+    var ageProfileBinding: String? { currentProfileID ?? ageStore.confirmedProfileID }
 
     let configuration: AdsConfiguration
 
@@ -164,6 +176,7 @@ final class AdsController: ObservableObject {
     }
 
     func setAgeBand(_ band: AdAgeBand) async {
+        guard canManuallyChangeAge else { return }
         invalidatePolicy()
         ageStore.ageBand = band
         ageStore.confirmedProfileID = currentProfileID
@@ -172,12 +185,42 @@ final class AdsController: ObservableObject {
         if hasBootstrapped, allowsApp { await runEligibilityFlow() }
     }
 
+    /// Close all SDK eligibility synchronously before presenting Apple UI.
+    func beginSystemAgeRefresh() {
+        systemAgeRequired = true
+        systemAgeAuthorized = false
+        invalidatePolicy()
+        ageConfirmationGeneration += 1
+    }
+
+    func waitForConsentPresentation() async { await consentService.waitUntilIdle() }
+
+    func applySystemAge(_ range: AppleSharedAgeRange) {
+        ageStore.ageBand = range.adBand
+        ageStore.confirmedProfileID = currentProfileID ?? ageStore.confirmedProfileID
+        ageBand = range.adBand
+        appleAgeDescription = range.displayTitle
+        appleParentalControls = range.hasParentalControls
+        systemAgeAuthorized = true
+        ageConfirmationGeneration += 1
+        // Root restores the current account before starting fresh UMP.
+    }
+
+    func allowManualAgeFallback() {
+        appleAgeDescription = nil
+        appleParentalControls = false
+        systemAgeRequired = false
+        systemAgeAuthorized = false
+        ageConfirmationGeneration += 1
+    }
+
     private func requireAgeConfirmation() {
         invalidatePolicy()
         ageStore.ageBand = nil
         ageStore.confirmedProfileID = nil
         ageBand = nil
         ageConfirmationGeneration += 1
+        onAgeConfirmationRequired?()
     }
 
     private func invalidatePolicy() {

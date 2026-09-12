@@ -442,6 +442,39 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["age-gate"].waitForExistence(timeout: 2))
     }
 
+    func testAppleParentRangeIsReadOnlyAndForegroundPreservesSettings() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--ui-test-apple-age=parent-teen"]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
+        openMenuControl("open-settings", in: app)
+        let range = app.staticTexts["settings-apple-age-range"]
+        XCTAssertTrue(scrollToElement(range, in: app))
+        XCTAssertTrue(range.label.contains("13–15"))
+        XCTAssertFalse(app.buttons["settings-age-group"].exists)
+        XCTAssertFalse(app.buttons["age-save"].exists)
+        attachScreenshot(of: app, name: "Apple parental age range read only")
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+        app.activate()
+        XCTAssertTrue(range.waitForExistence(timeout: 5))
+        XCTAssertTrue(range.label.contains("13–15"))
+        XCTAssertFalse(app.buttons["settings-age-group"].exists)
+    }
+
+    func testAppleUnder13BlocksWithoutManualOverrideAndKeepsLegalAccess() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--ui-test-apple-age=under13"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["apple-age-range"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["apple-age-range"].label, "Apple age range: 12 or younger")
+        XCTAssertFalse(app.descendants(matching: .any)["menu-dialog"].exists)
+        XCTAssertFalse(app.buttons["age-band-18-plus"].exists)
+        XCTAssertFalse(app.buttons["age-review"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["age-legal-privacy"].exists)
+        attachScreenshot(of: app, name: "Apple under13 locked age gate")
+    }
+
     func testEligibleAgeBandsStartAppAndPersist() throws {
         for band in ["13-15", "16-17", "18-plus"] {
             let app = XCUIApplication()

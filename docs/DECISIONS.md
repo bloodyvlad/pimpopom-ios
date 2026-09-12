@@ -98,23 +98,22 @@ is Apple-restorable and Family-Shareable.
 
 ## D-09 — Gate advertising through consent and authoritative entitlement
 
-Status: implemented in test/beta configurations; owner-approved production
-candidate 31 is being prepared locally, without upload or public activation.
+Status: implemented; build32's TestFlight upload and public-review submission are
+owner-authorized. Distribution state is recorded independently from source.
 
-UMP refreshes before any eligible ad request. Unknown or ad-free account state
-starts no GMA inventory. Eligible banners use a fixed 320×50 host outside the board;
-the third eligible Arcade/Zen completion makes an interstitial due. Debug/nonowner
-beta uses demo inventory; owner production units run only in registered Test mode.
-Checked-in Release remains disabled. The owner authorized a local Release archive
-with verified production units and no test-device/owner QA identifiers, supplied
-through ignored private configuration. Candidate 31 requires neutral local age
-selection before app/account/consent startup: unknown and under 13 are blocked;
-13–15 uses UMP under-age and GMA child treatment; 16–17 uses the regional UMP flow
-and GMA teen treatment; adults use the restrictive existing adult configuration.
-Sixteen is the product's conservative ad-consent handling threshold, not a claim
-about every country's legal age. Account changes require age reconfirmation;
-Settings supports correction. See `PRODUCTION_CANDIDATE_31.md` for evidence and
-remaining physical-device, privacy-label and public-review gates.
+UMP refreshes before eligible ad requests; unknown or ad-free accounts start no
+GMA inventory. The third eligible Arcade/Zen completion makes an interstitial due.
+Checked-in Release stays disabled; an ignored private override supplies verified
+production IDs with no test-device/owner QA fields for authorized archives.
+Apple-shared ages are read-only and refreshed before account/consent startup,
+after account changes and after backgrounding. A returned lower bound determines
+13+ access and conservative ad treatment:13–15 UMP under-age/GMA child;16–17 GMA
+teen;18+ unspecified, with General content, personalization/first-party ID disabled
+and explicit npa=1. Older-system/optional-sharing manual fallback is documented in
+`PRODUCTION_CANDIDATE_32.md`; it never overrides a remembered Apple range.
+The existing product threshold16 is distinct from regional law. First public32
+adds no significant-update permission flow; future significant changes need review.
+Only age/consent tests are authorized now; physical/manual QA follows submission.
 
 ## D-10 — Keep presentation configurable but rules invariant
 

@@ -14,6 +14,8 @@ final class GoogleConsentService: ConsentServing {
 
     var currentSnapshot: ConsentSnapshot { validatedSnapshot }
 
+    func waitUntilIdle() async { await operations.waitUntilIdle() }
+
     func invalidate() {
         operations.invalidate()
         validatedSnapshot = ConsentSnapshot(
@@ -180,6 +182,14 @@ final class GoogleAdsService: NSObject, AdsServing {
         }
     }
 
+    static func nonPersonalizedRequest() -> Request {
+        let request = Request()
+        let extras = Extras()
+        extras.additionalParameters = ["npa": "1"]
+        request.register(extras)
+        return request
+    }
+
     func start() async {
         guard !hasStarted, configuration != nil else { return }
         let generation = inventoryGeneration
@@ -237,7 +247,7 @@ final class GoogleAdsService: NSObject, AdsServing {
         consoleDiagnostic(
             "banner request route=\(route.isUsingFallback ? "demo-fallback" : "primary")"
         )
-        banner.load(Request())
+        banner.load(Self.nonPersonalizedRequest())
     }
 
     func detachBanner(from container: UIView) {
@@ -274,7 +284,7 @@ final class GoogleAdsService: NSObject, AdsServing {
             do {
                 let ad = try await InterstitialAd.load(
                     with: route.currentUnitID,
-                    request: Request()
+                    request: Self.nonPersonalizedRequest()
                 )
                 guard generation == inventoryGeneration, !Task.isCancelled, hasStarted else { return }
                 ad.fullScreenContentDelegate = self

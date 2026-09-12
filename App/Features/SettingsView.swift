@@ -157,21 +157,36 @@ struct SettingsView: View {
                     }
 
                     settingCard(title: "Age group", systemImage: "person.crop.circle") {
-                        Button {
-                            showsAgeGroup = true
-                        } label: {
-                            HStack {
-                                Text(ads.ageBand?.displayTitle ?? "Not selected")
-                                Spacer()
-                                Text("Review")
+                        if ads.canManuallyChangeAge {
+                            Button {
+                                showsAgeGroup = true
+                            } label: {
+                                HStack {
+                                    Text(ads.ageBand?.displayTitle ?? "Not selected")
+                                    Spacer()
+                                    Text("Review")
+                                }
+                                .padding(.horizontal, 16)
                             }
-                            .padding(.horizontal, 16)
-                        }
-                        .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
-                        .accessibilityIdentifier("settings-age-group")
-                        Text("This choice must match the person playing. Review it when sharing this device.")
+                            .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+                            .accessibilityIdentifier("settings-age-group")
+                            Text("Self-declared on this device. This choice must match the person playing.")
+                                .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                                .foregroundStyle(Color(hex: palette.muted))
+                        } else {
+                            Text("Apple age range: \(ads.appleAgeDescription ?? "Not shared")")
+                                .accessibilityIdentifier("settings-apple-age-range")
+                            Text(
+                                ads.appleParentalControls
+                                    ? "Parental controls apply. You cannot change this age range in PimPoPom. Ask your parent or guardian to review your Apple Account settings."
+                                    : "Apple supplies this age range. To correct it, review your Apple Account settings. It cannot be edited in PimPoPom."
+                            )
                             .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
                             .foregroundStyle(Color(hex: palette.muted))
+                            Button("Check Apple age range again") { ads.onAppleAgeRefresh?() }
+                                .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+                                .accessibilityIdentifier("settings-apple-age-refresh")
+                        }
                     }
 
                     settingCard(title: "Support & Legal", systemImage: "doc.text.fill") {

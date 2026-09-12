@@ -355,10 +355,16 @@ enum BannerAdState: Equatable, Sendable {
 
 @MainActor
 protocol ConsentServing: AnyObject {
+    func waitUntilIdle() async
     var currentSnapshot: ConsentSnapshot { get }
     func requestConsent(for ageBand: AdAgeBand) async throws -> ConsentSnapshot
     func invalidate()
     func presentPrivacyOptions() async throws -> ConsentSnapshot
+}
+
+extension ConsentServing {
+    // Stateless test adapters have no system presentation to drain.
+    func waitUntilIdle() async {}
 }
 
 @MainActor

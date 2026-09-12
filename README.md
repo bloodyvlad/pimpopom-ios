@@ -5,13 +5,15 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained alongside 2–4-player online Multiplayer v2. Game Center remains a
 separate account/publication integration.
 
-This branch prepares the local **1.02 (31) production candidate**, based on build
-30 source `79b02abc524954547fc49b5f67ca3d587f121c41` plus the reviewed Settings
-legal links, production ad safeguards, and owner-approved age-band handling.
-Build 30 is the current TestFlight build; build 31 has not been
-uploaded or submitted. See [candidate scope and release gates](docs/PRODUCTION_CANDIDATE_31.md).
-Checked-in Release ads remain disabled; an ignored override is used only for the
-owner-authorized local production archive.
+This branch prepares **1.02 (32)** with Apple Declared Age Range and read-only
+Apple-supplied ages, retaining the 13+ policy and three-game ad cadence. The owner
+authorized TestFlight upload and submission of the same build for public App Store
+review. Physical/manual QA is deferred, and only age/consent tests are requested.
+Build 30 is the last uploaded build verified before preparation; build 31 remains
+local only. Exact build32 archive/upload evidence is recorded separately after it
+happens. See [build32 scope](docs/PRODUCTION_CANDIDATE_32.md).
+Checked-in Release ads remain disabled; authorized archives use an ignored private
+override with verified production units and no QA identifiers.
 
 The following build-29 release record is historical context.
 

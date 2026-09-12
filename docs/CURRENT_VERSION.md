@@ -1,5 +1,17 @@
 # Current version slice
 
+## Build32 preparation — 2026-09-12
+
+Source configuration is **1.02 (32)**, based on clean local production31 source
+`16d63210145999e4b9d21690ba7fec4c66d9b93a`. Build32 adds the explicitly requested
+Apple age range/parental lock integration and already-authorized non-personalized
+ad-request flag. The owner authorized TestFlight upload and public-review submission,
+with physical/manual QA after submission and only age/consent checks now.
+No gameplay, economy, tutorial or Multiplayer behavior is intentionally changed.
+See [candidate32 evidence and fallback contract](PRODUCTION_CANDIDATE_32.md).
+The build31 and build29 sections below are historical, not build32 distribution proof.
+
+
 ## Build 31 local production candidate — 2026-09-12
 
 Source configuration is `1.02 (31)`, based on build-30 source

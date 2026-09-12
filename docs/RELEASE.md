@@ -3,7 +3,16 @@
 Production submission, live-ad activation, and paid-product activation require
 explicit owner authorization. A TestFlight approval is not an App Store release.
 
-## Current beta and rollback
+## Build32 authorized preparation
+
+The owner authorized uploading build32 to TestFlight and submitting the same
+binary for public review. This source note does not assert completion; exact clean
+commit, signed archive/export checks, hashes and Apple identifiers are retained in
+`~/.local/share/pimpopom-releases/20260912-production32`. Build31 artifacts remain
+unchanged. Only age/consent checks are authorized now; physical/manual QA is deferred.
+See [candidate32](PRODUCTION_CANDIDATE_32.md).
+
+## Historical build29 beta and rollback
 
 Build **1.02 (29)** is VALID / `APP_STORE_ELIGIBLE`. Direct Apple verification at
 **2026-09-11 19:02:18 UTC** confirmed beta review **APPROVED** and both existing

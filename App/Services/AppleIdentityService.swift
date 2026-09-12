@@ -33,6 +33,7 @@ enum AppleIdentityServiceError: LocalizedError, Equatable {
 
 @MainActor
 final class AppleIdentityService: NSObject {
+    var waitForAgeAuthorization: (@MainActor () async throws -> Void)?
     typealias AuthorizationPerformer =
         @MainActor (AppleSignInChallenge) async throws
         -> AppleSystemAuthorizationResult
@@ -89,6 +90,7 @@ final class AppleIdentityService: NSObject {
             throw AppleIdentityServiceError.incompleteCredential
         }
 
+        try await waitForAgeAuthorization?()
         return AppleAuthorizationProof(
             state: challenge.state,
             identityToken: identityToken,

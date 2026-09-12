@@ -20,6 +20,7 @@ enum GoogleIdentityError: LocalizedError {
 
 @MainActor
 final class GoogleIdentityService {
+    var waitForAgeAuthorization: (@MainActor () async throws -> Void)?
     var isConfigured: Bool {
         !iOSClientID.hasPrefix("placeholder") && iOSClientID.hasSuffix(".apps.googleusercontent.com")
     }
@@ -37,6 +38,7 @@ final class GoogleIdentityService {
         guard let token = result.user.idToken?.tokenString, !token.isEmpty else {
             throw GoogleIdentityError.missingIDToken
         }
+        try await waitForAgeAuthorization?()
         return token
     }
 
@@ -48,6 +50,7 @@ final class GoogleIdentityService {
         )
         let user = try await GIDSignIn.sharedInstance.restorePreviousSignIn()
         let refreshed = try await user.refreshTokensIfNeeded()
+        try await waitForAgeAuthorization?()
         return refreshed.idToken?.tokenString
     }
 
@@ -57,6 +60,11 @@ final class GoogleIdentityService {
 
     func handle(_ url: URL) -> Bool {
         GIDSignIn.sharedInstance.handle(url)
+    }
+
+    func recognizesCallback(_ url: URL) -> Bool {
+        let scheme = iOSClientID.split(separator: ".").reversed().joined(separator: ".")
+        return isConfigured && url.scheme?.lowercased() == scheme.lowercased()
     }
 
     private var iOSClientID: String {

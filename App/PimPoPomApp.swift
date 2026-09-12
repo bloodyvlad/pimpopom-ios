@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct PimPoPomApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @UIApplicationDelegateAdaptor(PimPoPomAppDelegate.self) private var appDelegate
     @StateObject private var backend: BackendClient
     @StateObject private var preferences: AppPreferences
@@ -15,6 +16,9 @@ struct PimPoPomApp: App {
     @StateObject private var multiplayer: MultiplayerController
     @StateObject private var purchases: PurchaseController
     @StateObject private var ads: AdsController
+    @StateObject private var appleAge: AppleAgeController
+    @State private var hasOpenedApp = false
+    @State private var deferredGoogleURL: URL?
     private let googleIdentity = GoogleIdentityService()
     private let appleIdentity = AppleIdentityService()
 
@@ -96,19 +100,51 @@ struct PimPoPomApp: App {
             )
         )
         _ads = StateObject(wrappedValue: adsController)
+        var usesAppleAge = true
+        var ageService: any AppleAgeServing = AppleAgeService()
+        var ageLock: any AppleAgeLockStoring = UserDefaultsAppleAgeLockStore()
+        #if DEBUG
+            usesAppleAge = !ProcessInfo.processInfo.arguments.contains("--uitesting")
+            if let mode = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--ui-test-apple-age=") }) {
+                usesAppleAge = true
+                ageService = UITestAppleAgeService(under13: mode.hasSuffix("under13"))
+                ageLock = UITestAppleAgeLockStore()
+            }
+        #endif
+        let ageController = AppleAgeController(
+            ads: adsController, service: ageService, store: ageLock, isEnabled: usesAppleAge
+        )
+        _appleAge = StateObject(wrappedValue: ageController)
+        googleIdentity.waitForAgeAuthorization = { [weak ageController] in
+            guard let ageController else { throw CancellationError() }
+            try await ageController.waitForAuthorization()
+        }
+        appleIdentity.waitForAgeAuthorization = { [weak ageController] in
+            guard let ageController else { throw CancellationError() }
+            try await ageController.waitForAuthorization()
+        }
     }
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if ads.allowsApp {
+            ZStack {
+                if ads.allowsApp || (hasOpenedApp && appleAge.state == .checking) {
                     RootView(
                         googleIdentity: googleIdentity,
                         appleIdentity: appleIdentity
                     )
-                } else {
-                    AgeGroupView(currentBand: ads.ageBand) { band in
-                        await ads.setAgeBand(band)
+                    .environment(\.scenePhase, ads.allowsApp ? scenePhase : .background)
+                    .opacity(ads.allowsApp ? 1 : 0)
+                    .disabled(!ads.allowsApp)
+                    .accessibilityHidden(!ads.allowsApp)
+                }
+                if !ads.allowsApp {
+                    if appleAge.state == .manual {
+                        AgeGroupView(currentBand: ads.ageBand) { band in
+                            await ads.setAgeBand(band)
+                        }
+                    } else {
+                        AppleAgeGateView(controller: appleAge)
                     }
                 }
             }
@@ -124,8 +160,21 @@ struct PimPoPomApp: App {
             .environmentObject(multiplayer)
             .environmentObject(purchases)
             .environmentObject(ads)
+            .task { await appleAge.refresh() }
+            .onChange(of: scenePhase) { _, phase in
+                // System permission sheets briefly make the scene inactive.
+                // Only a real background/foreground cycle invalidates the result.
+                if phase == .background { appleAge.setInBackground(true) }
+                if phase == .active { appleAge.setInBackground(false) }
+            }
             .onChange(of: ads.allowsApp) { _, allowed in
-                if !allowed {
+                if allowed {
+                    hasOpenedApp = true
+                    if let url = deferredGoogleURL {
+                        deferredGoogleURL = nil
+                        _ = googleIdentity.handle(url)
+                    }
+                } else {
                     purchases.stopTransactionListeners()
                     gameCenterAutoLink.reset()
                     gameCenter.suspendAuthentication()
@@ -133,8 +182,20 @@ struct PimPoPomApp: App {
                     multiplayer.setApplicationActive(false)
                 }
             }
+            .onChange(of: appleAge.state) { _, state in
+                if state != .checking, !ads.allowsApp {
+                    hasOpenedApp = false
+                    deferredGoogleURL = nil
+                }
+            }
             .onOpenURL {
-                guard ads.allowsApp else { return }
+                guard ads.allowsApp else {
+                    if HomeQuickAction.isChangeIcon($0) { _ = quickActions.handle($0) }
+                    if appleAge.state == .checking, googleIdentity.recognizesCallback($0) {
+                        deferredGoogleURL = $0
+                    }
+                    return
+                }
                 if !quickActions.handle($0) {
                     _ = googleIdentity.handle($0)
                 }

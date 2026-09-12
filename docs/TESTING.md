@@ -4,6 +4,17 @@ PimPoPom is timing-sensitive and handles public identity, paid value, ads, ranke
 Arcade and Multiplayer v2. Automated checks are necessary;
 Simulator evidence is not physical-device evidence.
 
+## Build32 owner-scoped verification
+
+The owner explicitly requested **only age-gate/consent checks**, overriding the
+usual `Scripts/check.sh` requirement. No new core/gameplay/tutorial/Multiplayer
+suite is run. Existing build31 gameplay evidence remains historical. Build32 uses
+focused AppleAgeController/AdsController tests and age-gate UI checks on the owned
+iPhone17/iOS26.5 Simulator, plus true Release compile, signed archive/export and
+configuration/entitlement inspection. Physical Apple account/parental-controls,
+ad and purchase QA is deferred until after upload/submission by owner instruction.
+Exact result counts and source provenance are in the private build32 evidence.
+
 ## Build 29 verification and explicit UI exception
 
 Local macOS and Linux ARM64 checks pass: 95 pure-core and 47 service tests. Real
