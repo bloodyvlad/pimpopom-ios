@@ -33,12 +33,17 @@ struct PimPoPomApp: App {
                 storeKit = UITestStoreKitService()
                 let privacyRequirement: PrivacyOptionsRequirement =
                     arguments.contains("--ui-test-privacy-required") ? .required : .notRequired
-                let consent = FakeConsentService(
+                let fakeConsent = FakeConsentService(
                     snapshot: ConsentSnapshot(
                         canRequestAds: !arguments.contains("--ui-test-consent-blocked"),
                         privacyOptionsRequirement: privacyRequirement
                     )
                 )
+                // Exercise the real UMP/ATT sheets without loading live ads or
+                // contacting the game backend in consent-only UI checks.
+                let consent: any ConsentServing =
+                    arguments.contains("--ui-test-real-consent")
+                    ? GoogleConsentService() : fakeConsent
                 let fakeAds = FakeAdsService()
                 fakeAds.interstitialAvailable =
                     !arguments.contains("--ui-test-interstitial-unavailable")
@@ -141,6 +146,15 @@ struct PimPoPomApp: App {
                 if !ads.allowsApp {
                     AppleAgeGateView(controller: appleAge)
                 }
+                #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--ui-test-real-consent") {
+                        Text("Age: \(String(describing: appleAge.state)); \(ads.consentTestDiagnostic)")
+                            .font(.system(size: 1))
+                            .opacity(0.01)
+                            .accessibilityIdentifier("consent-test-diagnostic")
+                            .allowsHitTesting(false)
+                    }
+                #endif
             }
             .environmentObject(backend)
             .environmentObject(preferences)

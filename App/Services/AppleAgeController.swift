@@ -235,7 +235,19 @@ final class AppleAgeController: ObservableObject {
         ads.allowUnspecifiedAgeAccess(
             protection: store.lastKnownProtection, appleLocked: store.hasSharedAppleRange
         )
+        if ads.needsManualAgeChoice {
+            ads.waitForManualAgeChoice()
+            state = .manual
+        } else {
+            state = ads.ageBand == .under13 ? .under13 : .ready
+        }
+    }
+
+    func chooseManualAge(_ band: AdAgeBand?) async {
+        guard state == .manual, ads.canManuallyChangeAge else { return }
+        if let band { await ads.setAgeBand(band) } else { ads.skipManualAgeChoice() }
         state = ads.ageBand == .under13 ? .under13 : .ready
+        settleAuthorizationWaiters()
     }
 
     private func record(_ error: Error, stage: String) {

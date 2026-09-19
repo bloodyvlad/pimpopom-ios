@@ -238,6 +238,38 @@ final class AdsControllerTests: XCTestCase {
         )
     }
 
+    func testPersonalizedInventoryRequiresAdultAndCompletedConsent() async {
+        let ages: [AdAgeBand?] = [nil, .youngTeen, .olderTeen, .adult]
+        for age in ages {
+            for authorized in [false, true] {
+                let fixture = Self.makeFixture(
+                    consentSnapshot: ConsentSnapshot(
+                        canRequestAds: true,
+                        privacyOptionsRequirement: .notRequired, allowsPersonalizedAds: authorized),
+                    ageBand: age
+                )
+                if age == nil { fixture.controller.allowUnspecifiedAgeAccess() }
+                await fixture.controller.bootstrap(session: Self.anonymousSession)
+                XCTAssertEqual(fixture.ads.configuredPersonalization, [age == .adult && authorized])
+            }
+        }
+    }
+
+    func testTrackingRevocationDiscardsPersonalizedInventoryBeforeResuming() async {
+        let fixture = Self.makeFixture(
+            consentSnapshot: ConsentSnapshot(
+                canRequestAds: true, privacyOptionsRequirement: .notRequired, allowsPersonalizedAds: true
+            ))
+        await fixture.controller.bootstrap(session: Self.anonymousSession)
+        XCTAssertEqual(fixture.ads.configuredPersonalization, [true])
+        fixture.controller.setApplicationActive(false)
+        fixture.consent.snapshot.allowsPersonalizedAds = false
+        fixture.controller.setApplicationActive(true)
+        XCTAssertFalse(fixture.controller.canAttachBanner)
+        guard await Self.waitUntil({ fixture.ads.configuredPersonalization == [true, false] }) else { return }
+        XCTAssertEqual(fixture.consent.requestCount, 1)
+    }
+
     func testLaunchRequestsConsentBeforeAccountResolutionWithoutStartingAds() async {
         let fixture = Self.makeFixture()
 
@@ -268,18 +300,17 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertFalse(fixture.controller.reservesBannerSlot)
     }
 
-    func testAccountChangeRequiresFreshAgeConfirmationAndConsent() async {
+    func testAccountChangePreservesAgeAndDoesNotRefreshConsent() async {
         let fixture = Self.makeFixture()
         await fixture.controller.bootstrap(session: nil)
         await fixture.controller.updateSession(Self.anonymousSession)
         await fixture.controller.updateSession(Self.authenticatedSession(adFree: false))
-        XCTAssertNil(fixture.controller.ageBand)
-        XCTAssertFalse(fixture.controller.reservesBannerSlot)
+        await fixture.controller.updateSession(nil)
+        await fixture.controller.updateSession(Self.anonymousSession)
+        XCTAssertEqual(fixture.controller.ageBand, .adult)
+        XCTAssertTrue(fixture.controller.reservesBannerSlot)
         XCTAssertEqual(fixture.consent.requestCount, 1)
-        await fixture.controller.setAgeBand(.youngTeen)
-        XCTAssertEqual(fixture.consent.requestedAgeBands, [.adult, .youngTeen])
-        XCTAssertEqual(fixture.ads.configuredAgeBands, [.adult, .youngTeen])
-        XCTAssertEqual(fixture.controller.lifecycleState, .ready)
+        XCTAssertEqual(fixture.consent.invalidateCount, 0)
     }
 
     func testConcurrentSessionUpdatesWaitForOneAdsInitialization() async {
@@ -735,7 +766,7 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertFalse(service.presentInterstitial())
     }
 
-    func testRestoredAccountMismatchIncludingUnresolvedEntitlementRequiresAgeAgain() async {
+    func testRestoredAccountMismatchPreservesAgeAndRefreshesOncePerLaunch() async {
         let sessions: [SessionResponse?] = [
             Self.anonymousSession, Self.authenticatedSession(adFree: false),
             Self.authenticatedSession(adFree: nil),
@@ -743,10 +774,10 @@ final class AdsControllerTests: XCTestCase {
         for session in sessions {
             let fixture = Self.makeFixture(confirmedProfileID: "previous-player")
             await fixture.controller.bootstrap(session: session)
-            XCTAssertNil(fixture.controller.ageBand)
-            XCTAssertEqual(fixture.consent.requestCount, 0)
-            XCTAssertEqual(fixture.ads.startCount, 0)
-            XCTAssertFalse(fixture.controller.isAgeConfirmed(for: session))
+            XCTAssertEqual(fixture.controller.ageBand, .adult)
+            XCTAssertEqual(fixture.consent.requestCount, 1)
+            XCTAssertEqual(fixture.ads.startCount, session?.adFree == nil && session?.authenticated == true ? 0 : 1)
+            XCTAssertTrue(fixture.controller.isAgeConfirmed(for: session))
         }
     }
 
@@ -764,11 +795,11 @@ final class AdsControllerTests: XCTestCase {
         XCTAssertFalse(fixture.controller.isAgeConfirmed(for: nil))
     }
 
-    func testRuntimeIdentityLossRequiresCurrentPlayerAgeAgain() async {
+    func testRuntimeIdentityLossPreservesAgeAndConsent() async {
         let fixture = Self.makeFixture()
         await fixture.controller.bootstrap(session: Self.authenticatedSession(adFree: false))
         await fixture.controller.updateSession(nil)
-        XCTAssertNil(fixture.controller.ageBand)
+        XCTAssertEqual(fixture.controller.ageBand, .adult)
         XCTAssertFalse(fixture.controller.canAttachBanner)
         XCTAssertEqual(fixture.consent.requestCount, 1)
     }
@@ -790,18 +821,18 @@ final class AdsControllerTests: XCTestCase {
         await fixture.controller.setAgeBand(.olderTeen)
         XCTAssertNotEqual(fixture.controller.confirmedAccountStartupID(for: session), startup)
         await fixture.controller.updateSession(Self.anonymousSession)
-        XCTAssertNil(fixture.controller.confirmedAccountStartupID(for: Self.anonymousSession))
-        XCTAssertNil(fixture.controller.ageBand)
+        XCTAssertNotNil(fixture.controller.confirmedAccountStartupID(for: Self.anonymousSession))
+        XCTAssertEqual(fixture.controller.ageBand, .olderTeen)
     }
 
-    func testOfflineRecoveryToDifferentAccountCannotStartAccountServices() async {
+    func testOfflineRecoveryToDifferentAccountPreservesChoicesAndStartsAccountServices() async {
         let fixture = Self.makeFixture(confirmedProfileID: "previous-player")
         await fixture.controller.bootstrap(session: nil)
         let session = Self.authenticatedSession(adFree: false)
         await fixture.controller.updateSession(session)
-        XCTAssertNil(fixture.controller.confirmedAccountStartupID(for: session))
-        XCTAssertNil(fixture.controller.ageBand)
-        XCTAssertEqual(fixture.ads.startCount, 0)
+        XCTAssertNotNil(fixture.controller.confirmedAccountStartupID(for: session))
+        XCTAssertEqual(fixture.controller.ageBand, .adult)
+        XCTAssertEqual(fixture.ads.startCount, 1)
     }
 
     func testAccountStartupWaitsForCurrentPolicyConsentFlow() async {

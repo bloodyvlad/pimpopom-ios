@@ -179,8 +179,8 @@ struct RootView: View {
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
             audio.playLaunchSting()
-            // Resolve the saved account before UMP, so a different player cannot
-            // inherit the previous player's stored adult advertising treatment.
+            // Resolve the saved account entitlement before UMP/ad startup.
+            // Device age and consent choices persist across game account changes.
             await restoreSession(ageGeneration: generation)
             guard isCurrentAge(generation) else { return }
             await ads.bootstrap(session: backend.sessionState)

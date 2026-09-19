@@ -27,17 +27,32 @@ struct AppleAgeGateView: View {
                                 .font(.headline)
                                 .accessibilityIdentifier("apple-age-range")
                         }
-                        if controller.isWorking {
+                        if controller.state == .manual {
+                            ForEach(AdAgeBand.allCases, id: \.self) { band in
+                                Button(band.displayTitle) {
+                                    Task { await controller.chooseManualAge(band) }
+                                }
+                                .buttonStyle(WebSecondaryButtonStyle(theme: theme, minimumHeight: 44))
+                                .accessibilityIdentifier("age-band-\(band.rawValue)")
+                            }
+                            Button("Skip") { Task { await controller.chooseManualAge(nil) } }
+                                .buttonStyle(WebSecondaryButtonStyle(theme: theme, minimumHeight: 44))
+                                .accessibilityIdentifier("age-skip")
+                        } else if controller.isWorking {
                             ProgressView("Checking with Apple…")
                                 .accessibilityIdentifier("apple-age-progress")
-                        } else {
+                        } else if controller.state != .under13 {
                             Button("Check with Apple again") { controller.scheduleRefresh() }
                                 .buttonStyle(WebSecondaryButtonStyle(theme: theme, minimumHeight: 48))
                                 .accessibilityIdentifier("apple-age-retry")
                         }
-                        Text("Your birthday and passcodes are never shared with PimPoPom.")
-                            .font(.footnote)
-                            .foregroundStyle(Color(hex: theme.muted))
+                        Text(
+                            controller.state == .manual
+                                ? "Your choice stays on this device. Skipping uses non-personalized ads."
+                                : "Your birthday and passcodes are never shared with PimPoPom."
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(Color(hex: theme.muted))
                     }
                     .webCardStyle(theme: theme, padding: 16)
                 }
@@ -51,6 +66,7 @@ struct AppleAgeGateView: View {
 
     private var title: String {
         switch controller.state {
+        case .manual: "Your age group"
         case .under13: "Ages 13 and over"
         case .sharingRequired: "Apple age range needed"
         case .failed: "Apple age check unavailable"
@@ -60,6 +76,8 @@ struct AppleAgeGateView: View {
 
     private var message: String {
         switch controller.state {
+        case .manual:
+            "Choose your age group to help us apply advertising privacy settings. PimPoPom is for ages 13 and over."
         case .under13:
             "PimPoPom is for players aged 13 and over. The age information available for this account is below that range."
         case .sharingRequired:

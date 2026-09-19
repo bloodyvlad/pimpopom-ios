@@ -65,17 +65,19 @@ keeps it due.
 
 ### Consent and configurations
 
-1. Eligible launches refresh UMP before any ad request. Same-profile session
-   refreshes reuse the current policy result. Account changes refresh advertising
-   eligibility without a manual age prompt; unknown account eligibility still
+1. Eligible launches refresh UMP before any ad request. Session/account
+   changes retain age and consent choices and only reconcile entitlement; unknown account eligibility still
    blocks inventory until resolved.
 2. Start GMA only when UMP says ads may be requested and PHP has resolved the
    session as not ad-free. Unknown/ad-free state starts no inventory.
 3. Expose Privacy Options when required, including eligible ad-free and unresolved
    accounts. Core play and purchases do not depend on
    optional tracking consent.
-4. Maximum content rating is General; publisher personalization and first-party ID
-   are disabled; every banner/interstitial request carries `npa=1`. The app does not request ATT or access IDFA.
+4. Maximum content rating is General. Only adults with applicable Google consent
+   and authorized ATT enable personalization/first-party ID; all other ad requests
+   use disabled personalization/first-party ID and `npa=1`. UMP continues to apply
+   its consent and limited-ad rules. Native ATT is requested after UMP only for
+   eligible adults; no automatic all-ages UMP IDFA explainer is configured.
 
 | Build lane | Inventory |
 | --- | --- |
@@ -86,7 +88,25 @@ keeps it due.
 
 No production-unit creative may be touched unless it visibly says **Test mode**.
 
-## Candidate33 prompt-free optional-region onboarding
+## Build 34 age and tracking consent
+
+Apple-required regions retain Declared Age Range and read-only restrictions.
+Otherwise the first-use Under 13 / 13–15 / 16–17 / 18+ / Skip question determines
+ad treatment without collecting a birthday. Skip persists as unknown, not adult.
+Account changes do not clear local age/Google consent or re-request ATT.
+Apple-provided restrictions cannot be overridden manually. Known under-13 users
+remain blocked before consent/ad startup. See [build 34](APP_REVIEW_FIX_34.md).
+
+The Google consent form is loaded/presented if required, then relevant TCF purpose
+and Google vendor consent determine whether an adult may be asked for ATT. In
+other regions UMP's applicable consent state is used. Tracking requires ATT
+`.authorized`; denied/restricted/notDetermined never permit personalized requests.
+GMA starts only after this process, and refreshed/revoked choices discard prior
+inventory. The app-owned manifest describes first-party gameplay/account data;
+Google's bundled manifest separately declares Device ID tracking. App Store
+privacy labels include Device ID tracking for the consenting-adult path.
+
+## Historical candidate33 prompt-free optional-region onboarding
 
 There is no manual age selector, birthday entry, or optional Apple age-sharing
 prompt at launch or purchase. Once the regional check confirms optional/legacy

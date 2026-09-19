@@ -98,27 +98,33 @@ is Apple-restorable and Family-Shareable.
 
 ## D-09 — Gate advertising through consent and authoritative entitlement
 
-Status: implemented; build32 was uploaded, then withdrawn from public review by
-the owner. Build33 corrects onboarding for TestFlight validation; public review
-remains withdrawn. Distribution state is recorded independently from source.
+Status: implemented for build 34; upload and public submission authorized.
+Build 33 was rejected for missing ATT and unlocatable Age Assurance. Source and
+external distribution status are recorded separately.
 
-UMP refreshes before eligible ad requests; unresolved or ad-free accounts start no
-GMA inventory. The third eligible Arcade/Zen completion makes an interstitial due.
-Checked-in Release stays disabled; an ignored private override supplies verified
-production IDs with no test-device/owner QA fields for authorized archives.
-Build33 removes compulsory manual age selection and optional Apple sharing
-prompts, including the proposed purchase-time prompt. Required regional Apple
-checks and known Apple restrictions remain enforced; shared ranges stay read-only.
-A confirmed optional/legacy result permits a new user to enter with no age value.
-Unknown age receives unspecified SDK treatment and regular UMP consent handling, General content,
-personalization/first-party ID disabled and explicit npa=1; no age is invented or
-sent to the game backend. Known bands keep the existing conservative treatment:
-13–15 under-consent/child,16–17 teen,18+ unspecified. UMP permission and authoritative
-account eligibility still control ad requests. Account changes no longer ask for
-manual age confirmation. Purchases use ordinary StoreKit with no extra age hook.
-A content rating is not proof of the player's age, and this implementation is not
-a certification of worldwide compliance. Only age/consent tests are authorized
-now. See ONBOARDING_AGE_FIX.md for validation and delivery scope.
+Apple regional eligibility is checked first. Required regions request Declared
+Age Range; errors are not evidence of optional eligibility. Apple restrictions
+remain read-only. Elsewhere, a first-use question offers Under 13 / 13–15 /
+16–17 / 18+ / Skip. It stores only a local band or completed Skip, with no DOB.
+Known under-13 users cannot continue. No additional purchase age prompt exists.
+
+UMP refreshes the applicable consent information before ad requests. For adults,
+Google consent precedes a native ATT request when the applicable choices permit
+personalization. Teens and unknown ages never trigger ATT. Personalized inventory
+requires adulthood, regulatory consent and ATT authorization together. Other
+eligible users receive non-personalized/limited ads with publisher personalization
+and first-party ID disabled. Ages 13–15 use under-consent/child treatment; ages
+16–17 use teen treatment; unknown/adult use unspecified treatment. All creative
+content remains capped at General. UMP and authoritative non-ad-free account
+state still gate ads. Login/logout changes account entitlement only, without
+resetting age or consent. Apple background/foreground checks and UMP's required
+launch refresh remain.
+
+The third eligible Arcade/Zen completion makes an interstitial due. Checked-in
+Release stays disabled; only owner-authorized archives use the ignored production
+ID override with no test-device or owner QA identifiers. Core play and purchases
+are independent of optional advertising consent. Only launch/age/consent tests
+are authorized for this correction. See APP_REVIEW_FIX_34.md.
 
 ## D-10 — Keep presentation configurable but rules invariant
 

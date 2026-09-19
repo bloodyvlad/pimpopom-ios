@@ -412,13 +412,16 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(privacyChoices.waitForExistence(timeout: 2))
     }
 
-    func testFreshLaunchOpensMenuAndAdsWithoutAgeSelection() throws {
+    func testFreshLaunchAgeChoiceCanBeSkippedAndPersists() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset",
             "--ui-test-apple-age=optional", "--ui-test-ads-enabled",
         ]
         app.launch()
+        XCTAssertTrue(app.buttons["age-skip"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, name: "One-time skippable age group")
+        app.buttons["age-skip"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["age-gate"].exists)
         XCTAssertFalse(app.staticTexts["apple-age-gate"].exists)
@@ -430,6 +433,107 @@ final class PimPoPomUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["age-gate"].exists)
+    }
+
+    func testRealEuropeanConsentThenATTAllowsMenuAdvertising() throws {
+        let app = XCUIApplication()
+        app.terminate()
+        app.resetAuthorizationStatus(for: .userTracking)
+        app.launchArguments = [
+            "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset",
+            "--ui-test-apple-age=optional", "--ui-test-ads-enabled", "--ui-test-real-consent",
+            "--ump-debug-reset", "--ump-debug-eea", "--ad-diagnostics",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["age-band-18-plus"].waitForExistence(timeout: 5))
+        app.buttons["age-band-18-plus"].tap()
+        let consent = app.webViews.buttons["Consent"].firstMatch
+        XCTAssertTrue(consent.waitForExistence(timeout: 30))
+        XCTAssertFalse(app.descendants(matching: .any)["fake-ad-banner"].exists)
+        attachScreenshot(of: app, name: "Adult Google consent before ATT")
+        consent.tap()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.alerts.buttons["Allow"]
+        XCTAssertTrue(allow.waitForExistence(timeout: 10))
+        attachScreenshot(of: springboard, name: "Native ATT after adult Google consent")
+        respondToTrackingPrompt(allow)
+        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.descendants(matching: .any)["fake-ad-banner"].value as? String, "personalized")
+        attachScreenshot(of: app, name: "Menu after permissions completed")
+        app.terminate()
+        app.launchArguments.removeAll { ["--ui-test-age-reset", "--ump-debug-reset"].contains($0) }
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["age-skip"].exists)
+        XCTAssertFalse(springboard.alerts.buttons["Allow"].exists)
+        // UMP preloads a hidden privacy WebView whose buttons can remain in
+        // accessibility snapshots. Verify the menu is usable instead.
+        openMenuControl("open-settings", in: app)
+        XCTAssertTrue(app.buttons["privacy-choices"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, name: "Relaunch opens Settings without repeating permission prompts")
+    }
+
+    func testRealConsentDeclineTeenAndSkippedAgeNeverRequestATT() throws {
+        let scenarios = [
+            ("age-band-18-plus", "Do not consent"),
+            ("age-band-13-15", ""),
+            ("age-band-16-17", "Consent"),
+            ("age-skip", "Consent"),
+        ]
+        for (ageButton, googleButton) in scenarios {
+            let app = launchRealConsentAgeChoice()
+            app.buttons[ageButton].tap()
+            if !googleButton.isEmpty {
+                let button = app.webViews.buttons[googleButton].firstMatch
+                XCTAssertTrue(button.waitForExistence(timeout: 30))
+                button.tap()
+            }
+            let banner = app.descendants(matching: .any)["fake-ad-banner"]
+            XCTAssertTrue(banner.waitForExistence(timeout: 15))
+            XCTAssertEqual(banner.value as? String, "non-personalized")
+            XCTAssertFalse(XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Allow"].exists)
+            attachScreenshot(of: app, name: "No ATT: \(ageButton), \(googleButton)")
+            app.terminate()
+        }
+    }
+
+    func testRealATTRefusalStillAllowsNonPersonalizedMenuAds() throws {
+        let app = launchRealConsentAgeChoice()
+        app.buttons["age-band-18-plus"].tap()
+        let consent = app.webViews.buttons["Consent"].firstMatch
+        XCTAssertTrue(consent.waitForExistence(timeout: 30))
+        consent.tap()
+        let deny = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Ask App Not to Track"]
+        XCTAssertTrue(deny.waitForExistence(timeout: 10))
+        respondToTrackingPrompt(deny)
+        let banner = app.descendants(matching: .any)["fake-ad-banner"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 10), app.staticTexts["consent-test-diagnostic"].label)
+        XCTAssertEqual(banner.value as? String, "non-personalized")
+        attachScreenshot(of: app, name: "ATT refusal keeps menu and non-personalized ads")
+    }
+
+    private func respondToTrackingPrompt(_ button: XCUIElement) {
+        button.tap()
+        // SpringBoard can expose the button before the system sheet finishes
+        // animating. Retry only the same visible answer if that tap was ignored.
+        if !button.waitForNonExistence(timeout: 3), button.isHittable {
+            button.tap()
+        }
+        XCTAssertTrue(button.waitForNonExistence(timeout: 5))
+    }
+
+    private func launchRealConsentAgeChoice() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.terminate()
+        app.resetAuthorizationStatus(for: .userTracking)
+        app.launchArguments = [
+            "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset",
+            "--ui-test-apple-age=optional", "--ui-test-ads-enabled", "--ui-test-real-consent",
+            "--ump-debug-reset", "--ump-debug-eea", "--ad-diagnostics",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["age-skip"].waitForExistence(timeout: 5))
+        return app
     }
 
     func testAppleParentRangeIsReadOnlyAndForegroundPreservesSettings() throws {
@@ -444,8 +548,10 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertFalse(app.buttons["settings-age-group"].exists)
         XCTAssertFalse(app.buttons["age-save"].exists)
         attachScreenshot(of: app, name: "Apple parental age range read only")
-        XCUIDevice.shared.press(.home)
-        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 5))
+        XCUIApplication(bundleIdentifier: "com.apple.Preferences").activate()
+        let backgrounded = NSPredicate { _, _ in app.state != .runningForeground }
+        expectation(for: backgrounded, evaluatedWith: app)
+        waitForExpectations(timeout: 5)
         app.activate()
         XCTAssertTrue(range.waitForExistence(timeout: 5))
         XCTAssertTrue(range.label.contains("13–15"))
@@ -482,9 +588,14 @@ final class PimPoPomUITests: XCTestCase {
     }
 
     func testSettingsHasNoManualAgeSelection() throws {
-        let app = launch(additionalArguments: [
-            "--ui-test-age-gate", "--ui-test-age-reset", "--ui-test-apple-age=optional",
-        ])
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset", "--ui-test-apple-age=optional",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["age-skip"].waitForExistence(timeout: 5))
+        app.buttons["age-skip"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
         openMenuControl("open-settings", in: app)
         let privacyLink = app.descendants(matching: .any)["settings-legal-privacy"]
         XCTAssertTrue(scrollToElement(privacyLink, in: app))

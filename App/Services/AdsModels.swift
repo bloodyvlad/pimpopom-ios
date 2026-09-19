@@ -344,6 +344,7 @@ enum PrivacyOptionsRequirement: Equatable, Sendable {
 struct ConsentSnapshot: Equatable, Sendable {
     let canRequestAds: Bool
     let privacyOptionsRequirement: PrivacyOptionsRequirement
+    var allowsPersonalizedAds = false
 }
 
 enum BannerAdState: Equatable, Sendable {
@@ -373,7 +374,7 @@ protocol AdsServing: AnyObject {
     var onInterstitialPresentationBegan: (() -> Void)? { get set }
     var onInterstitialPresentationEnded: (() -> Void)? { get set }
 
-    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand?)
+    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand?, allowsPersonalizedAds: Bool)
     func start() async
     func attachBanner(to container: UIView, availableWidth: CGFloat)
     func detachBanner(from container: UIView)

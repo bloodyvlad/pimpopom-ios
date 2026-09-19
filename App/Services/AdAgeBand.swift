@@ -25,6 +25,7 @@ enum AdAgeBand: String, CaseIterable, Codable, Sendable {
 protocol AdAgeBandStoring: AnyObject {
     var ageBand: AdAgeBand? { get set }
     var confirmedProfileID: String? { get set }
+    var hasCompletedAgeChoice: Bool { get set }
 }
 
 @MainActor
@@ -32,6 +33,7 @@ final class UserDefaultsAdAgeBandStore: AdAgeBandStoring {
     private let defaults: UserDefaults
     private let ageKey = "privacy.age-band.v1"
     private let profileKey = "privacy.age-band.profile.v1"
+    private let choiceKey = "privacy.age-choice.completed.v1"
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
@@ -40,7 +42,12 @@ final class UserDefaultsAdAgeBandStore: AdAgeBandStoring {
         set { defaults.set(newValue?.rawValue, forKey: ageKey) }
     }
 
-    // Local account binding lets shared-device account changes ask again.
+    var hasCompletedAgeChoice: Bool {
+        get { defaults.bool(forKey: choiceKey) || ageBand != nil }
+        set { defaults.set(newValue, forKey: choiceKey) }
+    }
+
+    // Account startup bookkeeping only; choices persist across login/logout.
     // Neither this age band nor this binding is sent to the game's backend.
     var confirmedProfileID: String? {
         get { defaults.string(forKey: profileKey) }
@@ -53,10 +60,12 @@ final class UserDefaultsAdAgeBandStore: AdAgeBandStoring {
     final class MemoryAdAgeBandStore: AdAgeBandStoring {
         var ageBand: AdAgeBand?
         var confirmedProfileID: String?
+        var hasCompletedAgeChoice: Bool
 
         init(_ ageBand: AdAgeBand? = nil, confirmedProfileID: String? = nil) {
             self.ageBand = ageBand
             self.confirmedProfileID = confirmedProfileID
+            hasCompletedAgeChoice = ageBand != nil
         }
     }
 #endif

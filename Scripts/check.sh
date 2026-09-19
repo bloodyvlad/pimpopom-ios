@@ -38,10 +38,7 @@ test "$(/usr/libexec/PlistBuddy -c 'Print :PimPoPomAdMobBannerUnitID' "$built_in
 test "$(/usr/libexec/PlistBuddy -c 'Print :PimPoPomAdMobInterstitialUnitID' "$built_info_plist")" = "ca-app-pub-3940256099942544/4411468910"
 ad_test_ids=$(/usr/libexec/PlistBuddy -c 'Print :PimPoPomAdMobTestDeviceIDs' "$built_info_plist" 2>/dev/null || true)
 test -z "$ad_test_ids"
-if /usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$built_info_plist" >/dev/null 2>&1; then
-  printf '%s\n' 'NSUserTrackingUsageDescription must not be present.' >&2
-  exit 1
-fi
+test -n "$(/usr/libexec/PlistBuddy -c 'Print :NSUserTrackingUsageDescription' "$built_info_plist")"
 skad_json=$(plutil -extract SKAdNetworkItems json -o - "$built_info_plist")
 test "$(printf '%s\n' "$skad_json" | rg -o '[a-z0-9]+\.skadnetwork' | wc -l | tr -d ' ')" = "50"
 test "$(printf '%s\n' "$skad_json" | rg -o '[a-z0-9]+\.skadnetwork' | sort -u | wc -l | tr -d ' ')" = "50"
@@ -69,7 +66,7 @@ staging_build_settings=$(xcodebuild \
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CONFIGURATION = Staging'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PRODUCT_BUNDLE_IDENTIFIER = com.otcsoftware.pimpopom'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'MARKETING_VERSION = 1.02'
-printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 33'
+printf '%s\n' "$staging_build_settings" | rg -Fq 'CURRENT_PROJECT_VERSION = 34'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'CODE_SIGN_ENTITLEMENTS = Config/PimPoPom.entitlements'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_BANNER_UNIT_ID = ca-app-pub-3940256099942544/2934735716'
 printf '%s\n' "$staging_build_settings" | rg -Fq 'PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID = ca-app-pub-3940256099942544/4411468910'
@@ -136,7 +133,7 @@ xcodebuild -quiet "$@" \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerHubBackButtonUsesCompleteToolbarFootprintAcrossThemes \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testPixelMultiplayerHubUsesThemedLoweredBackButtonAndLegibleSmallCopy \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testMultiplayerRoomControlsAcrossThemes \
-  -only-testing:PimPoPomUITests/PimPoPomUITests/testFreshLaunchOpensMenuAndAdsWithoutAgeSelection \
+  -only-testing:PimPoPomUITests/PimPoPomUITests/testFreshLaunchAgeChoiceCanBeSkippedAndPersists \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testAppleParentRangeIsReadOnlyAndForegroundPreservesSettings \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testAppleUnder13BlocksWithoutManualOverride \
   -only-testing:PimPoPomUITests/PimPoPomUITests/testRequiredAppleAgeGateShowsLogoWithoutSettingsOrLegalLinks \

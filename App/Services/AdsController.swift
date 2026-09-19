@@ -56,6 +56,7 @@ final class AdsController: ObservableObject {
     }
 
     var canManuallyChangeAge: Bool { !systemAgeRequired && !hasAppleAgeLock }
+    var needsManualAgeChoice: Bool { canManuallyChangeAge && !ageStore.hasCompletedAgeChoice }
     var ageProfileBinding: String? { currentProfileID ?? ageStore.confirmedProfileID }
 
     let configuration: AdsConfiguration
@@ -73,6 +74,12 @@ final class AdsController: ObservableObject {
         canAttachBanner
     }
 
+    #if DEBUG
+        var consentTestDiagnostic: String {
+            "\(lifecycleState); flow=\(eligibilityFlowInFlight); configured=\(hasConfiguredAds); account=\(accountResolution); consent=\(consentService.currentSnapshot.canRequestAds); tracking=\(AppleTrackingAuthorization().permission)"
+        }
+    #endif
+
     private let ageStore: any AdAgeBandStoring
     private var policyGeneration = 0
     private var accountGeneration = 0
@@ -87,6 +94,7 @@ final class AdsController: ObservableObject {
     @Published private var eligibilityFlowInFlight = false
     private var consentRefreshState = ConsentRefreshState.notStarted
     private var hasConfiguredAds = false
+    private var configuredPersonalization = false
     private var adsStartInFlight = false
     private var attemptedResultIDs: Set<UUID> = []
     private var presentationInFlight = false
@@ -185,6 +193,7 @@ final class AdsController: ObservableObject {
         guard canManuallyChangeAge else { return }
         invalidatePolicy()
         ageStore.ageBand = band
+        ageStore.hasCompletedAgeChoice = true
         ageStore.confirmedProfileID = currentProfileID
         ageBand = band
         ageConfirmationGeneration += 1
@@ -231,14 +240,15 @@ final class AdsController: ObservableObject {
         if needsRefresh { ageConfirmationGeneration += 1 }
     }
 
-    private func requireAgeConfirmation() {
+    func waitForManualAgeChoice() {
         allowsUnspecifiedAge = false
-        invalidatePolicy()
-        ageStore.ageBand = nil
-        ageStore.confirmedProfileID = nil
-        ageBand = nil
+    }
+
+    func skipManualAgeChoice() {
+        guard canManuallyChangeAge, ageBand != .under13 else { return }
+        ageStore.hasCompletedAgeChoice = true
+        allowsUnspecifiedAge = true
         ageConfirmationGeneration += 1
-        onAgeConfirmationRequired?()
     }
 
     private func invalidatePolicy() {
@@ -262,6 +272,12 @@ final class AdsController: ObservableObject {
 
     func setApplicationActive(_ isActive: Bool) {
         adsService.setApplicationActive(isActive)
+        if isActive, hasConfiguredAds,
+            configuredPersonalization != (ageBand == .adult && consentService.currentSnapshot.allowsPersonalizedAds)
+        {
+            deactivateAds(state: .requestingConsent, clearCadence: false)
+            Task { await reconcileEligibility() }
+        }
     }
 
     /// A failed UMP refresh must not permanently disable ads for the process.
@@ -355,16 +371,10 @@ final class AdsController: ObservableObject {
         accountResolution = next
         if session == nil, currentProfileID != nil {
             currentProfileID = nil
-            requireAgeConfirmation()
-            return
         }
         if let session {
             let profileID = Self.profileBinding(for: session)
             currentProfileID = profileID
-            if let confirmed = ageStore.confirmedProfileID, confirmed != profileID {
-                requireAgeConfirmation()
-                return
-            }
             if allowsApp, let profileID { ageStore.confirmedProfileID = profileID }
         }
         guard allowsApp else {
@@ -436,7 +446,8 @@ final class AdsController: ObservableObject {
 
     private func configureAdsIfNeeded() {
         guard !hasConfiguredAds, allowsApp else { return }
-        adsService.configure(configuration, ageBand: ageBand)
+        configuredPersonalization = ageBand == .adult && consentService.currentSnapshot.allowsPersonalizedAds
+        adsService.configure(configuration, ageBand: ageBand, allowsPersonalizedAds: configuredPersonalization)
         hasConfiguredAds = true
     }
 

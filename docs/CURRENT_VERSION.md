@@ -1,5 +1,15 @@
 # Current version slice
 
+## Build 34 review correction — 2026-09-19
+
+Source configuration is **1.02 (34)**, based on build-33 commit
+`2077df82a1ae0a71998edfa0977f61b680aa18cf`. Public version 1.02 / build 33
+was directly verified REJECTED on 19 September. The owner authorized the
+age fallback, adult-only ATT, conditional personalization, retained device
+choices, privacy updates and replacement submission. Build 34 remains a
+release candidate until independent archive/upload/Apple receipts confirm
+delivery. See [review correction](APP_REVIEW_FIX_34.md).
+
 ## Build 33 onboarding correction — 2026-09-12
 
 Source configuration is **1.02 (33)**. The owner withdrew build 32 after physical
