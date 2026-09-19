@@ -5,16 +5,17 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained alongside 2–4-player online Multiplayer v2. Game Center remains a
 separate account/publication integration.
 
-This branch prepares **1.02 (34)** to address App Review's tracking-permission
+This branch delivers **1.02 (34)** to address App Review's tracking-permission
 and Age Assurance findings. It checks Apple regional eligibility first and uses
 Apple's range where required. Elsewhere, one local age-group question includes
 Skip. Only consenting adults can enable personalized ads after native ATT
 approval. Login/logout preserves age and consent choices. Main-menu Settings
 contains legal documents and available privacy choices.
 
-Build 33 was rejected by App Review on 18 September 2026. Build 34 upload and
-submission are authorized; exact delivery status is recorded separately after
-Apple accepts the binary. Validation is limited to launch, age and consent.
+Build 33 was rejected by App Review on 18 September 2026. Build 34 is active in
+both TestFlight QA groups and submitted for public App Review (Waiting for Review,
+automatic release after approval). Exact delivery evidence is recorded in
+[RELEASE](docs/RELEASE.md). Validation is limited to launch, age and consent.
 See [build 34 correction](docs/APP_REVIEW_FIX_34.md).
 
 The following build-32 preparation record is historical.

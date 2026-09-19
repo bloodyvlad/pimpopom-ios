@@ -2,9 +2,10 @@
 
 Owner-authorized correction for the rejection of 1.02 (33), submission
 `c75ba21e-c5f2-431b-ac51-e450e088ec9b`, under 5.1.2(i) and 2.3.6.
-Candidate based on clean build-33 source `2077df82a1ae0a71998edfa0977f61b680aa18cf`.
-Archive, upload and review status require separate receipts; configuration alone
-is not release evidence.
+Correction based on clean build-33 source `2077df82a1ae0a71998edfa0977f61b680aa18cf`.
+Uploaded build34 source: `0a03dac07006b537c449bacbee9bf49607959a9d`.
+Both TestFlight groups are active and public review is WAITING_FOR_REVIEW.
+Exact archive/upload/Apple receipts are recorded in [RELEASE](RELEASE.md).
 
 ## Behavior
 

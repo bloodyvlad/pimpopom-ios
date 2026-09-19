@@ -1,5 +1,57 @@
 # TestFlight and App Store release
 
+## Build 34 — TestFlight active and public review submitted (2026-09-19)
+
+Version **1.02 (34)**, exact clean source `0a03dac07006b537c449bacbee9bf49607959a9d` on
+`codex/app-review-att34`. [Review diff](https://github.com/bloodyvlad/pimpopom-ios/pull/2)
+is based on the already-uploaded build-33 branch. Later evidence-only commits do
+not change this uploaded binary.
+
+| Evidence | Verified value |
+| --- | --- |
+| Apple app / version | 6792328590 / 5037e930-61ad-41b8-b8a1-6ecddd3288a8 |
+| Apple build | 6b41eb06-b6cf-483b-a7b7-952532e08cba — VALID, APP_STORE_ELIGIBLE, usesNonExemptEncryption=false |
+| TestFlight | Internal QA and External QA IN_BETA_TESTING; beta review APPROVED; automatic notification enabled |
+| Public submission | 57f9deb0-e40f-4d17-b634-d25a4779c92e — 13 items, WAITING_FOR_REVIEW |
+| Submitted | 2026-09-19T19:18:15.491Z |
+| Release policy | AFTER_APPROVAL; not publicly released yet |
+| Toolchain | Xcode 26.6 (17F113), optimized Release, iOS 17 minimum |
+| Archive manifest SHA-256 | `2fe5e4510ba5cf41498d7f499323a687590a891564bb53295b20f7e124e89f88` |
+| Reviewed signed local IPA SHA-256 | `48636d54f0fde1c453473605c354e40cf8eecc66884c82df2d3b4810e511b049` |
+| App / dSYM UUID | `51F8216C-F1CF-33CD-A20A-FBD95B36417C` |
+| dSYM SHA-256 | `c470a15232a05f48f0aed7f2f797f491e38fd59dba7fbde883be13d9a3c09383` |
+
+The reused rejected submission was briefly resubmitted through the API, but its
+review page still displayed build 33 despite the version API linking build 34.
+It was canceled (COMPLETE) and replaced with the fresh submission above. The
+new draft visibly showed 1.02 (34) and the same 13 items before submission.
+After submission, Firefox and the official API both confirmed build 34 and
+Waiting for Review on the new submission.
+The original rejection message remains on submission
+`c75ba21e-c5f2-431b-ac51-e450e088ec9b`; new review notes explain both fixes.
+
+Upload completed from the inspected immutable archive. Freshly extracted local
+export has a valid distribution signature, no debug entitlement, ATT purpose and
+framework, live AdMob units, empty test/owner fields, no consent-test hooks and
+12 reconciled privacy manifests. App symbols match; Apple warned that the
+prebuilt GoogleMobileAds/UMP packages omitted their vendor dSYMs. Those warnings
+did not prevent VALID processing or beta approval; vendor crash symbolication
+remains limited.
+
+Only launch/age/consent validation was run on iPhone 17 and iPad Air 11-inch (M3)
+simulators (iOS 26.5). No gameplay tests or physical-device validation. Exact
+scope, failed harness attempts, corrected checks, privacy/age metadata and
+published legal 1.0.2 evidence are in [APP_REVIEW_FIX_34](APP_REVIEW_FIX_34.md).
+No PHP, Railway, schema, StoreKit product or gameplay change/deployment occurred;
+existing build-33 backend/protocol configuration is retained, not newly live-tested.
+Build 33 remains available as a reference beta, but its privacy rejection makes
+it unsuitable as a public-release fallback. No previous beta was expired.
+
+Private receipt: `~/.local/share/pimpopom-releases/20260919-att34/release34-receipt.json`.
+The task's temporary production xcconfig was removed after upload; checked-in
+Release remains disabled until a separately authorized archive supplies live IDs.
+Unrelated dirty worktrees, including the original legal source, were preserved.
+
 Production submission, live-ad activation, and paid-product activation require
 explicit owner authorization. A TestFlight approval is not an App Store release.
 
