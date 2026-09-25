@@ -222,7 +222,7 @@ struct AchievementsView: View {
                 }
             }
         }
-        .task { await achievements.refresh() }
+        .task { await achievements.refresh(showLoading: false) }
     }
 
     private var progressHeader: some View {

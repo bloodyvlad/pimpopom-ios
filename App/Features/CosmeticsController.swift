@@ -155,10 +155,7 @@ final class CosmeticsController: ObservableObject {
         }
 
         if loadedAnything, failures.isEmpty {
-            themeMessage =
-                backend.isAuthenticated
-                ? "Select a theme you own, or spend verified coins on a new one."
-                : "Default and Disco are free. Sign in to buy paid themes."
+            themeMessage = ""
             petMessage =
                 backend.isAuthenticated
                 ? ""

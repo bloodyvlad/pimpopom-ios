@@ -42,6 +42,7 @@ struct CoinStoreView: View {
     @EnvironmentObject private var purchases: PurchaseController
 
     var offer = StorefrontOffer.coinPacks
+    let onOpenProfile: () -> Void
 
     private var palette: ThemePalette { cosmetics.theme }
     private var products: [StoreProduct] { purchases.products.filter(offer.includes) }
@@ -114,23 +115,25 @@ struct CoinStoreView: View {
 
     private var hero: some View {
         HStack(spacing: 13) {
-            Image(systemName: offer.symbol)
-                .font(.system(size: 32, weight: .black))
-                .foregroundStyle(Color(hex: offer == .coinPacks ? "#ffc629" : palette.accent))
-                .frame(width: 50, height: 50)
-                .background(Color(hex: palette.surface), in: Circle())
+            if offer == .coinPacks {
+                PixelCoinView(size: 50)
+            } else {
+                Image(systemName: offer.symbol)
+                    .font(.system(size: 32, weight: .black))
+                    .foregroundStyle(Color(hex: palette.accent))
+                    .frame(width: 50, height: 50)
+                    .background(Color(hex: palette.surface), in: Circle())
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(offer.heading)
                     .font(palette.appFont(size: 25, weight: .black, relativeTo: .title))
-                Text(
-                    offer == .coinPacks
-                        ? "APPLE-VERIFIED COINS"
-                        : "RESTORABLE LIFETIME ACCESS"
-                )
-                .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
-                .tracking(1)
-                .foregroundStyle(Color(hex: palette.muted))
+                if offer == .removeAds {
+                    Text("RESTORABLE LIFETIME ACCESS")
+                        .font(palette.appFont(size: 9, weight: .black, relativeTo: .caption2))
+                        .tracking(1)
+                        .foregroundStyle(Color(hex: palette.muted))
+                }
             }
             Spacer()
         }
@@ -139,13 +142,7 @@ struct CoinStoreView: View {
 
     @ViewBuilder
     private var accountSummary: some View {
-        if !backend.isAuthenticated {
-            accountGate(
-                title: "Sign in to purchase",
-                message: "Open My Profile and sign in so purchases can be recovered on your PimPoPom account.",
-                symbol: "person.crop.circle.badge.exclamationmark"
-            )
-        } else if !hasBoundAccount {
+        if backend.isAuthenticated, !hasBoundAccount {
             accountGate(
                 title: "Store account is not ready",
                 message:
@@ -153,7 +150,7 @@ struct CoinStoreView: View {
                     + "No App Store charge can start until the server supplies an account binding.",
                 symbol: "link.badge.plus"
             )
-        } else if offer == .coinPacks {
+        } else if backend.isAuthenticated, offer == .coinPacks {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     PixelCoinView(size: 24)
@@ -272,7 +269,11 @@ struct CoinStoreView: View {
             }
 
             Button {
-                Task { await purchases.purchase(product.id) }
+                if backend.isAuthenticated {
+                    Task { await purchases.purchase(product.id) }
+                } else {
+                    onOpenProfile()
+                }
             } label: {
                 HStack(spacing: 7) {
                     if case .purchasing(let activeProduct) = purchases.state,
@@ -291,7 +292,7 @@ struct CoinStoreView: View {
                     minimumHeight: 46
                 )
             )
-            .disabled(!canPurchase(product))
+            .disabled(backend.isAuthenticated ? !canPurchase(product) : operationIsBlocking)
             .accessibilityIdentifier("store-product-\(product.id.rawValue)")
         }
         .webCardStyle(theme: palette, padding: 14)
@@ -355,6 +356,7 @@ struct CoinStoreView: View {
     }
 
     private func purchaseButtonTitle(_ product: StoreProduct) -> String {
+        guard backend.isAuthenticated else { return "Sign in to buy" }
         if product.id == .removeAdsLifetime, purchases.storefront.adFree == true {
             return "Ad-free Active"
         }

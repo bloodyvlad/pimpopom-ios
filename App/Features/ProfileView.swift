@@ -13,10 +13,6 @@ private enum ProfileAccountDeletionError: LocalizedError {
     }
 }
 
-private enum PendingProfileRegistration {
-    case google(idToken: String)
-}
-
 enum ProfileAuthenticationPolicy {
     static let appleEntryIntent: PrimaryAuthenticationIntent = .register
 }
@@ -44,8 +40,6 @@ struct ProfileView: View {
     @State private var showsAccountDeletionConfirmation = false
     @State private var accountDeletionConfirmation = ""
     @State private var accountDeletionStatus: String?
-    @State private var pendingRegistration: PendingProfileRegistration?
-    @State private var showsRegistrationConfirmation = false
     @State private var pendingDeletionProfileID: String?
     @State private var showsDeletionProviderChoice = false
     @State private var identityLinkMessage: String?
@@ -138,22 +132,6 @@ struct ProfileView: View {
                 }
             }
             .confirmationDialog(
-                "Create a new PimPoPom profile?",
-                isPresented: $showsRegistrationConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button("Create New Profile") {
-                    Task { await registerPendingIdentity() }
-                }
-                Button("Cancel", role: .cancel) {
-                    cancelPendingRegistration()
-                }
-            } message: {
-                Text(
-                    "No existing profile is linked to this sign-in. A new profile has a separate wallet, scores, pets, themes, and purchases. To keep an existing profile, sign in with its linked method and add this one afterward."
-                )
-            }
-            .confirmationDialog(
                 "Verify before deleting",
                 isPresented: $showsDeletionProviderChoice,
                 titleVisibility: .visible
@@ -169,11 +147,6 @@ struct ProfileView: View {
                 }
             } message: {
                 Text("Choose a linked sign-in method to confirm that this profile is yours.")
-            }
-            .onDisappear {
-                if pendingRegistration != nil {
-                    cancelPendingRegistration()
-                }
             }
         }
     }
@@ -219,7 +192,7 @@ struct ProfileView: View {
                 Image(systemName: "trophy.fill")
                     .foregroundStyle(Color(hex: "#ffd84d"))
                 Text(
-                    "Ranked Arcade results and one coin per verified play minute are saved only after sign-in and nickname confirmation."
+                    "Ranked Arcade results and one coin per verified play minute are saved after sign-in."
                 )
                 .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
                 .foregroundStyle(Color(hex: palette.muted))
@@ -281,6 +254,8 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(profile.nickname)
                             .font(palette.appFont(size: 22, weight: .black, relativeTo: .title3))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.65)
                         HStack(spacing: 4) {
                             PixelCoinView(size: 13)
                             Text("\(profile.coins)")
@@ -296,10 +271,17 @@ struct ProfileView: View {
                         )
                     }
                     Spacer()
-                    Button("Log out") { Task { await signOut() } }
-                        .font(palette.appFont(size: 11, weight: .black, relativeTo: .caption))
-                        .foregroundStyle(Color(hex: palette.accent))
-                        .disabled(accountOperationBusy)
+                    Button(role: .destructive) {
+                        Task { await signOut() }
+                    } label: {
+                        Text("Log out")
+                            .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                            .padding(.horizontal, 12)
+                    }
+                    .buttonStyle(WebSecondaryButtonStyle(theme: palette, accent: .red, minimumHeight: 44))
+                    .fixedSize(horizontal: true, vertical: false)
+                    .accessibilityIdentifier("profile-log-out")
+                    .disabled(accountOperationBusy)
                 }
 
                 Text("PUBLIC NICKNAME")
@@ -654,15 +636,11 @@ struct ProfileView: View {
         let requestedMode = mode
         loadGeneration += 1
         let generation = loadGeneration
-        busy = true
-        defer {
-            if generation == loadGeneration { busy = false }
-        }
         do {
             let loaded = try await backend.loadProfile(mode: requestedMode)
             guard !Task.isCancelled, mode == requestedMode, generation == loadGeneration else { return }
             response = loaded
-            nickname = editableNickname(from: loaded.profile)
+            if nickname.isEmpty { nickname = editableNickname(from: loaded.profile) }
             status = nil
         } catch {
             guard !Task.isCancelled, generation == loadGeneration else { return }
@@ -673,18 +651,10 @@ struct ProfileView: View {
     private func signInWithGoogle() async {
         busy = true
         defer { busy = false }
-        var attemptedToken: String?
         do {
             let token = try await googleIdentity.signIn()
-            attemptedToken = token
-            let session = try await backend.login(googleIDToken: token)
+            let session = try await backend.registerWithGoogle(googleIDToken: token)
             await finishAuthentication(session)
-        } catch let error as BackendError where error.status == 409 && !backend.isAuthenticated {
-            status = error.localizedDescription
-            if let token = attemptedToken {
-                pendingRegistration = .google(idToken: token)
-                showsRegistrationConfirmation = true
-            }
         } catch {
             status = error.localizedDescription
         }
@@ -703,33 +673,12 @@ struct ProfileView: View {
         }
     }
 
-    private func registerPendingIdentity() async {
-        guard let pendingRegistration else { return }
-        self.pendingRegistration = nil
-        busy = true
-        defer { busy = false }
-        do {
-            switch pendingRegistration {
-            case .google(let idToken):
-                let session = try await backend.registerWithGoogle(googleIDToken: idToken)
-                await finishAuthentication(session)
-            }
-        } catch let error as BackendError where error.status == 409 {
-            if case .google = pendingRegistration {
-                googleIdentity.signOut()
-            }
-            status = error.localizedDescription
-        } catch {
-            status = error.localizedDescription
-        }
-    }
-
     private func finishAuthentication(_ session: SessionResponse) async {
         nickname = editableNickname(from: session.profile)
         nicknameAvailability = .idle
         status = nil
-        await cosmetics.refresh()
-        await loadProfile()
+        // The session already contains the profile. Refresh details without blocking sign-in.
+        Task { await loadProfile() }
     }
 
     private func authorizeWithApple(
@@ -910,6 +859,11 @@ struct ProfileView: View {
 
     private func validateNicknameAfterDebounce() async {
         let candidate = nickname
+        guard backend.isAuthenticated else { return }
+        if candidate == backend.profile?.nickname {
+            nicknameAvailability = .idle
+            return
+        }
         if let message = PlayerNameValidation.localError(for: candidate) {
             nicknameAvailability = .invalid(message)
             return
@@ -937,7 +891,7 @@ struct ProfileView: View {
     }
 
     private func editableNickname(from profile: PlayerProfile?) -> String {
-        guard let profile, profile.nicknameConfirmed else { return "" }
+        guard let profile else { return "" }
         return profile.nickname
     }
 
@@ -1039,13 +993,6 @@ struct ProfileView: View {
             }
         #endif
         return try await googleIdentity.signIn()
-    }
-
-    private func cancelPendingRegistration() {
-        if case .google? = pendingRegistration {
-            googleIdentity.signOut()
-        }
-        pendingRegistration = nil
     }
 
     private func resetAccountDeletionForm() {

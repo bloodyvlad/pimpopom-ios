@@ -62,7 +62,11 @@ Status: implemented.
 Apple and Google proofs are verified server-side and map to one internal UUID.
 A second provider is attached only through explicit recent-authenticated linking;
 email, relay email, nickname, device, StoreKit, and Game Center never merge
-profiles. Public nicknames are confirmed, whitespace-free Unicode and server-unique.
+profiles. Public nicknames are whitespace-free Unicode and server-unique. First primary sign-in
+creates a missing profile without a second confirmation. The client saves the
+server-generated name through the existing nickname endpoint before publishing
+the authenticated session; existing confirmed names remain unchanged. Players
+can optionally rename themselves later in Profile.
 
 ## D-06 — Treat Game Center as a secondary publication identity
 

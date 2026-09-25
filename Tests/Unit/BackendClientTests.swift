@@ -12,6 +12,45 @@ final class BackendClientTests: XCTestCase {
         super.tearDown()
     }
 
+    func testGeneratedNameIsConfirmedOnSessionRestoreWithoutManualSetup() async throws {
+        let recorder = RequestRecorder()
+        let ready = try JSONEncoder().encode(Self.signedInSession)
+        let provisional = Data(
+            String(decoding: ready, as: UTF8.self)
+                .replacingOccurrences(of: "\"nicknameConfirmed\":true", with: "\"nicknameConfirmed\":false").utf8)
+        let saved = try JSONEncoder().encode(
+            ProfileResponse(
+                profile: Self.signedInSession.profile!, ranks: [:],
+                leaderboard: LeaderboardResponse(
+                    season: Self.signedInSession.season, mode: "normal", entries: [],
+                    totalEntries: 0, playerRank: nil, topPercent: nil, contextRank: nil, contextTopPercent: nil,
+                    contextEntryId: nil)
+            ))
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(data: request.url?.path == "/api/session" ? provisional : saved)
+        }
+        let backend = makeBackend()
+        let session = try await backend.loadSession()
+        XCTAssertEqual(session.profile?.nickname, "Player")
+        XCTAssertTrue(session.profile?.nicknameConfirmed == true)
+        XCTAssertTrue(backend.canStartRankedRun)
+        let save = try XCTUnwrap(recorder.requests(forPath: "/api/profile").first)
+        XCTAssertEqual(save.method, "PATCH")
+        XCTAssertEqual(save.header(named: "X-SpeedyTapper-CSRF"), "csrf-2")
+    }
+
+    func testConfirmedNameDoesNotTriggerAnExtraSave() async throws {
+        let recorder = RequestRecorder()
+        let ready = try JSONEncoder().encode(Self.signedInSession)
+        StubURLProtocol.handler = { request in
+            recorder.append(request)
+            return StubResponse(data: ready)
+        }
+        _ = try await makeBackend().loadSession()
+        XCTAssertTrue(recorder.requests(forPath: "/api/profile").isEmpty)
+    }
+
     func testConcurrentSessionLoadsAreCoalesced() async throws {
         let recorder = RequestRecorder()
         let signedOutData = try JSONEncoder().encode(Self.signedOutSession)

@@ -1,5 +1,51 @@
 # TestFlight and App Store release
 
+## Build 35 — TestFlight active and public review submitted (2026-09-25)
+
+Version **1.02 (35)**, exact clean source `8bcf9b32c6fdb192222a615795e8fc666fa26aab` on
+`codex/review-shop-onboarding35`. [PR #3](https://github.com/bloodyvlad/pimpopom-ios/pull/3)
+adds shop sign-in routes and automatic player setup to the age/ATT history merged
+into main by PR #2 at `ec46335745d85495f786c5c52a0425f9f33c6edf`.
+Evidence-only follow-up commits do not change the uploaded binary.
+
+| Evidence | Verified value |
+| --- | --- |
+| Apple app / version | 6792328590 / 5037e930-61ad-41b8-b8a1-6ecddd3288a8 |
+| Apple build | 88078b6e-7d5d-480d-ae3c-304b3e23a02a — VALID, APP_STORE_ELIGIBLE, exempt encryption |
+| TestFlight | Internal QA and External QA IN_BETA_TESTING; beta review APPROVED; automatic notification enabled |
+| Public submission | 2d700cdb-2d54-4f0a-b431-ff3d3b84ea94 — 13 items, WAITING_FOR_REVIEW |
+| Submitted | 2026-09-25T12:33:05.436Z |
+| Release policy | AFTER_APPROVAL; not publicly released yet |
+| Toolchain | Xcode 26.6 (17F113), iOS 26.5 SDK, optimized Release, iOS 17 minimum |
+| Archive manifest SHA-256 | `f1a1186e85d031e788d216e8f0d82ea6bcb959f11ba131aac1520ba88e3d3b4a` |
+| Reviewed signed local IPA SHA-256 | `56990b83db2acbc5a162b06b0ba2b0ecde707f271bddf1926f982f0166e7c72b` |
+| App / dSYM UUID | `813A7777-4E9D-3C26-90A5-9FC9090FE5F8` |
+| dSYM SHA-256 | `c6c8a6b96c5686cc89756fa911741bccb4898ab220bc612effb455c55f8df664` |
+
+Four focused shop/navigation and generated-name checks passed on iPad simulator;
+iPhone screenshots and iPad launch were inspected. No gameplay tests, transactions,
+or physical-device validation. [Scope and latency findings](APP_REVIEW_FIX_35.md).
+The export was re-extracted and inspected: valid distribution signature, no debug
+entitlement, live ads without test/owner overrides, ATT purpose/framework retained,
+12 unchanged vendor/application privacy manifests, and matching app symbols.
+Apple again warned about absent prebuilt GoogleMobileAds/UMP vendor dSYMs; upload
+and VALID processing succeeded. Vendor framework crash symbolication is limited.
+
+The rejected build-34 submission `57f9deb0-e40f-4d17-b634-d25a4779c92e` was completed
+by removing its 13 review items; the same five IAPs, two leaderboards and five
+achievements were retained in the new submission. Apple needed a short propagation
+delay before those removed companion items could be reattached. Official API
+readback confirms the new version/build relationship, all 13 items and review state.
+Review notes and en-US TestFlight What to Test were updated. Storefront copy,
+media, availability, prices, age declarations and consent configuration were retained.
+
+No PHP/Railway deployment or schema/protocol change occurred. The existing build-34
+backend tuple is retained, not newly gameplay-validated. Build 34 remains available
+as a reference beta; it is rejected for public review and is not an approved public
+fallback. No beta build was expired. Temporary production ad overrides were removed.
+Private evidence: `~/.local/share/pimpopom-releases/20260925-review35/release35-receipt.json`.
+Unrelated dirty files in the original iOS checkout were preserved.
+
 ## Build 34 — TestFlight active and public review submitted (2026-09-19)
 
 Version **1.02 (34)**, exact clean source `0a03dac07006b537c449bacbee9bf49607959a9d` on

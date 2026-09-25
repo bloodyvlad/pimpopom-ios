@@ -3,7 +3,9 @@ import SwiftUI
 struct ThemeShopView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
     @EnvironmentObject private var preferences: AppPreferences
+    let onOpenProfile: () -> Void
     @State private var showsCoinStore = false
+    @State private var opensProfileAfterStore = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -54,9 +56,21 @@ struct ThemeShopView: View {
             }
         }
         .task { await cosmetics.refresh() }
-        .sheet(isPresented: $showsCoinStore) {
-            CoinStoreView()
+        .sheet(
+            isPresented: $showsCoinStore,
+            onDismiss: openProfileAfterStore
+        ) {
+            CoinStoreView(onOpenProfile: {
+                opensProfileAfterStore = true
+                showsCoinStore = false
+            })
         }
+    }
+
+    private func openProfileAfterStore() {
+        guard opensProfileAfterStore else { return }
+        opensProfileAfterStore = false
+        onOpenProfile()
     }
 
     private var walletHeader: some View {
@@ -97,72 +111,71 @@ struct ThemeShopView: View {
             selectedID: cosmetics.selectedThemeID
         )
 
-        return Button {
-            guard action != .selected else { return }
-            if action == .buy,
-                cosmetics.isAuthenticated,
-                !cosmetics.canAfford(item)
-            {
-                showsCoinStore = true
-                return
-            }
-            Task { await cosmetics.performThemeAction(item) }
-        } label: {
-            VStack(spacing: 7) {
-                ThemePreview(theme: theme, showsGlyphs: preferences.glyphsEnabled)
-                    .frame(maxWidth: .infinity)
-
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text(item.name)
-                        .font(palette.appFont(size: 15, weight: .black, relativeTo: .body))
-                        .lineLimit(1)
-                    Spacer(minLength: 3)
-                    if cosmetics.ownedThemeIDs.contains(item.id) {
-                        Text(item.priceCoins == 0 ? "Free" : "Owned")
-                            .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
-                            .foregroundStyle(Color(hex: palette.muted))
-                    } else {
-                        HStack(spacing: 3) {
-                            PixelCoinView(size: 12)
-                            Text("\(item.priceCoins)")
+        return VStack(spacing: 8) {
+            Button {
+                // A tile selects an owned theme; paid purchases use the explicit button.
+                if action == .select { Task { await cosmetics.performThemeAction(item) } }
+            } label: {
+                VStack(spacing: 7) {
+                    ThemePreview(theme: theme, showsGlyphs: preferences.glyphsEnabled)
+                        .frame(maxWidth: .infinity)
+                    HStack(spacing: 5) {
+                        Text(item.name)
+                            .font(palette.appFont(size: 15, weight: .black, relativeTo: .body))
+                        Spacer(minLength: 3)
+                        if cosmetics.ownedThemeIDs.contains(item.id) {
+                            Text(item.priceCoins == 0 ? "Free" : "Owned")
+                                .font(palette.appFont(size: 11, weight: .bold, relativeTo: .caption))
+                                .foregroundStyle(Color(hex: palette.muted))
+                        } else {
+                            HStack(spacing: 3) {
+                                PixelCoinView(size: 12)
+                                Text("\(item.priceCoins)")
+                            }
+                            .font(palette.appFont(size: 12, weight: .black, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: "#ffc629"))
                         }
-                        .font(palette.appFont(size: 12, weight: .black, relativeTo: .caption))
-                        .foregroundStyle(Color(hex: "#ffc629"))
                     }
                 }
-
+                .foregroundStyle(Color(hex: palette.foreground))
+                .webCardStyle(
+                    theme: palette,
+                    selectedAccent: action == .selected ? Color(hex: palette.accent) : nil,
+                    padding: 7
+                )
             }
-            .frame(maxHeight: .infinity, alignment: .top)
-            .foregroundStyle(Color(hex: palette.foreground))
-            .webCardStyle(
-                theme: palette,
-                selectedAccent: item.id == cosmetics.selectedThemeID
-                    ? Color(hex: palette.isLight ? "#159dc7" : theme.accent)
-                    : nil,
-                padding: 7
-            )
-            .overlay(alignment: .topTrailing) {
-                if cosmetics.pendingThemeID == item.id {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(Color(hex: palette.accent))
-                        .padding(10)
-                        .background(Color(hex: palette.surface).opacity(0.88), in: Circle())
-                        .padding(4)
-                }
-            }
-            .accessibilityElement(children: .ignore)
+            .buttonStyle(.plain)
+            .disabled(cosmetics.isLoading || cosmetics.isEconomyMutationPending)
             .accessibilityLabel(item.name)
-            .accessibilityValue(themeActionLabel(action, item: item))
+            .accessibilityIdentifier("theme-preview-\(item.id)")
+
+            Button {
+                guard action != .selected else { return }
+                if action == .buy, !cosmetics.isAuthenticated {
+                    onOpenProfile()
+                } else if action == .buy, !cosmetics.canAfford(item) {
+                    showsCoinStore = true
+                } else {
+                    Task { await cosmetics.performThemeAction(item) }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    if cosmetics.pendingThemeID == item.id { ProgressView().controlSize(.small) }
+                    Text(themeActionLabel(action, item: item))
+                        .font(palette.appFont(size: 12, weight: .bold, relativeTo: .caption))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(
+                WebSecondaryButtonStyle(
+                    theme: palette, accent: Color(hex: palette.themesAccent), minimumHeight: 44
+                )
+            )
+            .disabled(action == .selected || cosmetics.isLoading || cosmetics.isEconomyMutationPending)
             .accessibilityIdentifier("theme-action-\(item.id)")
+            .accessibilityAddTraits(action == .selected ? .isSelected : [])
         }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .disabled(
-            cosmetics.isLoading || cosmetics.isEconomyMutationPending
-        )
-        .accessibilityHint(action == .selected ? "Current theme" : "Tap the theme tile to use it")
-        .accessibilityAddTraits(action == .selected ? .isSelected : [])
     }
 
     private func themeActionLabel(_ action: ThemeShopAction, item: CosmeticCatalogItem) -> String {
@@ -170,7 +183,7 @@ struct ThemeShopView: View {
         case .selected: "Selected"
         case .select: "Select"
         case .buy:
-            cosmetics.isAuthenticated ? "Buy · \(item.priceCoins)" : "Sign in to buy"
+            cosmetics.isAuthenticated ? "Buy for \(item.priceCoins) coins" : "Sign in to buy"
         }
     }
 }
