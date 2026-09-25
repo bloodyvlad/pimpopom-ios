@@ -1,6 +1,6 @@
 # Own Color Multiplayer stability design
 
-Status: implemented in the `1.02 (23)` source candidate; physical acceptance open.
+Status: revised in the `1.02 (24)` source candidate; physical acceptance open.
 
 ## Product rule
 

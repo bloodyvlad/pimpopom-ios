@@ -60,15 +60,31 @@ struct AdsConfiguration: Equatable, Sendable {
 
     var isEnabled: Bool { mode.isEnabled }
 
+    var routeDescription: String {
+        switch mode {
+        case .disabled: "disabled"
+        case .demo: "demo"
+        case .ownerSplitTest: isOwnerDevice ? "owner test with demo fallback" : "demo"
+        case .ownerRealTest: "owner test"
+        case .live: "live"
+        }
+    }
+
     @MainActor
     static func load(bundle: Bundle = .main) -> AdsConfiguration {
-        let identifierForVendor = UIDevice.current.identifierForVendor
-        if ProcessInfo.processInfo.arguments.contains("--ad-diagnostics") {
-            let rawIdentifier = identifierForVendor?.uuidString.lowercased() ?? "unavailable"
-            let fingerprint = identifierForVendorFingerprint(identifierForVendor)
-            print("[PimPoPom Ads] idfv=\(rawIdentifier) idfv-sha256=\(fingerprint)")
-        }
         let values = bundle.infoDictionary ?? [:]
+        // Only the closed-beta split route needs the install's IDFV. Release
+        // neither reads nor logs it, including with diagnostic launch arguments.
+        var identifierForVendor: UUID?
+        #if DEBUG || STAGING || OWNER_ADS_QA
+            if stringValue(values["PimPoPomAdsMode"]) == AdsMode.ownerSplitTest.rawValue {
+                identifierForVendor = UIDevice.current.identifierForVendor
+                if ProcessInfo.processInfo.arguments.contains("--ad-diagnostics") {
+                    let fingerprint = identifierForVendorFingerprint(identifierForVendor)
+                    print("[PimPoPom Ads] idfv-sha256=\(fingerprint)")
+                }
+            }
+        #endif
         return fromInfoDictionary(
             values,
             identifierForVendor: identifierForVendor
@@ -147,6 +163,15 @@ struct AdsConfiguration: Equatable, Sendable {
         var problems: [String] = []
         if appID != Self.realAppID {
             problems.append("The real PimPoPom AdMob App ID is required.")
+        }
+
+        if mode == .live || mode == .disabled || configurationName == "Release" {
+            if !ownerBannerUnitID.isEmpty || !ownerInterstitialUnitID.isEmpty
+                || !ownerTestDeviceIdentifiers.isEmpty || !ownerDeviceIDFVHashes.isEmpty
+                || isOwnerDevice
+            {
+                problems.append("Release and disabled modes must not contain owner QA configuration.")
+            }
         }
 
         switch mode {
@@ -319,6 +344,7 @@ enum PrivacyOptionsRequirement: Equatable, Sendable {
 struct ConsentSnapshot: Equatable, Sendable {
     let canRequestAds: Bool
     let privacyOptionsRequirement: PrivacyOptionsRequirement
+    var allowsPersonalizedAds = false
 }
 
 enum BannerAdState: Equatable, Sendable {
@@ -330,9 +356,16 @@ enum BannerAdState: Equatable, Sendable {
 
 @MainActor
 protocol ConsentServing: AnyObject {
+    func waitUntilIdle() async
     var currentSnapshot: ConsentSnapshot { get }
-    func requestConsent() async throws -> ConsentSnapshot
+    func requestConsent(for ageBand: AdAgeBand?) async throws -> ConsentSnapshot
+    func invalidate()
     func presentPrivacyOptions() async throws -> ConsentSnapshot
+}
+
+extension ConsentServing {
+    // Stateless test adapters have no system presentation to drain.
+    func waitUntilIdle() async {}
 }
 
 @MainActor
@@ -341,7 +374,7 @@ protocol AdsServing: AnyObject {
     var onInterstitialPresentationBegan: (() -> Void)? { get set }
     var onInterstitialPresentationEnded: (() -> Void)? { get set }
 
-    func configure(_ configuration: AdsConfiguration)
+    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand?, allowsPersonalizedAds: Bool)
     func start() async
     func attachBanner(to container: UIView, availableWidth: CGFloat)
     func detachBanner(from container: UIView)

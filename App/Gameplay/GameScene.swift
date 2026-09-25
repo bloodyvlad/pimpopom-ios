@@ -22,6 +22,16 @@ final class GameScene: SKScene {
     weak var eventDelegate: GameSceneEventDelegate?
 
     private var snapshot: GameSnapshot?
+    private var sharedBoard: [Cell]?
+    private var sharedHearts: Set<Int> = []
+    private var expiredPickupIDs: Set<Int> = []
+    private var sharedDimension = 1
+    private struct SharedGeometry {
+        let presentedAt: Double
+        let board: CGRect
+        let cells: [CGRect]
+    }
+    private var sharedGeometry: [SharedGeometry] = []
     private var cellFrames: [CGRect] = []
     private var pendingRoundActivation = false
     private var pendingDecoyActivation = false
@@ -35,6 +45,7 @@ final class GameScene: SKScene {
         scaleMode = .resizeFill
         backgroundColor = .clear
         anchorPoint = .zero
+        GameplayPickupTextureFactory.prewarm(theme: theme)
     }
 
     @available(*, unavailable)
@@ -43,12 +54,31 @@ final class GameScene: SKScene {
     }
 
     func apply(_ snapshot: GameSnapshot) {
+        if sharedBoard != nil { resetBoardPresentationHistory() }
+        sharedBoard = nil
+        sharedHearts.removeAll()
         self.snapshot = snapshot
+        expiredPickupIDs.formIntersection(snapshot.activePickups.map(\.id))
+        rebuildBoard()
+    }
+
+    /// Multiplayer uses the exact Arcade renderer, not a second SwiftUI grid.
+    func applySharedBoard(dimension: Int, cells: [Cell], hearts: Set<Int> = []) {
+        guard [1, 2, 4].contains(dimension), cells.count == dimension * dimension else { return }
+        guard sharedDimension != dimension || sharedBoard != cells || sharedHearts != hearts else { return }
+        if snapshot != nil { resetBoardPresentationHistory() }
+        snapshot = nil
+        expiredPickupIDs.removeAll()
+        sharedDimension = dimension
+        sharedBoard = cells
+        sharedHearts = hearts
+        roundPresentationExpired = false
         rebuildBoard()
     }
 
     func applyTheme(_ themeID: String) {
         theme = ThemePalette.resolve(themeID)
+        GameplayPickupTextureFactory.prewarm(theme: theme)
         if theme.id == "disco" {
             GameCellTextureFactory.prewarmDisco()
         }
@@ -79,6 +109,16 @@ final class GameScene: SKScene {
         rebuildBoard()
     }
 
+    func setExpiredPickupIDs(_ ids: Set<Int>) {
+        guard ids != expiredPickupIDs else { return }
+        expiredPickupIDs = ids
+        rebuildBoard()
+    }
+
+    func isPickupPresented(_ id: Int) -> Bool {
+        !expiredPickupIDs.contains(id) && snapshot?.activePickups.contains(where: { $0.id == id }) == true
+    }
+
     override func didChangeSize(_ oldSize: CGSize) {
         super.didChangeSize(oldSize)
         rebuildBoard()
@@ -98,6 +138,7 @@ final class GameScene: SKScene {
             eventDelegate?.gameScene(self, requestsDecoyActivationAt: milliseconds)
         }
         eventDelegate?.gameScene(self, didAdvanceTo: milliseconds)
+        recordSharedBoardPresentation(at: milliseconds)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with _: UIEvent?) {
@@ -110,16 +151,27 @@ final class GameScene: SKScene {
     }
 
     func handleBoardTouch(at location: CGPoint, inputAt: Double, handledAt: Double) {
-        guard snapshot != nil, boardFrame.contains(location) else { return }
+        guard snapshot != nil || sharedBoard != nil else { return }
+        let index: Int?
+        if sharedBoard != nil {
+            index = sharedCellIndex(at: location, inputAt: inputAt)
+        } else {
+            let geometry = sharedGeometry.last(where: { $0.presentedAt <= inputAt })
+            // No presentation history is available in direct, unrendered tests.
+            // Once rendering starts, never map an older contact onto a new grid.
+            guard geometry != nil || sharedGeometry.isEmpty else { return }
+            let frames = geometry?.cells ?? cellFrames
+            guard (geometry?.board ?? boardFrame).contains(location) else { return }
+            index =
+                frames.firstIndex(where: { $0.contains(location) })
+                ?? gapMissCellIndex(closestTo: location, frames: frames)
+        }
+        guard let index else { return }
         let normalizedLocation = CGPoint(
             x: min(1, max(0, location.x / max(size.width, 1))),
             y: min(1, max(0, 1 - (location.y / max(size.height, 1))))
         )
         eventDelegate?.gameScene(self, didPointAt: normalizedLocation)
-        let index =
-            cellFrames.firstIndex(where: { $0.contains(location) })
-            ?? gapMissCellIndex(closestTo: location)
-        guard let index else { return }
         eventDelegate?.gameScene(
             self,
             didTapCell: index,
@@ -127,6 +179,32 @@ final class GameScene: SKScene {
             inputAt: inputAt,
             handledAt: handledAt
         )
+    }
+
+    /// A delayed UIKit contact belongs to the grid that was visible at contact,
+    /// even if either game mode expanded before delivery on the main actor.
+    func recordSharedBoardPresentation(at milliseconds: Double) {
+        guard sharedBoard != nil || snapshot != nil else { return }
+        if sharedGeometry.last?.cells != cellFrames || sharedGeometry.last?.board != boardFrame {
+            sharedGeometry.append(.init(presentedAt: milliseconds, board: boardFrame, cells: cellFrames))
+        }
+        while sharedGeometry.count > 1,
+            sharedGeometry[1].presentedAt < milliseconds - Double(MP2Protocol.lateInputGraceMs)
+        {
+            sharedGeometry.removeFirst()
+        }
+        if sharedGeometry.count > 32 { sharedGeometry.removeFirst(sharedGeometry.count - 32) }
+    }
+
+    func resetBoardPresentationHistory() {
+        sharedGeometry.removeAll(keepingCapacity: true)
+    }
+
+    func sharedCellIndex(at location: CGPoint, inputAt: Double) -> Int? {
+        guard let geometry = sharedGeometry.last(where: { $0.presentedAt <= inputAt }),
+            geometry.board.contains(location)
+        else { return nil }
+        return geometry.cells.firstIndex(where: { $0.contains(location) }) ?? -1
     }
 
     func tapPoint(
@@ -144,19 +222,22 @@ final class GameScene: SKScene {
         )
     }
 
-    private func gapMissCellIndex(closestTo location: CGPoint) -> Int? {
-        guard let snapshot, cellFrames.count > 1 else { return nil }
+    private func gapMissCellIndex(closestTo location: CGPoint, frames: [CGRect]) -> Int? {
+        // A gap must never be resolved to another player's target.
+        if sharedBoard != nil { return -1 }
+        guard let snapshot, frames.count > 1 else { return nil }
         let excludedTarget = snapshot.state == .active ? snapshot.targetIndex : nil
-        return cellFrames.indices
-            .filter { $0 != excludedTarget }
+        let pickupCells = Set(snapshot.activePickups.map(\.cellIndex))
+        return frames.indices
+            .filter { $0 != excludedTarget && !pickupCells.contains($0) }
             .min { lhs, rhs in
                 squaredDistance(
                     from: location,
-                    to: CGPoint(x: cellFrames[lhs].midX, y: cellFrames[lhs].midY)
+                    to: CGPoint(x: frames[lhs].midX, y: frames[lhs].midY)
                 )
                     < squaredDistance(
                         from: location,
-                        to: CGPoint(x: cellFrames[rhs].midX, y: cellFrames[rhs].midY)
+                        to: CGPoint(x: frames[rhs].midX, y: frames[rhs].midY)
                     )
             }
     }
@@ -168,15 +249,16 @@ final class GameScene: SKScene {
     }
 
     private func rebuildBoard() {
-        guard let snapshot, size.width > 0, size.height > 0 else { return }
+        guard size.width > 0, size.height > 0 else { return }
+        guard let cells = sharedBoard ?? snapshot?.cells else { return }
         removeAllChildren()
         cellFrames.removeAll(keepingCapacity: true)
 
-        let dimension = snapshot.difficulty.gridDimension
+        let dimension = sharedBoard != nil ? sharedDimension : (snapshot?.difficulty.gridDimension ?? 1)
         let layout = GameBoardLayout(size: size, dimension: dimension)
         boardFrame = layout.boardFrame
 
-        for (index, cell) in snapshot.cells.enumerated() {
+        for (index, cell) in cells.enumerated() {
             let rect = layout.cellFrame(at: index, yAxis: .up)
             let cellSide = layout.cellSide
             let cornerRadius = GameCellVisualMetrics.liveCornerRadius(
@@ -261,7 +343,24 @@ final class GameScene: SKScene {
                 )
             }
             cellFrames.append(rect)
+            if sharedBoard != nil, sharedHearts.contains(index) {
+                addPickup(.heart, in: rect, cellSide: cellSide, index: index)
+            } else if let pickup = snapshot?.activePickups.first(where: {
+                $0.cellIndex == index && !expiredPickupIDs.contains($0.id)
+            }) {
+                addPickup(pickup.kind == .heart ? .heart : .clock, in: rect, cellSide: cellSide, index: index)
+            }
         }
+    }
+
+    private func addPickup(_ symbol: GameplayPickupSymbol, in rect: CGRect, cellSide: CGFloat, index: Int) {
+        let node = SKSpriteNode(texture: GameplayPickupTextureFactory.texture(symbol: symbol, theme: theme))
+        node.name = "cell-\(symbol.rawValue)-\(index)"
+        let side = max(24, cellSide * 0.52)
+        node.size = CGSize(width: side, height: side)
+        node.position = CGPoint(x: rect.midX, y: rect.midY)
+        node.zPosition = GameCellLayerOrder.glyph
+        addChild(node)
     }
 
     private func addDiscoWear(

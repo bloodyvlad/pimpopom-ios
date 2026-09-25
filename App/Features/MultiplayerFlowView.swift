@@ -1,17 +1,20 @@
 import SwiftUI
 
 struct MultiplayerFlowView: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var multiplayer: MultiplayerController
 
     var body: some View {
-        Group {
+        // The flow owns membership; replacing a phase child is not a screen exit.
+        ZStack {
             switch multiplayer.phase {
             case .hub:
                 MultiplayerHubView(
                     state: multiplayer.hubState,
                     onRefresh: multiplayer.refreshLobbies,
                     onCreate: multiplayer.createMatch,
-                    onJoin: multiplayer.joinMatch
+                    onJoin: multiplayer.joinMatch,
+                    onSearch: multiplayer.searchLobbies
                 )
             case .waiting:
                 if let state = multiplayer.waitingState {
@@ -20,7 +23,8 @@ struct MultiplayerFlowView: View {
                         onToggleReady: multiplayer.toggleReady,
                         onStart: multiplayer.startMatch,
                         onLeave: multiplayer.leaveMatch,
-                        onRetryConnection: multiplayer.retryGameKitConnection
+                        onRetryConnection: multiplayer.retryConnection,
+                        onTogglePrivacy: multiplayer.togglePrivacy
                     )
                 } else {
                     ProgressView("Opening waiting room…")
@@ -29,7 +33,12 @@ struct MultiplayerFlowView: View {
                 if let state = multiplayer.liveState {
                     MultiplayerLiveView(
                         state: state,
-                        onTapCell: multiplayer.handleTap
+                        scene: multiplayer.scene,
+                        onTapCell: multiplayer.handleTap,
+                        onMenu: {
+                            multiplayer.leaveMatch()
+                            dismiss()
+                        }
                     )
                 } else {
                     ProgressView("Starting match…")
@@ -47,5 +56,6 @@ struct MultiplayerFlowView: View {
                 multiplayer.open()
             }
         }
+        .onDisappear { multiplayer.close() }
     }
 }

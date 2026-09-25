@@ -10,6 +10,8 @@ final class AppPreferences: ObservableObject {
         static let musicVolume = "audio.music.volume"
         static let selectedThemeID = "cosmetics.local-theme-id"
         static let glyphsEnabled = "appearance.glyphs.enabled"
+        static let skipArcadeTutorial = "tutorial.arcade.skip-next-time"
+        static let skipMultiplayerTutorial = "tutorial.multiplayer.skip-next-time"
     }
 
     @Published var soundEffectsEnabled: Bool {
@@ -36,6 +38,22 @@ final class AppPreferences: ObservableObject {
         didSet { defaults.set(glyphsEnabled, forKey: Key.glyphsEnabled) }
     }
 
+    @Published var skipArcadeTutorial: Bool {
+        didSet { defaults.set(skipArcadeTutorial, forKey: Key.skipArcadeTutorial) }
+    }
+
+    @Published var skipMultiplayerTutorial: Bool {
+        didSet { defaults.set(skipMultiplayerTutorial, forKey: Key.skipMultiplayerTutorial) }
+    }
+
+    func skipsTutorial(for mode: HowToPlayMode) -> Bool {
+        mode == .arcade ? skipArcadeTutorial : skipMultiplayerTutorial
+    }
+
+    func setSkipsTutorial(_ value: Bool, for mode: HowToPlayMode) {
+        if mode == .arcade { skipArcadeTutorial = value } else { skipMultiplayerTutorial = value }
+    }
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -46,6 +64,8 @@ final class AppPreferences: ObservableObject {
         musicVolume = Self.clamp(defaults.object(forKey: Key.musicVolume) as? Double ?? 1)
         selectedThemeID = defaults.string(forKey: Key.selectedThemeID) ?? "classic"
         glyphsEnabled = defaults.object(forKey: Key.glyphsEnabled) as? Bool ?? true
+        skipArcadeTutorial = defaults.object(forKey: Key.skipArcadeTutorial) as? Bool ?? false
+        skipMultiplayerTutorial = defaults.object(forKey: Key.skipMultiplayerTutorial) as? Bool ?? false
     }
 
     private static func clamp(_ value: Double) -> Double {

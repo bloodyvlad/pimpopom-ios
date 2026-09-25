@@ -431,6 +431,13 @@ enum AchievementCatalog {
     }
 }
 
+struct RunStartPayload: Encodable {
+    let mode: String
+    let buildId: String
+    let ruleset: String
+    let proofVersion: Int
+}
+
 struct RunTicket: Codable, Equatable {
     let runId: String
     let mode: String

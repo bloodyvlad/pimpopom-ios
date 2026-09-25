@@ -441,12 +441,11 @@ struct MultiplayerLeaderboardRowView: View {
                     }
                 }
 
-                SpeedRatingDistributionView(
-                    counts: entry.speedRatings,
-                    theme: theme,
-                    showsTitle: false,
-                    showsLegend: false
-                )
+                if let counts = entry.speedRatings {
+                    SpeedRatingDistributionView(
+                        counts: counts, theme: theme, showsTitle: false, showsLegend: false
+                    )
+                }
 
                 Text(
                     "Place \(entry.place)/\(entry.playerCount) · \(entry.hits) hits · \(entry.dodges) dodges"

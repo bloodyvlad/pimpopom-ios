@@ -6,48 +6,118 @@ import UserMessagingPlatform
 @MainActor
 final class GoogleConsentService: ConsentServing {
     private var didApplyDebugReset = false
+    private let tracking: any TrackingAuthorizing
+    private var currentAgeBand: AdAgeBand?
+
+    init(tracking: any TrackingAuthorizing = AppleTrackingAuthorization()) {
+        self.tracking = tracking
+    }
+
+    private let operations = ConsentOperationQueue()
+    private var validatedSnapshot = ConsentSnapshot(
+        canRequestAds: false, privacyOptionsRequirement: .unknown
+    )
 
     var currentSnapshot: ConsentSnapshot {
-        ConsentSnapshot(
-            canRequestAds: ConsentInformation.shared.canRequestAds,
-            privacyOptionsRequirement: privacyRequirement
+        var snapshot = validatedSnapshot
+        snapshot.allowsPersonalizedAds =
+            snapshot.allowsPersonalizedAds
+            && tracking.permission == .authorized && currentAgeBand == .adult
+        return snapshot
+    }
+
+    func waitUntilIdle() async { await operations.waitUntilIdle() }
+
+    func invalidate() {
+        operations.invalidate()
+        validatedSnapshot = ConsentSnapshot(
+            canRequestAds: false, privacyOptionsRequirement: .unknown
         )
     }
 
-    func requestConsent() async throws -> ConsentSnapshot {
+    // Unknown age uses default SDK treatment; it is not an adult-age assertion.
+    static func requestParameters(for ageBand: AdAgeBand?) -> RequestParameters {
         let parameters = RequestParameters()
-        #if DEBUG
-            let arguments = ProcessInfo.processInfo.arguments
-            if arguments.contains("--ump-debug-reset"), !didApplyDebugReset {
-                ConsentInformation.shared.reset()
-                didApplyDebugReset = true
-            }
-            if arguments.contains("--ump-debug-eea") {
-                let debugSettings = DebugSettings()
-                debugSettings.geography = .EEA
-                parameters.debugSettings = debugSettings
-            }
-        #endif
-        consoleDiagnostic("requesting consent information")
-        try await withCheckedThrowingContinuation {
-            (continuation: CheckedContinuation<Void, Error>) in
-            ConsentInformation.shared.requestConsentInfoUpdate(with: parameters) { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+        parameters.isTaggedForUnderAgeOfConsent = ageBand == .youngTeen || ageBand == .under13
+        return parameters
+    }
+
+    func requestConsent(for ageBand: AdAgeBand?) async throws -> ConsentSnapshot {
+        guard ageBand != .under13 else { throw CancellationError() }
+        return try await operations.run { [self] generation in
+            currentAgeBand = ageBand
+            let parameters = Self.requestParameters(for: ageBand)
+            #if DEBUG
+                let arguments = ProcessInfo.processInfo.arguments
+                if arguments.contains("--ump-debug-reset"), !didApplyDebugReset {
+                    ConsentInformation.shared.reset()
+                    didApplyDebugReset = true
+                }
+                if arguments.contains("--ump-debug-eea") {
+                    let debugSettings = DebugSettings()
+                    debugSettings.geography = .EEA
+                    parameters.debugSettings = debugSettings
+                }
+            #endif
+            consoleDiagnostic("requesting consent information")
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, Error>) in
+                ConsentInformation.shared.requestConsentInfoUpdate(with: parameters) { error in
+                    if let error { continuation.resume(throwing: error) } else { continuation.resume() }
                 }
             }
+            try operations.check(generation)
+            consoleDiagnostic("consent information updated; \(statusDescription)")
+            try await ConsentForm.loadAndPresentIfRequired(from: nil)
+            try operations.check(generation)
+            await requestTrackingIfEligible()
+            try operations.check(generation)
+            validatedSnapshot = sdkSnapshot
+            return validatedSnapshot
         }
-        consoleDiagnostic("consent information updated; \(statusDescription)")
-        try await ConsentForm.loadAndPresentIfRequired(from: nil)
-        consoleDiagnostic("required form completed; \(statusDescription)")
-        return currentSnapshot
     }
 
     func presentPrivacyOptions() async throws -> ConsentSnapshot {
-        try await ConsentForm.presentPrivacyOptionsForm(from: nil)
-        return currentSnapshot
+        return try await operations.run { [self] generation in
+            try await ConsentForm.presentPrivacyOptionsForm(from: nil)
+            try operations.check(generation)
+            await requestTrackingIfEligible()
+            try operations.check(generation)
+            validatedSnapshot = sdkSnapshot
+            return validatedSnapshot
+        }
+    }
+
+    private var sdkSnapshot: ConsentSnapshot {
+        ConsentSnapshot(
+            canRequestAds: ConsentInformation.shared.canRequestAds,
+            privacyOptionsRequirement: privacyRequirement,
+            allowsPersonalizedAds: TrackingConsentPolicy.permitsPersonalization(
+                age: currentAgeBand, regulatoryConsent: regulatoryPersonalizationAllowed,
+                permission: tracking.permission
+            )
+        )
+    }
+
+    private var regulatoryPersonalizationAllowed: Bool {
+        let defaults = UserDefaults.standard
+        return ConsentInformation.shared.canRequestAds
+            && TrackingConsentPolicy.permitsGooglePersonalization(
+                consentNotRequired: ConsentInformation.shared.consentStatus == .notRequired,
+                gdprApplies: (defaults.object(forKey: "IABTCF_gdprApplies") as? NSNumber)?.intValue,
+                purposes: defaults.string(forKey: "IABTCF_PurposeConsents"),
+                vendors: defaults.string(forKey: "IABTCF_VendorConsents")
+            )
+    }
+
+    private func requestTrackingIfEligible() async {
+        guard
+            TrackingConsentPolicy.shouldRequest(
+                age: currentAgeBand, regulatoryConsent: regulatoryPersonalizationAllowed,
+                permission: tracking.permission
+            )
+        else { return }
+        _ = await tracking.request()
     }
 
     private var privacyRequirement: PrivacyOptionsRequirement {
@@ -85,9 +155,22 @@ final class GoogleAdsService: NSObject, AdsServing {
     var onInterstitialPresentationBegan: (() -> Void)?
     var onInterstitialPresentationEnded: (() -> Void)?
 
+    private let initializeSDK: @MainActor () async -> Void
+
+    init(
+        initializeSDK: @escaping @MainActor () async -> Void = {
+            _ = await MobileAds.shared.start()
+        }
+    ) {
+        self.initializeSDK = initializeSDK
+        super.init()
+    }
+
     private var configuration: AdsConfiguration?
+    private var allowsPersonalizedAds = false
     private var hasStarted = false
-    private var hasInitializedSDK = false
+    private var sdkInitializationTask: Task<Void, Never>?
+    private var inventoryGeneration = 0
     private var isApplicationActive = true
     private weak var bannerContainer: UIView?
     private var bannerView: BannerView?
@@ -103,8 +186,11 @@ final class GoogleAdsService: NSObject, AdsServing {
         category: "Ads"
     )
 
-    func configure(_ configuration: AdsConfiguration) {
+    func configure(_ configuration: AdsConfiguration, ageBand: AdAgeBand?, allowsPersonalizedAds: Bool = false) {
+        destroyAll()
+        guard ageBand != .under13 else { return }
         self.configuration = configuration
+        self.allowsPersonalizedAds = allowsPersonalizedAds && ageBand == .adult
         bannerRoute = AdUnitRoute(
             primaryUnitID: configuration.bannerUnitID,
             fallbackUnitID: configuration.fallbackBannerUnitID
@@ -116,31 +202,53 @@ final class GoogleAdsService: NSObject, AdsServing {
         bannerWaitsForForegroundRetry = false
         let requestConfiguration = MobileAds.shared.requestConfiguration
         requestConfiguration.maxAdContentRating = GADMaxAdContentRating.general
-        requestConfiguration.ageRestrictedTreatment = .unspecified
-        requestConfiguration.publisherPrivacyPersonalizationState = .disabled
-        requestConfiguration.setPublisherFirstPartyIDEnabled(false)
+        requestConfiguration.ageRestrictedTreatment = Self.ageRestrictedTreatment(for: ageBand)
+        requestConfiguration.publisherPrivacyPersonalizationState = self.allowsPersonalizedAds ? .enabled : .disabled
+        requestConfiguration.setPublisherFirstPartyIDEnabled(self.allowsPersonalizedAds)
         requestConfiguration.testDeviceIdentifiers =
             configuration.testDeviceIdentifiers.isEmpty
             ? nil
             : configuration.testDeviceIdentifiers
         logger.notice(
-            "Configured ads route: \(configuration.isOwnerDevice ? "owner primary with demo fallback" : "demo", privacy: .public)"
+            "Configured ads route: \(configuration.routeDescription, privacy: .public)"
         )
-        consoleDiagnostic(
-            configuration.isOwnerDevice ? "route=owner-primary" : "route=demo"
-        )
+        consoleDiagnostic("route=\(configuration.routeDescription)")
+    }
+
+    static func ageRestrictedTreatment(for ageBand: AdAgeBand?) -> AgeRestrictedTreatment {
+        switch ageBand {
+        case .some(.under13), .some(.youngTeen): .child
+        case .some(.olderTeen): .teen
+        case .none, .some(.adult): .unspecified
+        }
+    }
+
+    static func nonPersonalizedRequest() -> Request {
+        let request = Request()
+        let extras = Extras()
+        extras.additionalParameters = ["npa": "1"]
+        request.register(extras)
+        return request
+    }
+
+    private func adRequest() -> Request {
+        // ATT can be revoked in Settings while the app is backgrounded.
+        allowsPersonalizedAds && AppleTrackingAuthorization().permission == .authorized
+            ? Request() : Self.nonPersonalizedRequest()
     }
 
     func start() async {
-        guard !hasStarted else { return }
-        hasStarted = true
-        if !hasInitializedSDK {
-            hasInitializedSDK = true
-            let status = await MobileAds.shared.start()
-            consoleDiagnostic(
-                "sdk initialized adapters=\(status.adapterStatusesByClassName.count)"
-            )
+        guard !hasStarted, configuration != nil else { return }
+        let generation = inventoryGeneration
+        if sdkInitializationTask == nil {
+            sdkInitializationTask = Task { @MainActor [self] in
+                await initializeSDK()
+                consoleDiagnostic("sdk initialized")
+            }
         }
+        await sdkInitializationTask?.value
+        guard generation == inventoryGeneration else { return }
+        hasStarted = true
     }
 
     func attachBanner(to container: UIView, availableWidth: CGFloat) {
@@ -186,7 +294,7 @@ final class GoogleAdsService: NSObject, AdsServing {
         consoleDiagnostic(
             "banner request route=\(route.isUsingFallback ? "demo-fallback" : "primary")"
         )
-        banner.load(Request())
+        banner.load(adRequest())
     }
 
     func detachBanner(from container: UIView) {
@@ -206,21 +314,26 @@ final class GoogleAdsService: NSObject, AdsServing {
             interstitialRoute != nil
         else { return }
 
+        let generation = inventoryGeneration
         interstitialLoadTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { interstitialLoadTask = nil }
-            await loadInterstitialWithFallback()
+            defer {
+                if generation == inventoryGeneration { interstitialLoadTask = nil }
+            }
+            await loadInterstitialWithFallback(generation: generation)
         }
     }
 
-    private func loadInterstitialWithFallback() async {
-        while hasStarted, isApplicationActive, let route = interstitialRoute {
+    private func loadInterstitialWithFallback(generation: Int) async {
+        while generation == inventoryGeneration, !Task.isCancelled,
+            hasStarted, isApplicationActive, let route = interstitialRoute
+        {
             do {
                 let ad = try await InterstitialAd.load(
                     with: route.currentUnitID,
-                    request: Request()
+                    request: adRequest()
                 )
-                guard hasStarted else { return }
+                guard generation == inventoryGeneration, !Task.isCancelled, hasStarted else { return }
                 ad.fullScreenContentDelegate = self
                 interstitialAd = ad
                 interstitialLoadedAt = Date()
@@ -232,6 +345,7 @@ final class GoogleAdsService: NSObject, AdsServing {
                 )
                 return
             } catch {
+                guard generation == inventoryGeneration, !Task.isCancelled, hasStarted else { return }
                 let nsError = error as NSError
                 logger.error(
                     "Interstitial preload failed [\(nsError.domain, privacy: .public):\(nsError.code, privacy: .public)]: \(nsError.localizedDescription, privacy: .public)"
@@ -279,7 +393,11 @@ final class GoogleAdsService: NSObject, AdsServing {
     }
 
     func destroyAll() {
+        inventoryGeneration += 1
         hasStarted = false
+        configuration = nil
+        bannerRoute = nil
+        interstitialRoute = nil
         interstitialLoadTask?.cancel()
         interstitialLoadTask = nil
         interstitialAd?.fullScreenContentDelegate = nil
@@ -405,21 +523,24 @@ extension GoogleAdsService: BannerViewDelegate {
 }
 
 extension GoogleAdsService: FullScreenContentDelegate {
-    func adWillPresentFullScreenContent(_: FullScreenPresentingAd) {
+    func adWillPresentFullScreenContent(_ ad: FullScreenPresentingAd) {
+        guard ad === interstitialAd, hasStarted else { return }
         onInterstitialPresentationBegan?()
     }
 
     func ad(
-        _: FullScreenPresentingAd,
+        _ ad: FullScreenPresentingAd,
         didFailToPresentFullScreenContentWithError _: Error
     ) {
+        guard ad === interstitialAd, hasStarted else { return }
         interstitialAd = nil
         interstitialLoadedAt = nil
         isPresentingInterstitial = false
         onInterstitialPresentationEnded?()
     }
 
-    func adDidDismissFullScreenContent(_: FullScreenPresentingAd) {
+    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
+        guard ad === interstitialAd, hasStarted else { return }
         interstitialAd = nil
         interstitialLoadedAt = nil
         isPresentingInterstitial = false
@@ -436,6 +557,10 @@ final class FakeConsentService: ConsentServing {
     var snapshot: ConsentSnapshot
     var requestError: Error?
     var privacyOptionsError: Error?
+    var requestDelay: Duration?
+    var privacyOptionsDelay: Duration?
+    private(set) var requestedAgeBands: [AdAgeBand?] = []
+    private(set) var invalidateCount = 0
     private(set) var requestCount = 0
     private(set) var privacyOptionsPresentationCount = 0
 
@@ -450,16 +575,23 @@ final class FakeConsentService: ConsentServing {
 
     var currentSnapshot: ConsentSnapshot { snapshot }
 
-    func requestConsent() async throws -> ConsentSnapshot {
+    func invalidate() { invalidateCount += 1 }
+
+    func requestConsent(for ageBand: AdAgeBand?) async throws -> ConsentSnapshot {
         requestCount += 1
+        requestedAgeBands.append(ageBand)
+        let result = snapshot
+        if let requestDelay { try await Task.sleep(for: requestDelay) }
         if let requestError { throw requestError }
-        return snapshot
+        return result
     }
 
     func presentPrivacyOptions() async throws -> ConsentSnapshot {
         privacyOptionsPresentationCount += 1
+        let result = snapshot
+        if let privacyOptionsDelay { try await Task.sleep(for: privacyOptionsDelay) }
         if let privacyOptionsError { throw privacyOptionsError }
-        return snapshot
+        return result
     }
 }
 
@@ -472,6 +604,8 @@ final class FakeAdsService: AdsServing {
     var interstitialAvailable = true
     var beginsPresentation = true
     var startDelay: Duration?
+    private(set) var configuredAgeBands: [AdAgeBand?] = []
+    private var inventoryGeneration = 0
     private(set) var configureCount = 0
     private(set) var startCount = 0
     private(set) var bannerAttachCount = 0
@@ -493,7 +627,12 @@ final class FakeAdsService: AdsServing {
         label.accessibilityIdentifier = "fake-ad-banner"
     }
 
-    func configure(_: AdsConfiguration) {
+    private(set) var configuredPersonalization: [Bool] = []
+
+    func configure(_: AdsConfiguration, ageBand: AdAgeBand?, allowsPersonalizedAds: Bool) {
+        configuredAgeBands.append(ageBand)
+        configuredPersonalization.append(allowsPersonalizedAds)
+        label.accessibilityValue = allowsPersonalizedAds ? "personalized" : "non-personalized"
         configureCount += 1
         configured = true
     }
@@ -501,9 +640,11 @@ final class FakeAdsService: AdsServing {
     func start() async {
         guard configured else { return }
         startCount += 1
+        let generation = inventoryGeneration
         if let startDelay {
             try? await Task.sleep(for: startDelay)
         }
+        guard generation == inventoryGeneration else { return }
         started = true
     }
 
@@ -557,7 +698,9 @@ final class FakeAdsService: AdsServing {
     }
 
     func destroyAll() {
+        inventoryGeneration += 1
         destroyCount += 1
+        configured = false
         started = false
         hasResolvedBanner = false
         label.removeFromSuperview()

@@ -63,3 +63,18 @@ expect_failure run_validator OwnerAdsQA owner-real-test "$app_id" \
     "$production_banner" "$production_interstitial" 'bootstrap-hash-capture'
 expect_failure run_validator Debug demo 'placeholder' \
     "$demo_banner" "$demo_interstitial" ''
+
+for release_mode in disabled live; do
+    banner=''
+    interstitial=''
+    if test "$release_mode" = live; then
+        banner="$production_banner"
+        interstitial="$production_interstitial"
+    fi
+    expect_failure run_validator Release "$release_mode" "$app_id" "$banner" "$interstitial" \
+        '' "$production_banner" '' ''
+    expect_failure run_validator Release "$release_mode" "$app_id" "$banner" "$interstitial" \
+        '' '' "$production_interstitial" ''
+    expect_failure run_validator Release "$release_mode" "$app_id" "$banner" "$interstitial" \
+        '' '' '' "$owner_idfv_hash"
+done

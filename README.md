@@ -1,44 +1,85 @@
 # PimPoPom
 
 PimPoPom is an iPhone-only color-reaction game built with SwiftUI, SpriteKit,
-GameKit, StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade,
-Zen, and a 2–4-player Multiplayer beta are implemented.
+StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen are
+retained alongside 2–4-player online Multiplayer v2. Game Center remains a
+separate account/publication integration.
+
+This branch delivers **1.02 (34)** to address App Review's tracking-permission
+and Age Assurance findings. It checks Apple regional eligibility first and uses
+Apple's range where required. Elsewhere, one local age-group question includes
+Skip. Only consenting adults can enable personalized ads after native ATT
+approval. Login/logout preserves age and consent choices. Main-menu Settings
+contains legal documents and available privacy choices.
+
+Build 33 was rejected by App Review on 18 September 2026. Build 34 is active in
+both TestFlight QA groups and submitted for public App Review (Waiting for Review,
+automatic release after approval). Exact delivery evidence is recorded in
+[RELEASE](docs/RELEASE.md). Validation is limited to launch, age and consent.
+See [build 34 correction](docs/APP_REVIEW_FIX_34.md).
+
+The following build-32 preparation record is historical.
+
+Build 32 added Apple Declared Age Range and read-only
+Apple-supplied ages, retaining the 13+ policy and three-game ad cadence. The owner
+authorized TestFlight upload and submission of the same build for public App Store
+review. Physical/manual QA is deferred, and only age/consent tests are requested.
+Build 30 is the last uploaded build verified before preparation; build 31 remains
+local only. Exact build32 archive/upload evidence is recorded separately after it
+happens. See [build32 scope](docs/PRODUCTION_CANDIDATE_32.md).
+Checked-in Release ads remain disabled; authorized archives use an ignored private
+override with verified production units and no QA identifiers.
+
+The following build-29 release record is historical context.
+
+Build 29 adds score-ranked Multiplayer, two coins per eligible connected/alive
+minute, guided practice, lobby privacy editing and themed gameplay feedback.
+See [build-29 rules and QA limitations](docs/MP29_GAMEPLAY_TUTORIALS.md).
+PHP migration 025 and Railway deployment are verified. Build 29 is approved and
+available to the existing Internal QA and External QA TestFlight groups.
 
 The owner directed the product and accepted each release. Codex and GPT-5.6
 supported implementation, tests, asset generation, documentation, and release
-automation; generated work was reviewed through the same gates as hand-written
-work.
+automation. Per-release verification, failures and owner-authorized exceptions
+are recorded explicitly.
 
-## Current version
+## Historical build-29 version
 
 | Item | Current truth |
 | --- | --- |
-| App configuration | iOS 17+, iPhone, Swift 6, `1.02 (23)` candidate |
-| Current TestFlight | Build 22; valid, Internal QA only; known unstable Multiplayer recovery |
-| Candidate | Build 23 source; not archived or uploaded |
-| Rollback beta | Build 20 from `69fe7422719dd4953e90354a2ae3f3c976995db7` |
-| Open release gate | Physical 2/3/4-device, reconnect, and 60/120 Hz acceptance |
-| Production App Store | Not released |
+| App configuration | iOS 17+, iPhone, Swift 6; `1.02 (29)` |
+| TestFlight state | Build 29 VALID; review APPROVED; both QA groups IN_BETA_TESTING (2026-09-11 19:02:18 UTC) |
+| Exact uploaded iOS source | `199bf48f6dccbc0b1a3b234dc12aca3977c16a50` |
+| Hosting | Railway Amsterdam `9ec61784`, gameplay revision 3 / discovery 2; PHP `bf0ef1b` verified, schema 025 |
+| Previous supported beta | Build 28 / gameplay revision 2; build 25 uses separate revision-1 rooms |
+| Open QA gates | Final tutorial/stamp UI checks; real-account rewards and hosted matches; physical/network/accessibility acceptance; legal/reviewer readiness |
+| Production App Store | No production release established by this work |
 | Backend | `https://speedytapper.otcsoft.com`; server code lives in another repository |
 
-Build 23 keeps next-frame local feedback but replaces build 22's harsh recovery:
-ordinary gaps stay interactive, `Catching up` appears only after one second, and
-recovery has a 15-second ceiling. Start, pause, Resume, Finish, cancel, evidence,
-and snapshots are retained or retried without changing PHP transcript/proof v1.
-Resume advances after its reliable send reaches every intended peer; exact ACK
-recovery continues in the background.
-It is a tested source candidate, not a TestFlight deployment. See
-[the current slice](docs/CURRENT_VERSION.md).
+Build 24 is the earlier GameKit/v1 beta; build 25 retains v2 gameplay revision 1
+in separate compatible rooms. Build 26 adds Arcade pacing, changing unique colors,
+persistent safe-color decoys and shared hearts.
+V2 replaces live peer synchronization with a persistent Swift room authority and
+reuses the Arcade SpriteKit board. The owner confirmed one identical shared board;
+waiting for an own-color opportunity, including on 1×1, is intentional. Numerical
+Arcade rules are shared, but cell contention and delivery headroom can extend
+personal target spacing. The owner has now authorized Railway EU deployment,
+the separate PHP v2 bridge, and TestFlight QA distribution. No paid-plan upgrade
+or App Store production submission is authorized. See [current status](docs/CURRENT_VERSION.md).
 
-## Implemented product
+## Build-29 product
 
 - **Arcade:** endless three-life play with progressive boards, decoys, reaction
-  ratings, streak multipliers, protocol-verified ranking, coins, and achievements.
+  ratings, streak multipliers, heart/clock pickups, protocol-verified ranking,
+  coins, and achievements.
 - **Zen:** endless local practice with no lives, deadline, decoys, ranking, coins,
   achievements, or durable result.
-- **Multiplayer beta:** 2–4 signed-in players, own-color targets, GameKit live
-  traffic, PHP lobby/manifest/replay/settlement, no coins or achievements, and
-  protocol-verified peer-consistent results.
+- **Multiplayer v2 playtest:** 2–4 signed-in, confirmed-name players on one shared
+  progressive board; own-color targets, independent scores/lives, socket-owned
+  rooms and Ready/Start, and no Game Center prerequisite. Revision 3 continues
+  until all players are out; highest final score wins. Eligible completed results
+  enter the v2 leaderboard and earn two coins per alive-connected minute. No
+  achievements or Game Center publication; older revisions remain unranked/unrewarded.
 - **Identity:** Sign in with Apple and Google map to one internal profile; Game
   Center is a verified secondary link and never authenticates a wallet.
 - **Economy:** the server owns coins, achievements, catalogs, purchases, and
@@ -48,9 +89,10 @@ It is a tested source candidate, not a TestFlight deployment. See
 - **Presentation:** Default, Disco, Light, and Pixel themes; selectable icons;
   pets; independent Sound FX, music, haptics, and glyph settings.
 
-The current [FAST Multiplayer slice](docs/MULTIPLAYER_FAST_TASK.md) is implemented
-in build 23. PHP compatibility remains v1; host migration, custom LAN routing, and
-concurrent per-seat targets remain deferred.
+The [v2 implementation brief](docs/MULTIPLAYER_V2_REBUILD.md) describes current
+behavior and remaining gates. [Hosting options](docs/MULTIPLAYER_V2_HOSTING.md)
+remain background research; Railway Amsterdam is now deployed and boundary-tested.
+See the [deployment record](Server/DEPLOYMENT_RAILWAY.md). The old FAST design is superseded.
 
 ## Build and test
 
@@ -74,6 +116,10 @@ visibly says **Test mode**.
 
 ## Documentation
 
+For v2, use the current slice, v2 brief, shared `MP2*` source,
+and [service contract](Server/README.md). Older v1 gameplay/API/release sections
+describe the retained beta/backend baseline, not proof of v2 deployment.
+
 | Concern | Current source |
 | --- | --- |
 | Version, release state, and known gaps | [CURRENT_VERSION](docs/CURRENT_VERSION.md) |
@@ -84,7 +130,9 @@ visibly says **Test mode**.
 | Ads, StoreKit, economy, and privacy | [MONETIZATION_AND_PRIVACY](docs/MONETIZATION_AND_PRIVACY.md) |
 | Automated and physical quality gates | [TESTING](docs/TESTING.md) |
 | TestFlight/App Store release process | [RELEASE](docs/RELEASE.md) |
-| Approved Multiplayer latency work | [MULTIPLAYER_FAST_TASK](docs/MULTIPLAYER_FAST_TASK.md) |
+| Local Multiplayer v2 rules and integration | [MULTIPLAYER_V2_REBUILD](docs/MULTIPLAYER_V2_REBUILD.md) |
+| Hosting decision, prices and lifecycle caveats | [MULTIPLAYER_V2_HOSTING](docs/MULTIPLAYER_V2_HOSTING.md) |
+| Historical FAST pointer | [MULTIPLAYER_FAST_TASK](docs/MULTIPLAYER_FAST_TASK.md) |
 | Current visual evidence | [DESIGN_QA](docs/DESIGN_QA.md) |
 | Asset provenance | `assets/**/SOURCES.md` |
 | Privacy and security summaries | [PRIVACY](PRIVACY.md), [SECURITY](SECURITY.md) |
@@ -94,8 +142,9 @@ from Git history, not duplicated in the current working tree.
 
 ## Repository boundaries
 
-This repository owns the native client, pure Swift rules, tests, resources, and
-iOS compatibility contracts. It does not own or contain the PHP implementation.
+This repository owns the native client, pure Swift rules, the separate `Server/`
+Vapor package, tests, resources, and iOS compatibility contracts. It does not own
+or contain the PHP implementation.
 Backend changes require a separate reviewed task in the backend repository; an
 iOS task must never edit, restore, stage, commit, or deploy that repository.
 

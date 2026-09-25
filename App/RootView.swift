@@ -20,6 +20,7 @@ struct RootView: View {
     let appleIdentity: AppleIdentityService
 
     @State private var navigationPath: [GameMode] = []
+    @State private var completedAccountStartup: AdsController.ConfirmedAccountStartupID?
     @State private var showsProfile = false
     @State private var showsAchievements = false
     @State private var opensProfileAfterAchievements = false
@@ -30,6 +31,7 @@ struct RootView: View {
     @State private var showsScreenshotPetShop = false
     @State private var showsScreenshotLeaderboard = false
     @State private var showsMultiplayerUITestFixture = false
+    @State private var tutorialFixtureMode: HowToPlayMode?
     @State private var motivationIndex: Int?
     @State private var hasCompletedGameThisLaunch = false
     @State private var isMenuSurfaceVisible = true
@@ -91,14 +93,10 @@ struct RootView: View {
             .coordinateSpace(name: "menu-space")
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: GameMode.self) { mode in
-                GameView(
-                    mode: mode,
-                    reservesAdSpacingForRun: ads.reservesBannerSlot
-                ) { completionID in
-                    ads.recordCompletedSession(id: completionID, mode: mode)
-                    guard !hasCompletedGameThisLaunch else { return }
-                    hasCompletedGameThisLaunch = true
-                    advanceMotivation()
+                if mode == .arcade {
+                    HowToPlayEntryView(mode: .arcade) { gameDestination(mode) }
+                } else {
+                    gameDestination(mode)
                 }
             }
             .navigationDestination(isPresented: $showsScreenshotThemeShop) {
@@ -115,7 +113,10 @@ struct RootView: View {
         .sheet(
             isPresented: $showsProfile,
             onDismiss: {
-                Task { await achievements.refresh(showLoading: false) }
+                Task {
+                    guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
+                    await achievements.refresh(showLoading: false)
+                }
             }
         ) {
             ProfileView(
@@ -164,7 +165,12 @@ struct RootView: View {
                 MultiplayerFlowView()
             }
         }
-        .task {
+        .fullScreenCover(item: $tutorialFixtureMode) { mode in
+            HowToPlayReplayView(mode: mode)
+        }
+        .task(id: ads.ageConfirmationGeneration) {
+            let generation = ads.ageConfirmationGeneration
+            guard isCurrentAge(generation) else { return }
             configureDebugLaunch()
             openPendingQuickAction()
             audio.setApplicationActive(scenePhase == .active)
@@ -173,21 +179,35 @@ struct RootView: View {
             audio.configure(themeID: cosmetics.selectedThemeID, preferences: preferences)
             audio.setMusicContext(.menu)
             audio.playLaunchSting()
-            // UMP belongs to the application launch, not to an identity event.
-            // Refresh/present consent before restoring or changing the player session;
-            // AdsController still waits for authoritative ad-free resolution before GMA starts.
-            await ads.bootstrap(session: nil)
-            // Install GameKit's standard authentication handler automatically
-            // after any required UMP form has left the presentation stack.
+            // Resolve the saved account entitlement before UMP/ad startup.
+            // Device age and consent choices persist across game account changes.
+            await restoreSession(ageGeneration: generation)
+            guard isCurrentAge(generation) else { return }
+            await ads.bootstrap(session: backend.sessionState)
+        }
+        // A later successful session lookup must resume deferred account services
+        // even when an offline launch kept the same locally declared age.
+        .task(id: ads.confirmedAccountStartupID(for: backend.sessionState)) {
+            guard let startup = ads.confirmedAccountStartupID(for: backend.sessionState) else { return }
+            guard completedAccountStartup != startup else { return }
+            let generation = startup.ageGeneration
+            @MainActor func isCurrentAccount() -> Bool {
+                isCurrentAge(generation)
+                    && ads.confirmedAccountStartupID(for: backend.sessionState) == startup
+            }
+            guard isCurrentAccount() else { return }
             gameCenter.authenticateAtLaunch()
-            await restoreSession()
             gameCenterAutoLink.reconcile()
-            await ads.updateSession(backend.sessionState)
-            await ads.retryEligibilityIfNeeded()
+            purchases.startTransactionListeners()
             await purchases.loadProducts()
+            guard isCurrentAccount() else { return }
             await purchases.reconcileOutstandingTransactions()
+            guard isCurrentAccount() else { return }
             await cosmetics.refresh()
+            guard isCurrentAccount() else { return }
             await achievements.refresh(showLoading: false)
+            guard isCurrentAccount() else { return }
+            completedAccountStartup = startup
         }
         .onChange(of: cosmetics.selectedThemeID) { _, themeID in
             audio.configure(themeID: themeID, preferences: preferences)
@@ -200,49 +220,71 @@ struct RootView: View {
             if pending { openPendingQuickAction() }
         }
         .onChange(of: scenePhase) { _, phase in
+            guard ads.allowsApp else { return }
+            let generation = ads.ageConfirmationGeneration
             audio.setApplicationActive(phase == .active)
             ads.setApplicationActive(phase == .active)
             multiplayer.setApplicationActive(phase == .active)
             if phase == .active, navigationPath.isEmpty {
                 audio.setMusicContext(.menu)
             }
-            if phase == .active {
-                gameCenter.authenticateAtLaunch()
-                gameCenterAutoLink.reconcile()
+            if phase == .active, let startup = ads.confirmedAccountStartupID(for: backend.sessionState) {
                 Task {
+                    guard isCurrentAge(generation) else { return }
                     await ads.retryEligibilityIfNeeded()
+                    guard isCurrentAge(generation),
+                        ads.confirmedAccountStartupID(for: backend.sessionState) == startup
+                    else { return }
+                    gameCenter.authenticateAtLaunch()
+                    gameCenterAutoLink.reconcile()
                     await purchases.reconcileOutstandingTransactions()
                 }
             }
         }
         .onChange(of: backend.sessionState) { _, _ in
-            gameCenterAutoLink.reconcile()
-            multiplayer.refreshAvailability()
+            guard ads.allowsApp else { return }
+            let generation = ads.ageConfirmationGeneration
             Task {
                 await ads.updateSession(backend.sessionState)
+                guard isCurrentAge(generation),
+                    ads.confirmedAccountStartupID(for: backend.sessionState) != nil
+                else { return }
+                gameCenterAutoLink.reconcile()
+                multiplayer.refreshAvailability()
                 await purchases.reconcileOutstandingTransactions()
             }
         }
         .onChange(of: backend.isAuthenticated) { wasAuthenticated, isAuthenticated in
-            guard wasAuthenticated != isAuthenticated else { return }
+            guard wasAuthenticated != isAuthenticated,
+                ads.isAgeConfirmed(for: backend.sessionState)
+            else { return }
             gameCenterAutoLink.reconcile()
         }
         .onChange(of: backend.profile?.id) { oldPlayerID, newPlayerID in
-            guard oldPlayerID != newPlayerID else { return }
+            guard oldPlayerID != newPlayerID,
+                ads.isAgeConfirmed(for: backend.sessionState)
+            else { return }
             gameCenter.clearRuntimeVerification()
             gameCenterAutoLink.reconcile()
         }
         .onChange(of: gameCenter.state) { _, _ in
+            guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
             gameCenterAutoLink.reconcile()
             multiplayer.refreshAvailability()
         }
         .onChange(of: navigationPath.isEmpty) { wasEmpty, isEmpty in
             guard isEmpty, !wasEmpty else { return }
-            Task { await achievements.refresh(showLoading: false) }
+            Task {
+                guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
+                await achievements.refresh(showLoading: false)
+            }
         }
         .onChange(of: cosmetics.ownedPetIDs) { oldIDs, newIDs in
             guard newIDs.count > oldIDs.count else { return }
-            Task { await achievements.refresh(showLoading: false) }
+            Task {
+                guard ads.isAgeConfirmed(for: backend.sessionState) else { return }
+                await achievements.refresh(showLoading: false)
+            }
         }
     }
 
@@ -376,8 +418,13 @@ struct RootView: View {
                 LeaderboardView()
             } label: {
                 ZStack {
-                    Image(systemName: "trophy.fill")
-                        .font(.system(size: 16, weight: .bold))
+                    if palette.isPixel {
+                        ThemedMenuFeatureIcon(systemImage: "trophy.fill", theme: palette)
+                            .frame(width: 22, height: 22)
+                    } else {
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 16, weight: .bold))
+                    }
                 }
                 .frame(
                     width: WebMenuMetrics.utilityTarget,
@@ -410,8 +457,15 @@ struct RootView: View {
             Button {
                 showsProfile = true
             } label: {
-                Image(systemName: backend.profile == nil ? "person" : "person.fill")
-                    .font(.system(size: 17, weight: .bold))
+                if palette.isPixel {
+                    ThemedMenuFeatureIcon(
+                        systemImage: backend.profile == nil ? "person" : "person.fill", theme: palette
+                    )
+                    .frame(width: 22, height: 22)
+                } else {
+                    Image(systemName: backend.profile == nil ? "person" : "person.fill")
+                        .font(.system(size: 17, weight: .bold))
+                }
             }
             .buttonStyle(
                 WebSecondaryButtonStyle(
@@ -534,7 +588,7 @@ struct RootView: View {
                         availability: multiplayer.availability,
                         theme: palette
                     ) {
-                        MultiplayerFlowView()
+                        HowToPlayEntryView(mode: .multiplayer) { MultiplayerFlowView() }
                     }
                 }
             }
@@ -688,22 +742,9 @@ struct RootView: View {
 
     private func modeLink(_ mode: GameMode) -> some View {
         NavigationLink(value: mode) {
-            VStack(spacing: mode == .zen ? 3 : 0) {
-                Text(mode.displayName)
-                    .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
-                if mode == .zen {
-                    Text("NO COINS AWARDED")
-                        .font(
-                            palette.appFont(
-                                size: palette.legibleSmallCopySize(9),
-                                weight: .bold,
-                                relativeTo: .caption2
-                            )
-                        )
-                        .tracking(0.55)
-                }
-            }
-            .foregroundStyle(mode == .arcade ? Color(hex: "#fff7f8") : Color(hex: "#0b2d17"))
+            Text(mode.displayName)
+                .font(palette.appFont(size: 20, weight: .black, relativeTo: .title3))
+                .foregroundStyle(mode == .arcade ? Color(hex: "#fff7f8") : Color(hex: "#0b2d17"))
         }
         .buttonStyle(
             WebModeButtonStyle(
@@ -712,6 +753,15 @@ struct RootView: View {
             )
         )
         .accessibilityIdentifier("mode-\(mode.rawValue)")
+    }
+
+    private func gameDestination(_ mode: GameMode) -> some View {
+        GameView(mode: mode, reservesAdSpacingForRun: ads.reservesBannerSlot) { completionID in
+            ads.recordCompletedSession(id: completionID, mode: mode)
+            guard !hasCompletedGameThisLaunch else { return }
+            hasCompletedGameThisLaunch = true
+            advanceMotivation()
+        }
     }
 
     private func featureLabel(_ title: String, systemImage: String, value: String) -> some View {
@@ -728,9 +778,8 @@ struct RootView: View {
             .frame(maxWidth: .infinity)
 
             HStack(spacing: 0) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 24, weight: .black))
-                    .frame(width: 28)
+                ThemedMenuFeatureIcon(systemImage: systemImage, theme: palette)
+                    .frame(width: 28, height: 28)
                 Spacer(minLength: 0)
             }
             .padding(.leading, WebMenuMetrics.featureIconLeadingInset)
@@ -874,14 +923,17 @@ struct RootView: View {
         #endif
     }
 
-    private func restoreSession() async {
+    private func isCurrentAge(_ generation: Int) -> Bool {
+        ads.allowsApp && ads.ageConfirmationGeneration == generation && !Task.isCancelled
+    }
+
+    private func restoreSession(ageGeneration: Int) async {
         do {
+            guard isCurrentAge(ageGeneration) else { return }
             let session = try await backend.loadSession()
-            guard !session.authenticated,
-                let token = try await googleIdentity.restoreIDTokenIfAvailable()
-            else {
-                return
-            }
+            guard isCurrentAge(ageGeneration), !session.authenticated else { return }
+            let token = try await googleIdentity.restoreIDTokenIfAvailable()
+            guard isCurrentAge(ageGeneration), let token else { return }
             _ = try await backend.login(googleIDToken: token)
         } catch {
             // Profile presents actionable sign-in errors; launch restoration stays non-blocking.
@@ -891,6 +943,7 @@ struct RootView: View {
     private func configureDebugLaunch() {
         #if DEBUG
             let arguments = ProcessInfo.processInfo.arguments
+            tutorialFixtureMode = HowToPlayLaunchPolicy.fixtureMode(arguments: arguments)
             if arguments.contains("--ui-test-glyphs-off") {
                 preferences.glyphsEnabled = false
             } else if arguments.contains("--ui-test-glyphs-on") {
@@ -906,6 +959,8 @@ struct RootView: View {
                 || arguments.contains("--ui-test-multiplayer-live-fixture")
                 || arguments.contains("--ui-test-multiplayer-catch-up-fixture")
                 || arguments.contains("--ui-test-multiplayer-hub-fixture")
+                || arguments.contains("--ui-test-multiplayer-spectating-fixture")
+                || arguments.contains("--ui-test-multiplayer-results-fixture")
             {
                 showsMultiplayerUITestFixture = true
             }
@@ -951,49 +1006,52 @@ struct RootView: View {
     }
 }
 
-#Preview {
-    let backend = BackendClient()
-    let preferences = AppPreferences()
-    let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
-    let achievements = AchievementsController(backend: backend)
-    let purchases = PurchaseController(creditService: backend, startListeners: false)
-    let gameCenter = GameCenterService(arguments: ["--uitesting"])
-    let audio = AudioController()
-    let gameCenterAutoLink = GameCenterAutoLinkController(
-        backend: backend,
-        gameCenter: gameCenter
-    )
-    let multiplayer = MultiplayerController(
-        backend: backend,
-        gameCenter: gameCenter,
-        audio: audio
-    )
-    let ads = AdsController(
-        configuration: AdsConfiguration(
-            mode: .disabled,
-            appID: AdsConfiguration.realAppID,
-            bannerUnitID: "",
-            interstitialUnitID: "",
-            testDeviceIdentifiers: []
-        ),
-        consentService: FakeConsentService(),
-        adsService: FakeAdsService(),
-        progressStore: MemoryInterstitialProgressStore()
-    )
-    RootView(
-        googleIdentity: GoogleIdentityService(),
-        appleIdentity: AppleIdentityService()
-    )
-    .environmentObject(backend)
-    .environmentObject(preferences)
-    .environmentObject(cosmetics)
-    .environmentObject(achievements)
-    .environmentObject(audio)
-    .environmentObject(AppIconController())
-    .environmentObject(HomeQuickActionController.shared)
-    .environmentObject(gameCenter)
-    .environmentObject(gameCenterAutoLink)
-    .environmentObject(multiplayer)
-    .environmentObject(purchases)
-    .environmentObject(ads)
-}
+#if DEBUG
+    #Preview {
+        let backend = BackendClient()
+        let preferences = AppPreferences()
+        let cosmetics = CosmeticsController(backend: backend, preferences: preferences)
+        let achievements = AchievementsController(backend: backend)
+        let purchases = PurchaseController(creditService: backend, startListeners: false)
+        let gameCenter = GameCenterService(arguments: ["--uitesting"])
+        let audio = AudioController()
+        let gameCenterAutoLink = GameCenterAutoLinkController(
+            backend: backend,
+            gameCenter: gameCenter
+        )
+        let multiplayer = MultiplayerController(
+            backend: backend,
+            gameCenter: gameCenter,
+            audio: audio
+        )
+        let ads = AdsController(
+            configuration: AdsConfiguration(
+                mode: .disabled,
+                appID: AdsConfiguration.realAppID,
+                bannerUnitID: "",
+                interstitialUnitID: "",
+                testDeviceIdentifiers: []
+            ),
+            consentService: FakeConsentService(),
+            adsService: FakeAdsService(),
+            progressStore: MemoryInterstitialProgressStore(),
+            ageStore: MemoryAdAgeBandStore(.adult)
+        )
+        RootView(
+            googleIdentity: GoogleIdentityService(),
+            appleIdentity: AppleIdentityService()
+        )
+        .environmentObject(backend)
+        .environmentObject(preferences)
+        .environmentObject(cosmetics)
+        .environmentObject(achievements)
+        .environmentObject(audio)
+        .environmentObject(AppIconController())
+        .environmentObject(HomeQuickActionController.shared)
+        .environmentObject(gameCenter)
+        .environmentObject(gameCenterAutoLink)
+        .environmentObject(multiplayer)
+        .environmentObject(purchases)
+        .environmentObject(ads)
+    }
+#endif

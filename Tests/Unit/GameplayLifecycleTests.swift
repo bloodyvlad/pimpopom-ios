@@ -6,6 +6,231 @@ import XCTest
 
 @MainActor
 final class GameplayLifecycleTests: XCTestCase {
+    func testArcadeAccessibilityCellsKeepIdentityAndRefreshContentAndGeometry() throws {
+        let view = ArcadeSKView(frame: CGRect(x: 0, y: 0, width: 380, height: 380))
+        view.renderer.presentScene(GameScene())
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 2, cells: Array(repeating: Cell(), count: 4),
+            pickups: [ArcadePickup(id: 1, kind: .heart, cellIndex: 0, visibleAt: 0, expiresAt: 3_000)],
+            roundPresentationExpired: false, enabled: true)
+        view.refreshAccessibility()
+        let initial = try XCTUnwrap(view.accessibilityElements as? [UIAccessibilityElement])
+        XCTAssertEqual(initial.count, 4)
+        XCTAssertEqual(initial[0].accessibilityLabel, "Heart, restores one life, cell 1")
+        let initialFrame = initial[0].accessibilityFrameInContainerSpace
+        XCTAssertGreaterThan(initialFrame.width, 0)
+
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 2, cells: Array(repeating: Cell(), count: 4),
+            pickups: [ArcadePickup(id: 2, kind: .clock, cellIndex: 1, visibleAt: 0, expiresAt: 3_000)],
+            roundPresentationExpired: false, enabled: false)
+        view.refreshAccessibility()
+        let refreshed = try XCTUnwrap(view.accessibilityElements as? [UIAccessibilityElement])
+        for index in initial.indices { XCTAssertTrue(initial[index] === refreshed[index]) }
+        XCTAssertEqual(refreshed[0].accessibilityLabel, "Inactive cell 1")
+        XCTAssertEqual(refreshed[1].accessibilityLabel, "Clock, slows pace by 30 percent, cell 2")
+        XCTAssertTrue(refreshed[1].accessibilityTraits.contains(.notEnabled))
+        XCTAssertFalse(refreshed[1].accessibilityActivate())
+
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 4, cells: Array(repeating: Cell(), count: 16), pickups: [],
+            roundPresentationExpired: false, enabled: true)
+        view.refreshAccessibility()
+        let expanded = try XCTUnwrap(view.accessibilityElements as? [UIAccessibilityElement])
+        XCTAssertEqual(expanded.count, 16)
+        XCTAssertTrue(initial[0] === expanded[0])
+        XCTAssertLessThan(expanded[0].accessibilityFrameInContainerSpace.width, initialFrame.width)
+        XCTAssertFalse(expanded[0].accessibilityTraits.contains(.notEnabled))
+        view.boardState = ArcadeBoardAccessibilityState(
+            dimension: 1, cells: [Cell()], pickups: [], roundPresentationExpired: false, enabled: true)
+        view.refreshAccessibility()
+        XCTAssertEqual(view.accessibilityElements?.count, 1)
+    }
+
+    func testStoppedRunCannotAdvanceOrAcceptInputAndRestartResumes() throws {
+        let engine = GameEngine(ruleset: .v4, random: { 0 })
+        let coordinator = GameCoordinator(mode: .arcade, engine: engine)
+        defer { coordinator.stop() }
+        coordinator.startNewRun()
+        try advanceToTwoByTwo(coordinator, base: try XCTUnwrap(engine.startedAt) + 1_000)
+        let opportunity = try XCTUnwrap(engine.nextPickupOpportunityAt)
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: opportunity - 100)
+        coordinator.stop()
+        let proof = coordinator.proofEvents()
+        let snapshot = coordinator.snapshot
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: opportunity)
+        coordinator.gameScene(coordinator.scene, requestsDecoyActivationAt: opportunity)
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: opportunity)
+        coordinator.gameScene(
+            coordinator.scene, didTapCell: try XCTUnwrap(engine.targetIndex), normalizedLocation: .zero,
+            inputAt: opportunity, handledAt: opportunity)
+        for frame in 0..<4 {
+            coordinator.gameScene(coordinator.scene, didAdvanceTo: opportunity + 10_000 + Double(frame) * 17)
+        }
+        XCTAssertEqual(coordinator.proofEvents(), proof)
+        XCTAssertEqual(coordinator.snapshot, snapshot)
+        XCTAssertTrue(engine.activePickups.isEmpty)
+        XCTAssertFalse(coordinator.isFinished)
+        coordinator.startNewRun()
+        let nextStart = try XCTUnwrap(engine.startedAt)
+        try advanceToTwoByTwo(coordinator, base: nextStart + 1_000)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: try XCTUnwrap(engine.nextPickupOpportunityAt))
+        XCTAssertEqual(coordinator.snapshot.activePickups.count, 1)
+    }
+
+    func testDelayedHeartContactUsesOriginalGridAcrossFourByFourExpansion() throws {
+        let engine = GameEngine(ruleset: .v4, random: { 0 })
+        let coordinator = GameCoordinator(mode: .arcade, engine: engine)
+        defer { coordinator.stop() }
+        coordinator.startNewRun()
+        let base = try XCTUnwrap(engine.startedAt)
+        try advanceToTwoByTwo(coordinator, base: base + 1_000)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: base + 39_900)
+        let heart = try XCTUnwrap(engine.activePickups.first)
+        XCTAssertEqual(coordinator.snapshot.difficulty.gridDimension, 2)
+        let oldContact = try XCTUnwrap(
+            coordinator.scene.tapPoint(forCellAt: heart.cellIndex, horizontalFraction: 0.75, verticalFraction: 0.75))
+        coordinator.scene.recordSharedBoardPresentation(at: base + 39_900)
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: base + 40_001)
+        XCTAssertEqual(coordinator.snapshot.difficulty.gridDimension, 4)
+        coordinator.scene.recordSharedBoardPresentation(at: base + 40_001)
+        let currentTarget = engine.targetIndex
+        coordinator.scene.handleBoardTouch(at: oldContact, inputAt: base + 39_990, handledAt: base + 40_010)
+        XCTAssertTrue(engine.activePickups.isEmpty)
+        XCTAssertEqual(coordinator.proofEvents().last?.first, 8)
+        XCTAssertEqual(engine.targetIndex, currentTarget)
+        XCTAssertEqual(engine.misses, 0)
+    }
+
+    func testArcadeHeartRestoresLifeWithoutReplacingANewerTarget() throws {
+        let engine = GameEngine(ruleset: .v4, random: { 0 })
+        let coordinator = GameCoordinator(mode: .arcade, engine: engine)
+        defer { coordinator.stop() }
+        coordinator.startNewRun()
+        let base = try XCTUnwrap(engine.startedAt)
+        coordinator.gameScene(
+            coordinator.scene, didTapCell: 0, normalizedLocation: .zero,
+            inputAt: base + 100, handledAt: base + 100)
+        XCTAssertEqual(engine.lives, 2)
+        try advanceToTwoByTwo(coordinator, base: base + 2_000)
+        let opportunity = try XCTUnwrap(engine.nextPickupOpportunityAt)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: opportunity)
+        let heart = try XCTUnwrap(coordinator.snapshot.activePickups.first)
+        XCTAssertEqual(heart.kind, .heart)
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: opportunity + 100)
+        let target = engine.targetIndex
+        let hits = engine.hits
+        coordinator.gameScene(
+            coordinator.scene, didTapCell: heart.cellIndex, normalizedLocation: .zero,
+            inputAt: opportunity + 50, handledAt: opportunity + 150)
+        XCTAssertEqual(engine.lives, 3)
+        XCTAssertEqual(coordinator.pickupFeedbackEvent?.kind, .extraLife)
+        XCTAssertEqual(engine.targetIndex, target)
+        XCTAssertEqual(engine.hits, hits)
+        XCTAssertEqual(coordinator.proofEvents().last?.first, 8)
+        XCTAssertNil(coordinator.scene.childNode(withName: "cell-heart-\(heart.cellIndex)"))
+    }
+
+    func testArcadeClockPreservesActiveWindowAndRestartClearsItsEffect() throws {
+        let engine = GameEngine(ruleset: .v4, random: { 0.99 })
+        let coordinator = GameCoordinator(mode: .arcade, engine: engine)
+        defer { coordinator.stop() }
+        coordinator.startNewRun()
+        let base = try XCTUnwrap(engine.startedAt)
+        try advanceToTwoByTwo(coordinator, base: base + 1_000)
+        let opportunity = try XCTUnwrap(engine.nextPickupOpportunityAt)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: opportunity)
+        let clock = try XCTUnwrap(coordinator.snapshot.activePickups.first)
+        XCTAssertEqual(clock.kind, .clock)
+        XCTAssertNotNil(coordinator.scene.childNode(withName: "cell-clock-\(clock.cellIndex)"))
+        coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: opportunity + 100)
+        let window = engine.roundDifficulty?.responseWindowMilliseconds
+        coordinator.gameScene(
+            coordinator.scene, didTapCell: clock.cellIndex, normalizedLocation: .zero,
+            inputAt: opportunity + 150, handledAt: opportunity + 150)
+        XCTAssertEqual(engine.roundDifficulty?.responseWindowMilliseconds, window)
+        XCTAssertEqual(coordinator.snapshot.speedRate, 0.7, accuracy: 0.0001)
+        XCTAssertEqual(coordinator.pickupFeedbackEvent?.kind, .slowingDown)
+        XCTAssertEqual(engine.speedRate(now: opportunity + 5_150), 0.85, accuracy: 0.0001)
+        XCTAssertEqual(engine.speedRate(now: opportunity + 10_150), 1, accuracy: 0.0001)
+        coordinator.startNewRun()
+        XCTAssertEqual(coordinator.snapshot.speedRate, 1)
+        XCTAssertNil(coordinator.pickupFeedbackEvent)
+        XCTAssertTrue(coordinator.snapshot.activePickups.isEmpty)
+    }
+
+    func testPickupExpiryHidesImmediatelyButDrainsPreDeadlineContact() throws {
+        let engine = GameEngine(ruleset: .v4, random: { 0 })
+        let coordinator = GameCoordinator(mode: .arcade, engine: engine)
+        defer { coordinator.stop() }
+        coordinator.startNewRun()
+        try advanceToTwoByTwo(coordinator, base: try XCTUnwrap(engine.startedAt) + 1_000)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: try XCTUnwrap(engine.nextPickupOpportunityAt))
+        let heart = try XCTUnwrap(engine.activePickups.first)
+        coordinator.gameScene(coordinator.scene, didAdvanceTo: heart.expiresAt)
+        XCTAssertNil(coordinator.scene.childNode(withName: "cell-heart-\(heart.cellIndex)"))
+        XCTAssertEqual(engine.activePickups.count, 1)
+        coordinator.gameScene(
+            coordinator.scene, didTapCell: heart.cellIndex, normalizedLocation: .zero,
+            inputAt: heart.expiresAt - 1, handledAt: heart.expiresAt + 10)
+        XCTAssertTrue(engine.activePickups.isEmpty)
+        XCTAssertEqual(coordinator.proofEvents().last?.first, 8)
+        XCTAssertEqual(engine.misses, 0)
+    }
+
+    private func advanceToTwoByTwo(_ coordinator: GameCoordinator, base: Double) throws {
+        for offset in 0..<4 {
+            let now = base + Double(offset) * 1_000
+            coordinator.gameScene(coordinator.scene, requestsRoundActivationAt: now)
+            coordinator.gameScene(
+                coordinator.scene, didTapCell: try XCTUnwrap(coordinator.snapshot.targetIndex),
+                normalizedLocation: .zero, inputAt: now + 100, handledAt: now + 100)
+        }
+    }
+
+    func testSharedBoardHeartUsesCachedHUDArtworkInEveryTheme() throws {
+        for theme in ThemePalette.all {
+            let scene = GameScene()
+            scene.applyTheme(theme.id)
+            scene.applySharedBoard(dimension: 2, cells: Array(repeating: Cell(), count: 4), hearts: [1])
+            let heart = try XCTUnwrap(scene.childNode(withName: "cell-heart-1") as? SKSpriteNode)
+            XCTAssertTrue(heart.texture === GameplayPickupTextureFactory.texture(symbol: .heart, theme: theme))
+            XCTAssertEqual(heart.texture?.filteringMode, theme.isPixel ? .nearest : .linear)
+            XCTAssertGreaterThan(try XCTUnwrap(heart.texture).size().width, 0)
+            XCTAssertNil(scene.childNode(withName: "cell-clock-1"))
+            scene.applySharedBoard(dimension: 2, cells: Array(repeating: Cell(), count: 4))
+            XCTAssertNil(scene.childNode(withName: "cell-heart-1"))
+        }
+    }
+
+    func testPickupTexturesAreThemeSpecificAndPreparedOnce() {
+        for theme in ThemePalette.all {
+            GameplayPickupTextureFactory.prewarm(theme: theme)
+            for symbol in GameplayPickupSymbol.allCases {
+                let first = GameplayPickupTextureFactory.texture(symbol: symbol, theme: theme)
+                let second = GameplayPickupTextureFactory.texture(symbol: symbol, theme: theme)
+                XCTAssertTrue(first === second)
+                XCTAssertEqual(first.size(), CGSize(width: 84, height: 84))
+            }
+        }
+        XCTAssertFalse(
+            GameplayPickupTextureFactory.texture(symbol: .heart, theme: .classic)
+                === GameplayPickupTextureFactory.texture(symbol: .heart, theme: .resolve("pixel")))
+    }
+
+    func testRewindClockArtworkRendersInEveryTheme() throws {
+        XCTAssertNotNil(UIImage(systemName: "clock.arrow.circlepath"))
+        for theme in ThemePalette.all {
+            let texture = GameplayPickupTextureFactory.texture(symbol: .clock, theme: theme)
+            let image = UIImage(cgImage: texture.cgImage())
+            XCTAssertGreaterThan(image.size.width, 0)
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "\(theme.id) counterclockwise clock"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
     func testLifecycleMusicRoutingSilencesEveryTerminalPathBeforeMenuReturns() {
         XCTAssertEqual(GameplayMusicRouting.context(for: .started), .gameplay)
         XCTAssertEqual(GameplayMusicRouting.context(for: .finished), .silent)

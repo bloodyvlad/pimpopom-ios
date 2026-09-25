@@ -78,6 +78,7 @@ final class PurchaseController: ObservableObject {
 
     private let storeKit: any StoreKitServing
     private let creditService: any StoreKitCreditServing
+    private var observationGeneration = 0
     private var updatesTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
     private var hasStartedListeners = false
@@ -112,12 +113,19 @@ final class PurchaseController: ObservableObject {
     func startTransactionListeners() {
         guard !hasStartedListeners else { return }
         hasStartedListeners = true
+        observationGeneration += 1
+        let generation = observationGeneration
 
         let storeKit = storeKit
         updatesTask = Task { [weak self] in
+            guard !Task.isCancelled,
+                self?.observationGeneration == generation, self?.hasStartedListeners == true
+            else { return }
             let updates = await storeKit.transactionUpdates()
             for await observation in updates {
-                guard !Task.isCancelled, let self else { return }
+                guard !Task.isCancelled, let self,
+                    generation == observationGeneration, hasStartedListeners
+                else { return }
                 await self.handle(observation, expectedProduct: nil, account: nil)
             }
         }
@@ -125,6 +133,17 @@ final class PurchaseController: ObservableObject {
         recoveryTask = Task { [weak self] in
             await self?.reconcileOutstandingTransactions()
         }
+    }
+
+    /// Suspend observation without discarding or finishing any paid transaction.
+    /// Eligible startup replays unfinished purchases through normal reconciliation.
+    func stopTransactionListeners() {
+        observationGeneration += 1
+        updatesTask?.cancel()
+        recoveryTask?.cancel()
+        updatesTask = nil
+        recoveryTask = nil
+        hasStartedListeners = false
     }
 
     func loadProducts() async {
@@ -234,14 +253,22 @@ final class PurchaseController: ObservableObject {
     /// Call again after PimPoPom login changes so unfinished transactions can be
     /// bound and acknowledged without waiting for another StoreKit update.
     func reconcileOutstandingTransactions() async {
+        let generation = observationGeneration
+        guard !Task.isCancelled else { return }
         await refreshStorefront()
+        guard !Task.isCancelled, generation == observationGeneration else { return }
         let unfinished = await storeKit.unfinishedTransactions()
+        guard !Task.isCancelled, generation == observationGeneration else { return }
         for observation in unfinished {
+            guard !Task.isCancelled, generation == observationGeneration else { return }
             await handle(observation, expectedProduct: nil, account: nil)
         }
 
+        guard !Task.isCancelled, generation == observationGeneration else { return }
         let entitlements = await storeKit.currentNonConsumableEntitlements()
+        guard !Task.isCancelled, generation == observationGeneration else { return }
         for observation in entitlements {
+            guard !Task.isCancelled, generation == observationGeneration else { return }
             await handle(observation, expectedProduct: nil, account: nil)
         }
     }

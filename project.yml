@@ -36,6 +36,7 @@ targets:
     sources:
       - path: App
     dependencies:
+      - sdk: AppTrackingTransparency.framework
       - package: GoogleMobileAds
         product: GoogleMobileAds
       - package: GoogleSignIn

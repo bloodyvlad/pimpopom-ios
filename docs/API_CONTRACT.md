@@ -1,8 +1,41 @@
 # Current native API contract
 
-This file describes the deployed build-20 backend surface retained unchanged by
-the iOS build-23 candidate.
-Server implementation and deployment remain owned by the separate PHP repository.
+Arcade, identity and economy retain the existing PHP compatibility surface.
+Multiplayer v2 is isolated from historical v1. Build 29 uses gameplay revision 3;
+builds 26–28 use revision 2, build 25 retains revision 1 and build 24 uses historical v1.
+Exact dated deployment and Apple evidence is in CURRENT_VERSION.md.
+PHP implementation/deployment remain owned by the separate PHP repository.
+
+## Build-29 revision-3 extension
+
+Build 29 requires gameplay revision 3 and uses a fresh v2 leaderboard, not the
+historical v1 read below. PHP `bf0ef1b030772872775ab64eaedcbaa1b256e0cf` and additive
+migration 025 were verified on 2026-09-11. Matching service/client deployment and
+Apple state are recorded separately in CURRENT_VERSION.md.
+
+- Protocol/ruleset and ticket authentication stay unchanged. Service identity adds
+  nullable `economyGeneration`, captured immutably at actual match start.
+- Room discovery revision 2 adds host-only, waiting-phase `setPrivacy` with exact
+  room identity/revision. Public/private changes preserve Ready; old clients keep
+  discovery 1 and revision-isolated rooms.
+- Trusted result revision 2 adds gameplay revision 3, reward policy
+  `multiplayer-alive-minute-v1`, competitive/tutorial kind and completed/aborted
+  reason. Per-player fields include connected/alive time, survival, peak multiplier
+  and start generation. PHP derives credits, never accepts device coin claims.
+- `GET /api/mobile/v2/multiplayer/leaderboard` exposes score-only ranks, distinct
+  row positions and `verification:server_reported_v2`; unavailable speed-rating
+  counts are omitted. Historical v1 rows are neither imported nor deleted.
+- Participant-authenticated `GET /api/mobile/v2/multiplayer/results/{matchID}`
+  returns that player's immutable saved reward only. Unknown/nonparticipant IDs
+  return 404. The client retries briefly and refreshes `/api/session`; it never
+  blocks live play or optimistically credits a wallet.
+- Two coins accrue per complete eligible minute with independent carry; countdown,
+  disconnected time, spectating, tutorial and stale/missing generations earn none.
+  Session/profile adds `ranks.multiplayerV2`, preserving the old v1 rank key.
+
+The full [build-29 contract](MP29_GAMEPLAY_TUTORIALS.md) and separate PHP
+`docs/MULTIPLAYER_V2_REWARDS.md` specify receipt bounds, idempotence and rollback.
+The retained aggregate/history sections below describe released revisions 1/2.
 
 ## Transport and session
 
@@ -44,7 +77,8 @@ Server implementation and deployment remain owned by the separate PHP repository
 | `PATCH /api/pets/selection` | Hide/show selected pet |
 | `POST /api/mobile/v1/storekit/transactions` | Verify and reconcile signed StoreKit transaction |
 
-Multiplayer routes are under `/api/mobile/v1/multiplayer` and are specified below.
+The v2 ticket route and retained historical v1 leaderboard read are specified
+below. New v2 room membership, Ready and Start use the authenticated socket.
 
 ## Identity and profile
 
@@ -77,10 +111,17 @@ local identity only after `deleted: true` and `authenticated: false`.
 
 ## Arcade ranking
 
-Compiled tuple: build `20260729-1`, ruleset `reaction-proof-v3`, proof version 2.
+Builds 28/29 use compatibility build `20260729-1` and explicitly request
+`reaction-proof-v5`, proof 3 for 4×4-only Arcade power-ups. The deployed PHP verifier
+retains build 27's v4/proof 3 and older v3/proof 2 unchanged. Migration 025 adds
+Multiplayer rewards, not a new Arcade proof contract.
+A higher build ID does not select new semantics. See
+[ARCADE_POWERUPS](ARCADE_POWERUPS.md).
 
 1. Bootstrap the PHP session.
-2. A signed-in confirmed profile requests `/api/runs` before gameplay.
+2. A signed-in confirmed profile requests `/api/runs` before gameplay, with
+   `mode, buildId, ruleset, proofVersion`. Only older clients omit the last two;
+   the compatible PHP runtime keeps omitted capabilities on v3/proof 2.
 3. Reject a ticket whose build, mode, ruleset, proof version, or run identity does
    not match the compiled contract. Failure is blocking/retryable, not local fallback.
 4. Submit the engine's chronological integer tuples to `/api/runs/finish`.
@@ -128,149 +169,129 @@ effects, not gameplay failures or tight-loop retries.
 
 Profile shows only **Game Center** and **See stats**. Apple owns account selection;
 iOS has no manual link/disable surface. PHP alone publishes allowlisted Arcade and
-Multiplayer best scores and achievement completion. iOS never calls
+historical v1 Multiplayer best scores and achievement completion. V2 does not
+publish scores or achievements. iOS never calls
 `GKLeaderboard.submitScore` or `GKAchievement.report`.
 
-## Multiplayer availability and lobby API
+## Multiplayer v2 bridge and gameplay revisions
 
-Compatibility tuple:
+Exact capabilities: `protocolVersion:2`,
+`ruleset:"multiplayer-shared-arcade-v2"`, 2–4 seats and at most 900,000 ms.
+A higher build ID never selects new semantics. Entry requires a primary PHP
+session and confirmed nickname, **not Game Center**.
 
-```text
-base       /api/mobile/v1/multiplayer
-build      20260729-1
-mode       own_color
-ruleset    multiplayer-own-color-v1
-protocol   1
-proof      1
-players    2...4
-events     <= 2,500
-duration   <= 900,000 ms
-```
+The build-25 PHP bridge was deployed from commit
+`78b51ee6768d6f049d44b3b8c2d2073e0aac34e0`, migration
+`023_multiplayer_v2_auth.sql`. It defaults to 503 until valid private
+`SPEEDYTAPPER_REALTIME_URL` and `SPEEDYTAPPER_MULTIPLAYER_SERVICE_SECRET`
+configuration exists. The released PHP runtime is `f84dc9218b58bb937326be931f2ee969abed4282`;
+build 28's Arcade update leaves this bridge and schema 024 unchanged. Deployment
+evidence is recorded in CURRENT_VERSION.md and RELEASE.md; historical Railway
+bridge/migration evidence remains in Server/DEPLOYMENT_RAILWAY.md.
 
-Private routes require cookie authentication; mutations also require CSRF. Before
-create/join/roster/start, the player needs a primary profile, confirmed nickname,
-linked publishing-enabled Game Center identity, authenticated persistent player,
-and a successful Game Center proof no older than ten minutes.
+Builds 26–28 retain this authentication tuple and negotiate `gameplayRevision:2`
+in the socket hello/welcome. Omission means revision 1 (build 25). Rooms, browse,
+join and resume are revision-isolated. Revised snapshots add neutral hearts;
+inputs optionally identify `heartID`, mutually exclusive with `targetID`.
+Only revised clients receive an ordered `left` acknowledgment. These capabilities
+are explicit protocol fields, never inferred from a build number.
 
-| Method and path | Request / result |
-| --- | --- |
-| `GET /leaderboard` | Public top five plus optional authenticated context |
-| `GET /lobbies?limit=20` | Limit 1–50; public lobby summaries exclude GameKit routing group |
-| `POST /matches` | `{"mode":"own_color","capacity":2,"buildId":"20260729-1"}` |
-| `GET /matches/{id}` | Private member state; nonmember is `404` |
-| `POST /matches/{id}/join` | `{}` |
-| `POST /matches/{id}/leave` | `{}`; forming creator transfers, started leave cancels |
-| `PATCH /matches/{id}/readiness` | `{"ready":true}` |
-| `POST /matches/{id}/gamekit-roster` | Exact persistent GameKit roster/coordinator |
-| `POST /matches/{id}/start` | `{}`; creator only after unanimous ready/roster |
-| `POST /matches/{id}/submissions` | Exact manifest hash and seat-only transcript |
-| `GET /matches/{id}/settlement` | Collecting, settled, or review state |
+### Cookie-authenticated ticket
 
-A forming lobby expires after ten minutes. PHP returns stable participant UUID,
-seat, unique color, readiness, capacity, creator flag, selected pet, and a private
-positive 31-bit `playerGroup`. Clients validate identifiers, unique seats/colors,
-counts, state, and timestamps before adopting it.
-
-## PHP lobby to GameKit
-
-Use the private `playerGroup` in `GKMatchRequest` and connect exactly the PHP
-participant count. Peers exchange persistent player-to-participant mappings, then
-currently elect the lexicographically smallest `gamePlayerID` as fixed coordinator.
-Each posts its local ID, all observed remote IDs, and the same coordinator to PHP.
-PHP validates the complete set against linked lobby members and stores hashes, not
-raw Game Center IDs.
-
-Only after all roster confirmations and readiness may the creator start. The start
-response binds this immutable shape:
+`POST /api/mobile/v2/multiplayer/tickets` uses the existing cookie,
+`X-SpeedyTapper-CSRF`, same-origin policy and confirmed public name. Native
+requests may omit Origin. Maximum JSON body: 1,024 bytes:
 
 ```json
-{
-  "protocolVersion": 1,
-  "ruleset": "multiplayer-own-color-v1",
-  "proofVersion": 1,
-  "matchId": "UUID",
-  "buildId": "20260729-1",
-  "seed": "unpadded-base64url-32-bytes",
-  "startingLives": 3,
-  "participants": [
-    { "participantId": "UUID", "seat": 0, "colorIndex": 0 }
-  ],
-  "manifestHash": "unpadded-base64url-sha256"
-}
+{"protocolVersion":2,"ruleset":"multiplayer-shared-arcade-v2"}
 ```
 
-The seed binds the manifest; it is not a specified random schedule. Live tuples
-contain seats and integers, never names, pets, profile UUIDs, or Game Center IDs.
+Response 201 contains `ticket`, integer Unix-second `expiresAt`, and
+`realtimeURL`. The opaque ticket has 256 random bits, is digest-stored, single-use
+and valid at most 60 seconds, bound to the exact player/session/protocol. The
+service URL must use WSS except explicit loopback development. Tickets never
+appear in URLs, logs or persistent client storage.
 
-## Current GameKit live protocol
+### Service-only bridge
 
-PHP is not a live relay. One capability-gated `GKMatch` envelope carries roster,
-clock, future plan/cancel, input, canonical event batch, acknowledgement, snapshot,
-pause/resume, Start, Finish, and terminal cancellation. Build 23 uses live wire v3:
-fast input is unreliable by design; evidence, canonical, control, snapshot, and
-terminal traffic is reliable.
+These endpoints accept `Authorization: Bearer <service secret>`, not cookie/CSRF
+authentication. Authentication precedes body decoding. All requests include the
+exact capabilities above; unexpected fields are rejected and responses are
+`Cache-Control: no-store`. The service secret never enters iOS.
 
-The sender map is frozen after roster confirmation. Inputs are witnessed against
-sender/seat. The coordinator publishes only through the minimum complete sealed
-per-seat frontier and sends one live-only resolution for every witnessed input.
-Prediction and resolutions never enter the PHP transcript.
+| POST path | Other body fields | Result |
+| --- | --- | --- |
+| `/api/internal/multiplayer/v2/tickets/redeem` | `ticket` | Identity/binding |
+| `/api/internal/multiplayer/v2/sessions/validate` | `playerID, sessionBinding` | Refreshed public identity, original binding expiry |
+| `/api/internal/multiplayer/v2/results` | Immutable aggregate envelope | Matching match ID, `state:stored_unranked`, `rankingEligible:false`, duplicate flag |
 
-Recipient-specific journals retain evidence, resolutions, Start, pause, Resume,
-Finish, and cancellation until exact acknowledgement. Cumulative seals and repeated
-snapshot requests repair gaps. Snapshots are bounded, complete, prefix-consistent,
-and cannot rewind newer plan/pause metadata. Recovery is hidden below 1 second,
-nonblocking through 15 seconds, and only then cancels/withholds. A real disconnect
-pauses shared logical time. Resume advances only after a reliable send is physically
-accepted for every intended peer; the retained exact-ACK journal then retries in the
-background. V1 does not migrate coordinator authority. The GameKit wire changed,
-but transcript tuples and backend proof semantics remain v1.
+Redeem/validate bodies are at most 1,024 bytes; result bodies at most 16,384 bytes.
+Identity contains `playerID, name, petID, sessionBinding, expiresAt,
+protocolVersion, ruleset`. Pet is nullable. The opaque binding is not a PHP
+session ID/digest; it expires within an hour and no later than its source session.
+Validation does not extend it. The deployed build-26 PHP compatibility update keeps at most twelve
+bindings per primary session by retiring the oldest binding after a valid fresh
+ticket redemption, instead of locking a valid login out after twelve reconnects.
+Invalid, replayed or expired tickets cannot evict a binding.
 
-## Exact Multiplayer transcript
+Vapor validates every 15 seconds and authenticates a fresh ticket before resume.
+Logout/rotation/deletion revocation is bounded polling, not instantaneous push.
+On failed validation, stop the affected seat rather than retaining stale authority.
+Full-host TLS/Authorization forwarding was verified. Genuine player revocation
+and end-to-end device acceptance remain separate gates.
 
-Every participant submits the same `manifestHash` and:
+### Socket directory and live play
 
-```json
-{
-  "matchId": "UUID",
-  "buildId": "20260729-1",
-  "ruleset": "multiplayer-own-color-v1",
-  "protocolVersion": 1,
-  "proofVersion": 1,
-  "events": []
-}
-```
+The native socket actor uses shared `MP2ClientMessage`/`MP2ServerMessage` Codable
+DTOs; see [Server/README.md](../Server/README.md) for exact encoding and message
+limits. Hello authenticates before actions. List/create/join, Ready and Start
+belong only to the socket authority; PHP does not provide a competing live lobby.
 
-All members are integers. `seq` begins at 1 and is contiguous; logical time is
-nondecreasing. Hit/miss order uses `inputAt`; `handledAt` remains separate.
+The creator starts a full connected/Ready room. Ready includes a monotonic
+intent ID and roster revision; duplicate Start returns the same countdown.
+Membership changes invalidate countdowns. Fresh authentication precedes a
+room/player-bound resume credential and generation rotation. Old connection/input
+generations cannot act for a resumed seat.
 
-| Event | Tuple |
-| --- | --- |
-| Target | `[0, seq, at, ownerSeat, targetId, cell, colorIndex]` |
-| Hit | `[1, seq, inputAt, handledAt, seat, targetId, cell]` |
-| Miss | `[2, seq, inputAt, handledAt, seat, reason, cell]` |
-| Decoy activate | `[3, seq, at, ownerSeat, decoyId, cell, colorIndex, lifetimeMs]` |
-| Decoy expire | `[4, seq, at, decoyId]` |
-| Player out | `[5, seq, at, seat]` |
-| Finish | `[6, seq, at]` |
+Inputs contain identity/target/contact evidence, never client-authored score or
+life totals. The pure Swift room engine derives state. Local prediction is
+presentation only and reconciles against receipts/snapshots. No v1 peer
+transcripts, seals, roster handshakes or unanimous submissions are sent.
 
-Miss reasons: 0 empty, 1 wrong, 2 late. Late expiry may use cell `-1`; board cells
-are 0–15. Replay enforces the gameplay rules in `GAMEPLAY_SPEC.md`, including fair
-ownership rotation, response/schedule bounds, decoys, lives/recovery, score, streak,
-finish, and placement.
+### Released revision-1/2 unranked aggregate intake
 
-## Settlement and ranking
+The service journals immutable match ID, capabilities, duration,
+`rankingEligible:false`, and 2–4 distinct player UUID/stable-seat aggregates:
+score, lives, hits, misses, dodges, reaction total and nullable fastest reaction.
+No names, pets, credentials, wallet or achievement claims enter that envelope.
+Revision-2 hearts can restore lives, so cumulative misses may exceed three;
+PHP migration 024 widens their storage and accepts 0–1,000 while current lives
+remain 0–3. Deploy that additive compatibility change before revision-2 rooms.
 
-Before all submissions, state is `collecting` and never leaderboard-eligible. The
-client retains the exact submission for idempotent retry and polls settlement. A
-clean final response is `settled`, `leaderboardEligible: true`, verification
-`peer_consistent_v1`, and a derived result for every participant. A mismatch is
-review/withheld. A missing peer may remain collecting; do not fabricate completion.
+PHP validates bounded integer fields and stores normalized aggregates plus a
+payload digest atomically. Same normalized match payload is idempotent;
+conflicting content under that match ID is 409. Missing/deleted players are 409
+and are never recreated by delayed delivery. Account deletion removes the shared
+alpha aggregate. The service archives its durable outbox file only after a
+matching `stored_unranked` acknowledgement.
 
-Each accepted participant result is an immutable row. Public reads use the usual
-top-five/context shape. PHP order is score, placement, duration, hits, achieved
-time, then result ID. PHP publishes only each player's personal best to Game Center
-vendor ID `com.otcsoftware.pimpopom.multiplayer.verified`.
+These are **service-reported, unranked aggregates**, not independent PHP replay
+proof, human verification or a new ranked season. No v1 result/rank, progression,
+coin, achievement or Game Center publication writes occur. No public v2 result
+read is implemented. Railway EU runtime and PHP bridge/migration 024 were directly
+verified for build 26; complete real-account result delivery remains a device-QA gate.
 
-Matching peer submissions prevent one lone coordinator from silently rewriting a
-match. Colluding or modified clients can still manufacture matching plausible
-evidence; describe results only as protocol-verified and peer-consistent.
+## Historical v1 compatibility — read-only in the new client
+
+The uploaded build 24 uses `multiplayer-own-color-v1`, protocol/proof 1,
+build `20260729-1`, GameKit live traffic and PHP peer settlement. Those backend
+routes/data are not deleted by this client rewrite.
+
+The released build-28 client retains only `GET /api/mobile/v1/multiplayer/leaderboard` for
+historical top/context reads. Accepted entries require
+`verification:"peer_consistent_v1"`; they are never relabeled v2 or merged with
+unranked alpha aggregates. Historical Game Center best-score publication remains
+separate. V1 create/join/readiness/GameKit roster/start/submission/settlement
+mutation clients and live wire are removed from the released v2 client.
+The full old contract is recoverable from Git history, including audit baseline
+`df16cb8ef43adf3752023d12329384c2e0a08eaa`.

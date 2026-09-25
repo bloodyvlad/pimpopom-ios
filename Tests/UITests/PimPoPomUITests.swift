@@ -412,6 +412,213 @@ final class PimPoPomUITests: XCTestCase {
         XCTAssertTrue(privacyChoices.waitForExistence(timeout: 2))
     }
 
+    func testFreshLaunchAgeChoiceCanBeSkippedAndPersists() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset",
+            "--ui-test-apple-age=optional", "--ui-test-ads-enabled",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["age-skip"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, name: "One-time skippable age group")
+        app.buttons["age-skip"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["age-gate"].exists)
+        XCTAssertFalse(app.staticTexts["apple-age-gate"].exists)
+        XCTAssertFalse(app.buttons["age-continue"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, name: "Direct main menu with ads and restored Multiplayer icon")
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-test-age-reset" }
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["age-gate"].exists)
+    }
+
+    func testRealEuropeanConsentThenATTAllowsMenuAdvertising() throws {
+        let app = XCUIApplication()
+        app.terminate()
+        app.resetAuthorizationStatus(for: .userTracking)
+        app.launchArguments = [
+            "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset",
+            "--ui-test-apple-age=optional", "--ui-test-ads-enabled", "--ui-test-real-consent",
+            "--ump-debug-reset", "--ump-debug-eea", "--ad-diagnostics",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["age-band-18-plus"].waitForExistence(timeout: 5))
+        app.buttons["age-band-18-plus"].tap()
+        let consent = app.webViews.buttons["Consent"].firstMatch
+        XCTAssertTrue(consent.waitForExistence(timeout: 30))
+        XCTAssertFalse(app.descendants(matching: .any)["fake-ad-banner"].exists)
+        attachScreenshot(of: app, name: "Adult Google consent before ATT")
+        consent.tap()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.alerts.buttons["Allow"]
+        XCTAssertTrue(allow.waitForExistence(timeout: 10))
+        attachScreenshot(of: springboard, name: "Native ATT after adult Google consent")
+        respondToTrackingPrompt(allow)
+        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.descendants(matching: .any)["fake-ad-banner"].value as? String, "personalized")
+        attachScreenshot(of: app, name: "Menu after permissions completed")
+        app.terminate()
+        app.launchArguments.removeAll { ["--ui-test-age-reset", "--ump-debug-reset"].contains($0) }
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["fake-ad-banner"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.buttons["age-skip"].exists)
+        XCTAssertFalse(springboard.alerts.buttons["Allow"].exists)
+        // UMP preloads a hidden privacy WebView whose buttons can remain in
+        // accessibility snapshots. Verify the menu is usable instead.
+        openMenuControl("open-settings", in: app)
+        XCTAssertTrue(app.buttons["privacy-choices"].waitForExistence(timeout: 5))
+        attachScreenshot(of: app, name: "Relaunch opens Settings without repeating permission prompts")
+    }
+
+    func testRealConsentDeclineTeenAndSkippedAgeNeverRequestATT() throws {
+        let scenarios = [
+            ("age-band-18-plus", "Do not consent"),
+            ("age-band-13-15", ""),
+            ("age-band-16-17", "Consent"),
+            ("age-skip", "Consent"),
+        ]
+        for (ageButton, googleButton) in scenarios {
+            let app = launchRealConsentAgeChoice()
+            app.buttons[ageButton].tap()
+            if !googleButton.isEmpty {
+                let button = app.webViews.buttons[googleButton].firstMatch
+                XCTAssertTrue(button.waitForExistence(timeout: 30))
+                button.tap()
+            }
+            let banner = app.descendants(matching: .any)["fake-ad-banner"]
+            XCTAssertTrue(banner.waitForExistence(timeout: 15))
+            XCTAssertEqual(banner.value as? String, "non-personalized")
+            XCTAssertFalse(XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Allow"].exists)
+            attachScreenshot(of: app, name: "No ATT: \(ageButton), \(googleButton)")
+            app.terminate()
+        }
+    }
+
+    func testRealATTRefusalStillAllowsNonPersonalizedMenuAds() throws {
+        let app = launchRealConsentAgeChoice()
+        app.buttons["age-band-18-plus"].tap()
+        let consent = app.webViews.buttons["Consent"].firstMatch
+        XCTAssertTrue(consent.waitForExistence(timeout: 30))
+        consent.tap()
+        let deny = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Ask App Not to Track"]
+        XCTAssertTrue(deny.waitForExistence(timeout: 10))
+        respondToTrackingPrompt(deny)
+        let banner = app.descendants(matching: .any)["fake-ad-banner"]
+        XCTAssertTrue(banner.waitForExistence(timeout: 10), app.staticTexts["consent-test-diagnostic"].label)
+        XCTAssertEqual(banner.value as? String, "non-personalized")
+        attachScreenshot(of: app, name: "ATT refusal keeps menu and non-personalized ads")
+    }
+
+    private func respondToTrackingPrompt(_ button: XCUIElement) {
+        button.tap()
+        // SpringBoard can expose the button before the system sheet finishes
+        // animating. Retry only the same visible answer if that tap was ignored.
+        if !button.waitForNonExistence(timeout: 3), button.isHittable {
+            button.tap()
+        }
+        XCTAssertTrue(button.waitForNonExistence(timeout: 5))
+    }
+
+    private func launchRealConsentAgeChoice() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.terminate()
+        app.resetAuthorizationStatus(for: .userTracking)
+        app.launchArguments = [
+            "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset",
+            "--ui-test-apple-age=optional", "--ui-test-ads-enabled", "--ui-test-real-consent",
+            "--ump-debug-reset", "--ump-debug-eea", "--ad-diagnostics",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["age-skip"].waitForExistence(timeout: 5))
+        return app
+    }
+
+    func testAppleParentRangeIsReadOnlyAndForegroundPreservesSettings() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--ui-test-apple-age=parent-teen"]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
+        openMenuControl("open-settings", in: app)
+        let range = app.staticTexts["settings-apple-age-range"]
+        XCTAssertTrue(scrollToElement(range, in: app))
+        XCTAssertTrue(range.label.contains("13–15"))
+        XCTAssertFalse(app.buttons["settings-age-group"].exists)
+        XCTAssertFalse(app.buttons["age-save"].exists)
+        attachScreenshot(of: app, name: "Apple parental age range read only")
+        XCUIApplication(bundleIdentifier: "com.apple.Preferences").activate()
+        let backgrounded = NSPredicate { _, _ in app.state != .runningForeground }
+        expectation(for: backgrounded, evaluatedWith: app)
+        waitForExpectations(timeout: 5)
+        app.activate()
+        XCTAssertTrue(range.waitForExistence(timeout: 5))
+        XCTAssertTrue(range.label.contains("13–15"))
+        XCTAssertFalse(app.buttons["settings-age-group"].exists)
+    }
+
+    func testAppleUnder13BlocksWithoutManualOverride() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--ui-test-apple-age=under13"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["apple-age-range"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["apple-age-range"].label, "Apple age range: 12 or younger")
+        XCTAssertFalse(app.descendants(matching: .any)["menu-dialog"].exists)
+        XCTAssertFalse(app.buttons["age-band-18-plus"].exists)
+        XCTAssertFalse(app.buttons["age-review"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["age-legal-privacy"].exists)
+        attachScreenshot(of: app, name: "Apple under13 locked age gate")
+        XCTAssertFalse(app.buttons["age-settings"].exists)
+    }
+
+    func testRequiredAppleAgeGateShowsLogoWithoutSettingsOrLegalLinks() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitesting", "--ui-test-apple-age=required-declined"]
+        app.launch()
+        XCTAssertTrue(app.buttons["apple-age-retry"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["age-wordmark"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["menu-dialog"].exists)
+        XCTAssertFalse(app.buttons["age-settings"].exists)
+        XCTAssertFalse(app.buttons["age-continue"].exists)
+        for page in ["privacy", "terms", "refunds", "support"] {
+            XCTAssertFalse(app.descendants(matching: .any)["age-legal-\(page)"].exists)
+        }
+        attachScreenshot(of: app, name: "Required Apple check with PimPoPom logo and no legal wall")
+    }
+
+    func testSettingsHasNoManualAgeSelection() throws {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--uitesting", "--ui-test-age-gate", "--ui-test-age-reset", "--ui-test-apple-age=optional",
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["age-skip"].waitForExistence(timeout: 5))
+        app.buttons["age-skip"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["menu-dialog"].waitForExistence(timeout: 5))
+        openMenuControl("open-settings", in: app)
+        let privacyLink = app.descendants(matching: .any)["settings-legal-privacy"]
+        XCTAssertTrue(scrollToElement(privacyLink, in: app))
+        XCTAssertFalse(app.buttons["settings-age-group"].exists)
+        XCTAssertFalse(app.buttons["settings-apple-age-refresh"].exists)
+        XCTAssertFalse(app.buttons["age-save"].exists)
+        XCTAssertFalse(app.staticTexts["settings-apple-age-range"].exists)
+    }
+
+    func testSettingsLegalLinksAreAccessibleWithoutAdvertising() throws {
+        let app = launch()
+        openMenuControl("open-settings", in: app)
+
+        for page in ["privacy", "terms", "refunds", "support"] {
+            let link = app.descendants(matching: .any)["settings-legal-\(page)"]
+            XCTAssertTrue(scrollToElement(link, in: app))
+            XCTAssertTrue(link.isEnabled)
+            XCTAssertGreaterThanOrEqual(link.frame.height, 44)
+        }
+        XCTAssertFalse(app.buttons["privacy-choices"].exists)
+        attachScreenshot(of: app, name: "Settings support and legal links")
+    }
+
     func testChangeIconDeepLinkOpensIconSettings() throws {
         let app = launch()
         app.terminate()
@@ -696,6 +903,52 @@ final class PimPoPomUITests: XCTestCase {
         )
     }
 
+    func testMenuModeTitlesAreCenteredWithoutSubtitles() {
+        let app = XCUIApplication()
+        for theme in ["classic", "pixel"] {
+            app.launchArguments = ["--uitesting", "--ui-test-theme=\(theme)"]
+            app.launch()
+            for (mode, title) in [("normal", "Arcade"), ("zen", "Zen"), ("multiplayer", "Multiplayer")] {
+                let button = app.buttons["mode-\(mode)"]
+                XCTAssertTrue(button.waitForExistence(timeout: 8))
+                XCTAssertEqual(button.label, title)
+                XCTAssertEqual(button.frame.midX, app.frame.midX, accuracy: 1)
+            }
+            XCTAssertFalse(app.staticTexts["NO COINS AWARDED"].exists)
+            XCTAssertFalse(app.staticTexts["2–4 PLAYERS · 2 COINS / MIN"].exists)
+            attachScreenshot(of: app, name: "Build 30 \(theme) centered mode titles and menu icons")
+            app.terminate()
+        }
+    }
+
+    func testMultiplayerRewardsAppearAbovePlayersAcrossThemes() {
+        let app = XCUIApplication()
+        for theme in ["classic", "disco", "light", "pixel"] {
+            for playerCount in [2, 4] {
+                app.launchArguments = [
+                    "--uitesting", "--ui-test-theme=\(theme)", "--ui-test-multiplayer-results-fixture",
+                ]
+                if playerCount == 4 { app.launchArguments.append("--ui-test-results-four-players") }
+                app.launch()
+                let earned = app.staticTexts["multiplayer-coins-earned"]
+                XCTAssertTrue(earned.waitForExistence(timeout: 8))
+                let rows = app.scrollViews["multiplayer-result-rows"]
+                XCTAssertEqual(earned.label, "2 coins earned")
+                XCTAssertTrue(earned.isHittable)
+                let firstPlayer = app.descendants(matching: .any)["multiplayer-result-fixture-player-0"]
+                XCTAssertTrue(firstPlayer.exists)
+                XCTAssertLessThan(earned.frame.maxY, firstPlayer.frame.minY)
+                XCTAssertEqual(earned.frame.midX, rows.frame.midX, accuracy: 1)
+                XCTAssertFalse(
+                    app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'toward your next'")).firstMatch
+                        .exists)
+                XCTAssertTrue(app.buttons["finish-multiplayer"].isHittable)
+                attachScreenshot(of: app, name: "Build 30 \(theme) \(playerCount) player rewards")
+                app.terminate()
+            }
+        }
+    }
+
     func testMultiplayerWaitingRoomUsesHalfRightPetAvatarsAndColorTilesAcrossThemes() {
         let app = XCUIApplication()
 
@@ -778,6 +1031,10 @@ final class PimPoPomUITests: XCTestCase {
             for element in [header, board, color, speedBar, strip] {
                 XCTAssertTrue(element.waitForExistence(timeout: 2))
             }
+            XCTAssertTrue(app.descendants(matching: .any)["multiplayer-game-logo"].exists)
+            XCTAssertTrue(app.buttons["multiplayer-game-menu"].isHittable)
+            XCTAssertGreaterThanOrEqual(app.buttons["multiplayer-game-menu"].frame.height, 44)
+            XCTAssertTrue(app.descendants(matching: .any)["multiplayer-cell-9"].label.contains("Heart"))
             XCTAssertTrue(color.label.contains("Cyan"))
             let flyoutPoints = app.staticTexts["gameplay-hit-points-9"]
             let flyoutRating = app.staticTexts["gameplay-hit-rating-9"]
@@ -801,13 +1058,14 @@ final class PimPoPomUITests: XCTestCase {
 
             let firstPlayer = app.descendants(matching: .any)["multiplayer-player-0"]
             XCTAssertTrue(firstPlayer.waitForExistence(timeout: 2))
-            XCTAssertLessThanOrEqual(firstPlayer.frame.height, 52)
+            // Accessibility includes the crown's 9-point overhang above the 60-point card.
+            XCTAssertLessThanOrEqual(firstPlayer.frame.height, 72)
             XCTAssertEqual(firstPlayer.value as? String, "Pet half right")
             for seat in 1..<4 {
                 let player = app.descendants(matching: .any)["multiplayer-player-\(seat)"]
                 XCTAssertTrue(player.exists)
-                XCTAssertEqual(player.frame.midY, firstPlayer.frame.midY, accuracy: 3)
-                XCTAssertLessThanOrEqual(player.frame.height, 52)
+                XCTAssertEqual(player.frame.maxY, firstPlayer.frame.maxY, accuracy: 3)
+                XCTAssertLessThanOrEqual(player.frame.height, 72)
                 XCTAssertGreaterThan(player.frame.minX, firstPlayer.frame.minX)
                 XCTAssertEqual(player.value as? String, "Pet half right")
             }
@@ -818,6 +1076,95 @@ final class PimPoPomUITests: XCTestCase {
             attachScreenshot(of: app, name: "iPhone 17 \(theme) four-player horizontal strip")
             app.terminate()
         }
+    }
+
+    func testArcadeHeartAndClockUseTheLiveBoardContactPath() {
+        let app = XCUIApplication()
+        for (theme, kind) in [("classic", "heart"), ("pixel", "clock")] {
+            app.launchArguments = [
+                "--uitesting", "--deterministic-game", "--screenshot-mode",
+                "--screenshot-screen=arcade", "--screenshot-theme=\(theme)",
+                "--screenshot-autoplay", "--ui-test-pickup-kind=\(kind)",
+            ]
+            app.launch()
+            let label = kind == "heart" ? "Heart, restores" : "Clock, slows"
+            let pickup = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+            XCTAssertTrue(pickup.waitForExistence(timeout: 65), "Missing \(theme) \(kind) pickup")
+            XCTAssertTrue(app.buttons["arcade-cell-15"].exists, "Power-ups require the 4×4 board")
+            XCTAssertTrue(pickup.isHittable)
+            attachScreenshot(of: app, name: "Arcade \(theme) \(kind) before collection")
+            pickup.tap()
+            if kind == "clock" {
+                XCTAssertTrue(app.descendants(matching: .any)["game-pickup-stamp"].waitForExistence(timeout: 1))
+                let pace = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'PACE '")).firstMatch
+                XCTAssertTrue(pace.waitForExistence(timeout: 3))
+                attachScreenshot(of: app, name: "Arcade Pixel clock slowed pace")
+            }
+            XCTAssertFalse(pickup.exists)
+            app.terminate()
+        }
+    }
+
+    func testMultiplayerRoomControlsAcrossThemes() {
+        let app = XCUIApplication()
+        for theme in ["classic", "disco", "light", "pixel"] {
+            app.launchArguments = [
+                "--uitesting", "--deterministic-game", "--ui-test-theme=\(theme)",
+                "--ui-test-multiplayer-hub-fixture",
+            ]
+            app.launch()
+            let search = app.textFields["multiplayer-room-search"]
+            XCTAssertTrue(search.waitForExistence(timeout: 6))
+            XCTAssertTrue(search.isHittable)
+            let privacy = app.switches["multiplayer-private-toggle"]
+            XCTAssertFalse(privacy.exists, "Privacy belongs next to the created room code")
+            XCTAssertTrue(app.buttons["create-multiplayer-game"].isHittable)
+            attachScreenshot(of: app, name: "\(theme) room search and private creation")
+            app.terminate()
+
+            app.launchArguments = [
+                "--uitesting", "--deterministic-game", "--ui-test-theme=\(theme)",
+                "--ui-test-multiplayer-waiting-fixture",
+            ]
+            app.launch()
+            let code = app.staticTexts["multiplayer-room-code"]
+            XCTAssertTrue(code.waitForExistence(timeout: 6))
+            XCTAssertEqual(code.label, "BCDF2345")
+            XCTAssertTrue(app.staticTexts["PRIVATE GAME CODE"].exists)
+            XCTAssertTrue(privacy.isHittable)
+            privacy.tap()
+            XCTAssertTrue(app.staticTexts["GAME CODE"].waitForExistence(timeout: 3))
+            privacy.tap()
+            XCTAssertTrue(app.staticTexts["PRIVATE GAME CODE"].waitForExistence(timeout: 3))
+            let copy = app.buttons["multiplayer-copy-code"]
+            XCTAssertTrue(copy.isHittable)
+            copy.tap()
+            XCTAssertEqual(copy.label, "Game code copied")
+            XCTAssertTrue(app.buttons["multiplayer-ready"].isHittable)
+            XCTAssertTrue(app.buttons["start-multiplayer-match"].isHittable)
+            XCTAssertTrue(app.buttons["leave-multiplayer"].isHittable)
+            attachScreenshot(of: app, name: "\(theme) private waiting room and code")
+            app.terminate()
+        }
+    }
+
+    func testMultiplayerSpectatorNoticeKeepsMatchVisibleAndMenuUsable() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "--deterministic-game", "--uitesting", "--ui-test-theme=classic",
+            "--ui-test-multiplayer-spectating-fixture",
+        ]
+        app.launch()
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-spectating"].waitForExistence(timeout: 6))
+        XCTAssertFalse(app.staticTexts["multiplayer-you-lose"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-player-0"].label.contains("Spectating"))
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-board"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["multiplayer-player-strip"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["multiplayer-cell-6"].isEnabled)
+        XCTAssertTrue(app.buttons["multiplayer-game-menu"].isHittable)
+        attachScreenshot(of: app, name: "iPhone 17 multiplayer eliminated spectator")
+        app.buttons["multiplayer-game-menu"].tap()
+        XCTAssertTrue(app.buttons["mode-multiplayer"].waitForExistence(timeout: 4))
     }
 
     func testMultiplayerCatchUpUsesHUDStatusAndKeepsBoardEnabled() {
@@ -832,7 +1179,7 @@ final class PimPoPomUITests: XCTestCase {
 
         let status = app.descendants(matching: .any)["multiplayer-network-status"]
         XCTAssertTrue(status.waitForExistence(timeout: 6))
-        XCTAssertEqual(status.label, "CATCHING UP")
+        XCTAssertEqual(status.label, "RECONNECTING")
         XCTAssertFalse(app.descendants(matching: .any)["multiplayer-announcement"].exists)
         let target = app.descendants(matching: .any)["multiplayer-cell-6"]
         XCTAssertTrue(target.waitForExistence(timeout: 2))

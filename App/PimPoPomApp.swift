@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct PimPoPomApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @UIApplicationDelegateAdaptor(PimPoPomAppDelegate.self) private var appDelegate
     @StateObject private var backend: BackendClient
     @StateObject private var preferences: AppPreferences
@@ -15,6 +16,9 @@ struct PimPoPomApp: App {
     @StateObject private var multiplayer: MultiplayerController
     @StateObject private var purchases: PurchaseController
     @StateObject private var ads: AdsController
+    @StateObject private var appleAge: AppleAgeController
+    @State private var hasOpenedApp = false
+    @State private var deferredGoogleURL: URL?
     private let googleIdentity = GoogleIdentityService()
     private let appleIdentity = AppleIdentityService()
 
@@ -29,22 +33,38 @@ struct PimPoPomApp: App {
                 storeKit = UITestStoreKitService()
                 let privacyRequirement: PrivacyOptionsRequirement =
                     arguments.contains("--ui-test-privacy-required") ? .required : .notRequired
-                let consent = FakeConsentService(
+                let fakeConsent = FakeConsentService(
                     snapshot: ConsentSnapshot(
                         canRequestAds: !arguments.contains("--ui-test-consent-blocked"),
                         privacyOptionsRequirement: privacyRequirement
                     )
                 )
+                // Exercise the real UMP/ATT sheets without loading live ads or
+                // contacting the game backend in consent-only UI checks.
+                let consent: any ConsentServing =
+                    arguments.contains("--ui-test-real-consent")
+                    ? GoogleConsentService() : fakeConsent
                 let fakeAds = FakeAdsService()
                 fakeAds.interstitialAvailable =
                     !arguments.contains("--ui-test-interstitial-unavailable")
+                let ageStore: any AdAgeBandStoring
+                if arguments.contains("--ui-test-age-gate") {
+                    let defaults = UserDefaults(suiteName: "PimPoPomAgeGateUITests")!
+                    if arguments.contains("--ui-test-age-reset") {
+                        defaults.removePersistentDomain(forName: "PimPoPomAgeGateUITests")
+                    }
+                    ageStore = UserDefaultsAdAgeBandStore(defaults: defaults)
+                } else {
+                    ageStore = MemoryAdAgeBandStore(.adult)
+                }
                 adsController = AdsController(
                     configuration: .uiTesting(
                         adsEnabled: arguments.contains("--ui-test-ads-enabled")
                     ),
                     consentService: consent,
                     adsService: fakeAds,
-                    progressStore: MemoryInterstitialProgressStore()
+                    progressStore: MemoryInterstitialProgressStore(),
+                    ageStore: ageStore
                 )
             } else {
                 storeKit = StoreKitService()
@@ -80,17 +100,62 @@ struct PimPoPomApp: App {
             )
         )
         _purchases = StateObject(
-            wrappedValue: PurchaseController(storeKit: storeKit, creditService: backend)
+            wrappedValue: PurchaseController(
+                storeKit: storeKit, creditService: backend, startListeners: false
+            )
         )
         _ads = StateObject(wrappedValue: adsController)
+        var usesAppleAge = true
+        var ageService: any AppleAgeServing = AppleAgeService()
+        var ageLock: any AppleAgeLockStoring = UserDefaultsAppleAgeLockStore()
+        #if DEBUG
+            usesAppleAge = !ProcessInfo.processInfo.arguments.contains("--uitesting")
+            if let mode = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--ui-test-apple-age=") }) {
+                usesAppleAge = true
+                ageService = UITestAppleAgeService(mode: String(mode.dropFirst("--ui-test-apple-age=".count)))
+                ageLock = UITestAppleAgeLockStore()
+            }
+        #endif
+        let ageController = AppleAgeController(
+            ads: adsController, service: ageService, store: ageLock, isEnabled: usesAppleAge
+        )
+        _appleAge = StateObject(wrappedValue: ageController)
+        googleIdentity.waitForAgeAuthorization = { [weak ageController] in
+            guard let ageController else { throw CancellationError() }
+            try await ageController.waitForAuthorization()
+        }
+        appleIdentity.waitForAgeAuthorization = { [weak ageController] in
+            guard let ageController else { throw CancellationError() }
+            try await ageController.waitForAuthorization()
+        }
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(
-                googleIdentity: googleIdentity,
-                appleIdentity: appleIdentity
-            )
+            ZStack {
+                if ads.allowsApp || (hasOpenedApp && appleAge.state == .checking) {
+                    RootView(
+                        googleIdentity: googleIdentity,
+                        appleIdentity: appleIdentity
+                    )
+                    .environment(\.scenePhase, ads.allowsApp ? scenePhase : .background)
+                    .opacity(ads.allowsApp ? 1 : 0)
+                    .disabled(!ads.allowsApp)
+                    .accessibilityHidden(!ads.allowsApp)
+                }
+                if !ads.allowsApp {
+                    AppleAgeGateView(controller: appleAge)
+                }
+                #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("--ui-test-real-consent") {
+                        Text("Age: \(String(describing: appleAge.state)); \(ads.consentTestDiagnostic)")
+                            .font(.system(size: 1))
+                            .opacity(0.01)
+                            .accessibilityIdentifier("consent-test-diagnostic")
+                            .allowsHitTesting(false)
+                    }
+                #endif
+            }
             .environmentObject(backend)
             .environmentObject(preferences)
             .environmentObject(cosmetics)
@@ -103,7 +168,44 @@ struct PimPoPomApp: App {
             .environmentObject(multiplayer)
             .environmentObject(purchases)
             .environmentObject(ads)
+            .task(id: scenePhase) {
+                if scenePhase == .active { appleAge.startIfNeeded() }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // System permission sheets briefly make the scene inactive.
+                // Only a real background/foreground cycle invalidates the result.
+                if phase == .background { appleAge.setInBackground(true) }
+                if phase == .active { appleAge.setInBackground(false) }
+            }
+            .onChange(of: ads.allowsApp) { _, allowed in
+                if allowed {
+                    hasOpenedApp = true
+                    if let url = deferredGoogleURL {
+                        deferredGoogleURL = nil
+                        _ = googleIdentity.handle(url)
+                    }
+                } else {
+                    purchases.stopTransactionListeners()
+                    gameCenterAutoLink.reset()
+                    gameCenter.suspendAuthentication()
+                    audio.setApplicationActive(false)
+                    multiplayer.setApplicationActive(false)
+                }
+            }
+            .onChange(of: appleAge.state) { _, state in
+                if state != .checking, !ads.allowsApp {
+                    hasOpenedApp = false
+                    deferredGoogleURL = nil
+                }
+            }
             .onOpenURL {
+                guard ads.allowsApp else {
+                    if HomeQuickAction.isChangeIcon($0) { _ = quickActions.handle($0) }
+                    if appleAge.state == .checking, googleIdentity.recognizesCallback($0) {
+                        deferredGoogleURL = $0
+                    }
+                    return
+                }
                 if !quickActions.handle($0) {
                     _ = googleIdentity.handle($0)
                 }

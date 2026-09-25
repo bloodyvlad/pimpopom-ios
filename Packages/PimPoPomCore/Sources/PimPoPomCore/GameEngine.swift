@@ -3,6 +3,7 @@ import Foundation
 public final class GameEngine {
     public let configuration: GameConfiguration
     public let colors: [ColorSpec]
+    public let ruleset: ArcadeRuleset
     private let random: () -> Double
 
     public internal(set) var state = GameState.idle
@@ -37,6 +38,15 @@ public final class GameEngine {
     public internal(set) var recoveryUntil: Double?
     public internal(set) var proofTargetAt: Int?
     public internal(set) var zenTargetDelayMilliseconds = 1_000.0
+    public private(set) var activePickups: [ArcadePickup] = []
+    public private(set) var nextPickupOpportunityAt: Double?
+    private var nextPickupID = 1
+    private var clockClaimHandledAtMilliseconds: Int?
+    private struct RetiredPickup {
+        let pickup: ArcadePickup
+        let hiddenAt: Double
+    }
+    private var retiredPickups: [RetiredPickup] = []
 
     private var runProofEvents: [[Int]] = []
     private var runProofFinished = false
@@ -46,11 +56,13 @@ public final class GameEngine {
     public init(
         configuration: GameConfiguration = .standard,
         colors: [ColorSpec] = gameColors,
+        ruleset: ArcadeRuleset = .v3,
         random: @escaping () -> Double = { Double.random(in: 0..<1) }
     ) {
         precondition(colors.count >= 2, "PimPoPom needs at least two colors.")
         self.configuration = configuration
         self.colors = colors
+        self.ruleset = ruleset
         self.random = random
         reset()
     }
@@ -92,6 +104,11 @@ public final class GameEngine {
         runProofEnabled = false
         proofClockFloor = 0
         zenTargetDelayMilliseconds = configuration.zen.initialTargetDelayMilliseconds
+        activePickups = []
+        nextPickupOpportunityAt = nil
+        nextPickupID = 1
+        clockClaimHandledAtMilliseconds = nil
+        retiredPickups = []
     }
 
     @discardableResult
@@ -102,6 +119,7 @@ public final class GameEngine {
         runProofEnabled = mode == .arcade
         startedAt = now
         playerColorIndex = randomInteger(maximumExclusive: colors.count)
+        if pickupsEnabled { schedulePickupOpportunity(after: now) }
         return snapshot(now: now)
     }
 
@@ -140,7 +158,7 @@ public final class GameEngine {
         let quiet = jsRound(
             Double(range.minimum) + random() * Double(range.maximum - range.minimum)
         )
-        return ceil(recovery) + Double(quiet)
+        return ceil(recovery) + Double(scaledInterval(quiet, now: now))
     }
 
     public func nextDecoyDelayMilliseconds(now: Double) -> Double? {
@@ -162,11 +180,85 @@ public final class GameEngine {
         let quiet = jsRound(
             Double(range.minimum) + random() * Double(range.maximum - range.minimum)
         )
-        return ceil(recovery) + Double(quiet)
+        return ceil(recovery) + Double(scaledInterval(quiet, now: now))
     }
 
     public func nextDecoyExpiryAt() -> Double? {
         activeDecoys.map(\.expiresAt).min()
+    }
+
+    public func nextPickupExpiryAt() -> Double? {
+        activePickups.map(\.expiresAt).min()
+    }
+
+    public func speedRate(now: Double) -> Double {
+        Double(currentRateUnits(now: now)) / Double(ArcadePowerupRules.normalRateUnits)
+    }
+
+    /// Original-contact classification also recognizes recently removed pickups.
+    /// A committed expiry is never rolled back; its queued contact is harmless.
+    public func pickup(atCell cellIndex: Int, inputAt: Double) -> ArcadePickup? {
+        guard pickupsEnabled, state == .waiting || state == .active else { return nil }
+        if let active = activePickups.first(where: {
+            $0.cellIndex == cellIndex && inputAt >= $0.visibleAt
+        }) {
+            return active
+        }
+        if targetIndex == cellIndex, let activeAt, inputAt >= activeAt { return nil }
+        if activeDecoys.contains(where: { $0.cellIndex == cellIndex && inputAt >= $0.visibleAt }) { return nil }
+        return retiredPickups.reversed().first {
+            $0.pickup.cellIndex == cellIndex && inputAt >= $0.pickup.visibleAt && inputAt <= $0.hiddenAt
+        }?.pickup
+    }
+
+    @discardableResult
+    public func activatePickup(now: Double) -> GameTransition {
+        guard pickupsEnabled else { return ignored("pickups-disabled", now: now) }
+        guard state == .waiting || state == .active else { return ignored("not-running", now: now) }
+        if let guarded = recoveryGuard(now: now) { return guarded }
+        guard let opportunity = nextPickupOpportunityAt, now >= opportunity else {
+            return ignored("pickup-not-due", now: now)
+        }
+        let settled = settleExpiredDecoys(now: now)
+        let dimension = currentDifficulty(now: now).gridDimension
+        var occupied = Set(activeDecoys.map(\.cellIndex)).union(activePickups.map(\.cellIndex))
+        if let targetIndex { occupied.insert(targetIndex) }
+        let available = (0..<(dimension * dimension)).filter { !occupied.contains($0) }
+        guard dimension >= ruleset.minimumPickupGridDimension, activePickups.isEmpty, available.count >= 2 else {
+            nextPickupOpportunityAt = now + Double(ArcadePowerupRules.retryMilliseconds)
+            recordProofEvent([10, proofElapsed(now: now)])
+            return GameTransition(
+                kind: .ignored, reason: "pickup-capacity", snapshot: snapshot(now: now),
+                dodgesAwarded: settled.count, dodgePointsAwarded: settled.points)
+        }
+        let pickup = ArcadePickup(
+            id: nextPickupID,
+            kind: ArcadePickupKind.allCases[randomInteger(maximumExclusive: ArcadePickupKind.allCases.count)],
+            cellIndex: available[randomInteger(maximumExclusive: available.count)],
+            visibleAt: now, expiresAt: now + Double(ArcadePowerupRules.lifetimeMilliseconds))
+        nextPickupID += 1
+        activePickups.append(pickup)
+        recordProofEvent([
+            7, proofElapsed(now: now), pickup.id, pickup.kind.rawValue, pickup.cellIndex,
+            ArcadePowerupRules.lifetimeMilliseconds,
+        ])
+        schedulePickupOpportunity(after: now)
+        return GameTransition(
+            kind: .pickupActive, snapshot: snapshot(now: now),
+            lifetimeMilliseconds: ArcadePowerupRules.lifetimeMilliseconds,
+            dodgesAwarded: settled.count, dodgePointsAwarded: settled.points, pickup: pickup)
+    }
+
+    @discardableResult
+    public func expirePickups(now: Double) -> GameTransition {
+        guard pickupsEnabled, state == .waiting || state == .active else {
+            return ignored("pickups-disabled", now: now)
+        }
+        let ids = settleExpiredPickups(now: now)
+        return GameTransition(
+            kind: ids.isEmpty ? .ignored : .pickupsExpired,
+            reason: ids.isEmpty ? "not-expired" : nil, snapshot: snapshot(now: now),
+            nextExpiryAt: nextPickupExpiryAt(), pickupIDs: ids)
     }
 
     @discardableResult
@@ -182,17 +274,19 @@ public final class GameEngine {
         {
             challengeStartHits = hits
         }
-        let difficulty = resolveDifficulty(
-            hits: hits,
-            elapsedMilliseconds: Double(elapsed),
-            challengeHits: challengeHits(),
-            configuration: configuration
-        )
+        let difficulty = adjustedResponse(
+            resolveDifficulty(
+                hits: hits,
+                elapsedMilliseconds: Double(elapsed),
+                challengeHits: challengeHits(),
+                configuration: configuration
+            ), now: now)
         let cellCount = difficulty.gridDimension * difficulty.gridDimension
-        let occupied = recentlyExpiredDecoyIndexes.union(activeDecoys.map(\.cellIndex))
+        let occupied = recentlyExpiredDecoyIndexes.union(activeDecoys.map(\.cellIndex)).union(
+            activePickups.map(\.cellIndex))
         var available = (0..<cellCount).filter { !occupied.contains($0) }
         if available.isEmpty {
-            let activeIndexes = Set(activeDecoys.map(\.cellIndex))
+            let activeIndexes = Set(activeDecoys.map(\.cellIndex)).union(activePickups.map(\.cellIndex))
             available = (0..<cellCount).filter { !activeIndexes.contains($0) }
         }
         guard !available.isEmpty else {
@@ -234,7 +328,7 @@ public final class GameEngine {
         let settled = settleExpiredDecoys(now: now)
         let difficulty = currentDifficulty(now: now)
         let cellCount = difficulty.gridDimension * difficulty.gridDimension
-        let capacity = min(difficulty.maximumActiveDecoys, max(0, cellCount - 1))
+        let capacity = min(difficulty.maximumActiveDecoys, max(0, cellCount - 1 - activePickups.count))
 
         guard difficulty.decoySpawnDelayRangeMilliseconds != nil, capacity > 0 else {
             recordProofEvent([6, proofElapsed(now: now)])
@@ -257,7 +351,7 @@ public final class GameEngine {
             )
         }
 
-        var occupied = Set(activeDecoys.map(\.cellIndex))
+        var occupied = Set(activeDecoys.map(\.cellIndex)).union(activePickups.map(\.cellIndex))
         if let targetIndex { occupied.insert(targetIndex) }
         let available = (0..<cellCount).filter { !occupied.contains($0) }
         guard !available.isEmpty else {
@@ -331,6 +425,9 @@ public final class GameEngine {
     @discardableResult
     public func tap(cellIndex: Int, now: Double, resolvedAt: Double? = nil) -> GameTransition {
         let handledAt = resolvedAt ?? now
+        if let pickup = pickup(atCell: cellIndex, inputAt: now) {
+            return collectPickup(pickup, inputAt: now, handledAt: handledAt)
+        }
         let settled = settleExpiredDecoys(now: now)
         if state == .waiting {
             if let guarded = recoveryGuard(now: now) { return guarded }
@@ -546,7 +643,11 @@ public final class GameEngine {
             nextDecoyExpiryAt: nextDecoyExpiryAt(),
             roundKind: roundKind,
             difficulty: difficulty,
-            cells: cells
+            cells: cells,
+            activePickups: activePickups,
+            nextPickupOpportunityAt: nextPickupOpportunityAt,
+            nextPickupExpiryAt: nextPickupExpiryAt(),
+            speedRate: speedRate(now: snapshotAt)
         )
     }
 
@@ -633,6 +734,10 @@ public final class GameEngine {
         }
         let handledAt = max(inputAt, proofElapsed(now: resolvedAt))
         recordProofEvent([2, inputAt, handledAt, reason.proofCode, cellIndex])
+        if pickupsEnabled {
+            for pickup in activePickups { retirePickup(pickup, hiddenAt: max(now, resolvedAt)) }
+            activePickups = []
+        }
         resetStreak()
         let lifeLost = mode == .arcade
         if lifeLost { lives = max(0, lives - 1) }
@@ -660,11 +765,15 @@ public final class GameEngine {
             roundDifficulty = nil
             recoveryUntil = nil
             proofTargetAt = nil
+            nextPickupOpportunityAt = nil
+            clockClaimHandledAtMilliseconds = nil
+            retiredPickups = []
             recordFinishElapsed(logical: inputAt, handled: handledAt)
         } else {
             finishRound()
             if lifeLost {
                 recoveryUntil = max(now, resolvedAt) + Double(configuration.lifeLossRecoveryMilliseconds)
+                if pickupsEnabled { schedulePickupOpportunity(after: recoveryUntil!) }
             }
         }
         return GameTransition(
@@ -683,12 +792,13 @@ public final class GameEngine {
         var difficulty =
             state == .active && roundDifficulty != nil
             ? roundDifficulty!
-            : resolveDifficulty(
-                hits: hits,
-                elapsedMilliseconds: Double(proofElapsed(now: now)),
-                challengeHits: challengeHits(),
-                configuration: configuration
-            )
+            : adjustedResponse(
+                resolveDifficulty(
+                    hits: hits,
+                    elapsedMilliseconds: Double(proofElapsed(now: now)),
+                    challengeHits: challengeHits(),
+                    configuration: configuration
+                ), now: now)
         if mode == .zen {
             difficulty = Difficulty(
                 gridDimension: difficulty.gridDimension,
@@ -713,7 +823,7 @@ public final class GameEngine {
     private func recordProofEvent(_ event: [Int]) {
         guard runProofEnabled else { return }
         runProofEvents.append(event)
-        let clockIndex = [1, 2, 5].contains(event[0]) ? 2 : 1
+        let clockIndex = [1, 2, 5, 8].contains(event[0]) ? 2 : 1
         proofClockFloor = max(proofClockFloor, event.indices.contains(clockIndex) ? event[clockIndex] : 0)
     }
 
@@ -755,5 +865,75 @@ public final class GameEngine {
 
     private func ignored(_ reason: String, now: Double) -> GameTransition {
         GameTransition(kind: .ignored, reason: reason, snapshot: snapshot(now: now))
+    }
+
+    private var pickupsEnabled: Bool { ruleset != .v3 && mode == .arcade }
+
+    private func currentRateUnits(now: Double) -> Int {
+        guard pickupsEnabled else { return ArcadePowerupRules.normalRateUnits }
+        return ArcadePowerupRules.rateUnits(
+            atMilliseconds: proofElapsed(now: now), clockClaimHandledAtMilliseconds: clockClaimHandledAtMilliseconds)
+    }
+
+    private func scaledInterval(_ base: Int, now: Double) -> Int {
+        ArcadePowerupRules.scaledInterval(baseMilliseconds: base, rateUnits: currentRateUnits(now: now))
+    }
+
+    private func adjustedResponse(_ difficulty: Difficulty, now: Double) -> Difficulty {
+        guard pickupsEnabled else { return difficulty }
+        return Difficulty(
+            gridDimension: difficulty.gridDimension, phaseID: difficulty.phaseID, phaseName: difficulty.phaseName,
+            responseWindowMilliseconds: scaledInterval(difficulty.responseWindowMilliseconds, now: now),
+            spawnDelayRangeMilliseconds: difficulty.spawnDelayRangeMilliseconds,
+            decoySpawnDelayRangeMilliseconds: difficulty.decoySpawnDelayRangeMilliseconds,
+            maximumActiveDecoys: difficulty.maximumActiveDecoys, challengeTier: difficulty.challengeTier,
+            paceLevel: difficulty.paceLevel)
+    }
+
+    private func schedulePickupOpportunity(after now: Double) {
+        let range = ArcadePowerupRules.opportunityRange
+        nextPickupOpportunityAt =
+            now + Double(jsRound(Double(range.minimum) + random() * Double(range.maximum - range.minimum)))
+    }
+
+    private func retirePickup(_ pickup: ArcadePickup, hiddenAt: Double) {
+        retiredPickups.append(.init(pickup: pickup, hiddenAt: min(pickup.expiresAt, hiddenAt)))
+        if retiredPickups.count > 16 { retiredPickups.removeFirst(retiredPickups.count - 16) }
+    }
+
+    private func settleExpiredPickups(now: Double) -> [Int] {
+        guard pickupsEnabled, state == .waiting || state == .active else { return [] }
+        let expired = activePickups.filter { $0.expiresAt <= now }
+        guard !expired.isEmpty else { return [] }
+        for pickup in expired { retirePickup(pickup, hiddenAt: pickup.expiresAt) }
+        activePickups.removeAll { $0.expiresAt <= now }
+        let ids = expired.map(\.id)
+        recordProofEvent([9, proofElapsed(now: now)] + ids)
+        return ids
+    }
+
+    private func collectPickup(_ pickup: ArcadePickup, inputAt: Double, handledAt: Double) -> GameTransition {
+        if let guarded = recoveryGuard(now: inputAt) { return guarded }
+        guard activePickups.contains(where: { $0.id == pickup.id }) else {
+            return ignored("pickup-already-resolved", now: max(inputAt, handledAt))
+        }
+        let input = jsRound(max(0, inputAt - (startedAt ?? inputAt)))
+        let visible = jsRound(max(0, pickup.visibleAt - (startedAt ?? pickup.visibleAt)))
+        guard input >= visible, input < visible + ArcadePowerupRules.lifetimeMilliseconds else {
+            return ignored("pickup-expired", now: max(inputAt, handledAt))
+        }
+        let handled = max(input, proofElapsed(now: handledAt))
+        let settled = settleExpiredDecoys(now: inputAt)
+        retirePickup(pickup, hiddenAt: max(inputAt, handledAt))
+        activePickups.removeAll { $0.id == pickup.id }
+        switch pickup.kind {
+        case .heart: lives = min(configuration.startingLives, lives + 1)
+        case .clock: clockClaimHandledAtMilliseconds = handled
+        }
+        recordProofEvent([8, input, handled, pickup.id, pickup.cellIndex])
+        return GameTransition(
+            kind: .pickupCollected, snapshot: snapshot(now: max(inputAt, handledAt)),
+            dodgesAwarded: settled.count, dodgePointsAwarded: settled.points,
+            targetRetained: targetIndex != nil, pickup: pickup)
     }
 }

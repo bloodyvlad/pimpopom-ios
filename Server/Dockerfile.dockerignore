@@ -1,0 +1,9 @@
+.git
+**/.build
+**/.swiftpm
+Server/data
+App
+assets
+docs
+release
+PimPoPom.xcodeproj

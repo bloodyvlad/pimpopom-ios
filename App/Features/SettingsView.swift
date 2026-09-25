@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var preferences: AppPreferences
     @EnvironmentObject private var appIcons: AppIconController
     @EnvironmentObject private var ads: AdsController
+    @State private var tutorialMode: HowToPlayMode?
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -15,6 +16,16 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    settingCard(title: "How to play", systemImage: "hand.tap.fill") {
+                        ForEach(HowToPlayMode.allCases) { mode in
+                            Button("Replay \(mode.title) tutorial") { tutorialMode = mode }
+                                .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+                                .accessibilityIdentifier("replay-tutorial-\(mode.rawValue)")
+                        }
+                        Text("Practice safely, and change whether each tutorial appears before you play.")
+                            .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                    }
                     settingCard(title: "App Icon", systemImage: "app.badge") {
                         HStack(spacing: 12) {
                             ForEach(AppIconChoice.allCases) { choice in
@@ -144,6 +155,27 @@ struct SettingsView: View {
                         }
                     }
 
+                    if let appleAgeDescription = ads.appleAgeDescription {
+                        settingCard(title: "Apple age range", systemImage: "person.crop.circle") {
+                            Text("Apple age range: \(appleAgeDescription)")
+                                .accessibilityIdentifier("settings-apple-age-range")
+                            Text(
+                                ads.appleParentalControls
+                                    ? "Parental controls apply. You cannot change this age range in PimPoPom. Ask your parent or guardian to review your Apple Account settings."
+                                    : "Apple supplies this age range. To correct it, review your Apple Account settings. It cannot be edited in PimPoPom."
+                            )
+                            .font(palette.appFont(size: 12, weight: .medium, relativeTo: .caption))
+                            .foregroundStyle(Color(hex: palette.muted))
+                        }
+                    }
+
+                    settingCard(title: "Support & Legal", systemImage: "doc.text.fill") {
+                        legalLink("Privacy Policy", page: "privacy")
+                        legalLink("Terms of Use", page: "terms")
+                        legalLink("Refunds", page: "refunds")
+                        legalLink("Support", page: "support")
+                    }
+
                     if let status = audio.statusMessage {
                         Text(status)
                             .font(palette.appFont(size: 13, weight: .bold, relativeTo: .footnote))
@@ -159,6 +191,9 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $tutorialMode) { mode in
+            HowToPlayReplayView(mode: mode)
+        }
         .onAppear { appIcons.refresh() }
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -167,6 +202,21 @@ struct SettingsView: View {
                     .foregroundStyle(Color(hex: palette.foreground))
             }
         }
+    }
+
+    private func legalLink(_ title: String, page: String) -> some View {
+        Link(destination: URL(string: "https://www.otcsoft.com/pimpopom-legal/\(page).html")!) {
+            HStack(spacing: 12) {
+                Text(title)
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16)
+        }
+        .buttonStyle(WebSecondaryButtonStyle(theme: palette, minimumHeight: 44))
+        .accessibilityHint("Opens \(title) on otcsoft.com")
+        .accessibilityIdentifier("settings-legal-\(page)")
     }
 
     private func iconChoiceButton(_ choice: AppIconChoice) -> some View {

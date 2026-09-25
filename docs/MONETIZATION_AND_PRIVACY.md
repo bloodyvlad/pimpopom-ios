@@ -65,14 +65,19 @@ keeps it due.
 
 ### Consent and configurations
 
-1. Eligible launches refresh UMP before any ad request; login changes consume the
-   current launch result and do not present consent again.
+1. Eligible launches refresh UMP before any ad request. Session/account
+   changes retain age and consent choices and only reconcile entitlement; unknown account eligibility still
+   blocks inventory until resolved.
 2. Start GMA only when UMP says ads may be requested and PHP has resolved the
    session as not ad-free. Unknown/ad-free state starts no inventory.
-3. Expose Privacy Options when required. Core play and purchases do not depend on
+3. Expose Privacy Options when required, including eligible ad-free and unresolved
+   accounts. Core play and purchases do not depend on
    optional tracking consent.
-4. Maximum content rating is General; publisher personalization and first-party ID
-   are disabled. The app does not request ATT or access IDFA.
+4. Maximum content rating is General. Only adults with applicable Google consent
+   and authorized ATT enable personalization/first-party ID; all other ad requests
+   use disabled personalization/first-party ID and `npa=1`. UMP continues to apply
+   its consent and limited-ad rules. Native ATT is requested after UMP only for
+   eligible adults; no automatic all-ages UMP IDFA explainer is configured.
 
 | Build lane | Inventory |
 | --- | --- |
@@ -82,6 +87,76 @@ keeps it due.
 | Checked-in Release | Disabled; live values require ignored private config and explicit authority |
 
 No production-unit creative may be touched unless it visibly says **Test mode**.
+
+## Build 34 age and tracking consent
+
+Apple-required regions retain Declared Age Range and read-only restrictions.
+Otherwise the first-use Under 13 / 13–15 / 16–17 / 18+ / Skip question determines
+ad treatment without collecting a birthday. Skip persists as unknown, not adult.
+Account changes do not clear local age/Google consent or re-request ATT.
+Apple-provided restrictions cannot be overridden manually. Known under-13 users
+remain blocked before consent/ad startup. See [build 34](APP_REVIEW_FIX_34.md).
+
+The Google consent form is loaded/presented if required, then relevant TCF purpose
+and Google vendor consent determine whether an adult may be asked for ATT. In
+other regions UMP's applicable consent state is used. Tracking requires ATT
+`.authorized`; denied/restricted/notDetermined never permit personalized requests.
+GMA starts only after this process, and refreshed/revoked choices discard prior
+inventory. The app-owned manifest describes first-party gameplay/account data;
+Google's bundled manifest separately declares Device ID tracking. App Store
+privacy labels include Device ID tracking for the consenting-adult path.
+
+## Historical candidate33 prompt-free optional-region onboarding
+
+There is no manual age selector, birthday entry, or optional Apple age-sharing
+prompt at launch or purchase. Once the regional check confirms optional/legacy
+handling, a new user can enter with no age value. The advertising adapters treat
+that absence using unspecified age treatment and regular UMP consent handling; it is not a
+claim that the user has a particular age. UMP and authoritative account/ad-free
+eligibility still govern ads. Declining optional consent does not block play or
+purchases. Ad cadence and production IDs are unchanged.
+
+Required regional Apple checks and previously supplied Apple restrictions remain.
+A failed applicability query is not proof that checking is optional. Returned
+ranges remain read-only; known under-13 restrictions are preserved. The system
+sharing sheet waits for an active, attached presenter. Only required-check UI has
+the PimPoPom wordmark; it contains no Settings or legal links. Main-menu Settings
+retains legal documents and required privacy choices. StoreKit owns purchase and
+parental approval UI; no extra purchase-time age-sharing step is added.
+
+The [correction record](ONBOARDING_AGE_FIX.md) describes the owner-withdrawn build32
+failure and current focused validation/delivery boundary.
+
+## Historical candidate32 Apple age handling
+
+Apple Declared Age Range supplies inclusive bounds when shared. The app requests
+13/16/18 thresholds but accepts Apple region-specific ranges and uses the youngest
+possible age for access and ad protection. Shared values cannot be edited in-app,
+including parentally controlled accounts. No birthday is collected and the age
+range is not sent to the game backend. Google receives the existing age-related
+advertising/consent signal. Fresh Apple resolution precedes UMP and account services;
+account/background transitions invalidate stale responses and inventory.
+
+Older iOS versions retain the neutral manual gate. Optional declined sharing can
+fall back to self-declaration only when the available regional check does not
+require sharing and this installation has never received an Apple range.
+iOS26.0/26.1 have no regional-requirements API; this legacy fallback does not
+establish absence of parental controls. Modern query errors/required declines and
+remembered Apple locks cannot become a manual adult choice. See
+[full current fallback contract](PRODUCTION_CANDIDATE_32.md).
+
+## Candidate-31 age handling
+
+The owner approved restricted advertising for ages 13–17 and retained the
+three-game interstitial cadence. The candidate adds neutral local age selection,
+no birthday/country collection, and blocking before Root startup for unknown or
+under-13 players. Ages 13–15 receive UMP under-consent true plus GMA child treatment;
+16–17 receive normal regional UMP flow plus GMA teen treatment; adults retain the
+restrictive existing adult settings. Sixteen is a conservative product threshold,
+not a universal legal age. Account changes require reconfirmation; offline initial
+lookup preserves declared age while GMA stays account-gated. The age band is not
+sent to the game backend; Google receives age-related consent/ad request signals.
+See [implementation, checks and open gates](PRODUCTION_CANDIDATE_31.md).
 
 ## Data inventory
 

@@ -5,6 +5,7 @@ import UIKit
 
 enum AdsLifecycleState: Equatable, Sendable {
     case disabled
+    case waitingForAge
     case waitingForAccount
     case requestingConsent
     case consentBlocked
@@ -14,6 +15,11 @@ enum AdsLifecycleState: Equatable, Sendable {
 
 @MainActor
 final class AdsController: ObservableObject {
+    struct ConfirmedAccountStartupID: Hashable {
+        let profileID: String
+        let ageGeneration: Int
+    }
+
     private enum ConsentRefreshState {
         case notStarted
         case requesting
@@ -29,30 +35,66 @@ final class AdsController: ObservableObject {
     @Published private(set) var progress: InterstitialProgress
     @Published private(set) var accountResolution = AdAccountResolution.unresolved
 
+    @Published private(set) var ageBand: AdAgeBand?
+    @Published private(set) var ageConfirmationGeneration = 0
+    @Published private var hasCompletedPolicyConsentFlow = false
+
+    @Published private(set) var allowsUnspecifiedAge = false
+    @Published private(set) var systemAgeRequired = false
+    @Published private(set) var systemAgeAuthorized = false
+    @Published private(set) var appleAgeDescription: String?
+    @Published private(set) var appleParentalControls = false
+    private var hasAppleAgeLock = false
+    var onAgeConfirmationRequired: (@MainActor () -> Void)?
+    var onAppleAgeRefresh: (@MainActor () -> Void)?
+
+    var allowsApp: Bool {
+        if systemAgeRequired {
+            return systemAgeAuthorized && ageBand?.allowsApp == true
+        }
+        return ageBand?.allowsApp ?? allowsUnspecifiedAge
+    }
+
+    var canManuallyChangeAge: Bool { !systemAgeRequired && !hasAppleAgeLock }
+    var needsManualAgeChoice: Bool { canManuallyChangeAge && !ageStore.hasCompletedAgeChoice }
+    var ageProfileBinding: String? { currentProfileID ?? ageStore.confirmedProfileID }
+
     let configuration: AdsConfiguration
 
     var isPrivacyChoicesVisible: Bool {
-        configuration.isEnabled
-            && accountResolution == .adsAllowed
+        configuration.isEnabled && allowsApp
             && privacyOptionsRequirement == .required
     }
 
     var canAttachBanner: Bool {
-        lifecycleState == .ready && accountResolution == .adsAllowed
+        allowsApp && lifecycleState == .ready && accountResolution == .adsAllowed
     }
 
     var reservesBannerSlot: Bool {
         canAttachBanner
     }
 
+    #if DEBUG
+        var consentTestDiagnostic: String {
+            "\(lifecycleState); flow=\(eligibilityFlowInFlight); configured=\(hasConfiguredAds); account=\(accountResolution); consent=\(consentService.currentSnapshot.canRequestAds); tracking=\(AppleTrackingAuthorization().permission)"
+        }
+    #endif
+
+    private let ageStore: any AdAgeBandStoring
+    private var policyGeneration = 0
+    private var accountGeneration = 0
+    private var inventoryGeneration = 0
+    private var hasCurrentPolicyConsent = false
+    private var currentProfileID: String?
     private let consentService: any ConsentServing
     private let adsService: any AdsServing
     private let progressStore: any InterstitialProgressStoring
     private let configurationProblems: [String]
     private var hasBootstrapped = false
-    private var eligibilityFlowInFlight = false
+    @Published private var eligibilityFlowInFlight = false
     private var consentRefreshState = ConsentRefreshState.notStarted
     private var hasConfiguredAds = false
+    private var configuredPersonalization = false
     private var adsStartInFlight = false
     private var attemptedResultIDs: Set<UUID> = []
     private var presentationInFlight = false
@@ -65,15 +107,20 @@ final class AdsController: ObservableObject {
         configuration: AdsConfiguration,
         consentService: any ConsentServing,
         adsService: any AdsServing,
-        progressStore: any InterstitialProgressStoring
+        progressStore: any InterstitialProgressStoring,
+        ageStore: any AdAgeBandStoring = UserDefaultsAdAgeBandStore()
     ) {
         self.configuration = configuration
+        self.ageStore = ageStore
+        ageBand = ageStore.ageBand
         self.consentService = consentService
         self.adsService = adsService
         self.progressStore = progressStore
         configurationProblems = configuration.validationProblems()
         progress = progressStore.load()
-        lifecycleState = configuration.isEnabled ? .waitingForAccount : .disabled
+        lifecycleState =
+            ageStore.ageBand?.allowsApp == true
+            ? (configuration.isEnabled ? .waitingForAccount : .disabled) : .waitingForAge
 
         adsService.onBannerStateChange = { [weak self] state in
             self?.bannerState = state
@@ -104,15 +151,118 @@ final class AdsController: ObservableObject {
     }
 
     func bootstrap(session: SessionResponse?) async {
+        guard allowsApp else { return }
         guard !hasBootstrapped else {
             await updateSession(session)
+            if case .notStarted = consentRefreshState { await runEligibilityFlow() }
             return
         }
         hasBootstrapped = true
         await applySession(session)
 
-        guard configuration.isEnabled, configurationProblems.isEmpty else { return }
+        guard allowsApp else { return }
+        guard configuration.isEnabled, configurationProblems.isEmpty else {
+            hasCompletedPolicyConsentFlow = true
+            return
+        }
         await runEligibilityFlow()
+    }
+
+    // Confirms current account access policy; unknown-age access is not an age assertion.
+    func isAgeConfirmed(for session: SessionResponse?) -> Bool {
+        guard allowsApp, let key = Self.profileBinding(for: session) else { return false }
+        return ageStore.confirmedProfileID == key
+    }
+
+    func confirmedAccountStartupID(for session: SessionResponse?) -> ConfirmedAccountStartupID? {
+        guard hasBootstrapped, hasCompletedPolicyConsentFlow,
+            !eligibilityFlowInFlight, !isPresentingPrivacyOptions, isAgeConfirmed(for: session),
+            let profileID = Self.profileBinding(for: session), currentProfileID == profileID
+        else { return nil }
+        return ConfirmedAccountStartupID(profileID: profileID, ageGeneration: ageConfirmationGeneration)
+    }
+
+    private static func profileBinding(for session: SessionResponse?) -> String? {
+        guard let session else { return nil }
+        if session.authenticated, let profile = session.profile { return profile.id }
+        if !session.authenticated, session.profile == nil { return "anonymous" }
+        return nil
+    }
+
+    func setAgeBand(_ band: AdAgeBand) async {
+        guard canManuallyChangeAge else { return }
+        invalidatePolicy()
+        ageStore.ageBand = band
+        ageStore.hasCompletedAgeChoice = true
+        ageStore.confirmedProfileID = currentProfileID
+        ageBand = band
+        ageConfirmationGeneration += 1
+        if hasBootstrapped, allowsApp { await runEligibilityFlow() }
+    }
+
+    /// Close all SDK eligibility synchronously before presenting Apple UI.
+    func beginSystemAgeRefresh() {
+        allowsUnspecifiedAge = false
+        systemAgeRequired = true
+        systemAgeAuthorized = false
+        invalidatePolicy()
+        ageConfirmationGeneration += 1
+    }
+
+    func waitForConsentPresentation() async { await consentService.waitUntilIdle() }
+
+    func applySystemAge(_ range: AppleSharedAgeRange) {
+        hasAppleAgeLock = true
+        systemAgeRequired = true
+        invalidatePolicy()
+        ageStore.ageBand = range.adBand
+        ageStore.confirmedProfileID = currentProfileID ?? ageStore.confirmedProfileID
+        ageBand = range.adBand
+        appleAgeDescription = range.displayTitle
+        appleParentalControls = range.hasParentalControls
+        systemAgeAuthorized = true
+        ageConfirmationGeneration += 1
+        // Root restores the current account before starting fresh UMP.
+    }
+
+    func allowUnspecifiedAgeAccess(protection: AppleAgeProtection? = nil, appleLocked: Bool = false) {
+        let needsRefresh = systemAgeRequired || !allowsUnspecifiedAge
+        if let protection {
+            ageStore.ageBand = protection.band
+            ageBand = protection.band
+        }
+        hasAppleAgeLock = appleLocked
+        appleAgeDescription = protection?.range?.displayTitle ?? (appleLocked ? "Previously shared" : nil)
+        appleParentalControls = protection?.range?.hasParentalControls ?? false
+        allowsUnspecifiedAge = true
+        systemAgeRequired = false
+        systemAgeAuthorized = false
+        if needsRefresh { ageConfirmationGeneration += 1 }
+    }
+
+    func waitForManualAgeChoice() {
+        allowsUnspecifiedAge = false
+    }
+
+    func skipManualAgeChoice() {
+        guard canManuallyChangeAge, ageBand != .under13 else { return }
+        ageStore.hasCompletedAgeChoice = true
+        allowsUnspecifiedAge = true
+        ageConfirmationGeneration += 1
+    }
+
+    private func invalidatePolicy() {
+        policyGeneration += 1
+        consentService.invalidate()
+        consentRefreshState = .notStarted
+        hasCurrentPolicyConsent = false
+        hasCompletedPolicyConsentFlow = false
+        privacyOptionsRequirement = .unknown
+        isPresentingPrivacyOptions = false
+        eligibilityFlowInFlight = false
+        adsStartInFlight = false
+        hasConfiguredAds = false
+        deactivateAds(state: .waitingForAge, clearCadence: false)
     }
 
     func updateSession(_ session: SessionResponse?) async {
@@ -122,12 +272,18 @@ final class AdsController: ObservableObject {
 
     func setApplicationActive(_ isActive: Bool) {
         adsService.setApplicationActive(isActive)
+        if isActive, hasConfiguredAds,
+            configuredPersonalization != (ageBand == .adult && consentService.currentSnapshot.allowsPersonalizedAds)
+        {
+            deactivateAds(state: .requestingConsent, clearCadence: false)
+            Task { await reconcileEligibility() }
+        }
     }
 
     /// A failed UMP refresh must not permanently disable ads for the process.
-    /// The caller invokes this once after initial bootstrap and on foreground.
+    /// Foreground recovery invokes this after the initial policy flow has finished.
     func retryEligibilityIfNeeded() async {
-        guard hasBootstrapped,
+        guard hasBootstrapped, allowsApp,
             case .failed = consentRefreshState,
             accountResolution == .adsAllowed,
             configuration.isEnabled,
@@ -152,7 +308,7 @@ final class AdsController: ObservableObject {
     }
 
     func recordCompletedSession(id: UUID, mode _: GameMode) {
-        guard configuration.isEnabled, accountResolution == .adsAllowed else { return }
+        guard allowsApp, configuration.isEnabled, accountResolution == .adsAllowed else { return }
         guard progress.record(completionID: id) else { return }
         persistProgress()
     }
@@ -179,16 +335,25 @@ final class AdsController: ObservableObject {
 
     func presentPrivacyChoices() async {
         guard isPrivacyChoicesVisible, !isPresentingPrivacyOptions else { return }
+        let generation = policyGeneration
         isPresentingPrivacyOptions = true
         statusMessage = nil
-        defer { isPresentingPrivacyOptions = false }
+        // Existing creatives cannot outlive a privacy choice change.
+        deactivateAds(state: .requestingConsent, clearCadence: false)
+        consentRefreshState = .requesting
+        defer {
+            if generation == policyGeneration { isPresentingPrivacyOptions = false }
+        }
 
         do {
             let snapshot = try await consentService.presentPrivacyOptions()
+            guard generation == policyGeneration, allowsApp else { return }
             consentRefreshState = .complete
+            hasCurrentPolicyConsent = true
             applyConsentSnapshot(snapshot)
             await reconcileEligibility()
         } catch {
+            guard generation == policyGeneration, allowsApp else { return }
             let snapshot = consentService.currentSnapshot
             consentRefreshState = .failed
             applyConsentSnapshot(snapshot)
@@ -199,11 +364,28 @@ final class AdsController: ObservableObject {
 
     private func applySession(_ session: SessionResponse?) async {
         let next = AdAccountResolution.resolve(session)
+        if next != accountResolution {
+            accountGeneration += 1
+            adsStartInFlight = false
+        }
         accountResolution = next
+        if session == nil, currentProfileID != nil {
+            currentProfileID = nil
+        }
+        if let session {
+            let profileID = Self.profileBinding(for: session)
+            currentProfileID = profileID
+            if allowsApp, let profileID { ageStore.confirmedProfileID = profileID }
+        }
+        guard allowsApp else {
+            deactivateAds(state: .waitingForAge, clearCadence: next == .adFree)
+            return
+        }
         logger.notice("Ad account resolution: \(self.accountLabel(next), privacy: .public)")
         consoleDiagnostic("account=\(accountLabel(next))")
 
         guard configuration.isEnabled, configurationProblems.isEmpty else {
+            hasCompletedPolicyConsentFlow = true
             deactivateAds(state: .disabled, clearCadence: next == .adFree)
             return
         }
@@ -212,16 +394,29 @@ final class AdsController: ObservableObject {
     }
 
     private func runEligibilityFlow() async {
+        guard allowsApp else { return }
+        guard configuration.isEnabled, configurationProblems.isEmpty else {
+            hasCompletedPolicyConsentFlow = true
+            return
+        }
         guard !eligibilityFlowInFlight else { return }
+        let generation = policyGeneration
         eligibilityFlowInFlight = true
-        defer { eligibilityFlowInFlight = false }
+        defer {
+            if generation == policyGeneration {
+                eligibilityFlowInFlight = false
+                hasCompletedPolicyConsentFlow = true
+            }
+        }
         consentRefreshState = .requesting
         lifecycleState = .requestingConsent
         statusMessage = nil
 
         do {
-            let snapshot = try await consentService.requestConsent()
+            let snapshot = try await consentService.requestConsent(for: ageBand)
+            guard generation == policyGeneration, allowsApp else { return }
             consentRefreshState = .complete
+            hasCurrentPolicyConsent = true
             applyConsentSnapshot(snapshot)
             logger.notice(
                 "UMP eligibility complete; can request ads: \(snapshot.canRequestAds, privacy: .public)"
@@ -229,6 +424,7 @@ final class AdsController: ObservableObject {
             consoleDiagnostic("ump canRequestAds=\(snapshot.canRequestAds)")
             await reconcileEligibility()
         } catch {
+            guard generation == policyGeneration, allowsApp else { return }
             let snapshot = consentService.currentSnapshot
             consentRefreshState = .failed
             applyConsentSnapshot(snapshot)
@@ -249,12 +445,17 @@ final class AdsController: ObservableObject {
     }
 
     private func configureAdsIfNeeded() {
-        guard !hasConfiguredAds else { return }
-        adsService.configure(configuration)
+        guard !hasConfiguredAds, allowsApp else { return }
+        configuredPersonalization = ageBand == .adult && consentService.currentSnapshot.allowsPersonalizedAds
+        adsService.configure(configuration, ageBand: ageBand, allowsPersonalizedAds: configuredPersonalization)
         hasConfiguredAds = true
     }
 
     private func reconcileEligibility() async {
+        guard allowsApp else {
+            deactivateAds(state: .waitingForAge, clearCadence: false)
+            return
+        }
         guard configuration.isEnabled, configurationProblems.isEmpty else {
             deactivateAds(state: .disabled, clearCadence: accountResolution == .adFree)
             return
@@ -276,7 +477,7 @@ final class AdsController: ObservableObject {
                     deactivateAds(state: .consentBlocked, clearCadence: false)
                 }
             case .failed:
-                if consentService.currentSnapshot.canRequestAds {
+                if hasCurrentPolicyConsent, consentService.currentSnapshot.canRequestAds {
                     await startAdsIfNeeded()
                 } else {
                     deactivateAds(state: .failed, clearCadence: false)
@@ -286,17 +487,29 @@ final class AdsController: ObservableObject {
     }
 
     private func startAdsIfNeeded() async {
-        guard accountResolution == .adsAllowed,
-            configuration.isEnabled,
+        guard allowsApp, accountResolution == .adsAllowed,
+            configuration.isEnabled, hasCurrentPolicyConsent,
             consentService.currentSnapshot.canRequestAds,
             lifecycleState != .ready,
             !adsStartInFlight
         else { return }
+        let generation = policyGeneration
+        let account = accountGeneration
+        let inventory = inventoryGeneration
         adsStartInFlight = true
-        defer { adsStartInFlight = false }
+        defer {
+            if generation == policyGeneration, account == accountGeneration,
+                inventory == inventoryGeneration
+            {
+                adsStartInFlight = false
+            }
+        }
         configureAdsIfNeeded()
         await adsService.start()
-        guard accountResolution == .adsAllowed,
+        guard generation == policyGeneration, account == accountGeneration,
+            inventory == inventoryGeneration
+        else { return }
+        guard allowsApp, accountResolution == .adsAllowed,
             consentService.currentSnapshot.canRequestAds
         else {
             deactivateAds(
@@ -313,7 +526,10 @@ final class AdsController: ObservableObject {
         state: AdsLifecycleState,
         clearCadence: Bool
     ) {
+        inventoryGeneration += 1
+        adsStartInFlight = false
         adsService.destroyAll()
+        hasConfiguredAds = false
         bannerState = .unavailable
         lifecycleState = state
         presentationInFlight = false

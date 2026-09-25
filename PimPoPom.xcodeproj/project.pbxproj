@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		000A35E9EBCD602441CCB123 /* MultiplayerFastNetworkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3FE58194F94F7DBF648D93 /* MultiplayerFastNetworkTests.swift */; };
 		022E13F9976B529A2E50B800 /* pancake-floor.png in Resources */ = {isa = PBXBuildFile; fileRef = 5E7E287D8050BCF1504A5002 /* pancake-floor.png */; };
 		03528CE7275198A4BEB75E9B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */; };
 		03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D742807F5506EC05BA9FAFE /* GameView.swift */; };
 		04052855CC26052581CF9499 /* audio-light-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = C06F6CC5788057DFF2A06D6C /* audio-light-menu.m4a */; };
+		0475BF817E31E0A73A0A9A90 /* AppleAgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9151FB3BAE1EF7C30C63680C /* AppleAgeService.swift */; };
 		066C6CBA43656DC6D7BA87F3 /* PurchaseController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E2A0743676367B419D7078 /* PurchaseController.swift */; };
 		069780A643FA0657F2591156 /* audio-classic-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */; };
 		07131DCCAFB181F709F262FB /* AppleIdentityServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */; };
-		0893CC631D7FAFF20A3E5028 /* MultiplayerBackendClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14EAFEECB2DCB25385F31063 /* MultiplayerBackendClientTests.swift */; };
 		0AD2A3C5E816E83335A715E9 /* misha-climber.png in Resources */ = {isa = PBXBuildFile; fileRef = 343C3D60DEB6783CB739995F /* misha-climber.png */; };
+		0F0039370D688F3FBE454499 /* GameplayStampFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59D2E71B31442EEE9E456EC /* GameplayStampFeedback.swift */; };
 		11BEA7BA6EFF98C47DF75DCB /* kesha-perch.png in Resources */ = {isa = PBXBuildFile; fileRef = A094CABC4F0AA44F4126624B /* kesha-perch.png */; };
 		18D7F6E90248D32DD8371432 /* audio-light-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 7A7AAB5003782A88EC74437A /* audio-light-tones.wav */; };
 		18FA0F8FA27D0B4CD6BD7451 /* PimPoPomCore in Frameworks */ = {isa = PBXBuildFile; productRef = B99BB11775542C9E63F45B2A /* PimPoPomCore */; };
@@ -32,7 +32,7 @@
 		339BFE056EAC7EFF394CC904 /* audio-pimpopom-sting.wav in Resources */ = {isa = PBXBuildFile; fileRef = 36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */; };
 		33CE829944CE88CF56F940A8 /* foka-ice-floe.png in Resources */ = {isa = PBXBuildFile; fileRef = A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */; };
 		36B37175BB6E0CBFE6607C34 /* muse-floor.png in Resources */ = {isa = PBXBuildFile; fileRef = AE0A4CFFE2AEF83863978D0D /* muse-floor.png */; };
-		36E3B43113D25ADE49657F66 /* MultiplayerPeerConsistency.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C39AB8C2A564691E80BA03D /* MultiplayerPeerConsistency.swift */; };
+		3780B05BB7ABF2CF007C6646 /* ArcadeSpriteBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1785BF50D237132FAB0E6782 /* ArcadeSpriteBoard.swift */; };
 		37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */; };
 		3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */; };
 		3E8B789C6846539EE101679E /* AudioController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EAF0D8DD171854555FDD1CF /* AudioController.swift */; };
@@ -40,25 +40,31 @@
 		46F5040558302ED97373D477 /* BackendModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2E75B83D2198FB2E99E518 /* BackendModels.swift */; };
 		48A60FBB88983658EEC67DD5 /* MultiplayerPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */; };
 		4A1A7251FF209E56E3291F35 /* GameCenterAutoLinkControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AA841A473D8AF5CD279A75 /* GameCenterAutoLinkControllerTests.swift */; };
+		52126E0C0B06A5C335C7C454 /* HowToPlayUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A534E1294ED80E2D4E2981 /* HowToPlayUITests.swift */; };
 		5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */; };
 		54263429058B1AB2B2B01286 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 5BB5AC1A8B78187882559EA7 /* GoogleUserMessagingPlatform */; };
+		54E03409B77042AD52C524AF /* MultiplayerSpriteBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EBED918F7E353658710BC2 /* MultiplayerSpriteBoard.swift */; };
 		56603C4049290197D71E7DE7 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 8A3904134513421E1F894756 /* GoogleMobileAds */; };
 		575CE37825C8F28233C993B3 /* MultiplayerController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */; };
-		5A4FF049FA8F5F1B5A8955E2 /* MultiplayerGameKitTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBBBCDB8847C7393043466BF /* MultiplayerGameKitTransportTests.swift */; };
 		5BC9981FB9E84A0D785CB2CC /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */; };
 		5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */; };
 		5F6277B4B9A7E0BBC3DDD44F /* AdBannerSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */; };
 		60D82B86C5B02B0DE3F426DB /* AppleSignInButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */; };
 		60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */; };
 		6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */; };
+		61A47725672C82B20325D83E /* HowToPlayModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819D981867E8F7C4E079789D /* HowToPlayModel.swift */; };
 		65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */; };
 		67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */; };
+		6B52884299F1580DA526BF2D /* AppleAgeControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488455A99C5A85B00CADA2C2 /* AppleAgeControllerTests.swift */; };
+		6D7E42AE50BF1ECB79CD9D48 /* TrackingConsent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 301CC91E2D316CF1228A200F /* TrackingConsent.swift */; };
 		6E46ABD4087FBC9FAF4D9E0C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 491AE95125B0A41ABB5B5D44 /* Assets.xcassets */; };
 		7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A54435E3370FE5F0E7640F4F /* PetShopView.swift */; };
 		754E8CD00718D0D507BB1414 /* audio-oops.wav in Resources */ = {isa = PBXBuildFile; fileRef = DEC51376F984CE9F83F10F80 /* audio-oops.wav */; };
 		76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */; };
 		772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */; };
+		78C8D32B3D1F7483D0B867B5 /* HowToPlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6386620D9A1E0066712058 /* HowToPlayView.swift */; };
 		79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF525ACA8A69F39145C25A62 /* AchievementsView.swift */; };
+		7CC08DE4E9F1A770D4C2369B /* ConsentOperationQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB33815793456F6B8450D44D /* ConsentOperationQueue.swift */; };
 		823E49E0F7882DF1E38717F4 /* LeaderboardPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */; };
 		8396C151E5FF08EA7940428D /* AdsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0666D60D3D9DC1385FFD0B8C /* AdsController.swift */; };
 		865CDEB8D47E9E99AF4CD2BF /* GameCenterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */; };
@@ -67,9 +73,10 @@
 		8C19FB3935B020FF5F45B92E /* audio-classic-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = B50F7D6276F80417F9888373 /* audio-classic-tones.wav */; };
 		8E1D7FCE60EF4C68B0AA0A80 /* audio-disco-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */; };
 		8EEE97F8C4112AC5BF00051D /* GameCenterAutoLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */; };
+		8F6FB25A3E2EDC1D492D553F /* MultiplayerRoomSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */; };
 		90D6A66A2314920DACE7DF01 /* ScreenshotFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */; };
+		928940F0773A7B69D7766DE6 /* AppleAgeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48866A67BF140B0104741441 /* AppleAgeModels.swift */; };
 		9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */; };
-		93C430B8CE8AA76B8F7989BF /* MultiplayerFastPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25386CE8AB2BA1F717611712 /* MultiplayerFastPresentation.swift */; };
 		94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */; };
 		97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */; };
 		997453F97D0DAA43FBBF5C3B /* jersey-10-regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */; };
@@ -78,20 +85,21 @@
 		9C470570FF857655FC7C104B /* audio-disco-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6038C3199A866EB364429ECE /* audio-disco-run.m4a */; };
 		9CAA0142DC9459BD38BB7961 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B333FEBEC615A9C45AE372C2 /* PrivacyInfo.xcprivacy */; };
 		9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B807723F13D7024F84747F72 /* GameCoordinator.swift */; };
+		A015A44A16D51992A791F3DB /* MultiplayerSocketTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 618A210FFBCD32F320B96ECB /* MultiplayerSocketTests.swift */; };
 		A19D6210497A3D375CDC07BE /* GameCellArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7C97DB7185189A114B58620 /* GameCellArtwork.swift */; };
+		A7A2EF828CB8792386B3CFDD /* HowToPlayEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E26739285F6414E9A1BC690C /* HowToPlayEntryView.swift */; };
 		A8C18C383224F6F97F475FB5 /* StoreKitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9CC5EE844D22FB3BF197B67 /* StoreKitModels.swift */; };
-		AA8FCAE87D5A559DFE1366F1 /* MultiplayerPeerConsistencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFABD2C36CB814998CA7DE6B /* MultiplayerPeerConsistencyTests.swift */; };
-		ABE35C2FC352D25D7C800F64 /* MultiplayerGameKitTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4229B48A8A93EA5CAD874DB7 /* MultiplayerGameKitTransport.swift */; };
+		A91C56E6A1A0BA217E1B3C93 /* AdAgeBand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8650ABAFBC21049F43A4FAE6 /* AdAgeBand.swift */; };
+		AA0A5BCFDDA5E793D935C2FA /* HowToPlayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83671DA013899D28E4565759 /* HowToPlayTests.swift */; };
 		AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */; };
+		AEF69CB46D516F9A64C480B8 /* UITestAppleAgeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFE52AB1CB5DB19F52807C4E /* UITestAppleAgeService.swift */; };
 		B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */; };
 		B356FCCA35545B44F4D3A1AC /* AdsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */; };
 		B46953E8B2A2F8158BF74A06 /* ScreenshotFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */; };
-		B4714FEA62DE975B3AA29B46 /* MultiplayerFastPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0669F23B2AD05E3939DB8D93 /* MultiplayerFastPresentationTests.swift */; };
 		B4F2844849CAE58E84BFA13F /* MultiplayerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 950E607413974581EF2478D4 /* MultiplayerModels.swift */; };
 		B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9648B3C4989B1B1FF9557057 /* GameScene.swift */; };
 		B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */; };
 		B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */; };
-		B94C2684C937903D3AF7C1A2 /* MultiplayerFrameScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4F0F38FBDCCD852A9B10B2 /* MultiplayerFrameScheduler.swift */; };
 		BA189338D2A4A66BF5D5C18D /* disco-concrete-lights.png in Resources */ = {isa = PBXBuildFile; fileRef = BB501ACDA16D35FF02259969 /* disco-concrete-lights.png */; };
 		BA919DD6B28AE526B4C39B05 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = C4870F00BE8DF3014F005A13 /* GoogleSignIn */; };
 		BAAA8B086F97BE06F9456CA5 /* audio-pixel-run.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 5E5B8A0B92FABA6CEC0AEBE9 /* audio-pixel-run.m4a */; };
@@ -99,25 +107,35 @@
 		BDAA90ADC1CBF50E0DF1294B /* tauta-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 1FD1D8CB83628904EBD471FB /* tauta-sprite.png */; };
 		C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */; };
 		C132456E3372F15EA38F2091 /* MultiplayerBackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4077B55945CD1DEBC158188 /* MultiplayerBackendClient.swift */; };
+		C2E210EBD2B0EF64363FAADB /* AppleAgeController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 923CEA1022BF8808DF825BE3 /* AppleAgeController.swift */; };
+		C528DC121C2F2E97DA521941 /* MultiplayerSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1211EE9DABA1635C2D682EAB /* MultiplayerSocket.swift */; };
+		CF49710A1F8BEB2E7850D517 /* TrackingConsentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22268DE854755B6549BBF48E /* TrackingConsentTests.swift */; };
 		D2FF783D7B37B3FD555CEF37 /* misha-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */; };
+		D42D180C72C2F118F43D918D /* GameplayPickupIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC7DB10D577291DC238A5DF /* GameplayPickupIcon.swift */; };
 		D67810BA07DC1F0D8729A51C /* muse-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = BE684D0E61B8053630D1E5B0 /* muse-sprite.png */; };
 		D6D371E196A373C5B11204BE /* tauta-bed.png in Resources */ = {isa = PBXBuildFile; fileRef = EB365660F1E96C034ECE4A85 /* tauta-bed.png */; };
 		DFBB0EAB96AFD9C8BC9AA6F9 /* LocalStoreKitCreditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */; };
+		E1A12574C8680DB37138EEA1 /* MultiplayerRoomControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99E604C3ADEDCC5FC4D908C9 /* MultiplayerRoomControls.swift */; };
 		E359484EDDD010BB1C4A60B7 /* StoreKitConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */; };
 		E5D286413EAD1E278F2BD941 /* mitsuri-cushion.png in Resources */ = {isa = PBXBuildFile; fileRef = 86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */; };
+		E7A3D10CE00DB4CB609FE3B2 /* MultiplayerFlowLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */; };
 		E8E636A718E81A60D4C7A612 /* disco-tile-overlay.png in Resources */ = {isa = PBXBuildFile; fileRef = F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */; };
 		E8F87EE04771FEC4028EF921 /* MultiplayerViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */; };
 		E9F9F54A8AF784EBFB0BAD83 /* GameCenterLinkWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */; };
 		EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E26897A668D55114A2D880 /* AudioResourceTests.swift */; };
 		EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */; };
 		EC973FFC9A80D9161FFD63BE /* CosmeticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */; };
+		ED1010F531F7061911DD606B /* MultiplayerLeaderboardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367C5CD9E7F3EB717227C524 /* MultiplayerLeaderboardTests.swift */; };
+		EDF7C68397FC77BBA9675F90 /* MultiplayerExperienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C7C75BA5FEF411BE3B8DC25 /* MultiplayerExperienceTests.swift */; };
 		EE2F6AB65E8581D5D3182B82 /* MultiplayerPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B043C470341B214C7C2E10 /* MultiplayerPresentation.swift */; };
 		F037D0227E7E02244D5E47A6 /* audio-disco-tones.wav in Resources */ = {isa = PBXBuildFile; fileRef = 753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */; };
-		F09C0D3A26E3BB88E415930F /* MultiplayerLatencySignposts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33684E78439E0BEDE87A5AB0 /* MultiplayerLatencySignposts.swift */; };
 		F0C814B129B6961AD724CF1B /* ThemeShopView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */; };
 		F3A8B24E48292FDEB6D6401E /* audio-classic-menu.m4a in Resources */ = {isa = PBXBuildFile; fileRef = DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */; };
 		F4AE009770F8DC89C9519B7B /* foka-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */; };
 		F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */; };
+		FA6B16DA42450C9FAEFAA1D1 /* ThemedMenuFeatureIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC5511538382E640573777B /* ThemedMenuFeatureIcon.swift */; };
+		FAE4D3D99CCAE0B890EF6346 /* AppleAgeGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17ADC8624C316CDFABC978C5 /* AppleAgeGateView.swift */; };
+		FC8B36E792BDC11D5122C56A /* AppTrackingTransparency.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F0D44C91FF7F4270286E74D2 /* AppTrackingTransparency.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -141,40 +159,43 @@
 		035F4C0D3D8F108F40669F27 /* PlayerNameValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerNameValidation.swift; sourceTree = "<group>"; };
 		0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIdentityServiceTests.swift; sourceTree = "<group>"; };
 		0666D60D3D9DC1385FFD0B8C /* AdsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsController.swift; sourceTree = "<group>"; };
-		0669F23B2AD05E3939DB8D93 /* MultiplayerFastPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFastPresentationTests.swift; sourceTree = "<group>"; };
 		06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PetCompanionView.swift; sourceTree = "<group>"; };
 		08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdBannerSlot.swift; sourceTree = "<group>"; };
+		0B6386620D9A1E0066712058 /* HowToPlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HowToPlayView.swift; sourceTree = "<group>"; };
 		0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerViews.swift; sourceTree = "<group>"; };
 		0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
 		101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-sprite.png"; sourceTree = "<group>"; };
 		11F37B0D75969458F56254C5 /* StoreKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitService.swift; sourceTree = "<group>"; };
+		1211EE9DABA1635C2D682EAB /* MultiplayerSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerSocket.swift; sourceTree = "<group>"; };
 		12AF44BA9D72AACA0C78C26A /* audio-pixel-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pixel-tones.wav"; sourceTree = "<group>"; };
 		14821899A07BB2BDA2E926AD /* CosmeticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsTests.swift; sourceTree = "<group>"; };
-		14EAFEECB2DCB25385F31063 /* MultiplayerBackendClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerBackendClientTests.swift; sourceTree = "<group>"; };
+		1785BF50D237132FAB0E6782 /* ArcadeSpriteBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcadeSpriteBoard.swift; sourceTree = "<group>"; };
+		17ADC8624C316CDFABC978C5 /* AppleAgeGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeGateView.swift; sourceTree = "<group>"; };
 		1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterService.swift; sourceTree = "<group>"; };
 		1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStoreKitCreditService.swift; sourceTree = "<group>"; };
 		1EAF0D8DD171854555FDD1CF /* AudioController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioController.swift; sourceTree = "<group>"; };
 		1EDDAAA3EB14D6E430476DAB /* PimPoPomCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PimPoPomCore; path = Packages/PimPoPomCore; sourceTree = SOURCE_ROOT; };
 		1FD1D8CB83628904EBD471FB /* tauta-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-sprite.png"; sourceTree = "<group>"; };
-		25386CE8AB2BA1F717611712 /* MultiplayerFastPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFastPresentation.swift; sourceTree = "<group>"; };
+		22268DE854755B6549BBF48E /* TrackingConsentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingConsentTests.swift; sourceTree = "<group>"; };
 		255214BC89EC4CEFF34C4C55 /* GoogleAdsServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAdsServices.swift; sourceTree = "<group>"; };
 		29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesAndContractTests.swift; sourceTree = "<group>"; };
 		29E26897A668D55114A2D880 /* AudioResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioResourceTests.swift; sourceTree = "<group>"; };
 		2A0CD8335C4D1E08E4401607 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardComponents.swift; sourceTree = "<group>"; };
 		2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoinStorePlaceholderView.swift; sourceTree = "<group>"; };
+		301CC91E2D316CF1228A200F /* TrackingConsent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingConsent.swift; sourceTree = "<group>"; };
 		30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClientTests.swift; sourceTree = "<group>"; };
-		33684E78439E0BEDE87A5AB0 /* MultiplayerLatencySignposts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerLatencySignposts.swift; sourceTree = "<group>"; };
 		343C3D60DEB6783CB739995F /* misha-climber.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-climber.png"; sourceTree = "<group>"; };
+		367C5CD9E7F3EB717227C524 /* MultiplayerLeaderboardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerLeaderboardTests.swift; sourceTree = "<group>"; };
 		36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pimpopom-sting.wav"; sourceTree = "<group>"; };
 		3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardPresentationTests.swift; sourceTree = "<group>"; };
 		3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-sprite.png"; sourceTree = "<group>"; };
-		4229B48A8A93EA5CAD874DB7 /* MultiplayerGameKitTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerGameKitTransport.swift; sourceTree = "<group>"; };
 		4234BF10F969BD645083E373 /* OwnerAdsQA.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = OwnerAdsQA.xcconfig; sourceTree = "<group>"; };
 		449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebParityComponents.swift; sourceTree = "<group>"; };
+		488455A99C5A85B00CADA2C2 /* AppleAgeControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeControllerTests.swift; sourceTree = "<group>"; };
+		48866A67BF140B0104741441 /* AppleAgeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeModels.swift; sourceTree = "<group>"; };
 		491AE95125B0A41ABB5B5D44 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		4D3FE58194F94F7DBF648D93 /* MultiplayerFastNetworkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFastNetworkTests.swift; sourceTree = "<group>"; };
 		4E56F771992EE742330A38AF /* MultiplayerFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFlowView.swift; sourceTree = "<group>"; };
 		4FEFC1C4ECEF55BBCC02BEEB /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuMotivation.swift; sourceTree = "<group>"; };
@@ -183,30 +204,39 @@
 		5E5B8A0B92FABA6CEC0AEBE9 /* audio-pixel-run.m4a */ = {isa = PBXFileReference; path = "audio-pixel-run.m4a"; sourceTree = "<group>"; };
 		5E7E287D8050BCF1504A5002 /* pancake-floor.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pancake-floor.png"; sourceTree = "<group>"; };
 		6038C3199A866EB364429ECE /* audio-disco-run.m4a */ = {isa = PBXFileReference; path = "audio-disco-run.m4a"; sourceTree = "<group>"; };
+		618A210FFBCD32F320B96ECB /* MultiplayerSocketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerSocketTests.swift; sourceTree = "<group>"; };
 		65BB1BD18A651EC92FD1FDFA /* ThemeShopView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeShopView.swift; sourceTree = "<group>"; };
 		6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsModels.swift; sourceTree = "<group>"; };
+		6C7C75BA5FEF411BE3B8DC25 /* MultiplayerExperienceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerExperienceTests.swift; sourceTree = "<group>"; };
 		6D8B77DB0BBFFF1688760C67 /* pancake-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "pancake-sprite.png"; sourceTree = "<group>"; };
 		6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseControllerTests.swift; sourceTree = "<group>"; };
+		6EC7DB10D577291DC238A5DF /* GameplayPickupIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayPickupIcon.swift; sourceTree = "<group>"; };
 		6FF762CE49FF020FD9A3F626 /* Staging.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Staging.xcconfig; sourceTree = "<group>"; };
 		753FA81D6CDF4241131655B3 /* audio-disco-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-disco-tones.wav"; sourceTree = "<group>"; };
 		7A7AAB5003782A88EC74437A /* audio-light-tones.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-light-tones.wav"; sourceTree = "<group>"; };
 		7ACAA14B12BB30BA3BF702E4 /* audio-pixel-menu.m4a */ = {isa = PBXFileReference; path = "audio-pixel-menu.m4a"; sourceTree = "<group>"; };
 		7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CosmeticsController.swift; sourceTree = "<group>"; };
 		7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterAutoLinkController.swift; sourceTree = "<group>"; };
+		819D981867E8F7C4E079789D /* HowToPlayModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HowToPlayModel.swift; sourceTree = "<group>"; };
 		81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflow.swift; sourceTree = "<group>"; };
 		81C7F07E02E90EBF9753B984 /* audio-disco-menu.m4a */ = {isa = PBXFileReference; path = "audio-disco-menu.m4a"; sourceTree = "<group>"; };
+		834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFlowLifecycleTests.swift; sourceTree = "<group>"; };
+		83671DA013899D28E4565759 /* HowToPlayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HowToPlayTests.swift; sourceTree = "<group>"; };
 		8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerController.swift; sourceTree = "<group>"; };
+		8650ABAFBC21049F43A4FAE6 /* AdAgeBand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdAgeBand.swift; sourceTree = "<group>"; };
 		86D3E0B547149A6CA3BFEFF8 /* mitsuri-cushion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "mitsuri-cushion.png"; sourceTree = "<group>"; };
 		86EABB78532A8A66E0E421C5 /* PimPoPom.storekit */ = {isa = PBXFileReference; path = PimPoPom.storekit; sourceTree = "<group>"; };
 		896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixtureTests.swift; sourceTree = "<group>"; };
 		8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayLifecycleTests.swift; sourceTree = "<group>"; };
-		8C39AB8C2A564691E80BA03D /* MultiplayerPeerConsistency.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerPeerConsistency.swift; sourceTree = "<group>"; };
 		905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeQuickActionController.swift; sourceTree = "<group>"; };
+		9151FB3BAE1EF7C30C63680C /* AppleAgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeService.swift; sourceTree = "<group>"; };
 		9231B0F62DCB580532E9BE1E /* PimPoPomUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = PimPoPomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		923CEA1022BF8808DF825BE3 /* AppleAgeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleAgeController.swift; sourceTree = "<group>"; };
 		937AF3BE7825C21C6ACBC514 /* ScreenshotFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotFixture.swift; sourceTree = "<group>"; };
+		9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerRoomSearchTests.swift; sourceTree = "<group>"; };
 		950E607413974581EF2478D4 /* MultiplayerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerModels.swift; sourceTree = "<group>"; };
 		9648B3C4989B1B1FF9557057 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
-		9E4F0F38FBDCCD852A9B10B2 /* MultiplayerFrameScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerFrameScheduler.swift; sourceTree = "<group>"; };
+		99E604C3ADEDCC5FC4D908C9 /* MultiplayerRoomControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerRoomControls.swift; sourceTree = "<group>"; };
 		A094CABC4F0AA44F4126624B /* kesha-perch.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "kesha-perch.png"; sourceTree = "<group>"; };
 		A23CF130CC62E45C9C52F2FF /* foka-ice-floe.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-ice-floe.png"; sourceTree = "<group>"; };
 		A3E2A0743676367B419D7078 /* PurchaseController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseController.swift; sourceTree = "<group>"; };
@@ -230,7 +260,9 @@
 		C6AB62B941B5843C8BE01C86 /* audio-light-run.m4a */ = {isa = PBXFileReference; path = "audio-light-run.m4a"; sourceTree = "<group>"; };
 		CA0B3667E36EAC21E084AD82 /* disco-concrete.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-concrete.png"; sourceTree = "<group>"; };
 		CA9147E64A63B3ED05BD3BB1 /* foka-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "foka-sprite.png"; sourceTree = "<group>"; };
+		CAC5511538382E640573777B /* ThemedMenuFeatureIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedMenuFeatureIcon.swift; sourceTree = "<group>"; };
 		CAEB9AA462238A2A63B2CD94 /* GoogleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleIdentityService.swift; sourceTree = "<group>"; };
+		CFE52AB1CB5DB19F52807C4E /* UITestAppleAgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestAppleAgeService.swift; sourceTree = "<group>"; };
 		D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleIdentityService.swift; sourceTree = "<group>"; };
 		D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdsControllerTests.swift; sourceTree = "<group>"; };
 		D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInButton.swift; sourceTree = "<group>"; };
@@ -240,20 +272,24 @@
 		DBBE9C296E382B16C791F322 /* audio-classic-menu.m4a */ = {isa = PBXFileReference; path = "audio-classic-menu.m4a"; sourceTree = "<group>"; };
 		DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerPresentationTests.swift; sourceTree = "<group>"; };
 		DEC51376F984CE9F83F10F80 /* audio-oops.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-oops.wav"; sourceTree = "<group>"; };
+		E26739285F6414E9A1BC690C /* HowToPlayEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HowToPlayEntryView.swift; sourceTree = "<group>"; };
 		E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterServiceTests.swift; sourceTree = "<group>"; };
 		E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		E7C97DB7185189A114B58620 /* GameCellArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCellArtwork.swift; sourceTree = "<group>"; };
+		EB33815793456F6B8450D44D /* ConsentOperationQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentOperationQueue.swift; sourceTree = "<group>"; };
 		EB365660F1E96C034ECE4A85 /* tauta-bed.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "tauta-bed.png"; sourceTree = "<group>"; };
-		EBBBCDB8847C7393043466BF /* MultiplayerGameKitTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerGameKitTransportTests.swift; sourceTree = "<group>"; };
 		EDEAE0FBCA4C31EE2F2F79AC /* jersey-10-regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "jersey-10-regular.ttf"; sourceTree = "<group>"; };
 		EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitConfigurationTests.swift; sourceTree = "<group>"; };
+		F0D44C91FF7F4270286E74D2 /* AppTrackingTransparency.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppTrackingTransparency.framework; path = System/Library/Frameworks/AppTrackingTransparency.framework; sourceTree = SDKROOT; };
 		F1AA841A473D8AF5CD279A75 /* GameCenterAutoLinkControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterAutoLinkControllerTests.swift; sourceTree = "<group>"; };
 		F1C981CB1FBF860FF21F4D20 /* disco-tile-overlay.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "disco-tile-overlay.png"; sourceTree = "<group>"; };
+		F1EBED918F7E353658710BC2 /* MultiplayerSpriteBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerSpriteBoard.swift; sourceTree = "<group>"; };
+		F59D2E71B31442EEE9E456EC /* GameplayStampFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameplayStampFeedback.swift; sourceTree = "<group>"; };
+		F5A534E1294ED80E2D4E2981 /* HowToPlayUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HowToPlayUITests.swift; sourceTree = "<group>"; };
 		FA9F840B4895429C17E7AA09 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameCenterLinkWorkflowTests.swift; sourceTree = "<group>"; };
 		FF525ACA8A69F39145C25A62 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		FF56D7480C9EE063365DBA9E /* audio-classic-run.m4a */ = {isa = PBXFileReference; path = "audio-classic-run.m4a"; sourceTree = "<group>"; };
-		FFABD2C36CB814998CA7DE6B /* MultiplayerPeerConsistencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiplayerPeerConsistencyTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -261,6 +297,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FC8B36E792BDC11D5122C56A /* AppTrackingTransparency.framework in Frameworks */,
 				56603C4049290197D71E7DE7 /* GoogleMobileAds in Frameworks */,
 				BA919DD6B28AE526B4C39B05 /* GoogleSignIn in Frameworks */,
 				54263429058B1AB2B2B01286 /* GoogleUserMessagingPlatform in Frameworks */,
@@ -274,6 +311,7 @@
 		233DDCB53E6246DDBA07FCAF /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				F5A534E1294ED80E2D4E2981 /* HowToPlayUITests.swift */,
 				B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */,
 			);
 			path = UITests;
@@ -302,6 +340,14 @@
 				B2C490FAA687884E2214FE4F /* Unit */,
 			);
 			path = Tests;
+			sourceTree = "<group>";
+		};
+		39B19C0BA981D24164824D94 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F0D44C91FF7F4270286E74D2 /* AppTrackingTransparency.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		3DE7A7A36049AAC122134165 /* Pets */ = {
@@ -340,8 +386,11 @@
 			children = (
 				08FEC5904B60E36837CDD9A6 /* AdBannerSlot.swift */,
 				E7C97DB7185189A114B58620 /* GameCellArtwork.swift */,
+				6EC7DB10D577291DC238A5DF /* GameplayPickupIcon.swift */,
+				F59D2E71B31442EEE9E456EC /* GameplayStampFeedback.swift */,
 				500A410B8A8FB5EA87D1D796 /* MenuMotivation.swift */,
 				06BD944BC8141501BC78FDD5 /* PetCompanionView.swift */,
+				CAC5511538382E640573777B /* ThemedMenuFeatureIcon.swift */,
 				D7C5648D5AC862EA6F73D7D3 /* ThemePalette.swift */,
 				467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */,
 			);
@@ -381,17 +430,19 @@
 			isa = PBXGroup;
 			children = (
 				FF525ACA8A69F39145C25A62 /* AchievementsView.swift */,
+				17ADC8624C316CDFABC978C5 /* AppleAgeGateView.swift */,
 				D52F77D8520A9D197A8D9DA5 /* AppleSignInButton.swift */,
 				2E74F9E16529B1D03A0091EF /* CoinStorePlaceholderView.swift */,
 				7B02F42DD55DDD992F3F6A1C /* CosmeticsController.swift */,
+				E26739285F6414E9A1BC690C /* HowToPlayEntryView.swift */,
+				819D981867E8F7C4E079789D /* HowToPlayModel.swift */,
+				0B6386620D9A1E0066712058 /* HowToPlayView.swift */,
 				2CCE0AEC90A1A12260E48BAC /* LeaderboardComponents.swift */,
 				0EBF5C4AF34815F2A48368D5 /* LeaderboardView.swift */,
 				8411351B5D2E9A419CD28DD9 /* MultiplayerController.swift */,
-				25386CE8AB2BA1F717611712 /* MultiplayerFastPresentation.swift */,
 				4E56F771992EE742330A38AF /* MultiplayerFlowView.swift */,
-				9E4F0F38FBDCCD852A9B10B2 /* MultiplayerFrameScheduler.swift */,
-				8C39AB8C2A564691E80BA03D /* MultiplayerPeerConsistency.swift */,
 				D5B043C470341B214C7C2E10 /* MultiplayerPresentation.swift */,
+				99E604C3ADEDCC5FC4D908C9 /* MultiplayerRoomControls.swift */,
 				0D2A0CDFC99D2DED6E0EFA14 /* MultiplayerViews.swift */,
 				A54435E3370FE5F0E7640F4F /* PetShopView.swift */,
 				E6D7F26BF3F9299A13AD94E2 /* ProfileView.swift */,
@@ -424,6 +475,7 @@
 			isa = PBXGroup;
 			children = (
 				D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */,
+				488455A99C5A85B00CADA2C2 /* AppleAgeControllerTests.swift */,
 				0373E2DC00E60DD0240FF26C /* AppleIdentityServiceTests.swift */,
 				29E26897A668D55114A2D880 /* AudioResourceTests.swift */,
 				30B2D865EDE901251EB3BF50 /* BackendClientTests.swift */,
@@ -432,17 +484,19 @@
 				FAD8CB57598283F0C1792C10 /* GameCenterLinkWorkflowTests.swift */,
 				E328C0EB9AF13AE87AE7B8E2 /* GameCenterServiceTests.swift */,
 				8B0720CCA15E7E1FD1019F66 /* GameplayLifecycleTests.swift */,
+				83671DA013899D28E4565759 /* HowToPlayTests.swift */,
 				3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */,
-				14EAFEECB2DCB25385F31063 /* MultiplayerBackendClientTests.swift */,
-				4D3FE58194F94F7DBF648D93 /* MultiplayerFastNetworkTests.swift */,
-				0669F23B2AD05E3939DB8D93 /* MultiplayerFastPresentationTests.swift */,
-				EBBBCDB8847C7393043466BF /* MultiplayerGameKitTransportTests.swift */,
-				FFABD2C36CB814998CA7DE6B /* MultiplayerPeerConsistencyTests.swift */,
+				6C7C75BA5FEF411BE3B8DC25 /* MultiplayerExperienceTests.swift */,
+				834FC2D1C446FCE91B1D37BB /* MultiplayerFlowLifecycleTests.swift */,
+				367C5CD9E7F3EB717227C524 /* MultiplayerLeaderboardTests.swift */,
 				DBBF5721A11496157B6C2347 /* MultiplayerPresentationTests.swift */,
+				9412F67C8F43F42AFCE673D1 /* MultiplayerRoomSearchTests.swift */,
+				618A210FFBCD32F320B96ECB /* MultiplayerSocketTests.swift */,
 				29A9F154E867F1DC4A4A6BF2 /* PreferencesAndContractTests.swift */,
 				6DB6C589BE481A259B3E92FE /* PurchaseControllerTests.swift */,
 				896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */,
 				EFA3FF089079BA722681A6D7 /* StoreKitConfigurationTests.swift */,
+				22268DE854755B6549BBF48E /* TrackingConsentTests.swift */,
 			);
 			path = Unit;
 			sourceTree = "<group>";
@@ -454,6 +508,7 @@
 				C93D5D2EA44DCFBF2870631A /* Config */,
 				5613FBE8D6F777639158706B /* Packages */,
 				2F679E87F3A1A7711664559D /* Tests */,
+				39B19C0BA981D24164824D94 /* Frameworks */,
 				7E4D5331551CB9CCC4CF739D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -481,14 +536,19 @@
 		E1F73E23574CABE39BBD1F87 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				8650ABAFBC21049F43A4FAE6 /* AdAgeBand.swift */,
 				0666D60D3D9DC1385FFD0B8C /* AdsController.swift */,
 				6B60DDAD9C47A24A5F3CC1B8 /* AdsModels.swift */,
 				B5F9F3BDB3F8BCA762178A6E /* AppIconController.swift */,
+				923CEA1022BF8808DF825BE3 /* AppleAgeController.swift */,
+				48866A67BF140B0104741441 /* AppleAgeModels.swift */,
+				9151FB3BAE1EF7C30C63680C /* AppleAgeService.swift */,
 				D054CB72FF0D80CD0DD56327 /* AppleIdentityService.swift */,
 				ABECCCD111FA390D73ABE0D1 /* AppPreferences.swift */,
 				1EAF0D8DD171854555FDD1CF /* AudioController.swift */,
 				C14D1BA4FDB4C3A45084E295 /* BackendClient.swift */,
 				DA2E75B83D2198FB2E99E518 /* BackendModels.swift */,
+				EB33815793456F6B8450D44D /* ConsentOperationQueue.swift */,
 				7F1EA543DBF1A49D18D99B8F /* GameCenterAutoLinkController.swift */,
 				81A53701E8A93F446F546E33 /* GameCenterLinkWorkflow.swift */,
 				1CDFEBDA8D59CB7311673548 /* GameCenterService.swift */,
@@ -497,12 +557,13 @@
 				905FC701397B6FABBAEC89F4 /* HomeQuickActionController.swift */,
 				1E34313443268FB37F824D3E /* LocalStoreKitCreditService.swift */,
 				A4077B55945CD1DEBC158188 /* MultiplayerBackendClient.swift */,
-				4229B48A8A93EA5CAD874DB7 /* MultiplayerGameKitTransport.swift */,
-				33684E78439E0BEDE87A5AB0 /* MultiplayerLatencySignposts.swift */,
 				950E607413974581EF2478D4 /* MultiplayerModels.swift */,
+				1211EE9DABA1635C2D682EAB /* MultiplayerSocket.swift */,
 				035F4C0D3D8F108F40669F27 /* PlayerNameValidation.swift */,
 				A9CC5EE844D22FB3BF197B67 /* StoreKitModels.swift */,
 				11F37B0D75969458F56254C5 /* StoreKitService.swift */,
+				301CC91E2D316CF1228A200F /* TrackingConsent.swift */,
+				CFE52AB1CB5DB19F52807C4E /* UITestAppleAgeService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -522,9 +583,11 @@
 		EBEF85AB212E22ED8DE20E6C /* Gameplay */ = {
 			isa = PBXGroup;
 			children = (
+				1785BF50D237132FAB0E6782 /* ArcadeSpriteBoard.swift */,
 				B807723F13D7024F84747F72 /* GameCoordinator.swift */,
 				9648B3C4989B1B1FF9557057 /* GameScene.swift */,
 				5D742807F5506EC05BA9FAFE /* GameView.swift */,
+				F1EBED918F7E353658710BC2 /* MultiplayerSpriteBoard.swift */,
 			);
 			path = Gameplay;
 			sourceTree = "<group>";
@@ -698,7 +761,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "#!/bin/sh\nset -eu\n\nmode=${PIMPOPOM_ADS_MODE:-}\napp_id=${PIMPOPOM_ADMOB_APP_ID:-}\nbanner_id=${PIMPOPOM_ADMOB_BANNER_UNIT_ID:-}\ninterstitial_id=${PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID:-}\ntest_ids=${PIMPOPOM_ADMOB_TEST_DEVICE_IDS:-}\nowner_banner_id=${PIMPOPOM_ADMOB_OWNER_BANNER_UNIT_ID:-}\nowner_interstitial_id=${PIMPOPOM_ADMOB_OWNER_INTERSTITIAL_UNIT_ID:-}\nowner_idfv_hashes=${PIMPOPOM_OWNER_DEVICE_IDFV_SHA256S:-}\nconfiguration=${CONFIGURATION:-}\n\ndemo_banner='ca-app-pub-3940256099942544/2934735716'\ndemo_interstitial='ca-app-pub-3940256099942544/4411468910'\nreal_app_id='ca-app-pub-6428992187280935~3622035442'\n\nfail() {\n    printf '%s\\n' \"Ad configuration error: $1\" >&2\n    exit 1\n}\n\nrequire_production_unit() {\n    printf '%s\\n' \"$1\" | grep -Eq '^ca-app-pub-6428992187280935/[0-9]+$' \\\n        || fail \"$2 must be a PimPoPom production-format ad unit\"\n}\n\ntest \"$app_id\" = \"$real_app_id\" || fail 'the real PimPoPom AdMob App ID is required'\n\ncase \"$mode\" in\n    disabled)\n        test -z \"$banner_id\" || fail 'disabled mode must not contain a banner unit'\n        test -z \"$interstitial_id\" || fail 'disabled mode must not contain an interstitial unit'\n        test -z \"$test_ids\" || fail 'disabled mode must not contain test-device identifiers'\n        ;;\n    demo)\n        test \"$configuration\" != 'Release' || fail 'Release cannot use demo ads'\n        test \"$configuration\" != 'OwnerAdsQA' || fail 'Owner Ads QA cannot use demo ads'\n        test \"$banner_id\" = \"$demo_banner\" || fail 'demo mode requires the reviewed fixed banner demo unit'\n        test \"$interstitial_id\" = \"$demo_interstitial\" || fail 'demo mode requires the reviewed interstitial demo unit'\n        test -z \"$test_ids\" || fail 'demo mode does not accept test-device identifiers'\n        ;;\n    owner-split-test)\n        test \"$configuration\" = 'Staging' || fail 'owner-split-test is restricted to Staging'\n        test \"$banner_id\" = \"$demo_banner\" || fail 'owner split mode requires the demo banner by default'\n        test \"$interstitial_id\" = \"$demo_interstitial\" || fail 'owner split mode requires the demo interstitial by default'\n        require_production_unit \"$owner_banner_id\" 'Owner split banner'\n        require_production_unit \"$owner_interstitial_id\" 'Owner split interstitial'\n        printf '%s\\n' \"$test_ids\" | grep -Eq '^[[:xdigit:]]{32}$' \\\n            || fail 'owner split mode requires one GMA 32-character hexadecimal test-device hash'\n        printf '%s\\n' \"$owner_idfv_hashes\" \\\n            | grep -Eq '^[[:xdigit:]]{64}(,[[:xdigit:]]{64}){0,3}$' \\\n            || fail 'owner split mode requires one to four SHA-256 IDFV fingerprints'\n        owner_idfv_hash_count=$(printf '%s\\n' \"$owner_idfv_hashes\" | tr ',' '\\n' | sort -u | wc -l | tr -d ' ')\n        configured_idfv_hash_count=$(printf '%s\\n' \"$owner_idfv_hashes\" | tr ',' '\\n' | wc -l | tr -d ' ')\n        test \"$owner_idfv_hash_count\" = \"$configured_idfv_hash_count\" \\\n            || fail 'owner split mode requires unique SHA-256 IDFV fingerprints'\n        ;;\n    owner-real-test)\n        test \"$configuration\" = 'OwnerAdsQA' || fail 'owner-real-test is restricted to OwnerAdsQA'\n        require_production_unit \"$banner_id\" 'Owner Ads QA banner'\n        require_production_unit \"$interstitial_id\" 'Owner Ads QA interstitial'\n        test \"$banner_id\" != \"$demo_banner\" || fail 'Owner Ads QA cannot use the demo banner unit'\n        test \"$interstitial_id\" != \"$demo_interstitial\" || fail 'Owner Ads QA cannot use the demo interstitial unit'\n        printf '%s\\n' \"$test_ids\" | grep -Eq '^[[:xdigit:]]{32}$' \\\n            || fail 'Owner Ads QA requires one GMA 32-character hexadecimal test-device hash'\n        ;;\n    live)\n        test \"$configuration\" = 'Release' || fail 'live ads are restricted to Release'\n        require_production_unit \"$banner_id\" 'Release banner'\n        require_production_unit \"$interstitial_id\" 'Release interstitial'\n        test \"$banner_id\" != \"$demo_banner\" || fail 'Release cannot use the demo banner unit'\n        test \"$interstitial_id\" != \"$demo_interstitial\" || fail 'Release cannot use the demo interstitial unit'\n        test -z \"$test_ids\" || fail 'Release cannot contain test-device identifiers'\n        ;;\n    *)\n        fail 'mode must be disabled, demo, owner-split-test, owner-real-test, or live'\n        ;;\nesac\n\nif test \"$configuration\" = 'Staging'; then\n    test \"$mode\" = 'demo' || test \"$mode\" = 'owner-split-test' \\\n        || fail 'Staging is restricted to demo inventory with an optional owner-device production route'\nfi\n";
+			shellScript = "#!/bin/sh\nset -eu\n\nmode=${PIMPOPOM_ADS_MODE:-}\napp_id=${PIMPOPOM_ADMOB_APP_ID:-}\nbanner_id=${PIMPOPOM_ADMOB_BANNER_UNIT_ID:-}\ninterstitial_id=${PIMPOPOM_ADMOB_INTERSTITIAL_UNIT_ID:-}\ntest_ids=${PIMPOPOM_ADMOB_TEST_DEVICE_IDS:-}\nowner_banner_id=${PIMPOPOM_ADMOB_OWNER_BANNER_UNIT_ID:-}\nowner_interstitial_id=${PIMPOPOM_ADMOB_OWNER_INTERSTITIAL_UNIT_ID:-}\nowner_idfv_hashes=${PIMPOPOM_OWNER_DEVICE_IDFV_SHA256S:-}\nconfiguration=${CONFIGURATION:-}\n\ndemo_banner='ca-app-pub-3940256099942544/2934735716'\ndemo_interstitial='ca-app-pub-3940256099942544/4411468910'\nreal_app_id='ca-app-pub-6428992187280935~3622035442'\n\nfail() {\n    printf '%s\\n' \"Ad configuration error: $1\" >&2\n    exit 1\n}\n\nrequire_production_unit() {\n    printf '%s\\n' \"$1\" | grep -Eq '^ca-app-pub-6428992187280935/[0-9]+$' \\\n        || fail \"$2 must be a PimPoPom production-format ad unit\"\n}\n\ntest \"$app_id\" = \"$real_app_id\" || fail 'the real PimPoPom AdMob App ID is required'\n\nif test \"$configuration\" = 'Release'; then\n    test -z \"$owner_banner_id\" || fail 'Release cannot contain owner QA banner units'\n    test -z \"$owner_interstitial_id\" || fail 'Release cannot contain owner QA interstitial units'\n    test -z \"$owner_idfv_hashes\" || fail 'Release cannot contain owner IDFV fingerprints'\nfi\n\ncase \"$mode\" in\n    disabled)\n        test -z \"$banner_id\" || fail 'disabled mode must not contain a banner unit'\n        test -z \"$interstitial_id\" || fail 'disabled mode must not contain an interstitial unit'\n        test -z \"$test_ids\" || fail 'disabled mode must not contain test-device identifiers'\n        ;;\n    demo)\n        test \"$configuration\" != 'Release' || fail 'Release cannot use demo ads'\n        test \"$configuration\" != 'OwnerAdsQA' || fail 'Owner Ads QA cannot use demo ads'\n        test \"$banner_id\" = \"$demo_banner\" || fail 'demo mode requires the reviewed fixed banner demo unit'\n        test \"$interstitial_id\" = \"$demo_interstitial\" || fail 'demo mode requires the reviewed interstitial demo unit'\n        test -z \"$test_ids\" || fail 'demo mode does not accept test-device identifiers'\n        ;;\n    owner-split-test)\n        test \"$configuration\" = 'Staging' || fail 'owner-split-test is restricted to Staging'\n        test \"$banner_id\" = \"$demo_banner\" || fail 'owner split mode requires the demo banner by default'\n        test \"$interstitial_id\" = \"$demo_interstitial\" || fail 'owner split mode requires the demo interstitial by default'\n        require_production_unit \"$owner_banner_id\" 'Owner split banner'\n        require_production_unit \"$owner_interstitial_id\" 'Owner split interstitial'\n        printf '%s\\n' \"$test_ids\" | grep -Eq '^[[:xdigit:]]{32}$' \\\n            || fail 'owner split mode requires one GMA 32-character hexadecimal test-device hash'\n        printf '%s\\n' \"$owner_idfv_hashes\" \\\n            | grep -Eq '^[[:xdigit:]]{64}(,[[:xdigit:]]{64}){0,3}$' \\\n            || fail 'owner split mode requires one to four SHA-256 IDFV fingerprints'\n        owner_idfv_hash_count=$(printf '%s\\n' \"$owner_idfv_hashes\" | tr ',' '\\n' | sort -u | wc -l | tr -d ' ')\n        configured_idfv_hash_count=$(printf '%s\\n' \"$owner_idfv_hashes\" | tr ',' '\\n' | wc -l | tr -d ' ')\n        test \"$owner_idfv_hash_count\" = \"$configured_idfv_hash_count\" \\\n            || fail 'owner split mode requires unique SHA-256 IDFV fingerprints'\n        ;;\n    owner-real-test)\n        test \"$configuration\" = 'OwnerAdsQA' || fail 'owner-real-test is restricted to OwnerAdsQA'\n        require_production_unit \"$banner_id\" 'Owner Ads QA banner'\n        require_production_unit \"$interstitial_id\" 'Owner Ads QA interstitial'\n        test \"$banner_id\" != \"$demo_banner\" || fail 'Owner Ads QA cannot use the demo banner unit'\n        test \"$interstitial_id\" != \"$demo_interstitial\" || fail 'Owner Ads QA cannot use the demo interstitial unit'\n        printf '%s\\n' \"$test_ids\" | grep -Eq '^[[:xdigit:]]{32}$' \\\n            || fail 'Owner Ads QA requires one GMA 32-character hexadecimal test-device hash'\n        ;;\n    live)\n        test \"$configuration\" = 'Release' || fail 'live ads are restricted to Release'\n        require_production_unit \"$banner_id\" 'Release banner'\n        require_production_unit \"$interstitial_id\" 'Release interstitial'\n        test \"$banner_id\" != \"$demo_banner\" || fail 'Release cannot use the demo banner unit'\n        test \"$interstitial_id\" != \"$demo_interstitial\" || fail 'Release cannot use the demo interstitial unit'\n        test -z \"$test_ids\" || fail 'Release cannot contain test-device identifiers'\n        ;;\n    *)\n        fail 'mode must be disabled, demo, owner-split-test, owner-real-test, or live'\n        ;;\nesac\n\nif test \"$configuration\" = 'Staging'; then\n    test \"$mode\" = 'demo' || test \"$mode\" = 'owner-split-test' \\\n        || fail 'Staging is restricted to demo inventory with an optional owner-device production route'\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -708,6 +771,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */,
+				6B52884299F1580DA526BF2D /* AppleAgeControllerTests.swift in Sources */,
 				07131DCCAFB181F709F262FB /* AppleIdentityServiceTests.swift in Sources */,
 				EB00C2D0A32CCA70F8CF6815 /* AudioResourceTests.swift in Sources */,
 				F4BE7E43D2F9EDD68C5E6222 /* BackendClientTests.swift in Sources */,
@@ -716,17 +780,19 @@
 				37DBB14256B762F34BF79282 /* GameCenterLinkWorkflowTests.swift in Sources */,
 				5BEA3BACD8EB0235D01BCC96 /* GameCenterServiceTests.swift in Sources */,
 				3E4866E14392A098908AB96C /* GameplayLifecycleTests.swift in Sources */,
+				AA0A5BCFDDA5E793D935C2FA /* HowToPlayTests.swift in Sources */,
 				823E49E0F7882DF1E38717F4 /* LeaderboardPresentationTests.swift in Sources */,
-				0893CC631D7FAFF20A3E5028 /* MultiplayerBackendClientTests.swift in Sources */,
-				000A35E9EBCD602441CCB123 /* MultiplayerFastNetworkTests.swift in Sources */,
-				B4714FEA62DE975B3AA29B46 /* MultiplayerFastPresentationTests.swift in Sources */,
-				5A4FF049FA8F5F1B5A8955E2 /* MultiplayerGameKitTransportTests.swift in Sources */,
-				AA8FCAE87D5A559DFE1366F1 /* MultiplayerPeerConsistencyTests.swift in Sources */,
+				EDF7C68397FC77BBA9675F90 /* MultiplayerExperienceTests.swift in Sources */,
+				E7A3D10CE00DB4CB609FE3B2 /* MultiplayerFlowLifecycleTests.swift in Sources */,
+				ED1010F531F7061911DD606B /* MultiplayerLeaderboardTests.swift in Sources */,
 				48A60FBB88983658EEC67DD5 /* MultiplayerPresentationTests.swift in Sources */,
+				8F6FB25A3E2EDC1D492D553F /* MultiplayerRoomSearchTests.swift in Sources */,
+				A015A44A16D51992A791F3DB /* MultiplayerSocketTests.swift in Sources */,
 				94C570313EE1FF20125AB261 /* PreferencesAndContractTests.swift in Sources */,
 				2BC9C266D38E20EC72551C54 /* PurchaseControllerTests.swift in Sources */,
 				B46953E8B2A2F8158BF74A06 /* ScreenshotFixtureTests.swift in Sources */,
 				E359484EDDD010BB1C4A60B7 /* StoreKitConfigurationTests.swift in Sources */,
+				CF49710A1F8BEB2E7850D517 /* TrackingConsentTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -735,17 +801,24 @@
 			buildActionMask = 2147483647;
 			files = (
 				79626C9CB9781B5F076872BA /* AchievementsView.swift in Sources */,
+				A91C56E6A1A0BA217E1B3C93 /* AdAgeBand.swift in Sources */,
 				5F6277B4B9A7E0BBC3DDD44F /* AdBannerSlot.swift in Sources */,
 				8396C151E5FF08EA7940428D /* AdsController.swift in Sources */,
 				B356FCCA35545B44F4D3A1AC /* AdsModels.swift in Sources */,
 				6185F73548A72BDD8BCF2748 /* AppIconController.swift in Sources */,
 				C01812EFB30EF59819E2FB1F /* AppPreferences.swift in Sources */,
+				C2E210EBD2B0EF64363FAADB /* AppleAgeController.swift in Sources */,
+				FAE4D3D99CCAE0B890EF6346 /* AppleAgeGateView.swift in Sources */,
+				928940F0773A7B69D7766DE6 /* AppleAgeModels.swift in Sources */,
+				0475BF817E31E0A73A0A9A90 /* AppleAgeService.swift in Sources */,
 				97FC8C60E2A5141832A3ADA9 /* AppleIdentityService.swift in Sources */,
 				60D82B86C5B02B0DE3F426DB /* AppleSignInButton.swift in Sources */,
+				3780B05BB7ABF2CF007C6646 /* ArcadeSpriteBoard.swift in Sources */,
 				3E8B789C6846539EE101679E /* AudioController.swift in Sources */,
 				EC4D12BB76246E0CCE7A9FEB /* BackendClient.swift in Sources */,
 				46F5040558302ED97373D477 /* BackendModels.swift in Sources */,
 				67F0AF77CE60515A87B32524 /* CoinStorePlaceholderView.swift in Sources */,
+				7CC08DE4E9F1A770D4C2369B /* ConsentOperationQueue.swift in Sources */,
 				B3156A465A8D835A460370F9 /* CosmeticsController.swift in Sources */,
 				A19D6210497A3D375CDC07BE /* GameCellArtwork.swift in Sources */,
 				8EEE97F8C4112AC5BF00051D /* GameCenterAutoLinkController.swift in Sources */,
@@ -754,23 +827,26 @@
 				9F8A30F6CC7C5F10AA8B29A9 /* GameCoordinator.swift in Sources */,
 				B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */,
 				03C5088E3A1AE66E14B744E2 /* GameView.swift in Sources */,
+				D42D180C72C2F118F43D918D /* GameplayPickupIcon.swift in Sources */,
+				0F0039370D688F3FBE454499 /* GameplayStampFeedback.swift in Sources */,
 				88C71DF6DB15C66DC889A60E /* GoogleAdsServices.swift in Sources */,
 				2AF7366D4D82412DC93BE3EE /* GoogleIdentityService.swift in Sources */,
 				772C2F80F660AC69F7545563 /* HomeQuickActionController.swift in Sources */,
+				A7A2EF828CB8792386B3CFDD /* HowToPlayEntryView.swift in Sources */,
+				61A47725672C82B20325D83E /* HowToPlayModel.swift in Sources */,
+				78C8D32B3D1F7483D0B867B5 /* HowToPlayView.swift in Sources */,
 				9329B260676A90EA6FB29600 /* LeaderboardComponents.swift in Sources */,
 				76422CFC6955DE551BADA09C /* LeaderboardView.swift in Sources */,
 				DFBB0EAB96AFD9C8BC9AA6F9 /* LocalStoreKitCreditService.swift in Sources */,
 				60E02E8EFDA3F957C1254099 /* MenuMotivation.swift in Sources */,
 				C132456E3372F15EA38F2091 /* MultiplayerBackendClient.swift in Sources */,
 				575CE37825C8F28233C993B3 /* MultiplayerController.swift in Sources */,
-				93C430B8CE8AA76B8F7989BF /* MultiplayerFastPresentation.swift in Sources */,
 				22289F60746CA9C63CD2DD49 /* MultiplayerFlowView.swift in Sources */,
-				B94C2684C937903D3AF7C1A2 /* MultiplayerFrameScheduler.swift in Sources */,
-				ABE35C2FC352D25D7C800F64 /* MultiplayerGameKitTransport.swift in Sources */,
-				F09C0D3A26E3BB88E415930F /* MultiplayerLatencySignposts.swift in Sources */,
 				B4F2844849CAE58E84BFA13F /* MultiplayerModels.swift in Sources */,
-				36E3B43113D25ADE49657F66 /* MultiplayerPeerConsistency.swift in Sources */,
 				EE2F6AB65E8581D5D3182B82 /* MultiplayerPresentation.swift in Sources */,
+				E1A12574C8680DB37138EEA1 /* MultiplayerRoomControls.swift in Sources */,
+				C528DC121C2F2E97DA521941 /* MultiplayerSocket.swift in Sources */,
+				54E03409B77042AD52C524AF /* MultiplayerSpriteBoard.swift in Sources */,
 				E8F87EE04771FEC4028EF921 /* MultiplayerViews.swift in Sources */,
 				5357B48D32C47C33546CE804 /* PetCompanionView.swift in Sources */,
 				7465439690FF5A935BA8A3AC /* PetShopView.swift in Sources */,
@@ -785,6 +861,9 @@
 				9BE6F4395E1981A42564EE35 /* StoreKitService.swift in Sources */,
 				65F537F39016C296EE68C361 /* ThemePalette.swift in Sources */,
 				F0C814B129B6961AD724CF1B /* ThemeShopView.swift in Sources */,
+				FA6B16DA42450C9FAEFAA1D1 /* ThemedMenuFeatureIcon.swift in Sources */,
+				6D7E42AE50BF1ECB79CD9D48 /* TrackingConsent.swift in Sources */,
+				AEF69CB46D516F9A64C480B8 /* UITestAppleAgeService.swift in Sources */,
 				AD08CA3A1C6D214B2F3957B3 /* WebParityComponents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -793,6 +872,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52126E0C0B06A5C335C7C454 /* HowToPlayUITests.swift in Sources */,
 				21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

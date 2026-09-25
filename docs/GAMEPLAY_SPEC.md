@@ -1,17 +1,22 @@
 # Current gameplay specification
 
-These are the rules retained by the build-23 candidate. Presentation and economy
-cannot silently change them.
+Build 29 retains Arcade v5 and adds Multiplayer revision 3.
+Build 28 uses revision 2. Power-ups
+require the actual 4×4 board in both modes. Build 27's v4 remains supported by the
+deployed PHP verifier. Power-up rules are in [ARCADE_POWERUPS](ARCADE_POWERUPS.md)
+and the [build-28 delta](BUILD28.md); Zen and Multiplayer timing are unchanged.
+Release and deployment evidence remain separate in CURRENT_VERSION.md.
 
 ## Modes
 
 ### Arcade
 
 - Wire identifier `normal`; player-facing name **Arcade**.
-- Endless until exactly three mistakes.
+- Legacy v3 ends after three mistakes. V4/v5 end at zero lives;
+  randomly collected hearts restore one life, capped at three.
 - Wrong color, decoy, inactive/empty space, and expired correct target are mistakes.
-- Mistakes reset the multiplier. The first two start 1.5 seconds of recovery;
-  board input during recovery is ignored. The third ends the run immediately.
+- Mistakes reset the multiplier and cost one life. Nonterminal mistakes start
+  1.5 seconds of recovery; input during recovery is ignored. Zero lives ends play.
 - A signed-in profile with a confirmed nickname must receive a matching ranked
   ticket before the first target. Session/ticket failure blocks with retry/menu.
 - Signed-out or unconfirmed players may play local practice only; it cannot become
@@ -27,20 +32,61 @@ cannot silently change them.
 - **End run** freezes an ephemeral local Results view. Restart/menu/app termination
   discards it.
 
-### Multiplayer
+### Multiplayer v2 — build-29 gameplay revision 3
 
-- Exactly 2–4 players; own-color only; build `20260729-1`, ruleset
-  `multiplayer-own-color-v1`, protocol/proof version 1.
-- Requires an Apple/Google-authenticated profile, confirmed nickname, authenticated
-  persistent Game Center player, publishing-enabled link, and fresh proof.
-- PHP assigns stable unique seat/color pairs. Only the target owner can hit it;
-  another seat's tap is that player's miss and cannot consume the target.
-- Each player owns three lives, score, streak, multiplier, reactions, and 1.5-second
-  recovery. Eliminated players spectate until everyone is out.
-- No coins, coin time, cosmetics, or achievements are awarded.
-- Live HUD values are provisional; PHP derives final results from matching complete
-  peer transcripts. Clean rows are protocol-verified and peer-consistent, never
-  server-authoritative, human-verified, bot-proof, or collusion-proof.
+- Exactly 2–4 players; `multiplayer-shared-arcade-v2`, protocol 2, negotiated
+  gameplay revision 3. Primary sign-in and confirmed nickname; no Game Center
+  requirement. Revision-1/2 clients use separate rooms and their original rules.
+- The owner confirmed **one identical shared board**, accepting waits for an
+  own-color opportunity on 1×1. Random owner arbitration permits repeats; targets
+  overlap only when different cells are available. There is no fixed turn order.
+- Start at 1×1; grow to 2×2 after four total valid hits and 4×4 at 40 seconds.
+  After a correct hit, use Arcade's sampled quiet delay and phase progression
+  below as a shared lower bound for newly issued targets, regardless of owner.
+  Already announced targets retain their windows and may overlap. Waiting for
+  cells and late delivery can extend spacing; never accelerate it by cycling seats.
+- Only an owner can hit a target. Wrong-color, empty/gap or trap taps cost only
+  the tapping seat's life and cannot consume another seat's target.
+- Each seat starts with three lives, score, streak, multiplier, reactions and
+  1.5-second recovery. Eliminated seats see **SPECTATING** over the shared board
+  and in their badge, never a premature loss. The last living seat remains playable.
+  Disconnect has 15 seconds to return while other seats continue. All-out or 15
+  minutes ends play after admission drains. Final score decides winner/loser,
+  not survival time; tied top scores show Draw and equal placement. Crowns follow
+  highest live points, including an eliminated player still leading on score.
+- Before 10 seconds assigned colors stay fixed. A valid hit thereafter selects
+  a different color excluding every player's current color and every live decoy
+  color; keep the current color if no alternative is free. A delayed correction
+  cannot recolor an already issued target. Player colors always remain distinct.
+- Decoys use only colors assigned to no player. They have ordinary optional color
+  glyphs, never an `!` marker, and remain for their Arcade 1–3-second lifetime
+  after correct taps. Natural expiry grants one beneficiary the unmultiplied
+  550-point dodge. Use one global Arcade cap, bounded by `cellCount - 1`, even
+  with four players. Personal mistakes clear that seat's decoys without credit.
+- Neutral heart pickups begin only on 4×4: a random 12–20-second opportunity,
+  one live heart at most, three seconds visible, only when at least two cells are
+  free so one remains available for targets. A failed placement retries after
+  250 ms. The first server-admitted claimant restores one life, capped at three;
+  claiming at the cap consumes it. Competing/expired claims never cost a life.
+  Hearts grant no score, hit, streak or reward. Misses remain cumulative and can
+  exceed three; final-result storage must support this before revision 2 deploys.
+- The persistent Swift service, not peers, derives scores/lives using the same
+  pure rules. The app projects local feedback and reconciles receipts/snapshots.
+  PHP stores isolated service-reported aggregates, not replayed v2 proof.
+- Explicit revised competitive completed results enter a fresh v2 leaderboard and
+  earn two coins per cumulative minute connected and alive. Countdown, disconnected,
+  spectator and tutorial time do not count. Sub-minute carry is separate from Arcade;
+  credits are idempotent and bound to the economy generation captured at match start.
+  No historical reward/ranking backfill, achievements or Game Center publication.
+- Missed uses a centered stamp. Awarded hearts highlight Lives and show +1UP in both
+  modes; consuming a heart at full lives does not claim an extra life. Arcade clock
+  pickup shows Slowing down. Stamp overlays never intercept touches.
+
+The complete shared-board adaptations, input admission boundaries and remaining
+acceptance work are in [MULTIPLAYER_V2_REBUILD](MULTIPLAYER_V2_REBUILD.md).
+These shared-board adaptations do not promise independent personal Arcade
+cadence or measured physical latency. The unchanged Arcade details below also
+supply revision 2's numerical timing, scoring and color-patience boundary.
 
 ## Arcade/Zen board progression
 
@@ -49,6 +95,9 @@ if elapsedMs >= 40,000: grid = 4×4
 else if correctHits >= 4: grid = 2×2
 else: grid = 1×1
 ```
+
+These are baseline intervals before an Arcade v4 clock scales newly sampled
+delays/windows; see [clock scaling](ARCADE_POWERUPS.md). Multiplayer has no clock.
 
 | Phase | Response | Target quiet | Decoy opportunity | Live decoys |
 | --- | ---: | ---: | ---: | ---: |
@@ -114,7 +163,10 @@ are neutral and never multiplied. Input exactly at the deadline is late.
 
 ## Arcade proof and ranking
 
-Arcade uses build `20260729-1`, `reaction-proof-v3`, proof version 2. Integer tuples:
+Current candidate Arcade uses compatibility build `20260729-1`, `reaction-proof-v5`, proof 3.
+Legacy v3/proof 2 remains accepted under its issued contract. V4 retains these
+tuple shapes and adds pickup events 7–10 as specified in
+[ARCADE_POWERUPS](ARCADE_POWERUPS.md). Shared integer tuples:
 
 | Opcode | Tuple |
 | ---: | --- |
@@ -136,45 +188,14 @@ authenticated context adds the player's best and neighbors. Order is score,
 duration, hits, creation time, then stable result ID. Zen rows are historical and
 read-only.
 
-## Multiplayer schedule and transcript
+## Historical Multiplayer v1
 
-The current coordinator rotates one target and decoy ownership across living seats.
-Targets are 250–5,000 ms apart. Response windows are 1,000 ms before 20 seconds,
-linearly 1,000→750 from 20–30, 750 from 30–40, reset to 1,000 from 40–50, then
-decrease 5 ms per owning-player challenge hit to a 200 ms floor. Multiplayer uses
-the same scoring/streak rules as Arcade.
-
-The fixed coordinator currently:
-
-1. authors future activation plans;
-2. converts touch time to coordinator logical time;
-3. sorts queued input by `(inputAt, seat, inputSequence)`;
-4. commits only through the minimum complete sealed per-seat input frontier; and
-5. broadcasts one canonical event stream and recovery snapshots reliably.
-
-The v1 transcript has contiguous sequence numbers and nondecreasing logical time:
-
-| Event | Tuple |
-| --- | --- |
-| Target | `[0, seq, at, ownerSeat, targetId, cell, color]` |
-| Hit | `[1, seq, inputAt, handledAt, seat, targetId, cell]` |
-| Miss | `[2, seq, inputAt, handledAt, seat, reason, cell]` |
-| Decoy | `[3, seq, at, ownerSeat, decoyId, cell, color, lifetimeMs]` |
-| Expire | `[4, seq, at, decoyId]` |
-| Player out | `[5, seq, at, seat]` |
-| Finish | `[6, seq, at]` |
-
-The limit is 2,500 events and 15 minutes. All peers must retain the identical
-stream plus sender evidence and submit the same manifest hash/transcript. Missing
-evidence, sequence recovery, or coordinator loss cancels/withholds rather than
-fabricating a result. Placement is score, hits, rounded average reaction, then seat.
-
-Build 23 acknowledges local contact immediately without mutating canonical score,
-life, rating, or transcript state. Canonical reconciliation applies those changes
-once. Packet recovery never penalizes a target that was not presented: logical
-progress is held behind Start and pause/Resume ordering barriers. Presentation still
-uses the plan's scheduled `at`, and one target rotates among all seats; changing
-either requires separately versioned follow-up work.
+Uploaded build 24 uses the old fixed 4×4 GameKit peer coordinator and
+`multiplayer-own-color-v1`, protocol/proof 1. That implementation's rotating
+targets, sealed input frontiers and unanimous transcript settlement are not v2
+rules. Historical clean results retain `peer_consistent_v1`; they are neither
+server-authoritative nor retrospectively upgraded. Old schedule/transcript details
+are recoverable from Git history. No historical PHP data is deleted by the rewrite.
 
 ## Presentation, rewards, and cosmetics
 

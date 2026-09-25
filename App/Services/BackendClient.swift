@@ -14,8 +14,8 @@ struct BackendError: LocalizedError {
 final class BackendClient: ObservableObject, StoreKitCreditServing {
     static let productionBaseURL = URL(string: "https://speedytapper.otcsoft.com")!
     static let deployedBuildID = "20260729-1"
-    static let rankedRuleset = "reaction-proof-v3"
-    static let rankedProofVersion = 2
+    static let rankedRuleset = "reaction-proof-v5"
+    static let rankedProofVersion = 3
     static let accountDeletionConfirmation = "DELETE MY ACCOUNT"
     static let accountDeletionAccountMismatchCode = "account-reauthentication-mismatch"
     static var localStoreKitFixtureRequested: Bool {
@@ -980,10 +980,13 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
                 proofVersion: Self.rankedProofVersion
             )
         }
-        let body = try encoder.encode([
-            "mode": GameMode.arcade.rawValue,
-            "buildId": Self.deployedBuildID,
-        ])
+        let body = try encoder.encode(
+            RunStartPayload(
+                mode: GameMode.arcade.rawValue,
+                buildId: Self.deployedBuildID,
+                ruleset: Self.rankedRuleset,
+                proofVersion: Self.rankedProofVersion
+            ))
         let ticket: RunTicket = try await mutation(
             path: "/api/runs",
             method: "POST",
@@ -1180,6 +1183,61 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         return try await request(path: path, method: method, body: body, csrf: csrfToken)
     }
 
+    func createMultiplayerV2Ticket() async throws -> MultiplayerConnectionTicket {
+        struct Body: Encodable {
+            let protocolVersion = 2
+            let ruleset = "multiplayer-shared-arcade-v2"
+        }
+        guard !isUITestOffline else { throw Self.uiTestOfflineError }
+        try Task.checkCancellation()
+        let epoch = sessionStateEpoch
+        let previousPlayerID = profile?.id
+        // The displayed profile is cached. Refresh the cookie-backed session before
+        // entering a live room so restoration and CSRF rotation do not require login.
+        _ = try await loadSession()
+        let playerID = try requireMultiplayerSession(epoch: epoch, playerID: previousPlayerID)
+        let body = try encoder.encode(Body())
+        let requestedCSRF = csrfToken
+        let ticket: MultiplayerConnectionTicket
+        do {
+            ticket = try await request(
+                path: "/api/mobile/v2/multiplayer/tickets", method: "POST", body: body,
+                csrf: requestedCSRF)
+        } catch let error as BackendError where error.status == 401 || error.status == 403 {
+            _ = try requireMultiplayerSession(epoch: epoch, playerID: playerID)
+            _ = try await loadSession()
+            _ = try requireMultiplayerSession(epoch: epoch, playerID: playerID)
+            // A rejected issuance has no gameplay side effect. Retry once after a
+            // confirmed session refresh, but never retry an unchanged permission denial.
+            guard error.status == 401 || csrfToken != requestedCSRF else { throw error }
+            ticket = try await request(
+                path: "/api/mobile/v2/multiplayer/tickets", method: "POST", body: body,
+                csrf: csrfToken)
+        }
+        _ = try requireMultiplayerSession(epoch: epoch, playerID: playerID)
+        guard ticket.realtimeURL.scheme == "wss", ticket.realtimeURL.host != nil,
+            ticket.realtimeURL.user == nil, ticket.realtimeURL.password == nil,
+            ticket.expiresAt > Int(Date().timeIntervalSince1970)
+        else {
+            throw BackendError(
+                status: 0, message: "The multiplayer server is not configured.", code: "invalid-multiplayer-v2-ticket")
+        }
+        return ticket
+    }
+
+    private func requireMultiplayerSession(epoch: Int, playerID: String?) throws -> String {
+        try Task.checkCancellation()
+        guard epoch == sessionStateEpoch else { throw Self.staleSessionError }
+        guard isAuthenticated, let profile else { throw Self.authenticationRequiredError }
+        if let playerID, profile.id != playerID { throw Self.staleSessionError }
+        guard profile.nicknameConfirmed else {
+            throw BackendError(
+                status: 403, message: "Confirm your player name before playing multiplayer.",
+                code: "player-name-required")
+        }
+        return profile.id
+    }
+
     func performMultiplayerRequest<Response: Decodable>(
         path: String,
         method: String = "GET",
@@ -1188,10 +1246,13 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         requiresCSRF: Bool
     ) async throws -> Response {
         let routePath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
+        let resultPrefix = "\(MultiplayerAPIContract.basePath)/results/"
+        let isResultRead =
+            routePath.hasPrefix(resultPrefix)
+            && UUID(uuidString: String(routePath.dropFirst(resultPrefix.count))) != nil
         guard
             routePath == "\(MultiplayerAPIContract.basePath)/leaderboard"
-                || routePath == "\(MultiplayerAPIContract.basePath)/lobbies"
-                || routePath.hasPrefix("\(MultiplayerAPIContract.basePath)/matches")
+                || (method == "GET" && isResultRead)
         else {
             throw BackendError(
                 status: 0,

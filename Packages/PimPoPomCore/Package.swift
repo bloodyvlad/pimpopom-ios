@@ -13,6 +13,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "PimPoPomCore"),
-        .testTarget(name: "PimPoPomCoreTests", dependencies: ["PimPoPomCore"]),
+        .testTarget(name: "PimPoPomCoreTests", dependencies: ["PimPoPomCore"], resources: [.copy("Fixtures")]),
     ]
 )
