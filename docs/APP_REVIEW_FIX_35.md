@@ -1,7 +1,7 @@
 # Build 35: shop and account review fixes
 
 Prepared September 25, 2026, on remote main merge `ec46335` (PR #2, age/ATT).
-Version 1.02 (35). Release upload/submission evidence will be appended after direct verification.
+Version 1.02 (35). Uploaded from exact clean commit `8bcf9b32c6fdb192222a615795e8fc666fa26aab`. See [release evidence](RELEASE.md).
 
 ## Changes
 
@@ -23,3 +23,9 @@ Version 1.02 (35). Release upload/submission evidence will be appended after dir
 ## Loading delay
 
 Read-only production timings: session 0.331 seconds, first achievements request 11.390 seconds, repeated achievements request 0.274 seconds. This confirms an intermittent server-side response delay, not a proven PHP root cause. No backend deployment or database changes were made. Removing the client blocking indicator improves presentation but does not establish a backend latency fix.
+
+## Delivery
+
+Direct Apple verification on September 25: build 35 is VALID / APP_STORE_ELIGIBLE, beta review APPROVED, and both existing QA groups are IN_BETA_TESTING. Public submission `2d700cdb-2d54-4f0a-b431-ff3d3b84ea94` has 13 items and is WAITING_FOR_REVIEW, with automatic release after approval. The old rejected submission was completed by removing its review items, then the same companion versions were added to the new submission; no product definitions or prices changed. No browser state is claimed as evidence; this readback is from Apple's official API.
+
+Original iOS checkout's unrelated docs/API_CONTRACT.md changes and untracked AppStoreConnect/ and workspace settings were preserved. PHP and previous age worktrees were untouched.
