@@ -7,20 +7,29 @@ struct MultiplayerMenuLink<Destination: View>: View {
     let availability: MultiplayerPresentation.Availability
     let theme: ThemePalette
     private let destination: Destination
+    let isSignedIn: Bool
+    let onOpenProfile: () -> Void
 
     init(
         availability: MultiplayerPresentation.Availability,
         theme: ThemePalette,
+        isSignedIn: Bool = true,
+        onOpenProfile: @escaping () -> Void = {},
         @ViewBuilder destination: () -> Destination
     ) {
         self.availability = availability
         self.theme = theme
+        self.isSignedIn = isSignedIn
+        self.onOpenProfile = onOpenProfile
         self.destination = destination()
     }
 
     var body: some View {
         Group {
-            if availability.isAvailable || availability == .checkingSession {
+            if !isSignedIn {
+                Button(action: onOpenProfile) { label }
+                    .buttonStyle(MultiplayerModeButtonStyle(theme: theme))
+            } else if availability.isAvailable || availability == .checkingSession {
                 NavigationLink(destination: destination) {
                     label
                 }
@@ -44,11 +53,18 @@ struct MultiplayerMenuLink<Destination: View>: View {
     }
 
     private var label: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "person.3.fill")
-                .font(.system(size: 15, weight: .black))
-            Text("Multiplayer")
-                .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
+        VStack(spacing: 2) {
+            HStack(spacing: 7) {
+                Image(systemName: "person.3.fill")
+                    .font(.system(size: 15, weight: .black))
+                Text("Multiplayer")
+                    .font(theme.appFont(size: 20, weight: .black, relativeTo: .title3))
+            }
+            if !isSignedIn {
+                Text("SIGN IN TO PLAY")
+                    .font(theme.appFont(size: 9, weight: .bold, relativeTo: .caption2))
+                    .tracking(0.8)
+            }
         }
         .foregroundStyle(Color(hex: "#f8f5ff"))
     }

@@ -98,6 +98,7 @@
 		B46953E8B2A2F8158BF74A06 /* ScreenshotFixtureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896B885A268CB158F15548C3 /* ScreenshotFixtureTests.swift */; };
 		B4F2844849CAE58E84BFA13F /* MultiplayerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 950E607413974581EF2478D4 /* MultiplayerModels.swift */; };
 		B54D89DF66FCDB5FAFF8E580 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9648B3C4989B1B1FF9557057 /* GameScene.swift */; };
+		B7E73A2438F3ED9331F3E89B /* ShopReviewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 407D84B1D042CADFF36BF7B4 /* ShopReviewUITests.swift */; };
 		B93B8D27CAA033FA4733DBA6 /* AdsControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39750FF817A573C0ECFAB8D /* AdsControllerTests.swift */; };
 		B93DE763FA288BEE65FFDAB5 /* mitsuri-sprite.png in Resources */ = {isa = PBXBuildFile; fileRef = 101BD799A3D04EB2BA211112 /* mitsuri-sprite.png */; };
 		BA189338D2A4A66BF5D5C18D /* disco-concrete-lights.png in Resources */ = {isa = PBXBuildFile; fileRef = BB501ACDA16D35FF02259969 /* disco-concrete-lights.png */; };
@@ -190,6 +191,7 @@
 		36E62A1E561A8AFF96306F57 /* audio-pimpopom-sting.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = "audio-pimpopom-sting.wav"; sourceTree = "<group>"; };
 		3A3EDF36C8B960A72E0E38A7 /* LeaderboardPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardPresentationTests.swift; sourceTree = "<group>"; };
 		3D99FEAD0E68BCE7C68F1E5C /* misha-sprite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "misha-sprite.png"; sourceTree = "<group>"; };
+		407D84B1D042CADFF36BF7B4 /* ShopReviewUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShopReviewUITests.swift; sourceTree = "<group>"; };
 		4234BF10F969BD645083E373 /* OwnerAdsQA.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = OwnerAdsQA.xcconfig; sourceTree = "<group>"; };
 		449D22C0A57AFCE9ED5C7277 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		467533F013F74FD6A8F82FD2 /* WebParityComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebParityComponents.swift; sourceTree = "<group>"; };
@@ -313,6 +315,7 @@
 			children = (
 				F5A534E1294ED80E2D4E2981 /* HowToPlayUITests.swift */,
 				B71452A1C00B766E00B57310 /* PimPoPomUITests.swift */,
+				407D84B1D042CADFF36BF7B4 /* ShopReviewUITests.swift */,
 			);
 			path = UITests;
 			sourceTree = "<group>";
@@ -874,6 +877,7 @@
 			files = (
 				52126E0C0B06A5C335C7C454 /* HowToPlayUITests.swift in Sources */,
 				21FE80EF1F42DF365799E8B3 /* PimPoPomUITests.swift in Sources */,
+				B7E73A2438F3ED9331F3E89B /* ShopReviewUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

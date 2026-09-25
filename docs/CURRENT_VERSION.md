@@ -1,5 +1,17 @@
 # Current version slice
 
+## Build 35 review usability fixes — 2026-09-25
+
+Source configuration is **1.02 (35)**. Age/ATT release history was merged into
+main at `ec46335`. Build 35 routes signed-out Multiplayer and shop actions to
+Profile, gives pets/themes explicit coin-price buttons, simplifies Coin Store,
+and automatically creates a missing primary profile and confirms its generated
+name through the existing server endpoint. Profile and Achievements refresh
+without a blocking screen overlay. Age/consent, gameplay, prices and backend
+contracts remain unchanged. TestFlight and public-review upload are authorized;
+final delivery evidence is recorded separately in RELEASE.md.
+
+
 ## Build 34 review correction — 2026-09-19
 
 Source configuration is **1.02 (34)**, based on build-33 commit

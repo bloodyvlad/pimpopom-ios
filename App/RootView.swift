@@ -25,6 +25,7 @@ struct RootView: View {
     @State private var showsAchievements = false
     @State private var opensProfileAfterAchievements = false
     @State private var showsCoinStore = false
+    @State private var opensProfileAfterStore = false
     @State private var showsRemoveAdsStore = false
     @State private var showsIconSettings = false
     @State private var showsScreenshotThemeShop = false
@@ -100,10 +101,10 @@ struct RootView: View {
                 }
             }
             .navigationDestination(isPresented: $showsScreenshotThemeShop) {
-                ThemeShopView()
+                ThemeShopView(onOpenProfile: { showsProfile = true })
             }
             .navigationDestination(isPresented: $showsScreenshotPetShop) {
-                PetShopView()
+                PetShopView(onOpenProfile: { showsProfile = true })
             }
             .navigationDestination(isPresented: $showsScreenshotLeaderboard) {
                 LeaderboardView()
@@ -144,11 +145,19 @@ struct RootView: View {
                 }
             )
         }
-        .sheet(isPresented: $showsCoinStore) {
-            CoinStoreView()
+        .sheet(isPresented: $showsCoinStore, onDismiss: openProfileAfterStore) {
+            CoinStoreView(onOpenProfile: {
+                opensProfileAfterStore = true
+                showsCoinStore = false
+            })
         }
-        .sheet(isPresented: $showsRemoveAdsStore) {
-            CoinStoreView(offer: .removeAds)
+        .sheet(isPresented: $showsRemoveAdsStore, onDismiss: openProfileAfterStore) {
+            CoinStoreView(
+                offer: .removeAds,
+                onOpenProfile: {
+                    opensProfileAfterStore = true
+                    showsRemoveAdsStore = false
+                })
         }
         .sheet(isPresented: $showsIconSettings) {
             NavigationStack {
@@ -586,7 +595,9 @@ struct RootView: View {
                     modeLink(.zen)
                     MultiplayerMenuLink(
                         availability: multiplayer.availability,
-                        theme: palette
+                        theme: palette,
+                        isSignedIn: backend.isAuthenticated,
+                        onOpenProfile: { showsProfile = true }
                     ) {
                         HowToPlayEntryView(mode: .multiplayer) { MultiplayerFlowView() }
                     }
@@ -645,7 +656,7 @@ struct RootView: View {
 
             HStack(spacing: WebMenuMetrics.pairedGap) {
                 NavigationLink {
-                    PetShopView()
+                    PetShopView(onOpenProfile: { showsProfile = true })
                 } label: {
                     featureLabel(
                         "Pet Shop",
@@ -663,7 +674,7 @@ struct RootView: View {
                 .accessibilityIdentifier("open-pet-shop")
 
                 NavigationLink {
-                    ThemeShopView()
+                    ThemeShopView(onOpenProfile: { showsProfile = true })
                 } label: {
                     featureLabel(
                         "Themes",
@@ -733,6 +744,12 @@ struct RootView: View {
                 .accessibilityIdentifier("menu-copyright")
         }
         .padding(.top, 8)
+    }
+
+    private func openProfileAfterStore() {
+        guard opensProfileAfterStore else { return }
+        opensProfileAfterStore = false
+        showsProfile = true
     }
 
     private var shouldShowRemoveAds: Bool {

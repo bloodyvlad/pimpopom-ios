@@ -2,7 +2,9 @@ import SwiftUI
 
 struct PetShopView: View {
     @EnvironmentObject private var cosmetics: CosmeticsController
+    let onOpenProfile: () -> Void
     @State private var showsCoinStore = false
+    @State private var opensProfileAfterStore = false
 
     private var palette: ThemePalette { cosmetics.theme }
 
@@ -45,9 +47,21 @@ struct PetShopView: View {
             }
         }
         .task { await cosmetics.refresh() }
-        .sheet(isPresented: $showsCoinStore) {
-            CoinStoreView()
+        .sheet(
+            isPresented: $showsCoinStore,
+            onDismiss: openProfileAfterStore
+        ) {
+            CoinStoreView(onOpenProfile: {
+                opensProfileAfterStore = true
+                showsCoinStore = false
+            })
         }
+    }
+
+    private func openProfileAfterStore() {
+        guard opensProfileAfterStore else { return }
+        opensProfileAfterStore = false
+        onOpenProfile()
     }
 
     private var walletHeader: some View {
@@ -129,6 +143,10 @@ struct PetShopView: View {
                 }
 
                 Button {
+                    if action == .buy, !cosmetics.isAuthenticated {
+                        onOpenProfile()
+                        return
+                    }
                     if action == .buy,
                         cosmetics.isAuthenticated,
                         !cosmetics.canAfford(item)
@@ -172,7 +190,7 @@ struct PetShopView: View {
     private func petActionLabel(_ action: PetShopAction, item: CosmeticCatalogItem) -> String {
         switch action {
         case .buy:
-            return cosmetics.isAuthenticated ? "Buy · \(item.priceCoins)" : "Sign in to buy"
+            return cosmetics.isAuthenticated ? "Buy for \(item.priceCoins) coins" : "Sign in to buy"
         case .select: return "Select"
         case .hide: return "Hide"
         case .show: return "Show"

@@ -5,7 +5,8 @@ StoreKit 2, Google Mobile Ads, and a pure Swift rules package. Arcade and Zen ar
 retained alongside 2–4-player online Multiplayer v2. Game Center remains a
 separate account/publication integration.
 
-This branch delivers **1.02 (34)** to address App Review's tracking-permission
+This branch prepares **1.02 (35)** with sign-in/shop usability fixes on top of
+the age/ATT behavior delivered in **1.02 (34)** to address App Review's tracking-permission
 and Age Assurance findings. It checks Apple regional eligibility first and uses
 Apple's range where required. Elsewhere, one local age-group question includes
 Skip. Only consenting adults can enable personalized ads after native ATT

@@ -196,7 +196,10 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
         let epoch = sessionStateEpoch
         let task = Task { @MainActor [weak self] () throws -> SessionResponse in
             guard let self else { throw Self.staleSessionError }
-            let response: SessionResponse = try await request(path: "/api/session")
+            let loaded: SessionResponse = try await request(path: "/api/session")
+            try Task.checkCancellation()
+            guard sessionStateEpoch == epoch else { throw Self.staleSessionError }
+            let response = try await confirmInitialNickname(in: loaded)
             try Task.checkCancellation()
             guard sessionStateEpoch == epoch else { throw Self.staleSessionError }
             applySessionResponse(response)
@@ -452,9 +455,11 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             guard isCurrent(token), response.authenticated, response.profile != nil else {
                 throw Self.invalidAuthenticationResponseError
             }
-            applySessionResponse(response)
+            let ready = try await confirmInitialNickname(in: response)
+            guard isCurrent(token) else { throw Self.staleSessionError }
+            applySessionResponse(ready)
             finishStateMutation(token)
-            return response
+            return ready
         } catch {
             finishStateMutation(token)
             throw error
@@ -598,9 +603,11 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             {
                 throw Self.invalidIdentityLinkResponseError
             }
-            applySessionResponse(response)
+            let ready = try await confirmInitialNickname(in: response)
+            guard isCurrent(token) else { throw Self.staleSessionError }
+            applySessionResponse(ready)
             finishStateMutation(token)
-            return response
+            return ready
         } catch {
             finishStateMutation(token)
             throw error
@@ -1119,6 +1126,44 @@ final class BackendClient: ObservableObject, StoreKitCreditServing {
             && token.playerID != nil
             && token.playerID == responseProfileID
             && token.playerID == sessionState?.profile?.id
+    }
+
+    /// Accept the server-generated name through the existing authoritative save endpoint.
+    /// This runs before publishing the session, so account services cannot race setup.
+    private func confirmInitialNickname(in session: SessionResponse) async throws -> SessionResponse {
+        guard session.authenticated, let profile = session.profile, !profile.nicknameConfirmed else {
+            return session
+        }
+        var candidate = profile.nickname
+        for attempt in 0..<2 {
+            try Task.checkCancellation()
+            do {
+                let saved: ProfileResponse = try await request(
+                    path: "/api/profile?mode=normal",
+                    method: "PATCH",
+                    body: try encoder.encode(["nickname": candidate]),
+                    csrf: session.csrfToken
+                )
+                guard saved.profile.id == profile.id, saved.profile.nicknameConfirmed else {
+                    throw Self.invalidAuthenticationResponseError
+                }
+                return SessionResponse(
+                    authenticated: true, csrfToken: session.csrfToken,
+                    googleClientId: session.googleClientId, appleSignIn: session.appleSignIn,
+                    season: session.season, profile: saved.profile,
+                    identityBindings: saved.identityBindings ?? session.identityBindings,
+                    gameCenter: saved.gameCenter ?? session.gameCenter,
+                    wallet: saved.wallet ?? session.wallet,
+                    adFree: saved.adFree ?? session.adFree,
+                    storeKit: saved.storeKit ?? session.storeKit,
+                    ranks: saved.ranks
+                )
+            } catch let error as BackendError where error.status == 409 && attempt == 0 {
+                // Generated names are provisional until the server's unique save succeeds.
+                candidate = "Player" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(14)
+            }
+        }
+        throw Self.invalidAuthenticationResponseError
     }
 
     private func applySessionResponse(_ response: SessionResponse) {
